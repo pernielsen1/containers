@@ -1,3 +1,4 @@
+# and todo updated on wsl
 # now the containser are cloned to another directory
 # The API-server 
 # https://medium.com/@alidu143/containerizing-fastapi-app-with-docker-a-comprehensive-guide-416521b2457c
