@@ -1,0 +1,10 @@
+# the clients
+clients/python_mysql/bin/
+clients/python_mysql/lib/
+clients/python_mysql/include/
+clients/python_mysql/lib64
+¤ fastapi
+fastapi/app/bin/
+fastapi/app/lib/
+fastapi/app/include/
+fastapi/app/lib64
