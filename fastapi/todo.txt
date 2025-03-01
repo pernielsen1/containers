@@ -1,0 +1,9 @@
+# create the fastapi env in build_fastapi.env
+# followed: 
+# created the app directory with 
+# pyvenv.cfg and main.py 
+# https://fastapi.tiangolo.com/tutorial/first-steps/
+# remember to activate the venv
+#  source app/bin/activate
+# tested the main.py with command below after cd to the app env
+# fastapi dev main.py  

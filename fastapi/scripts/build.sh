@@ -1,6 +1,7 @@
 #!/bin/bash
 # https://www.datacamp.com/tutorial/set-up-and-configure-mysql-in-docker
 # https://fastapi.tiangolo.com/tutorial/first-steps/
+# source app/bin/activate
 step=20
 # step 10 build the sql container
 if [ $step -eq 10 ]
