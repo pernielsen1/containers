@@ -1,6 +1,6 @@
 # https://www.geeksforgeeks.org/post-query-parameters-in-fastapi/
 # select virtual env press ctrl-shift-p  then python:select interpretator
-
+# stop start container will reload directly from this app i.e. not necessariy to build
 from fastapi import FastAPI, HTTPException, Request
 import json
 
@@ -34,7 +34,7 @@ async def add_transcode_0100(request: Request):
         cur = data['f049']
 
         # Returning a confirmation message
-        ret_message = 'pan and key submitted successfully pan:' + pan + ' cur:' + cur
+        ret_message = 'pan and key submitted updated successfully pan:' + pan + ' cur:' + cur
         return {'message': ret_message}
 
     except HTTPException as e:

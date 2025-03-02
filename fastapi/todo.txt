@@ -3,7 +3,10 @@
 # created the app directory with 
 # pyvenv.cfg and main.py 
 # https://fastapi.tiangolo.com/tutorial/first-steps/
+# https://medium.com/@mizutori/fastapi-study-diary-1-creating-a-docker-container-for-development-78a003cbd51f
 # remember to activate the venv
 #  source app/bin/activate
 # tested the main.py with command below after cd to the app env
 # fastapi dev main.py  
+# contain up and running but slow . run with out local app mapping or ? 
+#... 
