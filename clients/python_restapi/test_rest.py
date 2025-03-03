@@ -1,4 +1,5 @@
 # select virtual env python_restapi  (ctrl-shift-p)
+from datetime import datetime
 import requests
 import json
 import os
@@ -25,17 +26,28 @@ def run_test(test_case_name):
     server_url = config['server'] + ":" + config['port']
 
     test_case = config['tests'][test_case_name]
+    num_repeats = test_case['num_repeats']
+
     post_url = "http://" + server_url + "/" + test_case['path']   
-    print("testiing:" + test_case['description'])
     test_msg = test_case['msg']
     print(test_msg)
-    json_msg = json.dumps(test_msg)
-    response = requests.post(post_url, json=json_msg)
-    print(response.json())
+    print("testing:" + test_case['description'] + " repeat:" + str(num_repeats))
+ 
+    for _ in range(num_repeats):
+        start = datetime.now()
+        str_start = datetime.strftime(start, "%H:%M:%S.%f")
+        json_msg = json.dumps(test_msg)
+        response = requests.post(post_url, json=json_msg)
+        end = datetime.now()
+        str_end = datetime.strftime(end, "%H:%M:%S.%f")
+        diff = end - start
+        print("start:" + str_start + " end:" + str_end + " diff:" + str(diff))
+        print(response.json())
+    
 
 # here we go
 if __name__ == '__main__':
-    run_test("0002")
+    run_test("0001")
 
 
 

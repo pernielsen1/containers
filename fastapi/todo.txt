@@ -10,3 +10,8 @@
 # fastapi dev main.py  
 # contain up and running but slow . run with out local app mapping or ? 
 #... 
+# 20250302 setup a reverse proxy nginx and have two fastapi servers running.
+# https://docs.docker.com/get-started/docker-concepts/running-containers/multi-container-applications/
+# and now gedit is working after disabiling systemd in /etc/wsl.conf and test_rest client has a run script
+# https://medium.com/@adebisiolayinka30/containerize-a-fastapi-app-using-nginx-as-a-proxy-part-one-42d3384d4722
+# https://www.docker.com/blog/how-to-use-the-official-nginx-docker-image/

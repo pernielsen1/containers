@@ -5,7 +5,8 @@
     "tests": {
         "0001": {
             "description":"Test number 1", 
-            "path": "transcode_0100",          
+            "path": "transcode_0100",  
+            "num_repeats": 10,        
             "msg" : {
                 "msg_code": "0100",
                 "f002": "1234567890123456",
@@ -15,7 +16,8 @@
         }, 
         "0002": {
             "description":"Test number 2",           
-            "path": "transcode_0100",          
+            "path": "transcode_0100",
+            "num_repeats": 2,            
             "msg" : {
                 "msg_code": "0100",
                 "f002": "6543210987654321" ,
