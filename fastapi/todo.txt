@@ -1,3 +1,4 @@
+# https://medium.com/@sadhu1998/hosting-multiple-services-on-docker-using-nginx-reverse-proxy-3cef6b01a5cf
 # create the fastapi env in build_fastapi.env
 # followed: 
 # created the app directory with 
