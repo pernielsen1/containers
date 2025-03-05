@@ -27,3 +27,18 @@ services:
       - --port 
       - "8002"
     
+  nginx:
+    restart: unless-stopped
+    image: nginx
+    container_name: nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx:/etc/nginx/user_conf.d:ro
+    depends_on:
+      - api1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100k"
+        max-file: "1"
