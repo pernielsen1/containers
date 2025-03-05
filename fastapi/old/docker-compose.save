@@ -1,0 +1,21 @@
+# version: '3.7'
+
+services:
+  api:
+    build: .
+#    container_name: "api_$APP_PORT"
+    container_name: "api"
+    volumes:
+      - ./app:/app
+    ports:
+#     - ${APP_PORT}:${APP_PORT}
+      - 8001:8001
+      - 8002:8002
+    entrypoint:
+      - fastapi
+      - run
+      - main.py
+      - --port 
+      - $APP_PORT
+#      - $(APP_PORT)
+# CMD ["fastapi", "run", "main.py", "--port", "8000"]

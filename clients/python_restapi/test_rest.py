@@ -23,9 +23,10 @@ def load_config():
 #-----------------------------------------------------------------------------------------
 def run_test(test_case_name):
     config = load_config()
-    server_url = config['server'] + ":" + config['port']
 
     test_case = config['tests'][test_case_name]
+    server_url = config['server'] + ":" + test_case['port']
+
     num_repeats = test_case['num_repeats']
 
     post_url = "http://" + server_url + "/" + test_case['path']   
@@ -41,13 +42,16 @@ def run_test(test_case_name):
         end = datetime.now()
         str_end = datetime.strftime(end, "%H:%M:%S.%f")
         diff = end - start
-        print("start:" + str_start + " end:" + str_end + " diff:" + str(diff))
+        print("start:" + str_start + " end:" + str_end + 
+            " diff:" + str(diff) + " port:" + test_case['port'])
         print(response.json())
     
 
 # here we go
 if __name__ == '__main__':
+
     run_test("0001")
+    run_test("0002")
 
 
 

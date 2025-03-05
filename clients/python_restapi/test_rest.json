@@ -4,9 +4,10 @@
     
     "tests": {
         "0001": {
+            "port": "8001",
             "description":"Test number 1", 
             "path": "transcode_0100",  
-            "num_repeats": 10,        
+            "num_repeats": 3,        
             "msg" : {
                 "msg_code": "0100",
                 "f002": "1234567890123456",
@@ -15,6 +16,7 @@
             }
         }, 
         "0002": {
+            "port": "8002",
             "description":"Test number 2",           
             "path": "transcode_0100",
             "num_repeats": 2,            
