@@ -4,7 +4,7 @@
     
     "tests": {
         "0001": {
-            "port": "80",
+            "port": "8080",
             "description":"Test number 1", 
             "path": "transcode_0100",  
             "num_repeats": 3,        

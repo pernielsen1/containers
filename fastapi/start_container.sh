@@ -11,4 +11,4 @@ for (( i = 1; i <= $NUM_SERVICES; i++ ))
     done
 cat docker-compose-nginx.yml>>docker-compose.yml
 # cat docker-compose.yml | more
-docker compose up
+docker compose up --remove-orphans 

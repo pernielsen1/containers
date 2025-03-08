@@ -3,7 +3,8 @@
 # stop start container will reload directly from this app i.e. not necessariy to build
 from fastapi import FastAPI, HTTPException, Request
 import json
-
+import socket
+        
 app = FastAPI()
 
 #---------------------------------------------------------
@@ -11,6 +12,7 @@ app = FastAPI()
 #---------------------------------------------------------
 @app.get("/")
 async def root():
+    print("in root")
     return {"message": "Hello from my World"}
 
 #-------------------------------------------------------------------------
@@ -18,10 +20,11 @@ async def root():
 #-------------------------------------------------------------------------
 @app.post("/transcode_0100")
 async def add_transcode_0100(request: Request):
+    hostname = socket.gethostname()
+ 
     try:
         # Extracting user data from the request body
         data_json = await request.json()
-
         # Validate the presence of required fields
         if 'f002' not in data_json or 'f049' not in data_json:
             raise HTTPException(
@@ -34,16 +37,18 @@ async def add_transcode_0100(request: Request):
         cur = data['f049']
 
         # Returning a confirmation message
-        ret_message = 'pan and key submitted updated successfully pan:' + pan + ' cur:' + cur
+        ret_message = 'host:' + hostname + ': pan and key submitted updated successfully pan:' + pan + ' cur:' + cur
         return {'message': ret_message}
 
     except HTTPException as e:
         # Re-raise HTTPException to return the specified 
         # status code and detail
+        print("here")
         raise e
     except Exception as e:
         # Handle other unexpected exceptions and return a 
         # 500 Internal Server Error
+        print("ehre two")
         raise HTTPException(
             status_code=500, detail='An error occurred: {str(e)}')
 

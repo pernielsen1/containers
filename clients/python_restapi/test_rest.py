@@ -44,14 +44,16 @@ def run_test(test_case_name):
         diff = end - start
         print("start:" + str_start + " end:" + str_end + 
             " diff:" + str(diff) + " port:" + test_case['port'])
-        print(response.json())
-    
+        try:
+            print(response.json())
+        except:
+            print("exception occurred during json parse response was:", response)
 
 # here we go
 if __name__ == '__main__':
 
     run_test("0001")
-    run_test("0002")
+#    run_test("0002")
 
 
 
