@@ -1,10 +1,44 @@
+#--------------------------------------------------------------------------------------------------------------
 # https://www.geeksforgeeks.org/post-query-parameters-in-fastapi/
 # select virtual env press ctrl-shift-p  then python:select interpretator
 # stop start container will reload directly from this app i.e. not necessariy to build
+# ToDo: find container name
+# https://stackoverflow.com/questions/62553709/how-to-get-the-name-of-all-container-in-docker-using-docker-py
+# https://stackoverflow.com/questions/67663970/optimal-way-to-initialize-heavy-services-only-once-in-fastapi
+#--------------------------------------------------------------------------------------------------------------
+
+
+import sys, os
+if os.path.abspath("..") not in sys.path:
+    sys.path.insert(0, os.path.abspath("../.."))
 from fastapi import FastAPI, HTTPException, Request
 import json
 import socket
-        
+import logging
+from pathlib import Path
+#---------------------------------------------------
+# set the logging
+#---------------------------------------------------
+level = logging.INFO
+name = Path(__file__).stem
+log = logging.getLogger(name)
+log.setLevel(level)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+fh = logging.FileHandler(name + ".log")
+fh.setLevel(level)
+fh.setFormatter(formatter)
+log.addHandler(fh)
+ch = logging.StreamHandler()
+ch.setLevel(level)
+ch.setFormatter(formatter)
+log.addHandler(ch)
+log.info('Started in main.app')
+
+#---------------------------------------------------
+# here we go
+#---------------------------------------------------
+
+       
 app = FastAPI()
 
 #---------------------------------------------------------
@@ -58,5 +92,5 @@ async def add_transcode_0100(request: Request):
 if __name__ == '__main__':
     import uvicorn
     # Run the FastAPI application using uvicorn
-    uvicorn.run(app, host='127.0.0.1', port=8000)
+    uvicorn.run(app, host='127.0.0.1', port=8002)
 

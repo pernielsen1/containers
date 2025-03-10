@@ -4,10 +4,20 @@ import requests
 import json
 import os
 import sys
+import logging
+import pn_utilities.PnLogger as PnLogger
+
+#... this is for the virtual env - still needed ? 20250308 check it
 sys.path.append(os.getcwd() + '/test_rest/server')
 print("current dir:" + os.getcwd())
 print(sys.path)
 
+#-----------------------------------------------------------------------------
+#
+#-----------------------------------------------------------------------------
+import logging
+
+log = None
 
 config_dir = ''
 config_file = 'test_rest.json'
@@ -38,7 +48,12 @@ def run_test(test_case_name):
         start = datetime.now()
         str_start = datetime.strftime(start, "%H:%M:%S.%f")
         json_msg = json.dumps(test_msg)
-        response = requests.post(post_url, json=json_msg)
+        try:
+            response = requests.post(post_url, json=json_msg)
+        except:
+            # TODO - print the error request
+            print("error in request.post")
+            return
         end = datetime.now()
         str_end = datetime.strftime(end, "%H:%M:%S.%f")
         diff = end - start
@@ -49,11 +64,45 @@ def run_test(test_case_name):
         except:
             print("exception occurred during json parse response was:", response)
 
+
+#-----------------------------------------------------------------
+# init_logging():  set up the logging
+# https://stackoverflow.com/questions/14058453/making-python-loggers-output-all-messages-to-stdout-in-addition-to-log-file
+#------------------------------------------------------------------
+def init_logging(level = logging.INFO):
+    name = Path(__file__).stem
+    
+    global log
+    log = logging.getLogger(name)
+    log.setLevel(level)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fh = logging.FileHandler(name + ".log")
+    fh.setLevel(level)
+    fh.setFormatter(formatter)
+
+    log.addHandler(fh)
+    ch = logging.StreamHandler()
+    ch.setLevel(level)
+    ch.setFormatter(formatter)
+    log.addHandler(ch)
+
+#--------------------------------------------------------
+# the main routine
+#--------------------------------------------------------
+    
+def main():
+    mylogger = PnLogger.PnLogger(level=logging.INFO)
+    mylogger.info("x")
+    init_logging()
+    log.info('Started')
+    run_test("0002")
+    run_test("0001")
+
+    log.info('Finished')
+
 # here we go
 if __name__ == '__main__':
-
-    run_test("0001")
-#    run_test("0002")
+    main()
 
 
 
