@@ -8,17 +8,17 @@ import logging
 import pn_utilities.PnLogger as PnLogger
 
 #... this is for the virtual env - still needed ? 20250308 check it
-sys.path.append(os.getcwd() + '/test_rest/server')
-print("current dir:" + os.getcwd())
-print(sys.path)
+# sys.path.append(os.getcwd() + '/test_rest/server')
+# print("current dir:" + os.getcwd())
+# print(sys.path)
+# Nope 20230312 doesn't seem to be needed
 
 #-----------------------------------------------------------------------------
 #
 #-----------------------------------------------------------------------------
-import logging
+# import logging
 
-log = None
-
+log = None       # the global logging object - currently init in main process
 config_dir = ''
 config_file = 'test_rest.json'
 #-----------------------------------------------------------------------------------------
@@ -41,8 +41,8 @@ def run_test(test_case_name):
 
     post_url = "http://" + server_url + "/" + test_case['path']   
     test_msg = test_case['msg']
-    print(test_msg)
-    print("testing:" + test_case['description'] + " repeat:" + str(num_repeats))
+    log.info(test_msg)
+    log.info("testing:" + test_case['description'] + " repeat:" + str(num_repeats))
  
     for _ in range(num_repeats):
         start = datetime.now()
@@ -52,48 +52,26 @@ def run_test(test_case_name):
             response = requests.post(post_url, json=json_msg)
         except:
             # TODO - print the error request
-            print("error in request.post")
+            log.error("error in request.post")
             return
         end = datetime.now()
         str_end = datetime.strftime(end, "%H:%M:%S.%f")
         diff = end - start
-        print("start:" + str_start + " end:" + str_end + 
+        log.info("start:" + str_start + " end:" + str_end + 
             " diff:" + str(diff) + " port:" + test_case['port'])
         try:
-            print(response.json())
+            log.info(response.json())
         except:
-            print("exception occurred during json parse response was:", response)
+            log.error("exception occurred during json parse response was:", response)
 
-
-#-----------------------------------------------------------------
-# init_logging():  set up the logging
-# https://stackoverflow.com/questions/14058453/making-python-loggers-output-all-messages-to-stdout-in-addition-to-log-file
-#------------------------------------------------------------------
-def init_logging(level = logging.INFO):
-    name = Path(__file__).stem
-    
-    global log
-    log = logging.getLogger(name)
-    log.setLevel(level)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    fh = logging.FileHandler(name + ".log")
-    fh.setLevel(level)
-    fh.setFormatter(formatter)
-
-    log.addHandler(fh)
-    ch = logging.StreamHandler()
-    ch.setLevel(level)
-    ch.setFormatter(formatter)
-    log.addHandler(ch)
 
 #--------------------------------------------------------
 # the main routine
 #--------------------------------------------------------
     
 def main():
-    mylogger = PnLogger.PnLogger(level=logging.INFO)
-    mylogger.info("x")
-    init_logging()
+    global log
+    log = PnLogger.PnLogger(level=logging.INFO)
     log.info('Started')
     run_test("0002")
     run_test("0001")
@@ -103,20 +81,3 @@ def main():
 # here we go
 if __name__ == '__main__':
     main()
-
-
-
-
-# api_url = "http://127.0.0.1:5000/countries"
-    # response = requests.get(api_url)
-    # print(response.json())
-    # test_url = "http://127.0.0.1:5000/tests"
-    # response = requests.get(test_url)
-    # print(response.json())
-    #    post_url = "http://127.0.0.1:5000/transcode_0100"
-    #    msg = {
-    #        "msg_code": "0100",
-    #        "f002": "1234567890123456",
-    #        "f004": "000000012345",
-    #        "f049": "752"
-    #    }

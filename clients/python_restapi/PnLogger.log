@@ -1,5 +1,16 @@
-2025-03-10 18:14:18,716 - PnLogger - INFO - xyz
-2025-03-10 18:15:11,503 - PnLogger - INFO - x
-2025-03-10 18:18:51,413 - PnLogger - INFO - x
-2025-03-10 18:20:11,255 - PnLogger - INFO - x
-2025-03-10 19:59:13,646 - PnLogger - INFO - x
+2025-03-12 21:05:15,361 - PnLogger - INFO - Started
+2025-03-12 21:05:15,362 - PnLogger - INFO - {'msg_code': '0100', 'f002': '6543210987654321', 'f004': '000000023456', 'f049': '752'}
+2025-03-12 21:05:15,362 - PnLogger - INFO - testing:Test number 2 repeat:2
+2025-03-12 21:05:15,374 - PnLogger - INFO - start:21:05:15.363140 end:21:05:15.374582 diff:0:00:00.011442 port:8002
+2025-03-12 21:05:15,375 - PnLogger - INFO - {'message': 'host:bd69d2f4f08a: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-12 21:05:15,385 - PnLogger - INFO - start:21:05:15.375255 end:21:05:15.385285 diff:0:00:00.010030 port:8002
+2025-03-12 21:05:15,385 - PnLogger - INFO - {'message': 'host:bd69d2f4f08a: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-12 21:05:15,387 - PnLogger - INFO - {'msg_code': '0100', 'f002': '1234567890123456', 'f004': '000000012345', 'f049': '752'}
+2025-03-12 21:05:15,388 - PnLogger - INFO - testing:Test number 1 repeat:3
+2025-03-12 21:05:15,400 - PnLogger - INFO - start:21:05:15.389129 end:21:05:15.399975 diff:0:00:00.010846 port:8080
+2025-03-12 21:05:15,400 - PnLogger - INFO - {'message': 'host:c39b801f9486: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-12 21:05:15,410 - PnLogger - INFO - start:21:05:15.400854 end:21:05:15.410098 diff:0:00:00.009244 port:8080
+2025-03-12 21:05:15,410 - PnLogger - INFO - {'message': 'host:bd69d2f4f08a: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-12 21:05:15,420 - PnLogger - INFO - start:21:05:15.410863 end:21:05:15.420066 diff:0:00:00.009203 port:8080
+2025-03-12 21:05:15,420 - PnLogger - INFO - {'message': 'host:c39b801f9486: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-12 21:05:15,421 - PnLogger - INFO - Finished

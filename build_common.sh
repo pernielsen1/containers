@@ -7,11 +7,9 @@ mkdir $TARGET_COMMON
 python3 -m venv $TARGET_COMMON
 source $TARGET_COMMON/bin/activate
 cd $TARGET_COMMON
-pip freeze > requirements.txt
-pip install -r requirements.txt
-pip install setuptools
+pip install -r ../common_requirements.txt
 # now build the pn_utilities package
 python3 setup.py sdist
-pip install -e .    
+# Doesn' seem to be necessary to install in of common see test.py in root
 deactivate
 cd ..

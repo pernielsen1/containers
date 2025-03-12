@@ -1,4 +1,0 @@
-# Editable Git install (pn_utilities==0.1) with either a deleted local remote or invalid URI:
-# 'github.com/pernielsen1/containers.git'
--e /home/perni/containers/common
-setuptools==76.0.0

@@ -1,4 +1,4 @@
-#!/home/perni/containers/clients/python_restapi/bin/python3.12
+#!/home/per-nielsen/containers/clients/python_restapi/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys
