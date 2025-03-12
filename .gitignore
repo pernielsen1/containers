@@ -9,10 +9,10 @@ fastapi/app/lib/
 fastapi/app/include/
 fastapi/app/lib64
 ¤ clients/restapi
-clients/python_restapi/app/bin/
-clients/python_restapi/app/lib/
-clients/python_restapi/app/include/
-clients/python_restapi/app/lib64
+clients/python_restapi/bin/
+clients/python_restapi/lib/
+clients/python_restapi/include/
+clients/python_restapi/lib64
 ¤ pn_utilities
 common/bin/
 common/lib/
