@@ -18,11 +18,15 @@ if [ $# -eq 0 ]
                 echo "illegal argument " $1 " supplied - valid is REBUILD or no argument - exiting"
         fi
 fi
-echo "NO_CACHE is:" $NO_CACHE
 
-echo "build requirements.txt"
+# build requirements.txt and remove the local_packages line and make them available in the local packages dir to be used in Dockerfile 
+source app/bin/activate
 app/bin/python -m pip freeze > requirements.txt
-# docker compose up
-docker compose build $NO_CACHEdoc
+sed -i "/@ file:/d" requirements.txt
+mkdir local_packages
+cp ../common/dist/* local_packages
+deactivate
+# build it and start it
+docker compose build $NO_CACHE
 docker compose up
-docker ps
+

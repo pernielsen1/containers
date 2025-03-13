@@ -15,30 +15,17 @@ from fastapi import FastAPI, HTTPException, Request
 import json
 import socket
 import logging
-from pathlib import Path
+import pn_utilities.PnLogger as PnLogger
 #---------------------------------------------------
 # set the logging
 #---------------------------------------------------
-level = logging.INFO
-name = Path(__file__).stem
-log = logging.getLogger(name)
-log.setLevel(level)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-fh = logging.FileHandler(name + ".log")
-fh.setLevel(level)
-fh.setFormatter(formatter)
-log.addHandler(fh)
-ch = logging.StreamHandler()
-ch.setLevel(level)
-ch.setFormatter(formatter)
-log.addHandler(ch)
-log.info('Started in main.app')
+log=PnLogger.PnLogger(level=logging.INFO)
+
 
 #---------------------------------------------------
 # here we go
 #---------------------------------------------------
 
-       
 app = FastAPI()
 
 #---------------------------------------------------------
@@ -46,7 +33,7 @@ app = FastAPI()
 #---------------------------------------------------------
 @app.get("/")
 async def root():
-    print("in root")
+    log.info("in root")
     return {"message": "Hello from my World"}
 
 #-------------------------------------------------------------------------
@@ -60,6 +47,7 @@ async def add_transcode_0100(request: Request):
         # Extracting user data from the request body
         data_json = await request.json()
         # Validate the presence of required fields
+        log.info("Request received" + data_json)
         if 'f002' not in data_json or 'f049' not in data_json:
             raise HTTPException(
                 status_code=422, detail='Incomplete data provided')
@@ -72,6 +60,7 @@ async def add_transcode_0100(request: Request):
 
         # Returning a confirmation message
         ret_message = 'host:' + hostname + ': pan and key submitted updated successfully pan:' + pan + ' cur:' + cur
+        log.info(ret_message)
         return {'message': ret_message}
 
     except HTTPException as e:

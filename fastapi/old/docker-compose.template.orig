@@ -1,4 +1,0 @@
-${SERVICE_NAME}:
-     image: httpd:latest
-     ports:
-       - ${PORT}:80

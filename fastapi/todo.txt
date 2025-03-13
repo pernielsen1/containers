@@ -16,13 +16,18 @@
 # and now gedit is working after disabiling systemd in /etc/wsl.conf and test_rest client has a run script
 # https://medium.com/@adebisiolayinka30/containerize-a-fastapi-app-using-nginx-as-a-proxy-part-one-42d3384d4722
 # https://www.docker.com/blog/how-to-use-the-official-nginx-docker-image/
-
+#  
+# the build . means docker build of dockerfile.. or ?  ... 
+# read this and tidy up 
+# https://docs.docker.com/reference/compose-file/build/
 # 20250308:
 #  get log_level from outside in the create script
-#  logging in the main app also including get log lev
-#  check if the sys append still needed.    
 #  
-¤  The PnLogger needs to be in venv package...
-# pip install /srv/pkg/mypackage
-# https://stackoverflow.com/questions/15031694/installing-python-packages-from-local-file-system-folder-to-virtualenv-with-pip
-# https://packaging.python.org/en/latest/tutorials/packaging-projects/
+# merge build.sh and the start_container..... 
+# 
+#
+# Get the start up of application to run ... loading the keys etc..
+# 
+# 
+
+
