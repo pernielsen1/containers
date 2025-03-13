@@ -17,9 +17,7 @@
 # https://medium.com/@adebisiolayinka30/containerize-a-fastapi-app-using-nginx-as-a-proxy-part-one-42d3384d4722
 # https://www.docker.com/blog/how-to-use-the-official-nginx-docker-image/
 #  
-# the build . means docker build of dockerfile.. or ?  ... 
-# read this and tidy up 
-# https://docs.docker.com/reference/compose-file/build/
+# the build ./app means use Dockerfile in app directory  https://docs.docker.com/reference/compose-file/build/
 # 20250308:
 #  get log_level from outside in the create script
 #  

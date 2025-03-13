@@ -28,3 +28,13 @@
 2025-03-13 18:41:15,740 - PnLogger - INFO - host:e5499fc221a4: pan and key submitted updated successfully pan:1234567890123456 cur:752
 2025-03-13 18:41:15,759 - PnLogger - INFO - Request received{"msg_code": "0100", "f002": "1234567890123456", "f004": "000000012345", "f049": "752"}
 2025-03-13 18:41:15,760 - PnLogger - INFO - host:47494b8e5c64: pan and key submitted updated successfully pan:1234567890123456 cur:752
+2025-03-13 19:23:40,287 - PnLogger - INFO - Request received{"msg_code": "0100", "f002": "6543210987654321", "f004": "000000023456", "f049": "752"}
+2025-03-13 19:23:40,288 - PnLogger - INFO - host:e5499fc221a4: pan and key submitted updated successfully pan:6543210987654321 cur:752
+2025-03-13 19:23:40,302 - PnLogger - INFO - Request received{"msg_code": "0100", "f002": "6543210987654321", "f004": "000000023456", "f049": "752"}
+2025-03-13 19:23:40,302 - PnLogger - INFO - host:e5499fc221a4: pan and key submitted updated successfully pan:6543210987654321 cur:752
+2025-03-13 19:23:40,317 - PnLogger - INFO - Request received{"msg_code": "0100", "f002": "1234567890123456", "f004": "000000012345", "f049": "752"}
+2025-03-13 19:23:40,318 - PnLogger - INFO - host:47494b8e5c64: pan and key submitted updated successfully pan:1234567890123456 cur:752
+2025-03-13 19:23:40,330 - PnLogger - INFO - Request received{"msg_code": "0100", "f002": "1234567890123456", "f004": "000000012345", "f049": "752"}
+2025-03-13 19:23:40,330 - PnLogger - INFO - host:e5499fc221a4: pan and key submitted updated successfully pan:1234567890123456 cur:752
+2025-03-13 19:23:40,340 - PnLogger - INFO - Request received{"msg_code": "0100", "f002": "1234567890123456", "f004": "000000012345", "f049": "752"}
+2025-03-13 19:23:40,340 - PnLogger - INFO - host:47494b8e5c64: pan and key submitted updated successfully pan:1234567890123456 cur:752

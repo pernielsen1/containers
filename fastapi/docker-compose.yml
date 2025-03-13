@@ -1,6 +1,6 @@
 services:
   api1:
-    build: .
+    build: ./app
     container_name: "api1"
     volumes:
       - ./app:/app
@@ -14,7 +14,7 @@ services:
       - "8001"
     
   api2:
-    build: .
+    build: ./app
     container_name: "api2"
     volumes:
       - ./app:/app

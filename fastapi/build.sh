@@ -21,8 +21,8 @@ fi
 
 # build requirements.txt and remove the local_packages line and make them available in the local packages dir to be used in Dockerfile 
 source app/bin/activate
-app/bin/python -m pip freeze > requirements.txt
-sed -i "/@ file:/d" requirements.txt
+app/bin/python -m pip freeze > app/requirements.txt
+sed -i "/@ file:/d" app/requirements.txt
 mkdir local_packages
 cp ../common/dist/* local_packages
 deactivate

@@ -110,3 +110,19 @@
 2025-03-13 19:41:15,767 - PnLogger - INFO - start:19:41:15.753270 end:19:41:15.767871 diff:0:00:00.014601 port:8080
 2025-03-13 19:41:15,768 - PnLogger - INFO - {'message': 'host:47494b8e5c64: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
 2025-03-13 19:41:15,769 - PnLogger - INFO - Finished
+2025-03-13 20:23:40,277 - PnLogger - INFO - Started
+2025-03-13 20:23:40,277 - PnLogger - INFO - {'msg_code': '0100', 'f002': '6543210987654321', 'f004': '000000023456', 'f049': '752'}
+2025-03-13 20:23:40,278 - PnLogger - INFO - testing:Test number 2 repeat:2
+2025-03-13 20:23:40,295 - PnLogger - INFO - start:20:23:40.278618 end:20:23:40.295746 diff:0:00:00.017128 port:8002
+2025-03-13 20:23:40,296 - PnLogger - INFO - {'message': 'host:e5499fc221a4: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-13 20:23:40,309 - PnLogger - INFO - start:20:23:40.297043 end:20:23:40.308851 diff:0:00:00.011808 port:8002
+2025-03-13 20:23:40,309 - PnLogger - INFO - {'message': 'host:e5499fc221a4: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-13 20:23:40,310 - PnLogger - INFO - {'msg_code': '0100', 'f002': '1234567890123456', 'f004': '000000012345', 'f049': '752'}
+2025-03-13 20:23:40,310 - PnLogger - INFO - testing:Test number 1 repeat:3
+2025-03-13 20:23:40,325 - PnLogger - INFO - start:20:23:40.310876 end:20:23:40.325672 diff:0:00:00.014796 port:8080
+2025-03-13 20:23:40,326 - PnLogger - INFO - {'message': 'host:47494b8e5c64: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-13 20:23:40,335 - PnLogger - INFO - start:20:23:40.326166 end:20:23:40.334961 diff:0:00:00.008795 port:8080
+2025-03-13 20:23:40,335 - PnLogger - INFO - {'message': 'host:e5499fc221a4: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-13 20:23:40,347 - PnLogger - INFO - start:20:23:40.335552 end:20:23:40.346921 diff:0:00:00.011369 port:8080
+2025-03-13 20:23:40,347 - PnLogger - INFO - {'message': 'host:47494b8e5c64: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-13 20:23:40,349 - PnLogger - INFO - Finished
