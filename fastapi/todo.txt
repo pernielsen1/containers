@@ -21,11 +21,11 @@
 # 20250308:
 #  get log_level from outside in the create script
 #  
-# merge build.sh and the start_container..... 
+# build only one image 
 # 
 #
 # Get the start up of application to run ... loading the keys etc..
 # 
-# 
+# gör all build_venv so the remove bin, inlcude, lib, lib64 osv 
 
 

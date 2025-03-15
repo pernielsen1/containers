@@ -1,5 +1,6 @@
   ${SERVICE_NAME}:
-    build: ./app
+    image: fastapi/pn_app
+    ${BUILD_COMMAND}
     container_name: "${SERVICE_NAME}"
     volumes:
       - ./app:/app

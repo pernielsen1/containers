@@ -1,5 +1,6 @@
 services:
   api1:
+    image: fastapi/pn_app
     build: ./app
     container_name: "api1"
     volumes:
@@ -14,7 +15,8 @@ services:
       - "8001"
     
   api2:
-    build: ./app
+    image: fastapi/pn_app
+    
     container_name: "api2"
     volumes:
       - ./app:/app
