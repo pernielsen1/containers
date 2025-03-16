@@ -4,10 +4,10 @@ clients/python_mysql/lib/
 clients/python_mysql/include/
 clients/python_mysql/lib64
 ¤ fastapi
-fastapi/app/bin/
-fastapi/app/lib/
-fastapi/app/include/
-fastapi/app/lib64
+fastapi/crypto_app/bin/
+fastapi/crypto_app/lib/
+fastapi/crypto_app/include/
+fastapi/crypto_app/lib64
 ¤ clients/restapi
 clients/python_restapi/bin/
 clients/python_restapi/lib/
