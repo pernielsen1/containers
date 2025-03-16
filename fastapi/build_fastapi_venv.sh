@@ -4,23 +4,24 @@
 # PWD=`pwd`
 # echo $PWD
 # activate () {
-# . $PWD/app/bin/activate
+# . $PWD/$TARGET_DIR/bin/activate
 # }
-mkdir app
-rm -rf app/local_packages
-rm -rf app/bin
-rm -rf app/include
-rm -rf app/lib
-rm app/lib64
-python3 -m venv app
-source app/bin/activate
+TARGET_DIR="crypto_app"
+mkdir $TARGET_DIR
+rm -rf $TARGET_DIR/local_packages
+rm -rf $TARGET_DIR/bin
+rm -rf $TARGET_DIR/include
+rm -rf $TARGET_DIR/lib
+rm $TARGET_DIR/lib64
+python3 -m venv $TARGET_DIR
+source $TARGET_DIR/bin/activate
 
 # activate
 which pip
 pip install fastapi
 pip install "fastapi[standard]"
 pip install uvicorn
-mkdir app/local_packages
-cp ../common/dist/* app/local_packages
-pip install app/local_packages/pn_utilities-0.1.tar.gz
+mkdir $TARGET_DIR/local_packages
+cp ../common/dist/* $TARGET_DIR/local_packages
+pip install $TARGET_DIR/local_packages/pn_utilities-0.1.tar.gz
 deactivate

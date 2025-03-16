@@ -1,10 +1,10 @@
 services:
   api1:
     image: fastapi/pn_app
-    build: ./app
+    build: ./crypto_app
     container_name: "api1"
     volumes:
-      - ./app:/app
+      - ./crypto_app:/crypto_app
     ports:
       - 8001:8001
     entrypoint:
@@ -19,7 +19,7 @@ services:
     
     container_name: "api2"
     volumes:
-      - ./app:/app
+      - ./crypto_app:/crypto_app
     ports:
       - 8002:8002
     entrypoint:
