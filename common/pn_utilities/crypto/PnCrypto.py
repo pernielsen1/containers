@@ -3,6 +3,9 @@ import os
 import json
 
 DATA_DIR = '../data/'
+#---------------------------------
+# PnCryptKey - the key object
+#------------------------------------------
 class PnCryptKey():
     key = {}
     def __new__(cls, *args, **kwargs):
@@ -30,8 +33,11 @@ class PnCryptoKeys:
             config_file = DATA_DIR + "PnCryptoKeys.json"
         with open(config_file, 'r') as file:
             dict = json.loads(file.read())    
-            self.keys = dict['crypto_keys']
+            input_keys = dict['crypto_keys']
 
+
+            for k in input_keys:
+                self.keys[k] = PnCryptKey([k], input_keys[k], "a type")
     def get_keys(self):
         return self.keys
     def get_key(self, key_name):

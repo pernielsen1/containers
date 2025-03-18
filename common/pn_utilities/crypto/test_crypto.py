@@ -99,7 +99,7 @@ class crypto_hsm:
         if (mode == "ECB"):
             cipher_obj= AES.new(key_bin, AES.MODE_ECB)
         if (mode == "CBC"):
-            iv_bin = bytes.fromhex(iv)
+            iv_bin =x½ bytes.fromhex(iv)
             cipher_obj= AES.new(key_bin, AES.MODE_CBC, iv=iv_bin)
         if (mode == "GCM"):
             # Encrypt using AES GCM
