@@ -20,12 +20,9 @@
 # the build ./app means use Dockerfile in app directory  https://docs.docker.com/reference/compose-file/build/
 # 20250308:
 #  get log_level from outside in the create script
-#  
-# build only one image 
-# 
-#
+#   
+# renamed to crypto_app
 # Get the start up of application to run ... loading the keys etc..
 # 
-# gör all build_venv so the remove bin, inlcude, lib, lib64 osv 
 
 
