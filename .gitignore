@@ -3,17 +3,17 @@ clients/python_mysql/bin/
 clients/python_mysql/lib/
 clients/python_mysql/include/
 clients/python_mysql/lib64
-¤ fastapi
+# fastapi
 fastapi/crypto_app/bin/
 fastapi/crypto_app/lib/
 fastapi/crypto_app/include/
 fastapi/crypto_app/lib64
-¤ clients/restapi
+# clients/restapi
 clients/python_restapi/bin/
 clients/python_restapi/lib/
 clients/python_restapi/include/
 clients/python_restapi/lib64
-¤ pn_utilities
+# pn_utilities
 common/bin/
 common/lib/
 common/include/

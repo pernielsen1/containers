@@ -206,3 +206,35 @@
 2025-03-16 08:05:05,342 - PnLogger - INFO - start:08:05:05.329456 end:08:05:05.342722 diff:0:00:00.013266 port:8080
 2025-03-16 08:05:05,345 - PnLogger - INFO - {'message': 'host:81f79b770682: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
 2025-03-16 08:05:05,345 - PnLogger - INFO - Finished
+2025-03-19 18:58:22,870 - PnLogger - INFO - Started
+2025-03-19 18:58:22,872 - PnLogger - INFO - {'msg_code': '0100', 'f002': '6543210987654321', 'f004': '000000023456', 'f049': '752'}
+2025-03-19 18:58:22,872 - PnLogger - INFO - testing:Test number 2 repeat:2
+2025-03-19 18:58:22,886 - PnLogger - INFO - start:18:58:22.872498 end:18:58:22.886208 diff:0:00:00.013710 port:8002
+2025-03-19 18:58:22,886 - PnLogger - INFO - {'message': 'host:f313fe4a28be: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-19 18:58:22,898 - PnLogger - INFO - start:18:58:22.887014 end:18:58:22.898661 diff:0:00:00.011647 port:8002
+2025-03-19 18:58:22,899 - PnLogger - INFO - {'message': 'host:f313fe4a28be: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-19 18:58:22,900 - PnLogger - INFO - {'msg_code': '0100', 'f002': '1234567890123456', 'f004': '000000012345', 'f049': '752'}
+2025-03-19 18:58:22,900 - PnLogger - INFO - testing:Test number 1 repeat:3
+2025-03-19 18:58:22,912 - PnLogger - INFO - start:18:58:22.900577 end:18:58:22.912450 diff:0:00:00.011873 port:8080
+2025-03-19 18:58:22,913 - PnLogger - INFO - {'message': 'host:9b6ace97d07c: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-19 18:58:22,924 - PnLogger - INFO - start:18:58:22.913528 end:18:58:22.924306 diff:0:00:00.010778 port:8080
+2025-03-19 18:58:22,924 - PnLogger - INFO - {'message': 'host:f313fe4a28be: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-19 18:58:22,935 - PnLogger - INFO - start:18:58:22.924985 end:18:58:22.934883 diff:0:00:00.009898 port:8080
+2025-03-19 18:58:22,935 - PnLogger - INFO - {'message': 'host:9b6ace97d07c: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-19 18:58:22,936 - PnLogger - INFO - Finished
+2025-03-19 19:07:29,213 - PnLogger - INFO - Started
+2025-03-19 19:07:29,213 - PnLogger - INFO - {'msg_code': '0100', 'f002': '6543210987654321', 'f004': '000000023456', 'f049': '752'}
+2025-03-19 19:07:29,214 - PnLogger - INFO - testing:Test number 2 repeat:2
+2025-03-19 19:07:29,227 - PnLogger - INFO - start:19:07:29.214347 end:19:07:29.227651 diff:0:00:00.013304 port:8002
+2025-03-19 19:07:29,228 - PnLogger - INFO - {'message': 'host:c31382e72ac2: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-19 19:07:29,238 - PnLogger - INFO - start:19:07:29.228891 end:19:07:29.238660 diff:0:00:00.009769 port:8002
+2025-03-19 19:07:29,239 - PnLogger - INFO - {'message': 'host:c31382e72ac2: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-19 19:07:29,240 - PnLogger - INFO - {'msg_code': '0100', 'f002': '1234567890123456', 'f004': '000000012345', 'f049': '752'}
+2025-03-19 19:07:29,240 - PnLogger - INFO - testing:Test number 1 repeat:3
+2025-03-19 19:07:29,253 - PnLogger - INFO - start:19:07:29.241050 end:19:07:29.253803 diff:0:00:00.012753 port:8080
+2025-03-19 19:07:29,254 - PnLogger - INFO - {'message': 'host:7429ce544e28: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-19 19:07:29,264 - PnLogger - INFO - start:19:07:29.254580 end:19:07:29.264013 diff:0:00:00.009433 port:8080
+2025-03-19 19:07:29,264 - PnLogger - INFO - {'message': 'host:c31382e72ac2: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-19 19:07:29,275 - PnLogger - INFO - start:19:07:29.264725 end:19:07:29.275040 diff:0:00:00.010315 port:8080
+2025-03-19 19:07:29,275 - PnLogger - INFO - {'message': 'host:7429ce544e28: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-19 19:07:29,276 - PnLogger - INFO - Finished
