@@ -15,6 +15,8 @@ from Crypto.Signature import pkcs1_15
 from Crypto.Signature import DSS
 
 DATA_DIR = '../data/'
+import pn_utilities.PnLogger as PnLogger
+logger = PnLogger.PnLogger()
 #------------------------------------------
 # PnCryptKey - the key object
 #------------------------------------------
@@ -47,6 +49,8 @@ class PnCryptoKeys:
         self.name = name
         if (config_file == ""):
             config_file = DATA_DIR + "PnCryptoKeys.json"
+
+        logger.info("Loading keys store from:" + config_file)
         with open(config_file, 'r') as file:
             dict = json.loads(file.read())    
             input_keys = dict['crypto_keys']
@@ -84,8 +88,6 @@ class PnCrypto():
             des_obj = DES
         else:
             des_obj = DES3
-        print("key:" + key_value)
-        print("data:" + data)
         key_token = bytes.fromhex(key_value)
 
         if (mode == "ECB" and operation != 'mac'):

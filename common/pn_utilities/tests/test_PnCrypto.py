@@ -14,13 +14,14 @@ sys.path.insert(0, '../..')
 
 import unittest
 import json
-import pn_utilities.PnLogger as PnLogger
 import pn_utilities.crypto.PnCrypto as PnCrypto
+import pn_utilities.PnLogger as PnLogger
 
 #-------------------------------------------------------------------
 # 
 #-------------------------------------------------------------------
 class TestPnCrypto(unittest.TestCase):
+
   def setUp(self):
       self.log = PnLogger.PnLogger()
       self.log.info("setUp completed starting tests")
@@ -37,7 +38,6 @@ class TestPnCrypto(unittest.TestCase):
       self.assertEqual(k.get_type(), 'a type')
       self.assertEqual(self.my_keys.get_key('Unknown key'), None)
       k1 = self.my_keys.get_key("DES_k1")
-      print("key for DES_k1:" + k1.get_value() + " with name:" + k1.get_name())
       
 
 
