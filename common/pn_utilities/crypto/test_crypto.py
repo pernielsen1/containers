@@ -30,11 +30,12 @@ from Crypto.Signature import DSS
 
 
 #------------------ GLOBALS ---------------------------
-config_dir = 'crypto/'
+config_dir = '../data/'
 config_file = 'test_crypto.json'
 segment_to_run = 'ECC'
 segment_to_run = 'RSA_SIGNATURES'
 segment_to_run = 'ECC_SIGNATURES'
+segment_to_run = 'DES_BASIC'
 
 # segment_to_run = 'ALL'
 
@@ -99,7 +100,7 @@ class crypto_hsm:
         if (mode == "ECB"):
             cipher_obj= AES.new(key_bin, AES.MODE_ECB)
         if (mode == "CBC"):
-            iv_bin =x½ bytes.fromhex(iv)
+            iv_bin = bytes.fromhex(iv)
             cipher_obj= AES.new(key_bin, AES.MODE_CBC, iv=iv_bin)
         if (mode == "GCM"):
             # Encrypt using AES GCM
@@ -369,6 +370,7 @@ def run_test(crypto_keys, tc):
        result_str = crypto_handle.do_ECC_VERIFY(crypto_keys[tc["key"]], tc['hash'], tc['data'], tc['signature'])
 
     if (result_str == expected_result):
+        print("res:" + result_str + " expected:" + expected_result)
         return True, "passed:" + description
     else:
         return False, "failed:" + description + " result_str:" + result_str + " expected:" + expected_result

@@ -1,0 +1,293 @@
+{
+
+    
+    "tests": {
+        "RSA": {
+            "RSA_ENCRYPT": {
+                "description":"RSA Encrypt OAEP",
+                "alg":"RSA",
+                "operation":"encrypt",
+                "verify_key":"RSA_Alice_Private",
+                "key":"RSA_Alice_Public",
+                "data":"3132333435313233343531323334353132333435",
+                "expected_result":"3132333435313233343531323334353132333435"
+            },
+            "RSA_DECRYPT": {
+                "description":"RSA Encrypt OAEP",
+                "alg":"RSA",
+                "operation":"decrypt",
+                "key":"RSA_Alice_Private",
+                "data":"7998FBB5BB848DA0400CF97FD2FBEAB375DEAC8FFF2CAE99E1E8F7D2D5ED81B1534CF1100F66FDEAB50063CD4497F1661952F3BB386E21ED99B6B790D03EB943786E80DDD2BBA7A677FE1AB129D322D53F36F511118DAC8168CEF091DE1B26B72F039784AEDB0B42EBABD025E78DCDFBA50263E3D008491C9351D8920B65A89ABE58C46BE2B10E1872ABFAB17D12DC5BE2B23FFF172C677063E9AA3663FD4D2AD51C287726226F91207644B653139A4918AEAE7E7F0ECF64A090FA3A8B682847B01020BCA7BAAD06C8C18C046F8572367E2D1A230BEA38E7EA07CD9A3FBC7CFF0EBC487D7D6E9DD87A468BCCD909782F1AC06CA6C4EC31EDEBA82AD51B92AD9C",
+                "expected_result":"3132333435313233343531323334353132333435"
+            }
+ 
+        },
+        
+        "ECC": {
+            "ECC_RAW_SHARED_SECRET": {
+                "description":"Derive a shared secret raw key without KDF",
+                "alg":"ECC_RAW",
+                "private_key":"ECC_Bob_Private",
+                "public_key":"ECC_Alice_Public",
+                "expected_result":"CA3C2944EF4D7FCACFA06AE491CE303FAE8F7CDA53F99F8C5F71B4FCBCB8BC50"
+            },
+            "ECC_WITH_KDF": {
+                "description":"Derive a shared secret raw key with KDF",
+                "alg":"ECC_KDF",
+                "private_key":"ECC_Bob_Private",
+                "public_key":"ECC_Alice_Public",
+                "algo":"SHA256",
+                "prepend": "00000001",
+                "append": "416C696365426F62",
+                "expected_result" : "479E0D7DB701F3638A948A174104C71665A9FE1EAB623C302A797DB292D0F5EB" 
+            }
+        },
+
+        "EMV": {
+            "UDK": {
+                "description":"Calculate UDK for EMV",
+                "alg":"UDK",
+                "key_name":"IMK_k1",
+                "PAN":"5656781234567891", 
+                "PSN": "01",
+                "expected_result" : "CB45F993BDDA763EF030AF6CE1762735" 
+            },
+            "SESSION_KEY": {
+                "description":"Calculate Session key for EMV",
+                "alg":"SESSION_KEY",
+                "key_name":"IMK_k1",
+                "PAN":"5656781234567891", 
+                "PSN": "01",
+                "ATC": "0001",
+                "expected_result" : "E011BB83D8A60BEE3CDE768F68560BD9" 
+            },
+            "ARQC": {
+                "description":"Calculate ARQC for EMV",
+                "alg":"ARQC",
+                "key_name":"IMK_k1",
+                "PAN":"5656781234567891", 
+                "PSN": "01",
+                "ATC": "0001",
+                "data": "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000",
+                "data_with_80": "00000000510000000000000007920000208000094917041900B49762F2390000010105A040000020000000000000000080",
+                "expected_result" : "F5EB72ED4F51B9DE" 
+            },
+            "ARPC": {
+                "description":"Calculate ARPC for EMV",
+                "alg":"ARPC",
+                "key_name":"IMK_k1",
+                "PAN":"5656781234567891", 
+                "PSN": "01",
+                "ATC": "0001",
+                "CSU": "0012",
+                "ARQC": "F5EB72ED4F51B9DE", 
+                "expected_result" : "A2092CCC0C25006B" 
+            }
+
+        },
+        "HASH": {
+            "SHA256": {
+                "description":"Test HASH sha256",
+                "alg":"HASH",
+                "mode":"SHA256",
+                "data":"00000001CA3C2944EF4D7FCACFA06AE491CE303FAE8F7CDA53F99F8C5F71B4FCBCB8BC504865726520697320736F6D65206F7468657220696E666F0A", 
+                "expected_result" : "4DE4852062066E36E495826C56C95F94DE0FA8AA88CADE83A30A657E79BA8DF6"
+            }
+        },
+        "DES_BASIC": {
+            "0001": {
+                "description":"Test first des encrypt",
+                "alg":"DES",
+                "mode":"ECB",
+                "operation":"encrypt",
+                "key_name":"DES_k1",
+                "data":"6bc1bee22e409f96e93d7e117393172a", 
+                "IV": "",
+                "expected_result" : "DF8F88432FEA610CC1FAAF1AB1C0C037", 
+                "expected_result_x" : "D83CC5F9634983CC8D92FF5B4A8DAD34E5DFE1913DC6285"
+            },
+
+            "0002": {
+                "description":"Test first des decrypt",
+                "alg":"DES",
+                "mode":"ECB",
+                "operation":"decrypt",
+                "key_name":"DES_k1",
+                "data": "DF8F88432FEA610CC1FAAF1AB1C0C037",
+                "IV": "",
+                "expected_result" : "6bc1bee22e409f96e93d7e117393172a"
+            },
+
+            "0003": {
+                "description":"Second des encrypt CBC",
+                "alg":"DES",
+                "mode":"CBC",
+                "operation":"encrypt",
+                "key_name":"DES_k1",
+                "data":"6bc1bee22e409f96e93d7e117393172a", 
+                "IV": "0102030405060708",
+                "expected_result" : "2179994180982364ba067adca1ec8c1d" 
+            },
+
+            "0004": {
+                "description":"Second des decrypt CBC",
+                "alg":"DES",
+                "mode":"CBC",
+                "operation":"decrypt",
+                "key_name":"DES_k1",
+                "data": "2179994180982364ba067adca1ec8c1d",
+                "IV": "0102030405060708",
+                "expected_result" : "6bc1bee22e409f96e93d7e117393172a"
+            },
+            "0005": {
+                "description":"Calculate MAC",
+                "alg":"DES",
+                "mode":"",
+                "operation":"mac",
+                "key_name":"DES_k1",
+                "data": "2179994180982364ba067adca1ec8c1d",
+                "IV": "0102030405060708",
+                "expected_result" : "7fb309a94e45cc43"
+            }
+
+        },
+
+        "AES_BASIC": {
+ 
+            "0001": {
+                "description":"First AES encrypt CBC",
+                "alg":"AES",
+                "mode":"CBC",
+                "operation":"encrypt",
+                "key_name":"AES_k2",
+                "data":"6bc1bee22e409f96e93d7e117393172a", 
+                "IV": "000102030405060708090A0B0C0D0E0F",
+                "expected_result" : "7649ABAC8119B246CEE98E9B12E9197D8964E0B149C10B7B682E6E39AAEB731C"
+            },
+
+            "0002": {
+                "description":"First AES decrypt CBC",
+                "alg":"AES",
+                "mode":"CBC",
+                "operation":"decrypt",
+                "key_name":"AES_k2",
+                "data": "7649ABAC8119B246CEE98E9B12E9197D8964E0B149C10B7B682E6E39AAEB731C",
+                "IV": "000102030405060708090A0B0C0D0E0F",
+                "expected_result" : "6bc1bee22e409f96e93d7e117393172a"
+            },
+
+            "0003": {
+                "description":"Test second AES encrypt ECB",
+                "alg":"AES",
+                "mode":"ECB",
+                "operation":"encrypt",
+                "key_name":"AES_k2",
+                "data":"6bc1bee22e409f96e93d7e117393172a", 
+                "IV" : "",
+                "expected_result" : "3ad77bb40d7a3660a89ecaf32466ef97a254be88e037ddd9d79fb6411c3f9df8"
+            },
+
+            "0004": {
+                "description":"Test second AES decrypt ECB",
+                "alg":"AES",
+                "mode":"ECB",
+                "operation":"decrypt",
+                "key_name":"AES_k2",
+                "data": "3AD77BB40D7A3660A89ECAF32466EF97A254BE88E037DDD9D79FB6411C3F9DF8",
+                "IV": "",
+                "expected_result" : "6bc1bee22e409f96e93d7e117393172a"
+            },
+            "0005": {
+                "description":"First AES GCM encrypt",
+                "alg":"AES",
+                "mode":"GCM",
+                "operation":"encrypt",
+                "key_name":"AES_GCM",
+                "data": "486920416C69636520776861742061626F75742064696E6E657220746F6E69676874203F",
+                "IV": "07e07d3ac1aaedf2fdfe5a4e",
+                "tag_len":16,
+                "expected_result" : "0E3FF3977F23489D4D320C8303F11E8A559ED3E16E5648E3049AC65A876E64A7A77C3C643737EBE03DD4BE8A901274F3C6F2D949"             
+            },
+            "0006": {
+                "description":"First AES GCM decrypt",
+                "alg":"AES",
+                "mode":"GCM",
+                "operation":"decrypt",
+                "key_name":"AES_GCM",
+                "data" : "0E3FF3977F23489D4D320C8303F11E8A559ED3E16E5648E3049AC65A876E64A7A77C3C643737EBE03DD4BE8A901274F3C6F2D949",             
+                "IV": "07e07d3ac1aaedf2fdfe5a4e",
+                "tag_len":16,
+                "expected_result" : "486920416C69636520776861742061626F75742064696E6E657220746F6E69676874203F"
+            }
+
+        },
+ 
+        "RSA_SIGNATURES": {
+            "SIGN": {
+                    "description":"Sign hash digest",
+                    "key": "RSA_Bob_Private",
+                    "alg":"RSA_SIGN",
+                    "hash":"SHA256",
+                    "data":"486920416C69636520776861742061626F75742064696E6E657220746F6E69676874203F",
+                    "expected_result" : "7783D44976635B1FB40F04A159ADBD14A43382A6FCBABEA86857C712DD2BB278D39039488866E188E3AAA7312C76D51E2EE2851CD5BD56DC7C3354219A4BE828C8D5054E22E4968E829AF6C07B96F8EF90785DD9738C19587041F62FE18E89873259B9320219C25CC35C2A553B6AFAD8837EDD7BF704F8C391DC9174C804E434FF6D1E065061B60D987D3C2DD5A48C0243ED6EFBCFF66D0A43FD9298CDF7101F26ABAA9E2545D86D1E3C89CF5F5C14F6B379D5FC96EA73A9290CFD35E7C458E754306F7FAE3FC16212BE13E2CEBEF8A5A3A0B00097083CE1A7D7EE470B1CC9355949A6E62785796790B2E3738EDB80BC99FABE21F3753913C95E417CD3414A3F"
+            },
+            "VERIFY": {
+                "description":"Sign hash digest",
+                "key": "RSA_Bob_Public",
+                "alg":"RSA_VERIFY",
+                "hash":"SHA256",
+                "data":"486920416C69636520776861742061626F75742064696E6E657220746F6E69676874203F",
+                "signature" : "7783D44976635B1FB40F04A159ADBD14A43382A6FCBABEA86857C712DD2BB278D39039488866E188E3AAA7312C76D51E2EE2851CD5BD56DC7C3354219A4BE828C8D5054E22E4968E829AF6C07B96F8EF90785DD9738C19587041F62FE18E89873259B9320219C25CC35C2A553B6AFAD8837EDD7BF704F8C391DC9174C804E434FF6D1E065061B60D987D3C2DD5A48C0243ED6EFBCFF66D0A43FD9298CDF7101F26ABAA9E2545D86D1E3C89CF5F5C14F6B379D5FC96EA73A9290CFD35E7C458E754306F7FAE3FC16212BE13E2CEBEF8A5A3A0B00097083CE1A7D7EE470B1CC9355949A6E62785796790B2E3738EDB80BC99FABE21F3753913C95E417CD3414A3F",
+                "expected_result" : "OK"
+            }
+
+
+        }, 
+        "ECC_SIGNATURES": {
+            "SIGN": {
+                    "description":"ECC Sign hash digest",
+                    "key": "ECC_Bob_Private",
+                    "alg":"ECC_SIGN",
+                    "hash":"SHA256",
+                    "data":"486920416C69636520776861742061626F75742064696E6E657220746F6E69676874203F",
+                    "expected_result": "A665ACAA05A4ED3C7ABD48F1FF8908974A94591EDD7B60B4024E845B62FC6BBBAA2B4C570864D79E5308A7C1F4EED3ACF7EF4A595DE31DBA776E44C443F2D2B6",
+                    "expected_result_1" : "30450220776943ACC016F1BC547703E86940DAB2232064FDE6BFB0CB7619ED1986FEF9F0022100994C0825A9C1680519A0FD31AD93DD3BA3E410D010F2D00E9D53EAA8EECCFCDA"
+                },
+            "VERIFY": {
+                "description":"ECC verify hash digest",
+                "key": "ECC_Bob_Public",
+                "alg":"ECC_VERIFY",
+                "hash":"SHA256",
+                "data":"486920416C69636520776861742061626F75742064696E6E657220746F6E69676874203F",
+                "signature":"A665ACAA05A4ED3C7ABD48F1FF8908974A94591EDD7B60B4024E845B62FC6BBBAA2B4C570864D79E5308A7C1F4EED3ACF7EF4A595DE31DBA776E44C443F2D2B6",
+                "signature_DER" : "304602210088E7C338EA1E875D0615117D0EDDA1A37584A0B07B52590D33E945712343AA85022100C9AE19B081088748CDB166EE2B718EA8E92066ABB6949CE82FA87DFCB0B38BA3",
+                "expected_result" : "ok"
+            }
+        }, 
+  
+        "CRYPTO_BASIC": {
+            "0001": {
+                    "description":"Test Xor test",
+                    "alg":"XOR",
+                    "s1":"07",
+                    "s2":"0a",
+                    "expected_result" : "0d"
+            },
+
+            "0002": {
+                    "description":"Test base64 encode",
+                    "alg":"BASE64",
+                    "operation":"encode",
+                    "data": "6bc1bee22e409f96e93d7e117393172a",
+                    "expected_result": "a8G+4i5An5bpPX4Rc5MXKg=="
+            },
+            "0003": {
+                    "description":"Test base64 decode",
+                    "alg":"BASE64",
+                    "operation":"decode",
+                    "data": "a8G+4i5An5bpPX4Rc5MXKg==", 
+                    "expected_result" : "6bc1bee22e409f96e93d7e117393172a"
+            }
+        } 
+    }
+}
