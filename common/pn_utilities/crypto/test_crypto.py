@@ -27,6 +27,7 @@ from Crypto.Util.Padding import pad
 from Crypto.Util.Padding import unpad
 from Crypto.Signature import pkcs1_15
 from Crypto.Signature import DSS
+import pn_utilities.PnLogger as PnLogger
 
 
 #------------------ GLOBALS ---------------------------

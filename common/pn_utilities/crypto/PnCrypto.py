@@ -59,6 +59,12 @@ class PnCryptoKeys:
 
     def get_keys(self):
         return self.keys
+    
+    def import_ephemeral_key(self, value, type):
+        key_no = len(self.keys) + 1
+        key_name= "eph_" + str(key_no)
+        self.keys[key_name] = PnCryptKey(key_name, value, type)
+        return self.keys[key_name]
 
     def get_key(self, key_name):
         return self.keys.get(key_name, None)
@@ -76,10 +82,13 @@ class PnCrypto():
     def get_PnCryptoKeys(self):
         return self.keys
     #-------------------------------------------------------------
-    # do_DES
+    # do_DES  - the key can be a name or a PnCryptoKey
     #-------------------------------------------------------------
-    def do_DES(self, operation, key_name, mode, data, iv):
-        k = self.keys.get_key(key_name)
+    def do_DES(self, operation, key, mode, data, iv):
+        if  isinstance(key, PnCryptKey):
+            k = key
+        else:
+            k = self.keys.get_key(key)
         key_value = k.get_value()
         if len(key_value) == 32 :
             key_value = key_value + key_value[0: 16]  # double des set k3 = K1 
@@ -107,7 +116,42 @@ class PnCrypto():
             return cobj.hexdigest()
         # still here something wrong 
         return "Invalid operation"
+    #---------------------------------------------------------------------
+    # hex_string_xor(s1, s2)
+    # https://stackoverflow.com/questions/52851023/python-3-xor-bytearrays
+    #---------------------------------------------------------------------
+    def hex_string_xor(self, s1, s2):
+        one = bytes.fromhex(s1)
+        two = bytes.fromhex(s2)
+        one_xor_two = bytes(a ^ b for (a, b) in zip(one, two))
+        return one_xor_two.hex()
 
+
+    #-------------------------------------------------------------
+    # udk
+    #-------------------------------------------------------------
+    def do_udk(self, imk_name, pan, psn):
+#        keystore = self.get_PnCryptoKeys()
+        pan_psn = pan + psn;
+        pan_psn = pan_psn[len(pan_psn) -16: len(pan_psn)]
+        iv = "0000000000000000"
+#        imk_key = keystore.import_ephemeral_key(imk.)
+        left  = self.do_DES('encrypt', imk_name, 'ECB', pan_psn, iv)
+        pan_psn_xor = self.hex_string_xor(pan_psn, "FFFFFFFFFFFFFFFF")
+        right = self.do_DES('encrypt', imk_name, 'ECB', pan_psn_xor, iv)
+        return left + right
+    #-------------------------------------------------------------
+    # session_key
+    #-------------------------------------------------------------
+    def do_session_key(self, imk, pan, psn, atc):
+        udk_value  = self.do_udk(imk, pan, psn)
+        udk_key = self.get_PnCryptoKeys().import_ephemeral_key(udk_value, 'DES')
+        f1 = atc + "F0" + "0000000000"
+        f2 = atc + "0F" + "0000000000"
+        iv = "0000000000000000"
+        left  = self.do_DES('encrypt', udk_key, 'ECB', f1, iv)
+        right = self.do_DES('encrypt', udk_key, 'ECB', f2, iv)
+        return left + right
 #-------------------------------
 # local tests
 #--------------------------------
@@ -121,7 +165,10 @@ if __name__ == '__main__':
 
     print(my_keys.get_key('k3xyz')) 
     my_PnCrypto = PnCrypto()
-    res = my_PnCrypto.do_DES("encrypt", "DES_k1", "ECB", "6bc1bee22e409f96e93d7e117393172a", "0000000000000000") 
-    print("res" + res + " exp:DF8F88432FEA610CC1FAAF1AB1C0C037") 
+#    res = my_PnCrypto.do_DES("encrypt", "DES_k1", "ECB", "6bc1bee22e409f96e93d7e117393172a", "0000000000000000") 
+#     print("res" + res + " exp:DF8F88432FEA610CC1FAAF1AB1C0C037") 
+    res = my_PnCrypto.do_udk('IMK_k1','5656781234567891' , '01')
+    print("res" + res + "Exp: CB45F993BDDA763EF030AF6CE1762735" )
+    res = my_PnCrypto.do_session_key('IMK_k1','5656781234567891' , '01', '0001')
+    print("res" + res + "Exp: E011BB83D8A60BEE3CDE768F68560BD9")
  
-
