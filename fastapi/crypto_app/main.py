@@ -19,7 +19,7 @@ import pn_utilities.PnLogger as PnLogger
 #---------------------------------------------------
 # set the logging
 #---------------------------------------------------
-log=PnLogger.PnLogger(level=logging.INFO)
+log=PnLogger.PnLogger()
 
 
 #---------------------------------------------------

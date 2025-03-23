@@ -1,0 +1,16 @@
+2025-03-23 17:04:40,540 - INFO - Started
+2025-03-23 17:04:40,542 - INFO - {'msg_code': '0100', 'f002': '6543210987654321', 'f004': '000000023456', 'f049': '752'}
+2025-03-23 17:04:40,542 - INFO - testing:Test number 2 repeat:2
+2025-03-23 17:04:40,568 - INFO - start:17:04:40.543048 end:17:04:40.567941 diff:0:00:00.024893 port:8002
+2025-03-23 17:04:40,568 - INFO - {'message': 'host:0482d3cf2ec1: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-23 17:04:40,576 - INFO - start:17:04:40.568535 end:17:04:40.576093 diff:0:00:00.007558 port:8002
+2025-03-23 17:04:40,576 - INFO - {'message': 'host:0482d3cf2ec1: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-23 17:04:40,577 - INFO - {'msg_code': '0100', 'f002': '1234567890123456', 'f004': '000000012345', 'f049': '752'}
+2025-03-23 17:04:40,578 - INFO - testing:Test number 1 repeat:3
+2025-03-23 17:04:40,590 - INFO - start:17:04:40.578241 end:17:04:40.590789 diff:0:00:00.012548 port:8080
+2025-03-23 17:04:40,591 - INFO - {'message': 'host:81f79b770682: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-23 17:04:40,604 - INFO - start:17:04:40.591620 end:17:04:40.604504 diff:0:00:00.012884 port:8080
+2025-03-23 17:04:40,604 - INFO - {'message': 'host:0482d3cf2ec1: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-23 17:04:40,618 - INFO - start:17:04:40.605188 end:17:04:40.618780 diff:0:00:00.013592 port:8080
+2025-03-23 17:04:40,619 - INFO - {'message': 'host:81f79b770682: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-23 17:04:40,619 - INFO - Finished

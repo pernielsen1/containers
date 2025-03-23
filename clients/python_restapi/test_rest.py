@@ -2,10 +2,6 @@
 from datetime import datetime
 import requests
 import json
-import os
-import sys
-import logging
-import pn_utilities.PnLogger as PnLogger
 
 #... this is for the virtual env - still needed ? 20250308 check it
 # sys.path.append(os.getcwd() + '/test_rest/server')
@@ -17,8 +13,10 @@ import pn_utilities.PnLogger as PnLogger
 #
 #-----------------------------------------------------------------------------
 # import logging
+import pn_utilities.PnLogger as PnLogger
+log = PnLogger.PnLogger()
 
-log = None       # the global logging object - currently init in main process
+
 config_dir = ''
 config_file = 'test_rest.json'
 #-----------------------------------------------------------------------------------------
@@ -70,8 +68,6 @@ def run_test(test_case_name):
 #--------------------------------------------------------
     
 def main():
-    global log
-    log = PnLogger.PnLogger(level=logging.INFO)
     log.info('Started')
     run_test("0002")
     run_test("0001")
