@@ -1,7 +1,10 @@
-# global logger
 # and todo updated on wsl
-# now the containser are cloned to another directory
+# To Documentation:
 # The API-server 
 # https://medium.com/@alidu143/containerizing-fastapi-app-with-docker-a-comprehensive-guide-416521b2457c
 # docker starts automatically on vivobook
-
+# 
+# ToDo:
+# Rest services what should be the naming convention ?
+# Connect the ARQC in fastapi - new request
+# 

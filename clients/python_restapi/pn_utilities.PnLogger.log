@@ -14,3 +14,71 @@
 2025-03-23 17:04:40,618 - INFO - start:17:04:40.605188 end:17:04:40.618780 diff:0:00:00.013592 port:8080
 2025-03-23 17:04:40,619 - INFO - {'message': 'host:81f79b770682: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
 2025-03-23 17:04:40,619 - INFO - Finished
+2025-03-24 20:06:26,840 - INFO - Started
+2025-03-24 20:06:26,842 - INFO - {'msg_code': '0100', 'f002': '6543210987654321', 'f004': '000000023456', 'f049': '752'}
+2025-03-24 20:06:26,842 - INFO - testing:Test number 2 repeat:2
+2025-03-24 20:06:26,856 - INFO - start:20:06:26.842630 end:20:06:26.855908 diff:0:00:00.013278 port:8002
+2025-03-24 20:06:26,857 - INFO - {'message': 'host:62ba28b68065: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-24 20:06:26,871 - INFO - start:20:06:26.857943 end:20:06:26.871576 diff:0:00:00.013633 port:8002
+2025-03-24 20:06:26,872 - INFO - {'message': 'host:62ba28b68065: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-24 20:06:26,873 - INFO - {'msg_code': '0100', 'f002': '1234567890123456', 'f004': '000000012345', 'f049': '752'}
+2025-03-24 20:06:26,874 - INFO - testing:Test number 1 repeat:3
+2025-03-24 20:06:26,884 - INFO - start:20:06:26.874175 end:20:06:26.884439 diff:0:00:00.010264 port:8080
+2025-03-24 20:06:26,884 - INFO - {'message': 'host:402451e91ec7: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-24 20:06:26,896 - INFO - start:20:06:26.884957 end:20:06:26.896754 diff:0:00:00.011797 port:8080
+2025-03-24 20:06:26,897 - INFO - {'message': 'host:62ba28b68065: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-24 20:06:26,909 - INFO - start:20:06:26.897484 end:20:06:26.909383 diff:0:00:00.011899 port:8080
+2025-03-24 20:06:26,909 - INFO - {'message': 'host:402451e91ec7: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-24 20:06:26,910 - INFO - Finished
+2025-03-24 20:10:11,533 - INFO - Started
+2025-03-24 20:10:11,534 - INFO - {'msg_code': '0100', 'f002': '6543210987654321', 'f004': '000000023456', 'f049': '752'}
+2025-03-24 20:10:11,534 - INFO - testing:Test number 2 repeat:2
+2025-03-24 20:12:59,628 - INFO - Started
+2025-03-24 20:12:59,629 - INFO - {'msg_code': '0100', 'f002': '6543210987654321', 'f004': '000000023456', 'f049': '752'}
+2025-03-24 20:12:59,629 - INFO - testing:Test number 2 repeat:2
+2025-03-24 20:12:59,642 - INFO - start:20:12:59.629537 end:20:12:59.641783 diff:0:00:00.012246 port:8080
+2025-03-24 20:12:59,642 - INFO - {'message': 'host:per-nielsen-X541NA: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-24 20:12:59,658 - INFO - start:20:12:59.642986 end:20:12:59.658622 diff:0:00:00.015636 port:8080
+2025-03-24 20:12:59,659 - INFO - {'message': 'host:per-nielsen-X541NA: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-24 20:12:59,660 - INFO - {'msg_code': '0100', 'f002': '1234567890123456', 'f004': '000000012345', 'f049': '752'}
+2025-03-24 20:12:59,660 - INFO - testing:Test number 1 repeat:3
+2025-03-24 20:12:59,669 - INFO - start:20:12:59.660852 end:20:12:59.668992 diff:0:00:00.008140 port:8080
+2025-03-24 20:12:59,670 - INFO - {'message': 'host:per-nielsen-X541NA: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-24 20:12:59,680 - INFO - start:20:12:59.670636 end:20:12:59.680370 diff:0:00:00.009734 port:8080
+2025-03-24 20:12:59,681 - INFO - {'message': 'host:per-nielsen-X541NA: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-24 20:12:59,690 - INFO - start:20:12:59.682604 end:20:12:59.690098 diff:0:00:00.007494 port:8080
+2025-03-24 20:12:59,690 - INFO - {'message': 'host:per-nielsen-X541NA: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-24 20:12:59,692 - INFO - Finished
+2025-03-24 20:15:23,538 - INFO - Started
+2025-03-24 20:16:19,094 - INFO - Started
+2025-03-24 20:16:19,095 - INFO - {'msg_code': '0100', 'f002': '6543210987654321', 'f004': '000000023456', 'f049': '752'}
+2025-03-24 20:16:19,095 - INFO - testing:Test number 2 repeat:2
+2025-03-24 20:16:19,105 - INFO - start:20:16:19.095612 end:20:16:19.105844 diff:0:00:00.010232 port:8080
+2025-03-24 20:16:19,106 - INFO - {'message': 'host:per-nielsen-X541NA: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-24 20:16:19,116 - INFO - start:20:16:19.106580 end:20:16:19.116220 diff:0:00:00.009640 port:8080
+2025-03-24 20:16:19,116 - INFO - {'message': 'host:per-nielsen-X541NA: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-24 20:16:19,117 - INFO - {'msg_code': '0100', 'f002': '1234567890123456', 'f004': '000000012345', 'f049': '752'}
+2025-03-24 20:16:19,118 - INFO - testing:Test number 1 repeat:3
+2025-03-24 20:16:19,135 - INFO - start:20:16:19.118279 end:20:16:19.134924 diff:0:00:00.016645 port:8080
+2025-03-24 20:16:19,135 - INFO - {'message': 'host:per-nielsen-X541NA: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-24 20:16:19,147 - INFO - start:20:16:19.135662 end:20:16:19.147629 diff:0:00:00.011967 port:8080
+2025-03-24 20:16:19,151 - INFO - {'message': 'host:per-nielsen-X541NA: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-24 20:16:19,165 - INFO - start:20:16:19.152282 end:20:16:19.165712 diff:0:00:00.013430 port:8080
+2025-03-24 20:16:19,166 - INFO - {'message': 'host:per-nielsen-X541NA: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-24 20:16:19,166 - INFO - Finished
+2025-03-24 20:21:29,555 - INFO - Started
+2025-03-24 20:21:29,556 - INFO - {'msg_code': '0100', 'f002': '6543210987654321', 'f004': '000000023456', 'f049': '752'}
+2025-03-24 20:21:29,556 - INFO - testing:Test number 2 repeat:2
+2025-03-24 20:21:29,568 - INFO - start:20:21:29.557101 end:20:21:29.568417 diff:0:00:00.011316 port:8080
+2025-03-24 20:21:29,568 - INFO - {'message': 'host:per-nielsen-X541NA: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-24 20:21:29,578 - INFO - start:20:21:29.569185 end:20:21:29.578119 diff:0:00:00.008934 port:8080
+2025-03-24 20:21:29,580 - INFO - {'message': 'host:per-nielsen-X541NA: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-24 20:21:29,581 - INFO - {'msg_code': '0100', 'f002': '1234567890123456', 'f004': '000000012345', 'f049': '752'}
+2025-03-24 20:21:29,582 - INFO - testing:Test number 1 repeat:3
+2025-03-24 20:21:29,591 - INFO - start:20:21:29.582418 end:20:21:29.591463 diff:0:00:00.009045 port:8080
+2025-03-24 20:21:29,592 - INFO - {'message': 'host:per-nielsen-X541NA: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-24 20:21:29,600 - INFO - start:20:21:29.592685 end:20:21:29.600214 diff:0:00:00.007529 port:8080
+2025-03-24 20:21:29,600 - INFO - {'message': 'host:per-nielsen-X541NA: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-24 20:21:29,609 - INFO - start:20:21:29.601001 end:20:21:29.609418 diff:0:00:00.008417 port:8080
+2025-03-24 20:21:29,610 - INFO - {'message': 'host:per-nielsen-X541NA: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-24 20:21:29,612 - INFO - Finished

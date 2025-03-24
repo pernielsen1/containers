@@ -81,5 +81,5 @@ async def add_transcode_0100(request: Request):
 if __name__ == '__main__':
     import uvicorn
     # Run the FastAPI application using uvicorn
-    uvicorn.run(app, host='127.0.0.1', port=8002)
+    uvicorn.run(app, host='127.0.0.1', port=8080)
 

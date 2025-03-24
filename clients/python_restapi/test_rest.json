@@ -1,7 +1,37 @@
 {
     "server": "127.0.0.1",
     "port": "8001",
-    
+    "EMV": {
+
+        "ARQC": {
+            "description":"Calculate ARQC for EMV",
+            "num_repeats": 1,
+            "path": "transcode_ARQC",  
+            "key_name":"IMK_k1",
+            "PAN":"5656781234567891", 
+            "PSN": "01",
+            "ATC": "0001",
+            "data": "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000",
+            "data_with_80": "00000000510000000000000007920000208000094917041900B49762F2390000010105A040000020000000000000000080",
+            "expected_result" : "F5EB72ED4F51B9DE" 
+        },
+        "ARPC": {
+            "description":"Calculate ARPC for EMV",
+            "num_repeats": 1,
+            "path": "transcode_ARPC",  
+            "key_name":"IMK_k1",
+            "PAN":"5656781234567891", 
+            "PSN": "01",
+            "ATC": "0001",
+            "CSU": "0012",
+            "ARQC": "F5EB72ED4F51B9DE", 
+            "expected_result" : "A2092CCC0C25006B" 
+        }
+
+    },
+
+
+
     "tests": {
         "0001": {
             "port": "8080",
@@ -16,7 +46,7 @@
             }
         }, 
         "0002": {
-            "port": "8002",
+            "port": "8080",
             "description":"Test number 2",           
             "path": "transcode_0100",
             "num_repeats": 2,            
