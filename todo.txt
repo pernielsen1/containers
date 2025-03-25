@@ -8,3 +8,4 @@
 # Rest services what should be the naming convention ?
 # Connect the ARQC in fastapi - new request
 # 
+# build fastapi_venv needs the requirements as well - we missed the pycrypto

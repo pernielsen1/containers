@@ -14,14 +14,19 @@ if os.path.abspath("..") not in sys.path:
 from fastapi import FastAPI, HTTPException, Request
 import json
 import socket
-import logging
+# import logging
 import pn_utilities.PnLogger as PnLogger
 #---------------------------------------------------
 # set the logging
 #---------------------------------------------------
 log=PnLogger.PnLogger()
+#---------------------------------------------------
+# load the crypto environment
+#---------------------------------------------------
+import pn_utilities.crypto.PnCrypto as PnCrypto
 
-
+crypto_obj = PnCrypto.PnCrypto()
+ 
 #---------------------------------------------------
 # here we go
 #---------------------------------------------------
@@ -35,6 +40,95 @@ app = FastAPI()
 async def root():
     log.info("in root")
     return {"message": "Hello from my World"}
+
+#-------------------------------------------------------------------------
+# post /v1/arqc:  handling request arqc calculate an arqc
+#-------------------------------------------------------------------------
+@app.post("/v1/arqc")
+async def v1_arqc(request: Request):
+    hostname = socket.gethostname()
+ 
+    try:
+        # Extracting user data from the request body
+        data_json = await request.json()
+        # Validate the presence of required fields
+        log.info("Request received" + data_json)
+        if 'pan' not in data_json or 'psn' not in data_json:
+            raise HTTPException(
+                status_code=422, detail='Incomplete data provided')
+
+        # parse the dato with json loads and extract f002 and f049
+        data = json.loads(data_json)
+        
+        key_name = data['key_name']
+        pan = data['pan']
+        psn = data['psn']
+        atc = data['atc']
+        data = data['data']
+        arqc = crypto_obj.do_arqc(key_name, pan, psn, atc, data, True)
+        # Returning a confirmation message
+        ret_message = 'host:' + hostname + ': calculated arqc : ' + arqc
+        log.info(ret_message)
+        return {'message': ret_message}
+
+    except HTTPException as e:
+        # Re-raise HTTPException to return the specified 
+        # status code and detail
+        print("HTTP exception")
+        raise e
+    except Exception as e:
+        # Handle other unexpected exceptions and return a 
+        # 500 Internal Server Error
+        print("ehre two")
+        raise HTTPException(
+            status_code=500, detail='An error occurred: {str(e)}')
+
+#-------------------------------------------------------------------------
+# post /v1/arpc:  handling request arpc calculate an arpc
+#-------------------------------------------------------------------------
+@app.post("/v1/arpc")
+async def v1_arpc(request: Request):
+    hostname = socket.gethostname()
+ 
+    try:
+        # Extracting user data from the request body
+        data_json = await request.json()
+        # Validate the presence of required fields
+        log.info("Request received" + data_json)
+        if 'pan' not in data_json or 'psn' not in data_json:
+            raise HTTPException(
+                status_code=422, detail='Incomplete data provided')
+
+        # parse the dato with json loads and extract f002 and f049
+        data = json.loads(data_json)
+        
+        key_name = data['key_name']
+        pan = data['pan']
+        psn = data['psn']
+        atc = data['atc']
+        csu = data['csu']
+        arqc = data['arqc']
+        arpc = crypto_obj.do_arpc(key_name, pan, psn, atc, arqc, csu)
+        # Returning a confirmation message
+        ret_message = 'host:' + hostname + ': calculated arpc : ' + arpc
+        log.info(ret_message)
+        return {'message': ret_message}
+
+    except HTTPException as e:
+        # Re-raise HTTPException to return the specified 
+        # status code and detail
+        print("HTTP exception")
+        raise e
+    except Exception as e:
+        # Handle other unexpected exceptions and return a 
+        # 500 Internal Server Error
+        print("ehre two")
+        raise HTTPException(
+            status_code=500, detail='An error occurred: {str(e)}')
+
+
+
+
 
 #-------------------------------------------------------------------------
 # post transcode_0100:  handling request type 0100
@@ -74,6 +168,7 @@ async def add_transcode_0100(request: Request):
         print("ehre two")
         raise HTTPException(
             status_code=500, detail='An error occurred: {str(e)}')
+
 
 #-----------------------------------------------------------
 # we can run it from here or with fastapi dev main.py

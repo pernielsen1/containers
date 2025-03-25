@@ -29,10 +29,10 @@ def load_config():
 #-----------------------------------------------------------------------------------------
 # do_it : load config - and run a test case with the name test_case_name
 #-----------------------------------------------------------------------------------------
-def run_test(test_case_name):
+def run_test(segment, test_case_name):
     config = load_config()
 
-    test_case = config['tests'][test_case_name]
+    test_case = config[segment][test_case_name]
     server_url = config['server'] + ":" + test_case['port']
 
     num_repeats = test_case['num_repeats']
@@ -69,8 +69,10 @@ def run_test(test_case_name):
     
 def main():
     log.info('Started')
-    run_test("0002")
-    run_test("0001")
+#    run_test("tests", "0002")
+#    run_test("tests", "0001")
+    run_test("EMV", "ARQC")
+    run_test("EMV", "ARPC")
 
     log.info('Finished')
 

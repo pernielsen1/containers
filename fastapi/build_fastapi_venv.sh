@@ -17,11 +17,15 @@ python3 -m venv $TARGET_DIR
 source $TARGET_DIR/bin/activate
 
 # activate
-which pip
-pip install fastapi
-pip install "fastapi[standard]"
-pip install uvicorn
+# remove the local lines - they are absolut and we will install with relative manually below
+sed -i "/@ file:/d" fastapi_requirements.txt
+pip install -r fastapi_requirements.txt
 mkdir $TARGET_DIR/local_packages
 cp ../common/dist/* $TARGET_DIR/local_packages
 pip install $TARGET_DIR/local_packages/pn_utilities-0.1.tar.gz
 deactivate
+
+# which pip
+# pip install fastapi
+# pip install "fastapi[standard]"
+# pip install uvicorn
