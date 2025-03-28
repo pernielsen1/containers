@@ -173,3 +173,47 @@
 2025-03-25 20:48:50,638 - INFO - start:20:48:50.623941 end:20:48:50.638838 diff:0:00:00.014897 port:8080
 2025-03-25 20:48:50,639 - INFO - {'message': 'host:per-nielsen-X541NA: calculated arpc : a2092ccc0c25006b'}
 2025-03-25 20:48:50,639 - INFO - Finished
+2025-03-26 19:23:57,327 - INFO - Started
+2025-03-26 19:23:57,329 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'data': '00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000', 'data_with_80': '00000000510000000000000007920000208000094917041900B49762F2390000010105A040000020000000000000000080'}
+2025-03-26 19:23:57,330 - INFO - testing:Calculate ARQC for EMV repeat:1
+2025-03-26 19:23:57,357 - INFO - start:19:23:57.330787 end:19:23:57.357271 diff:0:00:00.026484 port:8080
+2025-03-26 19:23:57,358 - INFO - {'message': 'host:LAPTOP-P5P268SM: calculated arqc : f5eb72ed4f51b9de'}
+2025-03-26 19:23:57,359 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'csu': '0012', 'arqc': 'F5EB72ED4F51B9DE'}
+2025-03-26 19:23:57,359 - INFO - testing:Calculate ARPC for EMV repeat:1
+2025-03-26 19:23:57,373 - INFO - start:19:23:57.360058 end:19:23:57.373866 diff:0:00:00.013808 port:8080
+2025-03-26 19:23:57,374 - INFO - {'message': 'host:LAPTOP-P5P268SM: calculated arpc : a2092ccc0c25006b'}
+2025-03-26 19:23:57,375 - INFO - Finished
+2025-03-27 18:01:42,280 - INFO - Started
+2025-03-27 18:01:42,286 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'data': '00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000', 'data_with_80': '00000000510000000000000007920000208000094917041900B49762F2390000010105A040000020000000000000000080'}
+2025-03-27 18:01:42,286 - INFO - testing:Calculate ARQC for EMV repeat:1
+2025-03-27 18:01:42,376 - INFO - start:18:01:42.288183 end:18:01:42.373477 diff:0:00:00.085294 port:8080
+2025-03-27 18:01:42,377 - INFO - {'message': 'host:201e7339314f: calculated arqc : f5eb72ed4f51b9de'}
+2025-03-27 18:01:42,378 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'csu': '0012', 'arqc': 'F5EB72ED4F51B9DE'}
+2025-03-27 18:01:42,378 - INFO - testing:Calculate ARPC for EMV repeat:1
+2025-03-27 18:01:42,404 - INFO - start:18:01:42.378848 end:18:01:42.404626 diff:0:00:00.025778 port:8080
+2025-03-27 18:01:42,405 - INFO - {'message': 'host:19f505c1746c: calculated arpc : a2092ccc0c25006b'}
+2025-03-27 18:01:42,405 - INFO - Finished
+2025-03-27 19:17:45,997 - INFO - Started
+2025-03-27 19:17:46,002 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'data': '00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000', 'data_with_80': '00000000510000000000000007920000208000094917041900B49762F2390000010105A040000020000000000000000080'}
+2025-03-27 19:17:46,003 - INFO - testing:Calculate ARQC for EMV repeat:1
+2025-03-27 19:17:46,044 - INFO - start:19:17:46.003150 end:19:17:46.044484 diff:0:00:00.041334 port:8080
+2025-03-27 19:17:46,045 - INFO - {'message': 'host:06c12c99020d: calculated arqc : f5eb72ed4f51b9de'}
+2025-03-27 19:17:46,046 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'csu': '0012', 'arqc': 'F5EB72ED4F51B9DE'}
+2025-03-27 19:17:46,047 - INFO - testing:Calculate ARPC for EMV repeat:1
+2025-03-27 19:17:46,065 - INFO - start:19:17:46.047480 end:19:17:46.065780 diff:0:00:00.018300 port:8080
+2025-03-27 19:17:46,066 - INFO - {'message': 'host:83c0c3183490: calculated arpc : a2092ccc0c25006b'}
+2025-03-27 19:17:46,067 - INFO - Finished
+2025-03-28 20:22:57,983 - INFO - Started
+2025-03-28 20:22:57,987 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'data': '00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000', 'data_with_80': '00000000510000000000000007920000208000094917041900B49762F2390000010105A040000020000000000000000080'}
+2025-03-28 20:22:57,987 - INFO - testing:Calculate ARQC for EMV repeat:1
+2025-03-28 20:22:58,007 - INFO - start:20:22:57.987867 end:20:22:58.007656 diff:0:00:00.019789 port:8080
+2025-03-28 20:22:58,008 - INFO - {'message': 'host:LAPTOP-P5P268SM: calculated arqc : f5eb72ed4f51b9de'}
+2025-03-28 20:22:58,010 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'csu': '0012', 'arqc': 'F5EB72ED4F51B9DE'}
+2025-03-28 20:22:58,010 - INFO - testing:Calculate ARPC for EMV repeat:1
+2025-03-28 20:22:58,026 - INFO - start:20:22:58.011238 end:20:22:58.026555 diff:0:00:00.015317 port:8080
+2025-03-28 20:22:58,027 - INFO - {'message': 'host:LAPTOP-P5P268SM: calculated arpc : a2092ccc0c25006b'}
+2025-03-28 20:22:58,028 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'csu': '0012', 'arqc': 'F5EB72ED4F51B9DE'}
+2025-03-28 20:22:58,029 - INFO - testing:Calculate ARPC for EMV repeat:1
+2025-03-28 20:22:58,038 - INFO - start:20:22:58.029410 end:20:22:58.038879 diff:0:00:00.009469 port:8080
+2025-03-28 20:22:58,039 - INFO - {'message': "{'DES_k1': <pn_utilities.crypto.PnCrypto.PnCryptKey object at 0x7fd057d8e4b0>, 'AES_k2': <pn_utilities.crypto.PnCrypto.PnCryptKey object at 0x7fd057d8e5a0>, 'IMK_k1': <pn_utilities.crypto.PnCrypto.PnCryptKey object at 0x7fd057c3c5c0>, 'AES_GCM': <pn_utilities.crypto.PnCrypto.PnCryptKey object at 0x7fd057c3c620>, 'ECC_Bob_Private': <pn_utilities.crypto.PnCrypto.PnCryptKey object at 0x7fd057c3c650>, 'ECC_Bob_Public': <pn_utilities.crypto.PnCrypto.PnCryptKey object at 0x7fd057c3c5f0>, 'ECC_ALice_Private': <pn_utilities.crypto.PnCrypto.PnCryptKey object at 0x7fd057c3c6b0>, 'ECC_Alice_Public': <pn_utilities.crypto.PnCrypto.PnCryptKey object at 0x7fd057c3c6e0>, 'RSA_Alice_Public': <pn_utilities.crypto.PnCrypto.PnCryptKey object at 0x7fd057c3c710>, 'RSA_Alice_Private': <pn_utilities.crypto.PnCrypto.PnCryptKey object at 0x7fd057c3c740>, 'RSA_Bob_Public': <pn_utilities.crypto.PnCrypto.PnCryptKey object at 0x7fd057c3c770>, 'RSA_Bob_Private': <pn_utilities.crypto.PnCrypto.PnCryptKey object at 0x7fd057c3c7a0>, 'k3': <pn_utilities.crypto.PnCrypto.PnCryptKey object at 0x7fd057c3c7d0>}"}
+2025-03-28 20:22:58,040 - INFO - Finished

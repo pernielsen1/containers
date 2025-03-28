@@ -47,7 +47,10 @@ def run_test(segment, test_case_name):
         str_start = datetime.strftime(start, "%H:%M:%S.%f")
         json_msg = json.dumps(test_msg)
         try:
-            response = requests.post(post_url, json=json_msg)
+            if test_case['method'] == 'post':
+                response = requests.post(post_url, json=json_msg)
+            if test_case['method'] == 'get':
+                response = requests.get(post_url, json=json_msg)
         except:
             # TODO - print the error request
             log.error("error in request.post")
@@ -73,6 +76,7 @@ def main():
 #    run_test("tests", "0001")
     run_test("EMV", "ARQC")
     run_test("EMV", "ARPC")
+    run_test("EMV", "KEYS")
 
     log.info('Finished')
 

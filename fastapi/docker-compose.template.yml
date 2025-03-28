@@ -3,7 +3,8 @@
     ${BUILD_COMMAND}
     container_name: "${SERVICE_NAME}"
     volumes:
-      - ./crypto_app:/crypto_app
+      - ./data:/data
+      
     ports:
       - ${PORT}:${PORT}
     entrypoint:

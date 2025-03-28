@@ -9,6 +9,8 @@
 # adapted from:
 # https://www.reddit.com/r/docker/comments/mje7u2/dockercompose_dynamically_static_port_assignments/
 TARGET_DIR="crypto_app"
+export FULL_DATA=$HOME/containers/fastapi/data
+echo $FULL_DATA
 NO_CACHE=""
 BUILD=false
 if [ $# -eq 0 ]
@@ -36,6 +38,7 @@ for (( i = 1; i <= $NUM_SERVICES; i++ ))
         export BUILD_COMMAND=""
     done
 cat docker-compose-nginx.yml>>docker-compose.yml
+# cat docker-volumes.yml>>docker-compose.yml
 
 # ...do something interesting...
 if [ "$BUILD" = true ] ; then

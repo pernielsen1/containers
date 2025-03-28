@@ -6,6 +6,7 @@
             "port": "8080",
             "description":"Calculate ARQC for EMV",
             "num_repeats": 1,
+            "method" : "post",
             "path": "/v1/arqc",
             "msg": {  
                 "key_name":"IMK_k1",
@@ -21,6 +22,7 @@
             "port": "8080",
             "description":"Calculate ARPC for EMV",
             "num_repeats": 1,
+            "method" : "post",
             "path": "/v1/arpc",  
             "msg": {
                 "key_name":"IMK_k1",
@@ -31,7 +33,24 @@
                 "arqc": "F5EB72ED4F51B9DE" 
             },
             "expected_result" : "A2092CCC0C25006B" 
+        },
+        "KEYS": {
+            "port": "8080",
+            "description":"Calculate ARPC for EMV",
+            "num_repeats": 1,
+            "method" : "get",
+            "path": "/v1/keys",  
+            "msg": {
+                "key_name":"IMK_k1",
+                "pan":"5656781234567891", 
+                "psn": "01",
+                "atc": "0001",
+                "csu": "0012",
+                "arqc": "F5EB72ED4F51B9DE" 
+            },
+            "expected_result" : "A2092CCC0C25006B" 
         }
+
 
     },
 

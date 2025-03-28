@@ -41,6 +41,17 @@ async def root():
     log.info("in root")
     return {"message": "Hello from my World"}
 
+#---------------------------------------------------------
+# the get keys
+#---------------------------------------------------------
+@app.get("/v1/keys")
+async def v1_keys():
+    log.info("get keys")
+    keys = crypto_obj.get_PnCryptoKeys();
+    k_dict = keys.get_keys()
+    return {"message": str(k_dict)}
+
+
 #-------------------------------------------------------------------------
 # post /v1/arqc:  handling request arqc calculate an arqc
 #-------------------------------------------------------------------------

@@ -4,7 +4,8 @@ services:
     build: ./crypto_app
     container_name: "api1"
     volumes:
-      - ./crypto_app:/crypto_app
+      - ./data:/data
+      
     ports:
       - 8001:8001
     entrypoint:
@@ -19,7 +20,8 @@ services:
     
     container_name: "api2"
     volumes:
-      - ./crypto_app:/crypto_app
+      - ./data:/data
+      
     ports:
       - 8002:8002
     entrypoint:
