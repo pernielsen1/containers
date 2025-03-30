@@ -1,11 +1,36 @@
-# and todo updated on wsl
-# To Documentation:
-# The API-server 
-# https://medium.com/@alidu143/containerizing-fastapi-app-with-docker-a-comprehensive-guide-416521b2457c
-# docker starts automatically on vivobook
-# 
+and todo updated on wsl
+to Documentation:
+The API-server 
+https://medium.com/@alidu143/containerizing-fastapi-app-with-docker-a-comprehensive-guide-416521b2457c
+docker starts automatically on vivobook
+# Restructure all the exception handling.
+# post new key ... 
 # ToDo:
 # Rest services what should be the naming convention ?
-# Connect the ARQC in fastapi - new request
 # 
-# build fastapi_venv needs the requirements as well - we missed the pycrypto
+# build fastapi_venv needs the requirements as well - we missed the pycryptodome
+# https://learn.microsoft.com/en-us/azure/architecture/best-practices/api-design
+
+# reload keys
+# Comments in the docker compose files and clean up in temp versions of the files.
+# try sqllite
+# 
+
+MySQL container - incl SQL-alchemy
+change console colours
+
+should logger by subdir in PnUtilities ? 
+
+
+https://medium.com/@hillarywando/how-to-create-a-basic-crud-api-using-python-flask-cd68ef5fd7e3
+
+@app.route('/request/<id>', methods=['GET'])
+def getRequestId(id):
+
+Low prio: refactor key_name in test cases to key_id
+https://medium.com/@akshatgadodia/simplify-database-management-with-docker-compose-a-comprehensive-guide-f33816ff4bc3
+
+https://fastapi.tiangolo.com/tutorial/path-params/#data-conversion
+https://jnikenoueba.medium.com/how-to-create-routes-with-fastapi-42742f9d2cc1
+
+Logger.error finns ikke och sikkert inte debug, warn heller.

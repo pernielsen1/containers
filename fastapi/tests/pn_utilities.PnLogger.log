@@ -1,0 +1,126 @@
+2025-03-30 16:24:24,397 - INFO - setUp completed starting tests
+2025-03-30 16:24:24,398 - INFO - Loading keys store from:../data/PnCryptoKeys.json
+2025-03-30 16:24:24,403 - INFO - in tear down
+2025-03-30 16:24:24,404 - INFO - setUp completed starting tests
+2025-03-30 16:24:24,404 - INFO - Loading keys store from:../data/PnCryptoKeys.json
+2025-03-30 16:24:24,409 - INFO - in tear down
+2025-03-30 16:24:24,410 - INFO - setUp completed starting tests
+2025-03-30 16:24:24,411 - INFO - Loading keys store from:../data/PnCryptoKeys.json
+2025-03-30 16:24:24,412 - INFO - in tear down
+2025-03-30 16:24:24,413 - INFO - setUp completed starting tests
+2025-03-30 16:24:24,414 - INFO - Loading keys store from:../data/PnCryptoKeys.json
+2025-03-30 16:24:24,415 - INFO - in tear down
+2025-03-30 16:25:27,836 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'data': '00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000', 'data_with_80': '00000000510000000000000007920000208000094917041900B49762F2390000010105A040000020000000000000000080'}
+2025-03-30 16:25:27,836 - INFO - testing:Calculate ARQC for EMV repeat:1
+2025-03-30 16:25:27,843 - INFO - {'msg_code': '0100', 'f002': '6543210987654321', 'f004': '000000023456', 'f049': '752'}
+2025-03-30 16:25:27,843 - INFO - testing:Test number 2 repeat:1
+2025-03-30 16:26:41,194 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'data': '00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000', 'data_with_80': '00000000510000000000000007920000208000094917041900B49762F2390000010105A040000020000000000000000080'}
+2025-03-30 16:26:41,194 - INFO - testing:Calculate ARQC for EMV repeat:1
+2025-03-30 16:26:41,200 - INFO - {'msg_code': '0100', 'f002': '6543210987654321', 'f004': '000000023456', 'f049': '752'}
+2025-03-30 16:26:41,201 - INFO - testing:Test number 2 repeat:1
+2025-03-30 16:27:52,917 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'data': '00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000', 'data_with_80': '00000000510000000000000007920000208000094917041900B49762F2390000010105A040000020000000000000000080'}
+2025-03-30 16:27:52,918 - INFO - testing:Calculate ARQC for EMV repeat:1
+2025-03-30 16:27:52,934 - INFO - {'msg_code': '0100', 'f002': '6543210987654321', 'f004': '000000023456', 'f049': '752'}
+2025-03-30 16:27:52,935 - INFO - testing:Test number 2 repeat:1
+2025-03-30 16:30:31,183 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'data': '00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000', 'data_with_80': '00000000510000000000000007920000208000094917041900B49762F2390000010105A040000020000000000000000080'}
+2025-03-30 16:30:31,184 - INFO - testing:Calculate ARQC for EMV repeat:1
+2025-03-30 16:30:31,191 - INFO - start:16:30:31.184206 end:16:30:31.191909 diff:0:00:00.007703 port:8080
+2025-03-30 16:30:31,192 - INFO - {'detail': 'An error occurred: {str(e)}'}
+2025-03-30 16:30:31,192 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'csu': '0012', 'arqc': 'F5EB72ED4F51B9DE'}
+2025-03-30 16:30:31,193 - INFO - testing:Calculate ARPC for EMV repeat:1
+2025-03-30 16:30:31,197 - INFO - start:16:30:31.193450 end:16:30:31.197678 diff:0:00:00.004228 port:8080
+2025-03-30 16:30:31,197 - INFO - {'detail': 'An error occurred: {str(e)}'}
+2025-03-30 16:30:31,198 - INFO - {}
+2025-03-30 16:30:31,198 - INFO - testing:Get Keys repeat:1
+2025-03-30 16:30:31,201 - INFO - start:16:30:31.198684 end:16:30:31.201456 diff:0:00:00.002772 port:8080
+2025-03-30 16:30:31,201 - INFO - ['{"DES_k1": {"description": "desc for DES_k1", "uri": "/v1/keys/DES_k1"}, "AES_k2": {"description": "desc for AES_k2", "uri": "/v1/keys/AES_k2"}, "IMK_k1": {"description": "desc for IMK_k1", "uri": "/v1/keys/IMK_k1"}, "AES_GCM": {"description": "desc for AES_GCM", "uri": "/v1/keys/AES_GCM"}, "ECC_Bob_Private": {"description": "desc for ECC_Bob_Private", "uri": "/v1/keys/ECC_Bob_Private"}, "ECC_Bob_Public": {"description": "desc for ECC_Bob_Public", "uri": "/v1/keys/ECC_Bob_Public"}, "ECC_ALice_Private": {"description": "desc for ECC_ALice_Private", "uri": "/v1/keys/ECC_ALice_Private"}, "ECC_Alice_Public": {"description": "desc for ECC_Alice_Public", "uri": "/v1/keys/ECC_Alice_Public"}, "RSA_Alice_Public": {"description": "desc for RSA_Alice_Public", "uri": "/v1/keys/RSA_Alice_Public"}, "RSA_Alice_Private": {"description": "desc for RSA_Alice_Private", "uri": "/v1/keys/RSA_Alice_Private"}, "RSA_Bob_Public": {"description": "desc for RSA_Bob_Public", "uri": "/v1/keys/RSA_Bob_Public"}, "RSA_Bob_Private": {"description": "desc for RSA_Bob_Private", "uri": "/v1/keys/RSA_Bob_Private"}, "k3": {"description": "desc for k3", "uri": "/v1/keys/k3"}}']
+2025-03-30 16:30:31,202 - INFO - {}
+2025-03-30 16:30:31,202 - INFO - testing:Get One Key repeat:1
+2025-03-30 16:30:31,205 - INFO - start:16:30:31.202361 end:16:30:31.205300 diff:0:00:00.002939 port:8080
+2025-03-30 16:30:31,205 - INFO - ['{"id": "IMK_k1", "description": "desc for IMK_k1", "value": "0123456789abcdeffedcba9876543210", "type": "a type"}']
+2025-03-30 16:30:31,207 - INFO - {'msg_code': '0100', 'f002': '6543210987654321', 'f004': '000000023456', 'f049': '752'}
+2025-03-30 16:30:31,207 - INFO - testing:Test number 2 repeat:1
+2025-03-30 16:30:31,211 - INFO - start:16:30:31.208070 end:16:30:31.211506 diff:0:00:00.003436 port:8080
+2025-03-30 16:30:31,211 - INFO - {'message': 'host:LAPTOP-P5P268SM: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-30 16:30:31,212 - INFO - {'msg_code': '0100', 'f002': '1234567890123456', 'f004': '000000012345', 'f049': '752'}
+2025-03-30 16:30:31,213 - INFO - testing:Test number 1 repeat:1
+2025-03-30 16:30:31,216 - INFO - start:16:30:31.213251 end:16:30:31.216817 diff:0:00:00.003566 port:8080
+2025-03-30 16:30:31,217 - INFO - {'message': 'host:LAPTOP-P5P268SM: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-30 16:31:10,701 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'data': '00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000', 'data_with_80': '00000000510000000000000007920000208000094917041900B49762F2390000010105A040000020000000000000000080'}
+2025-03-30 16:31:10,701 - INFO - testing:Calculate ARQC for EMV repeat:1
+2025-03-30 16:31:10,706 - INFO - start:16:31:10.701432 end:16:31:10.706295 diff:0:00:00.004863 port:8080
+2025-03-30 16:31:10,706 - INFO - {'detail': 'An error occurred: {str(e)}'}
+2025-03-30 16:31:10,707 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'csu': '0012', 'arqc': 'F5EB72ED4F51B9DE'}
+2025-03-30 16:31:10,707 - INFO - testing:Calculate ARPC for EMV repeat:1
+2025-03-30 16:31:10,711 - INFO - start:16:31:10.707923 end:16:31:10.711500 diff:0:00:00.003577 port:8080
+2025-03-30 16:31:10,711 - INFO - {'detail': 'An error occurred: {str(e)}'}
+2025-03-30 16:31:10,712 - INFO - {}
+2025-03-30 16:31:10,712 - INFO - testing:Get Keys repeat:1
+2025-03-30 16:31:10,715 - INFO - start:16:31:10.712805 end:16:31:10.715917 diff:0:00:00.003112 port:8080
+2025-03-30 16:31:10,716 - INFO - ['{"DES_k1": {"description": "desc for DES_k1", "uri": "/v1/keys/DES_k1"}, "AES_k2": {"description": "desc for AES_k2", "uri": "/v1/keys/AES_k2"}, "IMK_k1": {"description": "desc for IMK_k1", "uri": "/v1/keys/IMK_k1"}, "AES_GCM": {"description": "desc for AES_GCM", "uri": "/v1/keys/AES_GCM"}, "ECC_Bob_Private": {"description": "desc for ECC_Bob_Private", "uri": "/v1/keys/ECC_Bob_Private"}, "ECC_Bob_Public": {"description": "desc for ECC_Bob_Public", "uri": "/v1/keys/ECC_Bob_Public"}, "ECC_ALice_Private": {"description": "desc for ECC_ALice_Private", "uri": "/v1/keys/ECC_ALice_Private"}, "ECC_Alice_Public": {"description": "desc for ECC_Alice_Public", "uri": "/v1/keys/ECC_Alice_Public"}, "RSA_Alice_Public": {"description": "desc for RSA_Alice_Public", "uri": "/v1/keys/RSA_Alice_Public"}, "RSA_Alice_Private": {"description": "desc for RSA_Alice_Private", "uri": "/v1/keys/RSA_Alice_Private"}, "RSA_Bob_Public": {"description": "desc for RSA_Bob_Public", "uri": "/v1/keys/RSA_Bob_Public"}, "RSA_Bob_Private": {"description": "desc for RSA_Bob_Private", "uri": "/v1/keys/RSA_Bob_Private"}, "k3": {"description": "desc for k3", "uri": "/v1/keys/k3"}}']
+2025-03-30 16:31:10,716 - INFO - {}
+2025-03-30 16:31:10,716 - INFO - testing:Get One Key repeat:1
+2025-03-30 16:31:10,720 - INFO - start:16:31:10.717045 end:16:31:10.720491 diff:0:00:00.003446 port:8080
+2025-03-30 16:31:10,720 - INFO - ['{"id": "IMK_k1", "description": "desc for IMK_k1", "value": "0123456789abcdeffedcba9876543210", "type": "a type"}']
+2025-03-30 16:31:10,721 - INFO - in tear down
+2025-03-30 16:31:10,721 - INFO - {'msg_code': '0100', 'f002': '6543210987654321', 'f004': '000000023456', 'f049': '752'}
+2025-03-30 16:31:10,721 - INFO - testing:Test number 2 repeat:1
+2025-03-30 16:31:10,726 - INFO - start:16:31:10.721978 end:16:31:10.726186 diff:0:00:00.004208 port:8080
+2025-03-30 16:31:10,726 - INFO - {'message': 'host:LAPTOP-P5P268SM: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-30 16:31:10,726 - INFO - {'msg_code': '0100', 'f002': '1234567890123456', 'f004': '000000012345', 'f049': '752'}
+2025-03-30 16:31:10,727 - INFO - testing:Test number 1 repeat:1
+2025-03-30 16:31:10,730 - INFO - start:16:31:10.727150 end:16:31:10.730268 diff:0:00:00.003118 port:8080
+2025-03-30 16:31:10,730 - INFO - {'message': 'host:LAPTOP-P5P268SM: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-30 16:31:10,730 - INFO - in tear down
+2025-03-30 16:33:08,350 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'data': '00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000', 'data_with_80': '00000000510000000000000007920000208000094917041900B49762F2390000010105A040000020000000000000000080'}
+2025-03-30 16:33:08,350 - INFO - testing:Calculate ARQC for EMV repeat:1
+2025-03-30 16:33:08,355 - INFO - start:16:33:08.350726 end:16:33:08.355592 diff:0:00:00.004866 port:8080
+2025-03-30 16:33:08,355 - INFO - {'detail': 'An error occurred: {str(e)}'}
+2025-03-30 16:33:08,356 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'csu': '0012', 'arqc': 'F5EB72ED4F51B9DE'}
+2025-03-30 16:33:08,356 - INFO - testing:Calculate ARPC for EMV repeat:1
+2025-03-30 16:33:08,360 - INFO - start:16:33:08.356597 end:16:33:08.360243 diff:0:00:00.003646 port:8080
+2025-03-30 16:33:08,360 - INFO - {'detail': 'An error occurred: {str(e)}'}
+2025-03-30 16:33:08,360 - INFO - {}
+2025-03-30 16:33:08,361 - INFO - testing:Get Keys repeat:1
+2025-03-30 16:33:08,364 - INFO - start:16:33:08.361187 end:16:33:08.364357 diff:0:00:00.003170 port:8080
+2025-03-30 16:33:08,364 - INFO - ['{"DES_k1": {"description": "desc for DES_k1", "uri": "/v1/keys/DES_k1"}, "AES_k2": {"description": "desc for AES_k2", "uri": "/v1/keys/AES_k2"}, "IMK_k1": {"description": "desc for IMK_k1", "uri": "/v1/keys/IMK_k1"}, "AES_GCM": {"description": "desc for AES_GCM", "uri": "/v1/keys/AES_GCM"}, "ECC_Bob_Private": {"description": "desc for ECC_Bob_Private", "uri": "/v1/keys/ECC_Bob_Private"}, "ECC_Bob_Public": {"description": "desc for ECC_Bob_Public", "uri": "/v1/keys/ECC_Bob_Public"}, "ECC_ALice_Private": {"description": "desc for ECC_ALice_Private", "uri": "/v1/keys/ECC_ALice_Private"}, "ECC_Alice_Public": {"description": "desc for ECC_Alice_Public", "uri": "/v1/keys/ECC_Alice_Public"}, "RSA_Alice_Public": {"description": "desc for RSA_Alice_Public", "uri": "/v1/keys/RSA_Alice_Public"}, "RSA_Alice_Private": {"description": "desc for RSA_Alice_Private", "uri": "/v1/keys/RSA_Alice_Private"}, "RSA_Bob_Public": {"description": "desc for RSA_Bob_Public", "uri": "/v1/keys/RSA_Bob_Public"}, "RSA_Bob_Private": {"description": "desc for RSA_Bob_Private", "uri": "/v1/keys/RSA_Bob_Private"}, "k3": {"description": "desc for k3", "uri": "/v1/keys/k3"}}']
+2025-03-30 16:33:08,365 - INFO - {}
+2025-03-30 16:33:08,365 - INFO - testing:Get One Key repeat:1
+2025-03-30 16:33:08,369 - INFO - start:16:33:08.365885 end:16:33:08.369043 diff:0:00:00.003158 port:8080
+2025-03-30 16:33:08,369 - INFO - ['{"id": "IMK_k1", "description": "desc for IMK_k1", "value": "0123456789abcdeffedcba9876543210", "type": "a type"}']
+2025-03-30 16:33:08,370 - INFO - in tear down
+2025-03-30 16:33:08,371 - INFO - {'msg_code': '0100', 'f002': '6543210987654321', 'f004': '000000023456', 'f049': '752'}
+2025-03-30 16:33:08,371 - INFO - testing:Test number 2 repeat:1
+2025-03-30 16:33:08,375 - INFO - start:16:33:08.371599 end:16:33:08.375188 diff:0:00:00.003589 port:8080
+2025-03-30 16:33:08,375 - INFO - {'message': 'host:LAPTOP-P5P268SM: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-30 16:33:08,375 - INFO - {'msg_code': '0100', 'f002': '1234567890123456', 'f004': '000000012345', 'f049': '752'}
+2025-03-30 16:33:08,375 - INFO - testing:Test number 1 repeat:1
+2025-03-30 16:33:08,379 - INFO - start:16:33:08.376067 end:16:33:08.379128 diff:0:00:00.003061 port:8080
+2025-03-30 16:33:08,379 - INFO - {'message': 'host:LAPTOP-P5P268SM: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-30 16:33:08,379 - INFO - in tear down
+2025-03-30 16:33:36,040 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'data': '00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000', 'data_with_80': '00000000510000000000000007920000208000094917041900B49762F2390000010105A040000020000000000000000080'}
+2025-03-30 16:33:36,040 - INFO - testing:Calculate ARQC for EMV repeat:1
+2025-03-30 16:33:36,045 - INFO - start:16:33:36.040553 end:16:33:36.045528 diff:0:00:00.004975 port:8080
+2025-03-30 16:33:36,046 - INFO - {'detail': 'An error occurred: {str(e)}'}
+2025-03-30 16:33:36,046 - INFO - {'key_name': 'IMK_k1', 'pan': '5656781234567891', 'psn': '01', 'atc': '0001', 'csu': '0012', 'arqc': 'F5EB72ED4F51B9DE'}
+2025-03-30 16:33:36,047 - INFO - testing:Calculate ARPC for EMV repeat:1
+2025-03-30 16:33:36,051 - INFO - start:16:33:36.047567 end:16:33:36.051466 diff:0:00:00.003899 port:8080
+2025-03-30 16:33:36,051 - INFO - {'detail': 'An error occurred: {str(e)}'}
+2025-03-30 16:33:36,052 - INFO - {}
+2025-03-30 16:33:36,052 - INFO - testing:Get Keys repeat:1
+2025-03-30 16:33:36,056 - INFO - start:16:33:36.052935 end:16:33:36.056816 diff:0:00:00.003881 port:8080
+2025-03-30 16:33:36,057 - INFO - ['{"DES_k1": {"description": "desc for DES_k1", "uri": "/v1/keys/DES_k1"}, "AES_k2": {"description": "desc for AES_k2", "uri": "/v1/keys/AES_k2"}, "IMK_k1": {"description": "desc for IMK_k1", "uri": "/v1/keys/IMK_k1"}, "AES_GCM": {"description": "desc for AES_GCM", "uri": "/v1/keys/AES_GCM"}, "ECC_Bob_Private": {"description": "desc for ECC_Bob_Private", "uri": "/v1/keys/ECC_Bob_Private"}, "ECC_Bob_Public": {"description": "desc for ECC_Bob_Public", "uri": "/v1/keys/ECC_Bob_Public"}, "ECC_ALice_Private": {"description": "desc for ECC_ALice_Private", "uri": "/v1/keys/ECC_ALice_Private"}, "ECC_Alice_Public": {"description": "desc for ECC_Alice_Public", "uri": "/v1/keys/ECC_Alice_Public"}, "RSA_Alice_Public": {"description": "desc for RSA_Alice_Public", "uri": "/v1/keys/RSA_Alice_Public"}, "RSA_Alice_Private": {"description": "desc for RSA_Alice_Private", "uri": "/v1/keys/RSA_Alice_Private"}, "RSA_Bob_Public": {"description": "desc for RSA_Bob_Public", "uri": "/v1/keys/RSA_Bob_Public"}, "RSA_Bob_Private": {"description": "desc for RSA_Bob_Private", "uri": "/v1/keys/RSA_Bob_Private"}, "k3": {"description": "desc for k3", "uri": "/v1/keys/k3"}}']
+2025-03-30 16:33:36,057 - INFO - {}
+2025-03-30 16:33:36,057 - INFO - testing:Get One Key repeat:1
+2025-03-30 16:33:36,061 - INFO - start:16:33:36.058245 end:16:33:36.060971 diff:0:00:00.002726 port:8080
+2025-03-30 16:33:36,061 - INFO - ['{"id": "IMK_k1", "description": "desc for IMK_k1", "value": "0123456789abcdeffedcba9876543210", "type": "a type"}']
+2025-03-30 16:33:36,061 - INFO - in tear down
+2025-03-30 16:33:36,062 - INFO - {'msg_code': '0100', 'f002': '6543210987654321', 'f004': '000000023456', 'f049': '752'}
+2025-03-30 16:33:36,062 - INFO - testing:Test number 2 repeat:1
+2025-03-30 16:33:36,066 - INFO - start:16:33:36.062390 end:16:33:36.066200 diff:0:00:00.003810 port:8080
+2025-03-30 16:33:36,066 - INFO - {'message': 'host:LAPTOP-P5P268SM: pan and key submitted updated successfully pan:6543210987654321 cur:752'}
+2025-03-30 16:33:36,066 - INFO - {'msg_code': '0100', 'f002': '1234567890123456', 'f004': '000000012345', 'f049': '752'}
+2025-03-30 16:33:36,067 - INFO - testing:Test number 1 repeat:1
+2025-03-30 16:33:36,070 - INFO - start:16:33:36.067339 end:16:33:36.070590 diff:0:00:00.003251 port:8080
+2025-03-30 16:33:36,070 - INFO - {'message': 'host:LAPTOP-P5P268SM: pan and key submitted updated successfully pan:1234567890123456 cur:752'}
+2025-03-30 16:33:36,071 - INFO - in tear down

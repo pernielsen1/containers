@@ -24,11 +24,9 @@ log=PnLogger.PnLogger()
 # load the crypto environment
 #---------------------------------------------------
 import pn_utilities.crypto.PnCrypto as PnCrypto
-
 crypto_obj = PnCrypto.PnCrypto()
- 
-#---------------------------------------------------
-# here we go
+ #---------------------------------------------------
+# here we go load the FastAPI
 #---------------------------------------------------
 
 app = FastAPI()
@@ -42,15 +40,25 @@ async def root():
     return {"message": "Hello from my World"}
 
 #---------------------------------------------------------
-# the get keys
+# the get keys list all keys
 #---------------------------------------------------------
 @app.get("/v1/keys")
 async def v1_keys():
     log.info("get keys")
     keys = crypto_obj.get_PnCryptoKeys();
-    k_dict = keys.get_keys()
-    return {"message": str(k_dict)}
+    r_msg = keys.get_keys_json()
+    return {r_msg}
 
+#---------------------------------------------------------
+# the get a key 
+#---------------------------------------------------------
+# @app.route('/v1/key2/<string:id_>', methods=['GET'])  does work completely different ... 
+@app.get("/v1/keys/{id}")
+async def v1_get_key(id: str):
+    log.info("get key called with parameter id:" + id)
+    keys = crypto_obj.get_PnCryptoKeys();
+    r_msg = keys.get_key_json(id)
+    return {r_msg}
 
 #-------------------------------------------------------------------------
 # post /v1/arqc:  handling request arqc calculate an arqc
@@ -76,24 +84,18 @@ async def v1_arqc(request: Request):
         psn = data['psn']
         atc = data['atc']
         data = data['data']
-        arqc = crypto_obj.do_arqc(key_name, pan, psn, atc, data, True)
-        # Returning a confirmation message
-        ret_message = 'host:' + hostname + ': calculated arqc : ' + arqc
+        ret_message['host'] = hostname
+        ret_message['arqc'] = crypto_obj.do_arqc(key_name, pan, psn, atc, data, True)
         log.info(ret_message)
-        return {'message': ret_message}
+        return {ret_message}
 
     except HTTPException as e:
-        # Re-raise HTTPException to return the specified 
-        # status code and detail
-        print("HTTP exception")
+        # Re-raise HTTPException to return the specified status code and detail
         raise e
     except Exception as e:
-        # Handle other unexpected exceptions and return a 
-        # 500 Internal Server Error
-        print("ehre two")
+        # Handle other unexpected exceptions and return a 500 Internal Server Error
         raise HTTPException(
             status_code=500, detail='An error occurred: {str(e)}')
-
 #-------------------------------------------------------------------------
 # post /v1/arpc:  handling request arpc calculate an arpc
 #-------------------------------------------------------------------------
@@ -119,26 +121,19 @@ async def v1_arpc(request: Request):
         atc = data['atc']
         csu = data['csu']
         arqc = data['arqc']
-        arpc = crypto_obj.do_arpc(key_name, pan, psn, atc, arqc, csu)
+        ret_message['host'] = hostname
+        ret_message['arpc'] = crypto_obj.do_arpc(key_name, pan, psn, atc, arqc, csu)
         # Returning a confirmation message
-        ret_message = 'host:' + hostname + ': calculated arpc : ' + arpc
         log.info(ret_message)
         return {'message': ret_message}
 
     except HTTPException as e:
-        # Re-raise HTTPException to return the specified 
-        # status code and detail
-        print("HTTP exception")
+        # Re-raise HTTPException to return the specified status code and detail
         raise e
     except Exception as e:
-        # Handle other unexpected exceptions and return a 
-        # 500 Internal Server Error
-        print("ehre two")
+        # Handle other unexpected exceptions and return a 500 Internal Server Error
         raise HTTPException(
             status_code=500, detail='An error occurred: {str(e)}')
-
-
-
 
 
 #-------------------------------------------------------------------------

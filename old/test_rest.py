@@ -72,11 +72,12 @@ def run_test(segment, test_case_name):
     
 def main():
     log.info('Started')
-#    run_test("tests", "0002")
-#    run_test("tests", "0001")
+    run_test("tests", "0002")
+    run_test("tests", "0001")
     run_test("EMV", "ARQC")
     run_test("EMV", "ARPC")
     run_test("EMV", "KEYS")
+    run_test("EMV", "KEY")
 
     log.info('Finished')
 

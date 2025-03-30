@@ -3,34 +3,40 @@ import json
 # from Crypto.Cipher import AES
 from Crypto.Cipher import DES
 from Crypto.Cipher import DES3
+from Crypto.Hash import CMAC
+
 # from Crypto.PublicKey import ECC
 # from Crypto.PublicKey import RSA
 # from Crypto.Cipher import PKCS1_OAEP
 # from Crypto.Hash import SHAKE256, SHA256
 # from Crypto.Protocol.DH import key_agreement
-from Crypto.Hash import CMAC
 # from Crypto.Util.Padding import pad
 # from Crypto.Util.Padding import unpad
 # from Crypto.Signature import pkcs1_15
 # from Crypto.Signature import DSS
 
-DATA_DIR = '../data/'
 import pn_utilities.PnLogger as PnLogger
 logger = PnLogger.PnLogger()
+config = {}
 #------------------------------------------
 # PnCryptKey - the key object
 #------------------------------------------
 class PnCryptKey():
     def __new__(cls, *args, **kwargs):
         return super().__new__(cls)
-    def __init__(self, name="", value="", type=""):
+    def __init__(self, id="", description="", value="", type=""):
         self.key = {}
-        self.key['name'] = name
+        self.key['id'] = id
+        self.key['description'] = description
         self.key['value'] = value
         self.key['type'] = type
 
-    def get_name(self):
-        return str(self.key['name'])
+    def get_id(self):
+        return str(self.key['id'])
+    def get_description(self):
+        return str(self.key['description'])
+    def get_uri(self):
+        return '/v1/keys/' + self.get_id()
     def get_value(self):
         return self.key['value']
     def get_type(self):
@@ -44,30 +50,44 @@ class PnCryptoKeys:
     def __new__(cls, *args, **kwargs):
         return super().__new__(cls)
 
-    def __init__(self, config_file="", name=""):
+    def __init__(self, config):
         self.keys = {}
-        self.name = name
-        if (config_file == ""):
-            config_file = DATA_DIR + "PnCryptoKeys.json"
-
-        logger.info("Loading keys store from:" + config_file)
-        with open(config_file, 'r') as file:
-            dict = json.loads(file.read())    
-            input_keys = dict['crypto_keys']
-            for k in input_keys:
-                self.keys[k] = PnCryptKey(k, input_keys[k], "a type")
+        self.config = config
+        if (config['PnCrypto']['dataStoreType'] == 'json'): 
+            key_store_file = config['PnCrypto']['keyStoreFile']
+            logger.info("Loading keys store from:" + key_store_file)
+            with open(key_store_file, 'r') as file:
+                dict = json.loads(file.read())
+                input_keys = dict['crypto_keys']
+                for k in input_keys:
+                    self.keys[k] = PnCryptKey(k, "desc for " + k, input_keys[k], "a type")
+        else:
+            logger.error("unsupported ID for dataStoreType" + config['dataStoreType'])
 
     def get_keys(self):
         return self.keys
-    
+
+    def get_key_json(self, id):
+        x = self.keys[id].get_key()
+        return json.dumps(x)
+     
+    def get_keys_json(self):
+        r_dict = {}
+        for k in self.keys:
+            entry = {}
+            entry['description'] = self.keys[k].get_description()
+            entry['uri'] = self.keys[k].get_uri()
+            r_dict[k] = entry
+        return json.dumps(r_dict)
+
     def import_ephemeral_key(self, value, type):
         key_no = len(self.keys) + 1
-        key_name= "eph_" + str(key_no)
-        self.keys[key_name] = PnCryptKey(key_name, value, type)
-        return self.keys[key_name]
+        key_id= "eph_" + str(key_no)
+        self.keys[key_id] = PnCryptKey(key_id, "ephemeral no:" + str(key_no), value, type)
+        return self.keys[key_id]
 
-    def get_key(self, key_name):
-        return self.keys.get(key_name, None)
+    def get_key(self, key_id):
+        return self.keys.get(key_id, None)
         
     def __new__(cls, *args, **kwargs):
         return super().__new__(cls)
@@ -77,14 +97,20 @@ class PnCryptoKeys:
 class PnCrypto(): 
     def __new__(cls, *args, **kwargs):
         return super().__new__(cls)
-    def __init__(self, config_file="", name=""):
-        self.keys = PnCryptoKeys(config_file=config_file, name=name)
+    # the init load the config file to dict config.
+    def __init__(self, config_file="", id=""):
+        if (config_file == ""):
+            config_file = "config.json"
+        with open(config_file, 'r') as file:
+            self.config = json.loads(file.read())    
+        self.keys = PnCryptoKeys(self.config)
+
     def get_PnCryptoKeys(self):
         return self.keys
     #--------------------------------------
     # key can be:  
     #   Instance of Key 
-    #   name of key in key store 
+    #   id of key in key store 
     #   or the raw key value
     #--------------------------------------
  
@@ -99,7 +125,7 @@ class PnCrypto():
                 return key
 
     #-------------------------------------------------------------
-    # do_DES  - the key can be a name or a PnCryptoKey
+    # do_DES  - the key can be a id or a PnCryptoKey
     #-------------------------------------------------------------
     def do_DES(self, operation, key, mode, data, iv):
         key_value = self.get_key_value(key)
@@ -143,15 +169,13 @@ class PnCrypto():
     #-------------------------------------------------------------
     # udk
     #-------------------------------------------------------------
-    def do_udk(self, imk_name, pan, psn):
-#        keystore = self.get_PnCryptoKeys()
+    def do_udk(self, imk_id, pan, psn):
         pan_psn = pan + psn;
         pan_psn = pan_psn[len(pan_psn) -16: len(pan_psn)]
         iv = "0000000000000000"
-#        imk_key = keystore.import_ephemeral_key(imk.)
-        left  = self.do_DES('encrypt', imk_name, 'ECB', pan_psn, iv)
+        left  = self.do_DES('encrypt', imk_id, 'ECB', pan_psn, iv)
         pan_psn_xor = self.hex_string_xor(pan_psn, "FFFFFFFFFFFFFFFF")
-        right = self.do_DES('encrypt', imk_name, 'ECB', pan_psn_xor, iv)
+        right = self.do_DES('encrypt', imk_id, 'ECB', pan_psn_xor, iv)
         return left + right
     #-------------------------------------------------------------
     # session_key
@@ -226,15 +250,14 @@ class PnCrypto():
 # local tests
 #--------------------------------
 if __name__ == '__main__':
-    my_keys = PnCryptoKeys()
-#    print(my_keys.get_keys()) 
+
+    my_PnCrypto = PnCrypto()
+    my_keys = my_PnCrypto.get_PnCryptoKeys()
     k = my_keys.get_key('k3') 
-    print(k.get_name())
+    print(k.get_id())
     print(k.get_value())
     print(k.get_type())
 
-    print(my_keys.get_key('k3xyz')) 
-    my_PnCrypto = PnCrypto()
 #    res = my_PnCrypto.do_DES("encrypt", "DES_k1", "ECB", "6bc1bee22e409f96e93d7e117393172a", "0000000000000000") 
 #     print("res" + res + " exp:DF8F88432FEA610CC1FAAF1AB1C0C037") 
     res = my_PnCrypto.do_udk('IMK_k1','5656781234567891' , '01')
@@ -246,3 +269,9 @@ if __name__ == '__main__':
     print("res:" + res +  " exp: F5EB72ED4F51B9DE" )
     res = my_PnCrypto.do_arpc('IMK_k1','5656781234567891' , '01', '0001', 'F5EB72ED4F51B9DE', '0012')
     print("res:" + res +  " exp: A2092CCC0C25006B" )
+    r_json = my_PnCrypto.get_PnCryptoKeys().get_keys_json()
+    print(r_json)
+    r_json = my_PnCrypto.get_PnCryptoKeys().get_key_json("IMK_k1")
+    print(r_json)
+
+

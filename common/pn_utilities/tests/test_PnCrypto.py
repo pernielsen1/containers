@@ -33,7 +33,7 @@ class TestPnCrypto(unittest.TestCase):
 
   def test_get_key(self):
       k = self.my_keys.get_key("k3")
-      self.assertEqual(k.get_name(), 'k3')
+      self.assertEqual(k.get_id(), 'k3')
       self.assertEqual(k.get_value(), '42c1bee22e409f96e93d7e117393172a')
       self.assertEqual(k.get_type(), 'a type')
       self.assertEqual(self.my_keys.get_key('Unknown key'), None)

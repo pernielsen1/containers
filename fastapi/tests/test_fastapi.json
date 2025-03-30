@@ -36,22 +36,23 @@
         },
         "KEYS": {
             "port": "8080",
-            "description":"Calculate ARPC for EMV",
+            "description":"Get Keys",
             "num_repeats": 1,
             "method" : "get",
             "path": "/v1/keys",  
             "msg": {
-                "key_name":"IMK_k1",
-                "pan":"5656781234567891", 
-                "psn": "01",
-                "atc": "0001",
-                "csu": "0012",
-                "arqc": "F5EB72ED4F51B9DE" 
             },
-            "expected_result" : "A2092CCC0C25006B" 
+            "params": ""
+        }, 
+        "KEY": {
+            "port": "8080",
+            "description":"Get One Key",
+            "num_repeats": 1,
+            "method" : "get",
+            "path": "/v1/keys/IMK_k1",
+            "msg": {
+            }
         }
-
-
     },
 
 
@@ -61,7 +62,8 @@
             "port": "8080",
             "description":"Test number 1", 
             "path": "transcode_0100",  
-            "num_repeats": 3,        
+            "method" : "post",
+            "num_repeats": 1,        
             "msg" : {
                 "msg_code": "0100",
                 "f002": "1234567890123456",
@@ -73,7 +75,8 @@
             "port": "8080",
             "description":"Test number 2",           
             "path": "transcode_0100",
-            "num_repeats": 2,            
+            "method" : "post",
+            "num_repeats": 1,            
             "msg" : {
                 "msg_code": "0100",
                 "f002": "6543210987654321" ,
