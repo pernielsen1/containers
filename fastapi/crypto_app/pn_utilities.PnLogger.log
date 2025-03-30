@@ -261,3 +261,22 @@
 2025-03-30 16:33:36,064 - INFO - host:LAPTOP-P5P268SM: pan and key submitted updated successfully pan:6543210987654321 cur:752
 2025-03-30 16:33:36,069 - INFO - Request received{"msg_code": "0100", "f002": "1234567890123456", "f004": "000000012345", "f049": "752"}
 2025-03-30 16:33:36,069 - INFO - host:LAPTOP-P5P268SM: pan and key submitted updated successfully pan:1234567890123456 cur:752
+2025-03-30 18:58:44,568 - INFO - Loading keys store from:../data/PnCrypto_key_store.json
+2025-03-30 18:59:49,317 - INFO - Loading keys store from:../data/PnCrypto_key_store.json
+2025-03-30 19:01:59,047 - INFO - Request received{"key_name": "IMK_k1", "pan": "5656781234567891", "psn": "01", "atc": "0001", "data": "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000", "data_with_80": "00000000510000000000000007920000208000094917041900B49762F2390000010105A040000020000000000000000080"}
+2025-03-30 19:01:59,053 - INFO - Request received{"key_name": "IMK_k1", "pan": "5656781234567891", "psn": "01", "atc": "0001", "csu": "0012", "arqc": "F5EB72ED4F51B9DE"}
+2025-03-30 19:01:59,057 - INFO - get keys
+2025-03-30 19:01:59,062 - INFO - get key called with parameter id:IMK_k1
+2025-03-30 19:01:59,066 - INFO - Request received{"msg_code": "0100", "f002": "6543210987654321", "f004": "000000023456", "f049": "752"}
+2025-03-30 19:01:59,067 - INFO - host:LAPTOP-P5P268SM: pan and key submitted updated successfully pan:6543210987654321 cur:752
+2025-03-30 19:01:59,070 - INFO - Request received{"msg_code": "0100", "f002": "1234567890123456", "f004": "000000012345", "f049": "752"}
+2025-03-30 19:01:59,070 - INFO - host:LAPTOP-P5P268SM: pan and key submitted updated successfully pan:1234567890123456 cur:752
+2025-03-30 19:03:45,446 - INFO - Loading keys store from:../data/PnCrypto_key_store.json
+2025-03-30 19:04:08,614 - INFO - Request received{"key_name": "IMK_k1", "pan": "5656781234567891", "psn": "01", "atc": "0001", "data": "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000", "data_with_80": "00000000510000000000000007920000208000094917041900B49762F2390000010105A040000020000000000000000080"}
+2025-03-30 19:04:08,620 - INFO - Request received{"key_name": "IMK_k1", "pan": "5656781234567891", "psn": "01", "atc": "0001", "csu": "0012", "arqc": "F5EB72ED4F51B9DE"}
+2025-03-30 19:04:08,626 - INFO - get keys
+2025-03-30 19:04:08,630 - INFO - get key called with parameter id:IMK_k1
+2025-03-30 19:04:08,635 - INFO - Request received{"msg_code": "0100", "f002": "6543210987654321", "f004": "000000023456", "f049": "752"}
+2025-03-30 19:04:08,635 - INFO - host:LAPTOP-P5P268SM: pan and key submitted updated successfully pan:6543210987654321 cur:752
+2025-03-30 19:04:08,640 - INFO - Request received{"msg_code": "0100", "f002": "1234567890123456", "f004": "000000012345", "f049": "752"}
+2025-03-30 19:04:08,640 - INFO - host:LAPTOP-P5P268SM: pan and key submitted updated successfully pan:1234567890123456 cur:752
