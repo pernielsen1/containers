@@ -1,3 +1,8 @@
+. If it does have an entrypoint (entrypoint:, docker run --entrypoint ..., ENTRYPOINT), it's the entrypoint, which gets passed the command as arguments.
+
+
+
+
 and todo updated on wsl
 to Documentation:
 The API-server 

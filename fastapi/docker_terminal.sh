@@ -1,3 +1,4 @@
 #!/bin/bash
-docker run -it --entrypoint /bin/bash $1
+# $1 is name of container
+docker exec -it $1 bash
 
