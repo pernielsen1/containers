@@ -32,4 +32,5 @@ if [ "$BUILD" = true ] ; then
 #    docker compose build $NO_CACHE # build it
     docker compose pull
 fi
-docker compose up --remove-orphans 
+echo "starting mysql_container in detached mode log into the container to see what's going on"
+docker compose up --remove-orphans  -d

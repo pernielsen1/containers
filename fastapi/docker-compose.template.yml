@@ -4,10 +4,13 @@
     container_name: "${SERVICE_NAME}"
     volumes:
       - ./data:/data
+    environment:
+      - PN_CRYPTO_CONFIG_FILE=config.json
   
     depends_on:
       fastapi_mysql:
-        condition: service_healthy       
+        condition: service_healthy    
+   
     ports:
       - ${PORT}:${PORT}
     entrypoint:

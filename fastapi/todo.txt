@@ -1,6 +1,7 @@
 # https://medium.com/@sadhu1998/hosting-multiple-services-on-docker-using-nginx-reverse-proxy-3cef6b01a5cf
 # create the fastapi env in build_fastapi.env
 # followed: 
+# https://stackoverflow.com/questions/42567475/docker-compose-check-if-mysql-connection-is-ready
 # created the app directory with 
 # pyvenv.cfg and main.py 
 # https://fastapi.tiangolo.com/tutorial/first-steps/

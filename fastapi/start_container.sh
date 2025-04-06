@@ -41,7 +41,8 @@ for (( i = 1; i <= $NUM_SERVICES; i++ ))
 cat docker-compose-nginx.yml>>docker-compose.yml
 # cat docker-volumes.yml>>docker-compose.yml
 
-# ...do something interesting...
+# build and start
+# the default config.json will be used on the web app when initiating PnCrypto 
 if [ "$BUILD" = true ] ; then
     # the common packages are copied to local packages when venv is built
     # the common packages are copied to local packages when venv is built

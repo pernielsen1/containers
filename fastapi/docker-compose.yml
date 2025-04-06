@@ -29,10 +29,13 @@ services:
     container_name: "api1"
     volumes:
       - ./data:/data
+    environment:
+      - PN_CRYPTO_CONFIG_FILE=config.json
   
     depends_on:
       fastapi_mysql:
-        condition: service_healthy       
+        condition: service_healthy    
+   
     ports:
       - 8001:8001
     entrypoint:
@@ -48,10 +51,13 @@ services:
     container_name: "api2"
     volumes:
       - ./data:/data
+    environment:
+      - PN_CRYPTO_CONFIG_FILE=config.json
   
     depends_on:
       fastapi_mysql:
-        condition: service_healthy       
+        condition: service_healthy    
+   
     ports:
       - 8002:8002
     entrypoint:

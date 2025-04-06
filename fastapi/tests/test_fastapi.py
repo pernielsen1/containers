@@ -41,6 +41,9 @@ class TestFastApi(unittest.TestCase):
                 response = requests.post(post_url, json=json_msg)
             if test_case['method'] == 'get':
                 response = requests.get(post_url, json=json_msg)
+            if test_case['method'] == 'delete':
+                response = requests.delete(post_url, json=json_msg)
+
         except:
             # TODO - print the error request
             log.error("error in request.post")
@@ -65,7 +68,12 @@ class TestFastApi(unittest.TestCase):
   def test_iso(self):
     self.run_test("tests", "0002")
     self.run_test("tests", "0001")
-    
+
+  def test_key_operations(self):
+    self.run_test("EMV", "KEY_POST")
+    self.run_test("EMV", "KEY_DELETE")
+
+
   def tearDown(self):
       log.info("in tear down")
 
