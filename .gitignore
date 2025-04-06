@@ -1,6 +1,6 @@
-bin/
-lib/
-include/
+**/bin
+**/lib
+**/include
 # the clients
 # clients/python_mysql/bin/
 # clients/python_mysql/lib/
