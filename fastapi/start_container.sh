@@ -28,7 +28,8 @@ if [ $# -eq 0 ]
         fi
 fi
 export BUILD_COMMAND="build: ./$TARGET_DIR"
-echo "services:">docker-compose.yml  # top of file
+# echo "services:">docker-compose.yml  # top of file
+cat docker-mysql-compose.yml>docker-compose.yml
 NUM_SERVICES=2
 for (( i = 1; i <= $NUM_SERVICES; i++ )) 
     do
@@ -42,13 +43,15 @@ cat docker-compose-nginx.yml>>docker-compose.yml
 
 # ...do something interesting...
 if [ "$BUILD" = true ] ; then
-    # build requirements.txt and remove the local_packages line and make them available in the local packages dir to be used in Dockerfile 
+    # the common packages are copied to local packages when venv is built
+    # the common packages are copied to local packages when venv is built
+    # build requirements.txt withouh the local packkages line 
+      # requirements.text is used in the docker Dockerfile 
     source $TARGET_DIR/bin/activate
     $TARGET_DIR/bin/python -m pip freeze > $TARGET_DIR/requirements.txt
     sed -i "/@ file:/d" $TARGET_DIR/requirements.txt
-    # the common packages are copied to local packages when venv is built
-    # pip install $TARGET_DIR/local_packages/pn_utilities-0.1.tar.gz
-    deactivate    build: ./$TARGET_DIR
+    deactivate    
+# To be deleted    build: ./$TARGET_DIR
     docker compose build $NO_CACHE # build it
 fi
 # let's start the containers

@@ -4,7 +4,10 @@
     container_name: "${SERVICE_NAME}"
     volumes:
       - ./data:/data
-      
+  
+    depends_on:
+      fastapi_mysql:
+        condition: service_healthy       
     ports:
       - ${PORT}:${PORT}
     entrypoint:

@@ -48,7 +48,14 @@ class PnLogger:
   
     def info(self, message):
         self.logger.info(message)
-
+    def error(self, message):
+        self.logger.error(message)
+    def warning(self, message):
+        self.logger.warning(message)
+    def debug(self, message):
+        self.logger.debug(message)
+        
+        
 
 
 class PnLoggerOld(logging.Logger):

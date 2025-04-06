@@ -6,4 +6,5 @@ pn_utilities.egg-info/SOURCES.txt
 pn_utilities.egg-info/dependency_links.txt
 pn_utilities.egg-info/top_level.txt
 pn_utilities/crypto/PnCrypto.py
+pn_utilities/crypto/PnCryptoKeys.py
 pn_utilities/crypto/__init__.py

@@ -1,11 +1,38 @@
 services:
+
+  fastapi_mysql:
+   image: mysql:latest
+   container_name: "fastapi_mysql"
+   ports:
+     - "3306:3306"
+   environment:
+     - MYSQL_ROOT=root
+     - MYSQL_ROOT_PASSWORD=password
+     - MYSQL_DATABASE=pn_crypto_key_store
+     - MYSQL_USER=myuser
+     - MYSQL_PASSWORD=mypassword
+   
+   healthcheck:
+      test: mysqladmin ping -h 127.0.0.1 -u $$MYSQL_ROOT --password=$$MYSQL_ROOT_PASSWORD
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 55
+
+   volumes:
+     - ../../container_data/mysql/pn_crypto_key_store_db:/var/lib/mysql 
+     - ../mysql/start_up:/docker-entrypoint-initdb.d 
+
   api1:
     image: fastapi/pn_app
     build: ./crypto_app
     container_name: "api1"
     volumes:
       - ./data:/data
-      
+  
+    depends_on:
+      fastapi_mysql:
+        condition: service_healthy       
     ports:
       - 8001:8001
     entrypoint:
@@ -21,7 +48,10 @@ services:
     container_name: "api2"
     volumes:
       - ./data:/data
-      
+  
+    depends_on:
+      fastapi_mysql:
+        condition: service_healthy       
     ports:
       - 8002:8002
     entrypoint:

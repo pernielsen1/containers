@@ -1,5 +1,8 @@
 
 import json
+from pn_utilities.crypto.PnCryptoKeys import PnCryptoKeys
+from pn_utilities.crypto.PnCryptoKeys import PnCryptKey
+
 # from Crypto.Cipher import AES
 from Crypto.Cipher import DES
 from Crypto.Cipher import DES3
@@ -16,84 +19,14 @@ from Crypto.Hash import CMAC
 # from Crypto.Signature import DSS
 from ff3 import FF3Cipher
 
+PN_CRYPTO_KEYS = "pn_crypto_keys"
+PN_CRYPTO_DATABASE = "pn_crypto_key_store"
+
 import pn_utilities.PnLogger as PnLogger
 logger = PnLogger.PnLogger()
 config = {}
-#------------------------------------------
-# PnCryptKey - the key object
-#------------------------------------------
-class PnCryptKey():
-    def __new__(cls, *args, **kwargs):
-        return super().__new__(cls)
-    def __init__(self, id="", description="", value="", type=""):
-        self.key = {}
-        self.key['id'] = id
-        self.key['description'] = description
-        self.key['value'] = value
-        self.key['type'] = type
-
-    def get_id(self):
-        return str(self.key['id'])
-    def get_description(self):
-        return str(self.key['description'])
-    def get_uri(self):
-        return '/v1/keys/' + self.get_id()
-    def get_value(self):
-        return self.key['value']
-    def get_type(self):
-        return self.key['type']
-    def get_key(self):
-        return self.key
-#---------------------------------------------------------
-# PnCryptKeys - load the keys from the data store to 
-#---------------------------------------------------------
-class PnCryptoKeys:
-    def __new__(cls, *args, **kwargs):
-        return super().__new__(cls)
-
-    def __init__(self, config):
-        self.keys = {}
-        self.config = config
-        if (config['PnCrypto']['dataStoreType'] == 'json'): 
-            key_store_file = config['PnCrypto']['keyStoreFile']
-            logger.info("Loading keys store from:" + key_store_file)
-            with open(key_store_file, 'r') as file:
-                dict = json.loads(file.read())
-                input_keys = dict['crypto_keys']
-                for k in input_keys:
-                    self.keys[k] = PnCryptKey(k, "desc for " + k, input_keys[k], "a type")
-        else:
-            logger.error("unsupported ID for dataStoreType" + config['dataStoreType'])
-
-    def get_keys(self):
-        return self.keys
-
-    def get_key_json(self, id):
-        x = self.keys[id].get_key()
-        return json.dumps(x)
-     
-    def get_keys_json(self):
-        r_dict = {}
-        for k in self.keys:
-            entry = {}
-            entry['description'] = self.keys[k].get_description()
-            entry['uri'] = self.keys[k].get_uri()
-            r_dict[k] = entry
-        return json.dumps(r_dict)
-
-    def import_ephemeral_key(self, value, type):
-        key_no = len(self.keys) + 1
-        key_id= "eph_" + str(key_no)
-        self.keys[key_id] = PnCryptKey(key_id, "ephemeral no:" + str(key_no), value, type)
-        return self.keys[key_id]
-
-    def get_key(self, key_id):
-        return self.keys.get(key_id, None)
-        
-    def __new__(cls, *args, **kwargs):
-        return super().__new__(cls)
 #-------------------------------------------------------------
-# do_dummy
+# PnCrupto the class capsulating the crypto functions
 #-------------------------------------------------------------
 class PnCrypto(): 
     def __new__(cls, *args, **kwargs):

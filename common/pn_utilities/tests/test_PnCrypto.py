@@ -25,8 +25,10 @@ class TestPnCrypto(unittest.TestCase):
   def setUp(self):
       self.log = PnLogger.PnLogger()
       self.log.info("setUp completed starting tests")
-      self.my_crypto = PnCrypto.PnCrypto()
+      self.my_crypto = PnCrypto.PnCrypto()  # use default config.json file
       self.my_keys = self.my_crypto.get_PnCryptoKeys()
+      self.my_crypto_mysql = PnCrypto.PnCrypto("config_mysql.json")  # use default config.json file
+
       with open("test_PnCrypto.json", 'r') as file:
         self.crypto_cases = json.loads(file.read())    
 
@@ -79,6 +81,20 @@ class TestPnCrypto(unittest.TestCase):
     res = self.my_crypto.get_key_value(k)
     self.assertEqual(res, 'C2C2C2C22C2C2C2C')
     
+  def test_copy_keys(self):
+    json_keys = self.my_crypto.get_PnCryptoKeys()
+    for k in json_keys.keys:
+      key_obj = json_keys.get_key(k)
+      id =   key_obj.get_id()
+      description = key_obj.get_description()
+      value = key_obj.get_value()
+      type = key_obj.get_type()
+      mysql_keys = self.my_crypto_mysql.get_PnCryptoKeys()
+      mysql_keys.delete_key(id)
+      mysql_keys.import_key(id, description, value, type)
+       
+     
+
   def tearDown(self):
       self.log.info("in tear down")
 
