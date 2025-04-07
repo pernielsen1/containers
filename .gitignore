@@ -1,12 +1,25 @@
-fastapi/crypto_app/lib/
+bin/
+lib/
+include/
 # **/bin
 # **/lib
 # **/include
+# clients/python_mysql/lib/
+# fastapi/crypto_app/lib/
+# fastapi/crypto_app/bin/
+# fastapi/crypto_app/include/
+# fastapi/crypto_app/lib64
+# common 
+# common/crypto_app/lib/
+# common/crypto_app/bin/
+# common/crypto_app/include/
+# common/crypto_app/lib64
 # lib/
 #old/
+# the rest
+
 # the clients
 # clients/python_mysql/bin/
-# clients/python_mysql/lib/
 # clients/python_mysql/include/
 # clients/python_mysql/lib64
 # fastapi
