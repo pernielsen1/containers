@@ -11,7 +11,7 @@ add user in in MYSQL image to have:
       timeout: 5s
       retries: 55
 
-
+git ignore done
 and todo updated on wsl
 to Documentation:
 The API-server 
