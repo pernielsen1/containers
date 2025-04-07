@@ -938,3 +938,18 @@
 2025-04-06 12:11:21,664 - INFO - Loading keys store from:../data/PnCrypto_key_store.json
 2025-04-06 12:11:21,664 - INFO - opening mysql with user:root host:portlocalhost:3306 database:pn_crypto_key_store
 2025-04-06 12:11:21,711 - INFO - in tear down
+2025-04-07 19:13:17,448 - INFO - setUp completed starting tests
+2025-04-07 19:13:17,448 - INFO - Loading keys store from:../data/PnCrypto_key_store.json
+2025-04-07 19:13:17,449 - INFO - opening mysql with user:root host:portlocalhost:3306 database:pn_crypto_key_store
+2025-04-07 19:13:17,460 - INFO - setUp completed starting tests
+2025-04-07 19:13:17,462 - INFO - Loading keys store from:../data/PnCrypto_key_store.json
+2025-04-07 19:13:17,463 - INFO - opening mysql with user:root host:portlocalhost:3306 database:pn_crypto_key_store
+2025-04-07 19:13:17,466 - INFO - setUp completed starting tests
+2025-04-07 19:13:17,467 - INFO - Loading keys store from:../data/PnCrypto_key_store.json
+2025-04-07 19:13:17,469 - INFO - opening mysql with user:root host:portlocalhost:3306 database:pn_crypto_key_store
+2025-04-07 19:13:17,471 - INFO - setUp completed starting tests
+2025-04-07 19:13:17,472 - INFO - Loading keys store from:../data/PnCrypto_key_store.json
+2025-04-07 19:13:17,473 - INFO - opening mysql with user:root host:portlocalhost:3306 database:pn_crypto_key_store
+2025-04-07 19:13:17,483 - INFO - setUp completed starting tests
+2025-04-07 19:13:17,483 - INFO - Loading keys store from:../data/PnCrypto_key_store.json
+2025-04-07 19:13:17,484 - INFO - opening mysql with user:root host:portlocalhost:3306 database:pn_crypto_key_store
