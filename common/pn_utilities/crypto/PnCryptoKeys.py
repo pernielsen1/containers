@@ -82,6 +82,9 @@ class PnCryptoKeys:
     def get_keys(self):
         return self.keys
 
+    def get_key(self, id):
+        return self.keys.get(id, None)
+
     def get_key_json(self, id):
         x = self.keys[id].get_key()
         return json.dumps(x)
@@ -103,6 +106,9 @@ class PnCryptoKeys:
         self.datastore_cnx.commit()
 
     def import_key(self, id, description, value, type):
+        if (self.get_key(id) == None):
+            return False
+        # still here all good
         pling = "'"
         self.keys[id] = PnCryptKey(id, description, value, type)
         insert_sql = ( "insert into " + PN_CRYPTO_KEYS + 
@@ -116,6 +122,7 @@ class PnCryptoKeys:
         cursor = self.datastore_cnx.cursor()
         cursor.execute(insert_sql)
         self.datastore_cnx.commit()
+        return True
 
     def import_ephemeral_key(self, value, type):
         key_no = len(self.keys) + 1
