@@ -208,7 +208,7 @@ def test_fpe():
 #--------------------------------
 if __name__ == '__main__':
 
-    test_fpe()
+ #   test_fpe()
     my_PnCrypto = PnCrypto()
     my_keys = my_PnCrypto.get_PnCryptoKeys()
     k = my_keys.get_key('k3') 

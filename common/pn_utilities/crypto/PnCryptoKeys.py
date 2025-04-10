@@ -49,6 +49,8 @@ class PnCryptoKeys:
 
     def load_keys(self):
         data_store_type = self.config['PnCrypto']['dataStoreType']
+        logger.info("Loading keys from:" + data_store_type)
+
         if ( data_store_type == 'json'): 
             key_store_file = self.config['PnCrypto']['keyStoreFile']
             logger.info("Loading keys store from:" + key_store_file)
@@ -64,20 +66,24 @@ class PnCryptoKeys:
             host = self.config['PnCrypto']['mysql']['host']
             password = self.config['PnCrypto']['mysql']['password']
             database = PN_CRYPTO_DATABASE
-            logger.info("opening mysql with user:" + user + " host:port"
+            logger.info("opening mysql with user:" + user + " host:port "
                         + host + ":" + str(port) + " database:" + database)
             self.datastore_cnx = mysql.connector.connect(user=user, password=password,
                               host=host,
                               port=port,
                               database=database)
-            cursor = self.datastore_cnx.cursor()
-            query = ("SELECT id, description, value, type from " + PN_CRYPTO_KEYS)
-            cursor.execute(query)
-            for (id, description, value, type) in cursor:
-                self.keys[id] = PnCryptKey(id, description, value, type)
+            self.sync_keys_db()
         else:
             logger.error("unsupported ID for dataStoreType" + data_store_type)
 
+    def sync_keys_db(self):
+        self.keys = {}
+        query = ("SELECT id, description, value, type from " + PN_CRYPTO_KEYS)
+        cursor = self.datastore_cnx.cursor()  
+        cursor.execute(query)
+        for (id, description, value, type) in cursor:
+                self.keys[id] = PnCryptKey(id, description, value, type)
+        
 
     def get_keys(self):
         return self.keys
@@ -102,12 +108,16 @@ class PnCryptoKeys:
         PLING = "'"
         delete_sql = ( "delete from " + PN_CRYPTO_KEYS + " where id=" + PLING + id + PLING )
         cursor = self.datastore_cnx.cursor()
+
         cursor.execute(delete_sql)
+     
         self.datastore_cnx.commit()
+        self.sync_keys_db()
+
 
     def import_key(self, id, description, value, type):
-        if (self.get_key(id) == None):
-            return False
+        if (self.get_key(id) != None):
+            return False   # oops it already exists
         # still here all good
         pling = "'"
         self.keys[id] = PnCryptKey(id, description, value, type)
@@ -122,6 +132,9 @@ class PnCryptoKeys:
         cursor = self.datastore_cnx.cursor()
         cursor.execute(insert_sql)
         self.datastore_cnx.commit()
+        # and updata our in memory copy - do a full reload..  - in prod we would need to reload all servers !
+        self.sync_keys_db()
+
         return True
 
     def import_ephemeral_key(self, value, type):

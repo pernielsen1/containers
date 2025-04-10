@@ -21,17 +21,19 @@ import pn_utilities.PnLogger as PnLogger
 # 
 #-------------------------------------------------------------------
 class TestPnCrypto(unittest.TestCase):
-
-  def setUp(self):
-      self.log = PnLogger.PnLogger()
-      self.log.info("setUp completed starting tests")
-      self.my_crypto = PnCrypto.PnCrypto()  # use default config.json file
-      self.my_keys = self.my_crypto.get_PnCryptoKeys()
-      self.my_crypto_mysql = PnCrypto.PnCrypto("config_mysql.json")  # use default config.json file
+  log = PnLogger.PnLogger()
+ 
+  @classmethod
+  def setUpClass(cls):
+      cls.log.info("setUp starting")
+      cls.my_crypto = PnCrypto.PnCrypto()  # use default config.jsonfile
+      cls.my_keys = cls.my_crypto.get_PnCryptoKeys()
+      cls.my_crypto_mysql = PnCrypto.PnCrypto("config_mysql.json")  # use default config.json file
 
       with open("test_PnCrypto.json", 'r') as file:
-        self.crypto_cases = json.loads(file.read())    
-
+        cls.crypto_cases = json.loads(file.read())    
+      
+      cls.log.info("setUp completed starting tests")    
 
   def test_get_key(self):
       k = self.my_keys.get_key("k3")
@@ -41,7 +43,25 @@ class TestPnCrypto(unittest.TestCase):
       self.assertEqual(self.my_keys.get_key('Unknown key'), None)
       k1 = self.my_keys.get_key("DES_k1")
       
+  # testing import key in my_crypto_keys.
+  def test_import_key(self):
+      
+      keys= self.my_crypto_mysql.get_PnCryptoKeys()
 
+      keys.delete_key('test_keyx')
+      # detele the key if it is already there (like if we ran this once before) 
+
+      # insert the key expect True  = Success
+      self.assertEqual(keys.import_key('test_keyx', 'test_key desc', 
+                                       'C3C3C3C3C3C3C3C33C3C3C3C3C3C3C3C', 'DES'), True)
+      k = keys.get_key('test_keyx')
+      self.assertEqual(k.get_value(), 'C3C3C3C3C3C3C3C33C3C3C3C3C3C3C3C')    
+      # try a new insert duplicate should be false slightly different valud (starts with D3)
+      self.assertEqual(keys.import_key('test_keyx', 'test_key desc', 
+                                       'D3D3C3C3C3C3C3C33C3C3C3C3C3C3C3C', 'DES'),  False)
+      # get it again should still be starting with C3
+      k2 =  keys.get_key('test_keyx')
+      self.assertEqual(k2.get_value(), 'C3C3C3C3C3C3C3C33C3C3C3C3C3C3C3C')    
 
   def test_DES(self):
     for tc_number in self.crypto_cases['tests']['DES_BASIC']:
@@ -94,9 +114,9 @@ class TestPnCrypto(unittest.TestCase):
       mysql_keys.import_key(id, description, value, type)
        
      
-
-  def tearDown(self):
-      self.log.info("in tear down")
+  @classmethod
+  def tearDownClass(cls):
+      cls.log.info("in tear down")
 
 
 #-------------------------------
