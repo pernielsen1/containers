@@ -2,6 +2,7 @@ ToDo:
 in city update bashrc with PN_MYSQL_USER and PN_MYSQL_PASSWORD
 export PN_MYSQL_USER=pn_user
 export PN_MYSQL_PASSWORD=pn_password
+OBs ock mkdir containerdata/log
 export PN_LOGGER_DIR=~/container_data/log
 export PATH="${PATH}:~/containers/utils"
 
