@@ -1,20 +1,4 @@
 #--------------------------------------------------------------------------------------------------------------
-# https://www.geeksforgeeks.org/post-query-parameters-in-fastapi/
-# select virtual env press ctrl-shift-p  then python:select interpretator
-# stop start container will reload directly from this app i.e. not necessariy to build
-# ToDo: find container name
-# https://stackoverflow.com/questions/62553709/how-to-get-the-name-of-all-container-in-docker-using-docker-py
-# https://stackoverflow.com/questions/67663970/optimal-way-to-initialize-heavy-services-only-once-in-fastapi
-# https://restfulapi.net/http-methods/
-# 
-# TODO
-# sudo apt install mysql-client-core-8.0
-# check on return code 200 - how ?  in the Test
-# Build the delete.
-# Implement the delete.
-# implement the unique control.
-# and check how to avoide upload of all the venv stuff...
-# check how to start compose in batch... 
 #--------------------------------------------------------------------------------------------------------------
 
 
