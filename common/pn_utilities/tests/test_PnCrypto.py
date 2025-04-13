@@ -15,8 +15,8 @@ sys.path.insert(0, '../..')
 import unittest
 import json
 import pn_utilities.crypto.PnCrypto as PnCrypto
-import pn_utilities.PnLogger as PnLogger
-
+import pn_utilities.logger.PnLogger as PnLogger
+ 
 #-------------------------------------------------------------------
 # 
 #-------------------------------------------------------------------

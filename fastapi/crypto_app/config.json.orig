@@ -1,6 +1,0 @@
-{
-    "PnCrypto": {
-        "dataStoreType" : "json", 
-        "keyStoreFile": "../data/PnCrypto_key_store.json"    
-    }
-}

@@ -25,7 +25,7 @@ from fastapi import FastAPI, HTTPException, Request
 import json
 import socket
 # import logging
-import pn_utilities.PnLogger as PnLogger
+import pn_utilities.logger.PnLogger as PnLogger
 #---------------------------------------------------
 # set the logging
 #---------------------------------------------------
@@ -36,9 +36,8 @@ log=PnLogger.PnLogger()
 import pn_utilities.crypto.PnCrypto as PnCrypto
 
 # config file will be taken from PN_CRYPTO_CONFIG_FILE
-# when running local just do a:
-# export PN_CRYPTO_CONFIG_FILE=config_mysql_localhost.json
-# in the terminal window 
+# in container it is config_fastapi_container.json
+# in local mode defaulting to config.json = local mysql started.
 
 crypto_obj = PnCrypto.PnCrypto(os.environ.get('PN_CRYPTO_CONFIG_FILE', 'config.json'))
 
@@ -89,7 +88,7 @@ def delete_key(id: str):
 # the post a key 
 #---------------------------------------------------------
 # @app.route('/v1/keys 
-@app.post("/v1/keys")
+@app.post("/v1/keys", status_code=201)
 async def v1_post_key(request: Request):
     log.info("post key called")
     try:
@@ -111,10 +110,11 @@ async def v1_post_key(request: Request):
         value = data['value']
         type = data['type']
         
-        keys.import_key(id, description, value, type)
-    #    ret_message['arqc'] = crypto_obj.do_arqc(key_name, pan, psn, atc, data, True)
-    #    log.info(ret_message)
-        return {"ok": True}
+        if (keys.import_key(id, description, value, type) == True):
+            return {"ok": True}
+        else:
+            raise HTTPException(
+                status_code=422, detail='Key already exists')
 
     except HTTPException as e:
         # Re-raise HTTPException to return the specified status code and detail

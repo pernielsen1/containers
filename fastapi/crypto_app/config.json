@@ -3,10 +3,10 @@
         "dataStoreType": "mysql", 
         "mysql" : {
             "port": 3306,
-            "comment": "the host is the name of the container",
-            "host": "fastapi_mysql",
-            "user": "root",
-            "password": "password"
+            "comment": "In local mode go to lcoal hos",
+            "host": "localhost",
+            "user": "pn_user",
+            "password": "pn_password"
         }
     }
 }

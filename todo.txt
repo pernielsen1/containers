@@ -1,50 +1,43 @@
-. If it does have an entrypoint (entrypoint:, docker run --entrypoint ..., ENTRYPOINT), it's the entrypoint, which gets passed the command as arguments.
+ToDo:
+in city update bashrc with PN_MYSQL_USER and PN_MYSQL_PASSWORD
+export PN_MYSQL_USER=pn_user
+export PN_MYSQL_PASSWORD=pn_password
+export PN_LOGGER_DIR=~/container_data/log
 
-add user in in MYSQL image to have:
-    environment:
-      MYSQL_USER: myuser
-      MYSQL_PASSWORD: mypassword
-    healthcheck:
-      test: mysqladmin ping -h 127.0.0.1 -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
-      start_period: 5s
-      interval: 5s
-      timeout: 5s
-      retries: 55
+when fiber update MYSQL user in container.
+https://stackoverflow.com/questions/51437139/execute-a-command-in-a-rate-by-n-requests-per-second
+change console colours
+in request tests - check HTTP status code return
+In C- dive into the libcurl..
+# sudo apt install mysql-client-core-8.0 should be another on ubuntu !
 
-git ignore done
-and todo updated on wsl
-to Documentation:
-The API-server 
-https://medium.com/@alidu143/containerizing-fastapi-app-with-docker-a-comprehensive-guide-416521b2457c
-docker starts automatically on vivobook
-# Restructure all the exception handling.
-# post new key ... 
-# ToDo:
-# Rest services what should be the naming convention ?
+
+# select virtual env press ctrl-shift-p  then python:select interpretator
+
+# https://www.geeksforgeeks.org/post-query-parameters-in-fastapi/
+# https://stackoverflow.com/questions/62553709/how-to-get-the-name-of-all-container-in-docker-using-docker-py
+# https://stackoverflow.com/questions/67663970/optimal-way-to-initialize-heavy-services-only-once-in-fastapi
+# https://restfulapi.net/http-methods/
+
+# TODO
+
+Resources FASTAPI
+# https://medium.com/@sadhu1998/hosting-multiple-services-on-docker-using-nginx-reverse-proxy-3cef6b01a5cf
+# https://stackoverflow.com/questions/42567475/docker-compose-check-if-mysql-connection-is-ready
+# https://fastapi.tiangolo.com/tutorial/first-steps/
+# https://medium.com/@mizutori/fastapi-study-diary-1-creating-a-docker-container-for-development-78a003cbd51f
+# https://docs.docker.com/get-started/docker-concepts/running-containers/multi-container-applications/
+# https://medium.com/@alidu143/containerizing-fastapi-app-with-docker-a-comprehensive-guide-416521b2457c
+# and now gedit is working after disabiling systemd in /etc/wsl.conf and test_rest client has a run script
+# https://medium.com/@adebisiolayinka30/containerize-a-fastapi-app-using-nginx-as-a-proxy-part-one-42d3384d4722
+# https://www.docker.com/blog/how-to-use-the-official-nginx-docker-image/
+# the build ./app means use Dockerfile in app directory  https://docs.docker.com/reference/compose-file/build/
+#. If it does have an entrypoint (entrypoint:, docker run --entrypoint ..., ENTRYPOINT), it's the entrypoint, which gets passed the command as arguments.
 # 
 # build fastapi_venv needs the requirements as well - we missed the pycryptodome
 # https://learn.microsoft.com/en-us/azure/architecture/best-practices/api-design
+# https://medium.com/@hillarywando/how-to-create-a-basic-crud-api-using-python-flask-cd68ef5fd7e3
+# https://medium.com/@akshatgadodia/simplify-database-management-with-docker-compose-a-comprehensive-guide-f33816ff4bc3
+# https://fastapi.tiangolo.com/tutorial/path-params/#data-conversion
+# https://jnikenoueba.medium.com/how-to-create-routes-with-fastapi-42742f9d2cc1
 
-# reload keys
-# Comments in the docker compose files and clean up in temp versions of the files.
-# try sqllite
-# 
-
-MySQL container - incl SQL-alchemy
-change console colours
-
-should logger by subdir in PnUtilities ? 
-
-
-https://medium.com/@hillarywando/how-to-create-a-basic-crud-api-using-python-flask-cd68ef5fd7e3
-
-@app.route('/request/<id>', methods=['GET'])
-def getRequestId(id):
-
-Low prio: refactor key_name in test cases to key_id
-https://medium.com/@akshatgadodia/simplify-database-management-with-docker-compose-a-comprehensive-guide-f33816ff4bc3
-
-https://fastapi.tiangolo.com/tutorial/path-params/#data-conversion
-https://jnikenoueba.medium.com/how-to-create-routes-with-fastapi-42742f9d2cc1
-
-Logger.error finns ikke och sikkert inte debug, warn heller.

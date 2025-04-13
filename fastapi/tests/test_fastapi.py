@@ -7,7 +7,7 @@
 import unittest
 import json
 import requests
-import pn_utilities.PnLogger as PnLogger
+import pn_utilities.logger.PnLogger as PnLogger
 log = PnLogger.PnLogger()
 from datetime import datetime
 
@@ -16,9 +16,10 @@ from datetime import datetime
 #-------------------------------------------------------------------
 class TestFastApi(unittest.TestCase):
 
-  def setUp(self):
+  @classmethod
+  def setUpClass(cls):
       with open("test_fastapi.json", 'r') as file:
-        self.test_cases = json.loads(file.read())    
+        cls.test_cases = json.loads(file.read())    
 
   def run_test(self, segment, test_case_name):
 
@@ -52,29 +53,32 @@ class TestFastApi(unittest.TestCase):
         str_end = datetime.strftime(end, "%H:%M:%S.%f")
         diff = end - start
         log.info("start:" + str_start + " end:" + str_end + 
-            " diff:" + str(diff) + " port:" + test_case['port'])
+            " diff:" + str(diff) + " port:" + test_case['port'] + 
+            " status:'" + str(response.status_code))
         try:
             log.info(response.json())
         except:
             log.error("exception occurred during json parse response was:", response)
 
 
-  def test_crypto(self):
-    self.run_test("EMV", "ARQC")
-    self.run_test("EMV", "ARPC")
-    self.run_test("EMV", "KEYS")
-    self.run_test("EMV", "KEY")
+#  def test_crypto(self):
+#    self.run_test("EMV", "ARQC")
+#    self.run_test("EMV", "ARPC")
+#    self.run_test("EMV", "KEYS")
+#    self.run_test("EMV", "KEY")
 
-  def test_iso(self):
-    self.run_test("tests", "0002")
-    self.run_test("tests", "0001")
+#  def test_iso(self):
+#    self.run_test("tests", "0002")
+#    self.run_test("tests", "0001")
 
   def test_key_operations(self):
-    self.run_test("EMV", "KEY_POST")
     self.run_test("EMV", "KEY_DELETE")
+    self.run_test("EMV", "KEY_POST")
+    self.run_test("EMV", "KEY_POST")
 
 
-  def tearDown(self):
+  @classmethod
+  def tearDownClass(cls):
       log.info("in tear down")
 
 

@@ -1,0 +1,12 @@
+{
+    "PnCrypto": {
+        "dataStoreType": "mysql", 
+        "mysql" : {
+            "port": 3306,
+            "comment": "In local mode go to localhost in container use fastapi_mysql",
+            "host": "fastapi_mysql",
+            "user": "pn_user",
+            "password": "pn_password"
+        }
+    }
+}

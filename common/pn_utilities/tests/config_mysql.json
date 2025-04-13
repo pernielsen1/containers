@@ -4,8 +4,8 @@
         "mysql" : {
             "port": 3306,
             "host": "localhost",
-            "user": "root",
-            "password": "password"
+            "user": "pn_user",
+            "password": "pn_password"
         }
     }
 }

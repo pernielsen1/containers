@@ -22,7 +22,7 @@ from ff3 import FF3Cipher
 PN_CRYPTO_KEYS = "pn_crypto_keys"
 PN_CRYPTO_DATABASE = "pn_crypto_key_store"
 
-import pn_utilities.PnLogger as PnLogger
+import pn_utilities.logger.PnLogger as PnLogger
 logger = PnLogger.PnLogger()
 config = {}
 #-------------------------------------------------------------

@@ -1,0 +1,2 @@
+start docker desktop in Windows
+then commands like docker ps works

@@ -5,7 +5,7 @@
     volumes:
       - ./data:/data
     environment:
-      - PN_CRYPTO_CONFIG_FILE=config.json
+      - PN_CRYPTO_CONFIG_FILE=config_fastapi_container.json
   
     depends_on:
       fastapi_mysql:

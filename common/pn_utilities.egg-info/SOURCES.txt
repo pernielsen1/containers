@@ -1,5 +1,4 @@
 setup.py
-pn_utilities/PnLogger.py
 pn_utilities/__init__.py
 pn_utilities.egg-info/PKG-INFO
 pn_utilities.egg-info/SOURCES.txt
@@ -8,3 +7,5 @@ pn_utilities.egg-info/top_level.txt
 pn_utilities/crypto/PnCrypto.py
 pn_utilities/crypto/PnCryptoKeys.py
 pn_utilities/crypto/__init__.py
+pn_utilities/logger/PnLogger.py
+pn_utilities/logger/__init__.py
