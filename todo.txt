@@ -3,6 +3,8 @@ in city update bashrc with PN_MYSQL_USER and PN_MYSQL_PASSWORD
 export PN_MYSQL_USER=pn_user
 export PN_MYSQL_PASSWORD=pn_password
 export PN_LOGGER_DIR=~/container_data/log
+export PATH="${PATH}:~/containers/utils"
+
 in request tests - check HTTP status code return
 In C- dive into the libcurl..
 
@@ -11,7 +13,9 @@ https://stackoverflow.com/questions/51437139/execute-a-command-in-a-rate-by-n-re
 # change console colours - even better tabs in windows terminal
 # https://superuser.com/questions/1486054/windows-terminal-predefined-tabs-on-startup
 # sudo apt install mysql-client-core-8.0 should be another on ubuntu !
-
+# https://github.com/pernielsen1/containers/security/dependabot/2
+# make the fastapi a "alpine installation" ? 
+# 
 
 # select virtual env press ctrl-shift-p  then python:select interpretator
 
