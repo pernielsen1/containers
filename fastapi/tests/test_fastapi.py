@@ -27,6 +27,7 @@ class TestFastApi(unittest.TestCase):
     server_url = self.test_cases['server'] + ":" + test_case['port']
 
     num_repeats = test_case['num_repeats']
+    expected_status_code = test_case['expected_status_code']
 
     post_url = "http://" + server_url + "/" + test_case['path']   
     test_msg = test_case['msg']
@@ -55,6 +56,8 @@ class TestFastApi(unittest.TestCase):
         log.info("start:" + str_start + " end:" + str_end + 
             " diff:" + str(diff) + " port:" + test_case['port'] + 
             " status:'" + str(response.status_code))
+        
+        self.assertEqual(response.status_code, expected_status_code)   
         try:
             log.info(response.json())
         except:
@@ -74,7 +77,8 @@ class TestFastApi(unittest.TestCase):
   def test_key_operations(self):
     self.run_test("EMV", "KEY_DELETE")
     self.run_test("EMV", "KEY_POST")
-    self.run_test("EMV", "KEY_POST")
+    self.run_test("EMV", "KEY_POST_DUPLICATE")   # force duplicate key
+    self.run_test("EMV", "KEY_POST_BAD")   # force pydantic error   
 
 
   @classmethod

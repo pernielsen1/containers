@@ -8,6 +8,7 @@
             "num_repeats": 1,
             "method" : "post",
             "path": "/v1/arqc",
+            "expected_status_code": 200,
             "msg": {  
                 "key_name":"IMK_k1",
                 "pan":"5656781234567891", 
@@ -24,6 +25,7 @@
             "num_repeats": 1,
             "method" : "post",
             "path": "/v1/arpc",  
+            "expected_status_code": 200,
             "msg": {
                 "key_name":"IMK_k1",
                 "pan":"5656781234567891", 
@@ -40,6 +42,7 @@
             "num_repeats": 1,
             "method" : "get",
             "path": "/v1/keys",  
+            "expected_status_code": 200,
             "msg": {
             },
             "params": ""
@@ -50,6 +53,7 @@
             "num_repeats": 1,
             "method" : "get",
             "path": "/v1/keys/IMK_k1",
+            "expected_status_code": 200,
             "msg": {
             }
         }, 
@@ -59,6 +63,7 @@
             "num_repeats": 1,
             "method" : "post",
             "path": "/v1/keys",
+            "expected_status_code": 201,
             "msg": {
                 "id":"test_key_1",
                 "description":"Description for test_key_1",
@@ -67,12 +72,44 @@
                 
             }
         },
+        "KEY_POST_DUPLICATE": {
+            "port": "8080",
+            "description":"post one key i.e. import_key",
+            "num_repeats": 1,
+            "method" : "post",
+            "path": "/v1/keys",
+            "expected_status_code": 422,
+            "msg": {
+                "id":"test_key_1",
+                "description":"Description for test_key_1",
+                "value":"C1C1C1C1C1C1C1C11C1C1C1C1C1C1C1C",
+                "type":"DES"
+                
+            }
+        },
+
+        "KEY_POST_BAD": {
+            "port": "8080",
+            "description":"post bad request with a missing value pydantic error",
+            "num_repeats": 1,
+            "method" : "post",
+            "path": "/v1/keys",
+            "expected_status_code": 500,
+            "msg": {
+                "id":"test_key_1",
+                "description":"Description for test_key_1",
+                "type":"DES"
+                
+            }
+        },
+
         "KEY_DELETE": {
             "port": "8080",
             "description":"delete one key",
             "num_repeats": 1,
             "method" : "delete",
             "path": "/v1/keys/test_key_1",
+            "expected_status_code": 200,
             "msg": {        
             }
     

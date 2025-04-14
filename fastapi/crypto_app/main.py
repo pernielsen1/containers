@@ -8,6 +8,17 @@ if os.path.abspath("..") not in sys.path:
 from fastapi import FastAPI, HTTPException, Request
 import json
 import socket
+from pydantic import BaseModel
+
+#--------------------------------------------------------------------------------------------
+# perhaps candidates for a shared object with keys in crypto or ? should it be local here? 
+#-------------------------------------------------------------------------------------------
+class CryptoKeyInput(BaseModel):
+    id: str
+    description: str
+    value: str
+    type: str
+
 # import logging
 import pn_utilities.logger.PnLogger as PnLogger
 #---------------------------------------------------
@@ -31,6 +42,19 @@ crypto_obj = PnCrypto.PnCrypto(os.environ.get('PN_CRYPTO_CONFIG_FILE', 'config.j
 
 app = FastAPI()
 
+#--------------------------------------------------------------------------------------------------
+# validate_request:  Convert request to dictorionary and perform pydantic plus return dictionary
+#-------------------------------------------------------------------------------------------------
+def validate_request_and_get_obj(data_json, object_class):
+    try:
+        log.info("Request received ready to pydantic" + data_json)
+        data = json.loads(data_json)
+        obj = object_class.model_validate(data)
+        log.info("Passed the validation")
+        return obj
+    except Exception as e:   # just raise it will be logged in calling routine
+        raise e
+    
 #---------------------------------------------------------
 # the get index .. root
 #---------------------------------------------------------
@@ -78,35 +102,27 @@ async def v1_post_key(request: Request):
     try:
         # Extracting user data from the request body
         data_json = await request.json()
-        keys = crypto_obj.get_PnCryptoKeys();
+        # Validate the presence of required fields and returns a CryptoKeyInput object
+        CK_obj = validate_request_and_get_obj(data_json, CryptoKeyInput)
 
-        # Validate the presence of required fields
-        log.info("Request received" + data_json)
-        if 'id' not in data_json or 'value' not in data_json:
-            raise HTTPException(
-                status_code=422, detail='Incomplete data provided')
-
-        # parse the dato with json loads and extract f002 and f049
-        data = json.loads(data_json)
-        
-        id = data['id']
-        description = data['description']
-        value = data['value']
-        type = data['type']
-        
-        if (keys.import_key(id, description, value, type) == True):
+        # seems to be OK input let's try to import - we can get duplicate key in key DB :-) 
+        keys = crypto_obj.get_PnCryptoKeys();        
+        if (keys.import_key(CK_obj.id, CK_obj.description, CK_obj.value, CK_obj.type) == True):
             return {"ok": True}
         else:
             raise HTTPException(
                 status_code=422, detail='Key already exists')
-
+    
     except HTTPException as e:
         # Re-raise HTTPException to return the specified status code and detail
+        log.error("error:" + str(e)) 
         raise e
+  
     except Exception as e:
         # Handle other unexpected exceptions and return a 500 Internal Server Error
+        log.error("error:" + str(e))
         raise HTTPException(
-            status_code=500, detail='An error occurred: {str(e)}')
+            status_code=500, detail='An error occurred:' + str(e))
 
 #-------------------------------------------------------------------------
 # post /v1/arqc:  handling request arqc calculate an arqc
