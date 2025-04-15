@@ -1,9 +1,8 @@
 ToDo:
-request tests - pydantic how to do on delete / update ... 
-tidy up remaining routines... 
-should the input object be shared ? 
-build a patch also.
+request tests - pydantic how to do on delete / update ... build a patch also.
 
+tidy up ISO - a little more advance pydantic perhaps here 
+should the input object be shared ? 
 Nice thing the fastapi does automatic reload upon save... ! when run in normal terminal with start_server
 
 

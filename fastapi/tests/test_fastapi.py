@@ -64,11 +64,11 @@ class TestFastApi(unittest.TestCase):
             log.error("exception occurred during json parse response was:", response)
 
 
-#  def test_crypto(self):
-#    self.run_test("EMV", "ARQC")
-#    self.run_test("EMV", "ARPC")
-#    self.run_test("EMV", "KEYS")
-#    self.run_test("EMV", "KEY")
+  def test_crypto(self):
+    self.run_test("EMV", "ARQC")
+    self.run_test("EMV", "ARPC")
+    self.run_test("EMV", "KEYS")
+    self.run_test("EMV", "KEY")
 
 #  def test_iso(self):
 #    self.run_test("tests", "0002")

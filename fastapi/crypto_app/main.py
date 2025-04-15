@@ -6,6 +6,9 @@ import sys, os
 if os.path.abspath("..") not in sys.path:
     sys.path.insert(0, os.path.abspath("../.."))
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+
 import json
 import socket
 from pydantic import BaseModel
@@ -19,7 +22,26 @@ class CryptoKeyInput(BaseModel):
     value: str
     type: str
 
-# import logging
+#--------------------------------------------------------------------------------------------
+# the ARQC / APRC inputs 
+#-------------------------------------------------------------------------------------------
+class ARQC_Input(BaseModel):
+    key_name: str
+    pan: str
+    psn: str
+    atc: str
+    data: str
+
+class ARPC_Input(BaseModel):
+    key_name: str
+    pan: str
+    psn: str
+    atc: str
+    csu: str
+    arqc: str
+
+       
+# import logging  
 import pn_utilities.logger.PnLogger as PnLogger
 #---------------------------------------------------
 # set the logging
@@ -124,6 +146,7 @@ async def v1_post_key(request: Request):
         raise HTTPException(
             status_code=500, detail='An error occurred:' + str(e))
 
+
 #-------------------------------------------------------------------------
 # post /v1/arqc:  handling request arqc calculate an arqc
 #-------------------------------------------------------------------------
@@ -134,30 +157,22 @@ async def v1_arqc(request: Request):
     try:
         # Extracting user data from the request body
         data_json = await request.json()
-        # Validate the presence of required fields
-        log.info("Request received" + data_json)
-        if 'pan' not in data_json or 'psn' not in data_json:
-            raise HTTPException(
-                status_code=422, detail='Incomplete data provided')
-
-        # parse the dato with json loads and extract f002 and f049
-        data = json.loads(data_json)
         
-        key_name = data['key_name']
-        pan = data['pan']
-        psn = data['psn']
-        atc = data['atc']
-        data = data['data']
-        ret_message['host'] = hostname
-        ret_message['arqc'] = crypto_obj.do_arqc(key_name, pan, psn, atc, data, True)
-        log.info(ret_message)
-        return {ret_message}
+        log.info("ARQC Request received" + data_json)
+        # parse the dato with json loads and extract AQRC request using pydantic to ARQC_Input object
+        ARQC_obj = validate_request_and_get_obj(data_json, ARQC_Input)
 
-    except HTTPException as e:
-        # Re-raise HTTPException to return the specified status code and detail
-        raise e
+        ret_message = {}
+        ret_message['host'] = hostname
+        ret_message['arqc'] = crypto_obj.do_arqc(ARQC_obj.key_name, ARQC_obj.pan, 
+                                                 ARQC_obj.psn, ARQC_obj.atc, ARQC_obj.data, True)
+        json_response = jsonable_encoder(ret_message)
+        log.info("replying:" + str(json_response))
+        return JSONResponse(content=json_response)
+
     except Exception as e:
         # Handle other unexpected exceptions and return a 500 Internal Server Error
+        log.error("error:" + str(e))
         raise HTTPException(
             status_code=500, detail='An error occurred: {str(e)}')
 #-------------------------------------------------------------------------
@@ -170,35 +185,25 @@ async def v1_arpc(request: Request):
     try:
         # Extracting user data from the request body
         data_json = await request.json()
-        # Validate the presence of required fields
         log.info("Request received" + data_json)
-        if 'pan' not in data_json or 'psn' not in data_json:
-            raise HTTPException(
-                status_code=422, detail='Incomplete data provided')
-
-        # parse the dato with json loads and extract f002 and f049
-        data = json.loads(data_json)
         
-        key_name = data['key_name']
-        pan = data['pan']
-        psn = data['psn']
-        atc = data['atc']
-        csu = data['csu']
-        arqc = data['arqc']
-        ret_message['host'] = hostname
-        ret_message['arpc'] = crypto_obj.do_arpc(key_name, pan, psn, atc, arqc, csu)
-        # Returning a confirmation message
-        log.info(ret_message)
-        return {'message': ret_message}
+        # parse the dato with json loads and get ARPC_Input object with pydantify 
+        ARPC_obj = validate_request_and_get_obj(data_json, ARPC_Input)
 
-    except HTTPException as e:
-        # Re-raise HTTPException to return the specified status code and detail
-        raise e
+        ret_message = {}
+        ret_message['host'] = hostname
+        ret_message['arpc'] = crypto_obj.do_arpc(ARPC_obj.key_name, ARPC_obj.pan, ARPC_obj.psn, 
+                                                 ARPC_obj.atc, ARPC_obj.arqc, ARPC_obj.csu)
+        # Returning a confirmation message
+        json_response = jsonable_encoder(ret_message)
+        log.info("replying:" + str(json_response))
+        return JSONResponse(content=json_response)
+
     except Exception as e:
         # Handle other unexpected exceptions and return a 500 Internal Server Error
+        log.error("error:" + str(e))
         raise HTTPException(
             status_code=500, detail='An error occurred: {str(e)}')
-
 
 #-------------------------------------------------------------------------
 # post transcode_0100:  handling request type 0100
