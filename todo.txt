@@ -1,7 +1,10 @@
 ToDo:
 request tests - pydantic how to do on delete / update ... build a patch also.
+Build sqlalcheme y maintain keys.
+Tidy up web module - should all the objects be in own source file ? should the routes ? 
+validate receved for the the "get operations" - and make the get operations more correct - what status code and expected value.
 
-tidy up ISO - a little more advance pydantic perhaps here 
+tidy up ISO - a little more advanced pydantic perhaps here 
 should the input object be shared ? 
 Nice thing the fastapi does automatic reload upon save... ! when run in normal terminal with start_server
 

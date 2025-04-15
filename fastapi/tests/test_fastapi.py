@@ -58,6 +58,14 @@ class TestFastApi(unittest.TestCase):
             " status:'" + str(response.status_code))
         
         self.assertEqual(response.status_code, expected_status_code)   
+        # should we peek at the data ? 
+        expected_json = test_case.get('expected_json', None)
+        if (expected_json != None):
+           return_json = response.json()
+           for key, expected_val in expected_json.items():
+              ret_val= return_json[key].upper()
+              self.assertEqual(ret_val, expected_val)   
+
         try:
             log.info(response.json())
         except:
@@ -67,14 +75,15 @@ class TestFastApi(unittest.TestCase):
   def test_crypto(self):
     self.run_test("EMV", "ARQC")
     self.run_test("EMV", "ARPC")
-    self.run_test("EMV", "KEYS")
-    self.run_test("EMV", "KEY")
 
 #  def test_iso(self):
 #    self.run_test("tests", "0002")
 #    self.run_test("tests", "0001")
 
   def test_key_operations(self):
+    self.run_test("EMV", "KEYS")
+    self.run_test("EMV", "KEY")
+
     self.run_test("EMV", "KEY_DELETE")
     self.run_test("EMV", "KEY_POST")
     self.run_test("EMV", "KEY_POST_DUPLICATE")   # force duplicate key
