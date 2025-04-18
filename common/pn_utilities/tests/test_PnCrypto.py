@@ -112,8 +112,34 @@ class TestPnCrypto(unittest.TestCase):
       mysql_keys = self.my_crypto_mysql.get_PnCryptoKeys()
       mysql_keys.delete_key(id)
       mysql_keys.import_key(id, description, value, type)
-       
-     
+  
+  def test_update_keys(self):
+    self.log.info("in test_update")
+    mysql_keys = self.my_crypto_mysql.get_PnCryptoKeys()
+    self.assertEqual(mysql_keys.update_key('test_keyx', 'test_key desc update', 
+                     'C3C3C3C3C3C3C3C33C3C3C3C3C3C3C3C', 'DES'), True)
+    self.assertEqual(mysql_keys.update_key('test_key_not_found', 'test_key desc update', 
+                     'C3C3C3C3C3C3C3C33C3C3C3C3C3C3C3C', 'DES'), False)
+    key_obj = mysql_keys.get_key('test_keyx')
+    self.assertEqual(key_obj.get_description(), 'test_key desc update')
+    
+  def test_RSA(self):
+    #    def do_RSA(self, operation, key, data, mode="OAEP", hash="SHA256"):
+    for test_name, tc in self.crypto_cases['tests']['RSA'].items():
+      key_value = self.my_crypto.get_key_value(tc['key'])   
+      res = self.my_crypto.do_RSA(tc['operation'], key_value, tc['data'],
+                                  tc['mode'], tc['hash'])
+      if (tc['operation'] == 'encrypt'):  
+        # both variants generate new result each time have to decrypt with private key to verify
+        enc_res = res
+        verify_key_value = self.my_crypto.get_key_value(tc['verify_key'])   
+
+        res = self.my_crypto.do_RSA('decrypt', verify_key_value, enc_res,
+                                  tc['mode'], tc['hash'])
+      
+      self.assertEqual(res.upper(), tc['expected_result'].upper())
+
+
   @classmethod
   def tearDownClass(cls):
       cls.log.info("in tear down")

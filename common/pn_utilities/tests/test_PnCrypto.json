@@ -3,20 +3,47 @@
     
     "tests": {
         "RSA": {
-            "RSA_ENCRYPT": {
+            "RSA_ENCRYPT_PKCS1_v1_5": {
+                "description":"RSA Encrypt PKCS1_v1_5",
+                "alg":"RSA",
+                "operation":"encrypt",
+                "verify_key":"RSA_Alice_Private",
+                "key":"RSA_Alice_Public",
+                "mode": "PKCS1_v1_5",
+                "hash": "",
+                "data":"3132333435313233343531323334353132333435",
+                "expected_result":"3132333435313233343531323334353132333435"
+            },
+
+            "RSA_DECRYPT_PKCS1_v1_5": {
+                "description":"RSA Decrypt PKCS_V1_5",
+                "alg":"RSA",
+                "operation":"decrypt",
+                "key":"RSA_Alice_Private",
+                "mode": "PKCS1_v1_5",
+                "hash": "",
+                "data":"1EA6321110899F5CDB61F61F1B618573615A219F1BD879E65B6B6F7488DC2E7699DF1B62A8F5CAF7B4F3BBBF717DB30BBE43951A980C01D4AB04E0161910F0671174D3F978F6DBBE71FF69D428BE8B176227832D45B2896709F39EE5AEDBADB886A42D156BA4DAB2AB8E2096BAEFA54A256CAFF4D8648D2F90619E79D4D93BFB39BFBD38CAD52E2F6FFF112EA83E8ED543D3E9F397C412910770717D40AC2BD2992804866F7CDAB1476C4DDF646B4C41B6209F1DF7F3E7F1937E8A8E6523E65ABCBD16120ECD3E01A3F163B7C1ED170AD7FE187A4A891AD75BDB6A1A3C6662605F59E588C25695BC0FC8EFB996E0AFCD86C4F4645C3CD9741EBD47D64D372B4D",
+                "expected_result":"3132333435313233343531323334353132333435"
+            },
+ 
+            "RSA_ENCRYPT_OAEP": {
                 "description":"RSA Encrypt OAEP",
                 "alg":"RSA",
                 "operation":"encrypt",
                 "verify_key":"RSA_Alice_Private",
                 "key":"RSA_Alice_Public",
+                "mode": "OAEP",
+                "hash": "SHA256",
                 "data":"3132333435313233343531323334353132333435",
                 "expected_result":"3132333435313233343531323334353132333435"
             },
-            "RSA_DECRYPT": {
-                "description":"RSA Encrypt OAEP",
+            "RSA_DECRYPT_OAEP": {
+                "description":"RSA Decrypt OAEP",
                 "alg":"RSA",
                 "operation":"decrypt",
                 "key":"RSA_Alice_Private",
+                "mode": "OAEP",
+                "hash": "SHA256",
                 "data":"7998FBB5BB848DA0400CF97FD2FBEAB375DEAC8FFF2CAE99E1E8F7D2D5ED81B1534CF1100F66FDEAB50063CD4497F1661952F3BB386E21ED99B6B790D03EB943786E80DDD2BBA7A677FE1AB129D322D53F36F511118DAC8168CEF091DE1B26B72F039784AEDB0B42EBABD025E78DCDFBA50263E3D008491C9351D8920B65A89ABE58C46BE2B10E1872ABFAB17D12DC5BE2B23FFF172C677063E9AA3663FD4D2AD51C287726226F91207644B653139A4918AEAE7E7F0ECF64A090FA3A8B682847B01020BCA7BAAD06C8C18C046F8572367E2D1A230BEA38E7EA07CD9A3FBC7CFF0EBC487D7D6E9DD87A468BCCD909782F1AC06CA6C4EC31EDEBA82AD51B92AD9C",
                 "expected_result":"3132333435313233343531323334353132333435"
             }

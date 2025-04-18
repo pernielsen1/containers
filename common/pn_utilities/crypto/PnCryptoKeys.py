@@ -114,7 +114,23 @@ class PnCryptoKeys:
         self.datastore_cnx.commit()
         self.sync_keys_db()
 
-
+    def update_key(self, id, description, value, type):
+        if (self.get_key(id) == None):
+            return False   # oops it does not exist then you can't update
+        
+        PLING = "'"
+        update_sql = ( "update " + PN_CRYPTO_KEYS + " set " +   
+            "description =" +  PLING + description + PLING + ", " +
+            "value = " + PLING + value +  PLING + ", " + 
+            "type = " + PLING + type + PLING + 
+                      " where id=" + PLING + id + PLING )
+        cursor = self.datastore_cnx.cursor()
+        logger.info("updating:" + update_sql)
+        cursor.execute(update_sql)
+        self.datastore_cnx.commit()
+        self.sync_keys_db()
+        return True
+    
     def import_key(self, id, description, value, type):
         if (self.get_key(id) != None):
             return False   # oops it already exists

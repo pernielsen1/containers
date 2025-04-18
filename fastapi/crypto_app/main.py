@@ -146,6 +146,39 @@ async def v1_post_key(request: Request):
         raise HTTPException(
             status_code=500, detail='An error occurred:' + str(e))
 
+#---------------------------------------------------------
+# the patcht a key 
+#---------------------------------------------------------
+# @app.route('/v1/keys 
+@app.patch("/v1/keys", status_code=200)
+async def v1_patch_key(request: Request):
+    log.info("patch key called")
+    try:
+        # Extracting user data from the request body
+        data_json = await request.json()
+        # Validate the presence of required fields and returns a CryptoKeyInput object
+        CK_obj = validate_request_and_get_obj(data_json, CryptoKeyPatchInput)
+
+        # seems to be OK input let's try to import - we can get duplicate key in key DB :-) 
+        keys = crypto_obj.get_PnCryptoKeys();        
+        if (keys.update_key(id, CK_obj.description, CK_obj.value, CK_obj.type) == True):
+            return {"ok": True}
+        else:
+            raise HTTPException(
+                status_code=422, detail='Key already exists')
+    
+    except HTTPException as e:
+        # Re-raise HTTPException to return the specified status code and detail
+        log.error("error:" + str(e)) 
+        raise e
+  
+    except Exception as e:
+        # Handle other unexpected exceptions and return a 500 Internal Server Error
+        log.error("error:" + str(e))
+        raise HTTPException(
+            status_code=500, detail='An error occurred:' + str(e))
+
+
 
 #-------------------------------------------------------------------------
 # post /v1/arqc:  handling request arqc calculate an arqc

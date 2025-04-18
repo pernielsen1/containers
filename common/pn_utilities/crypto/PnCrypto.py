@@ -1,7 +1,10 @@
 
 import json
+import base64
+
 from pn_utilities.crypto.PnCryptoKeys import PnCryptoKeys
 from pn_utilities.crypto.PnCryptoKeys import PnCryptKey
+from Crypto.Random import get_random_bytes
 
 # from Crypto.Cipher import AES
 from Crypto.Cipher import DES
@@ -9,9 +12,10 @@ from Crypto.Cipher import DES3
 from Crypto.Hash import CMAC
 
 # from Crypto.PublicKey import ECC
-# from Crypto.PublicKey import RSA
-# from Crypto.Cipher import PKCS1_OAEP
-# from Crypto.Hash import SHAKE256, SHA256
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_v1_5
+from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Hash import SHAKE256, SHA256
 # from Crypto.Protocol.DH import key_agreement
 # from Crypto.Util.Padding import pad
 # from Crypto.Util.Padding import unpad
@@ -57,6 +61,32 @@ class PnCrypto():
                 return k.get_value()
             else: # the key is assumed to be the raw value
                 return key
+    #-----------------------------------------------------------
+    # do_RSA
+    #------------------------------------------------------------
+    def do_RSA(self, operation, key, data, mode="OAEP", hash="SHA256"):
+        # ToDo look up SHA function object based on name
+        rsa_key = RSA.import_key(base64.b64decode(self.clean_pem(key)))     
+        if (mode == "OAEP"):
+            label=""
+            hash_obj = SHA256.new()
+            cipher_rsa = PKCS1_OAEP.new(key=rsa_key, hashAlgo=hash_obj, label=label)
+        if (mode == "PKCS1_v1_5"):
+            cipher_rsa =  PKCS1_v1_5.new(rsa_key)        
+
+        label=""
+        data_bytes = bytes.fromhex(data)
+        if (operation == "encrypt"):
+            return cipher_rsa.encrypt(data_bytes).hex()
+        if (operation == "decrypt"):
+            if (mode == "OAEP"):
+                return cipher_rsa.decrypt(data_bytes).hex()
+            if (mode == "PKCS1_v1_5"):
+                sentinel = get_random_bytes(16)
+                return cipher_rsa.decrypt(data_bytes, sentinel).hex()
+
+        return "Wrong operation"
+ 
 
     #-------------------------------------------------------------
     # do_DES  - the key can be a id or a PnCryptoKey
@@ -180,6 +210,14 @@ class PnCrypto():
         y = self.hex_string_xor(arqc, x)
         return self.do_DES('encrypt', sk, 'ECB', y, "")
 
+    def clean_pem(self, s):
+        s = s.replace("-----BEGIN EC PRIVATE KEY-----", "")
+        s = s.replace("-=-----END EC PRIVATE KEY-----", "")
+        s = s.replace("-----BEGIN PUBLIC KEY-----", "")
+        s = s.replace("-----END PUBLIC KEY-----", "")
+        s = s.replace("-----BEGIN PRIVATE KEY-----", "")
+        s = s.replace("-----END PRIVATE KEY-----", "")
+        return s
 
 #-----------------------------------------------
 # test_fpe - create 1 million different values
