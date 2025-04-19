@@ -17,7 +17,7 @@ PN_CRYPTO_KEYS = "pn_crypto_keys"
 PN_CRYPTO_DATABASE = "pn_crypto_key_store"
 
 import pn_utilities.logger.PnLogger as PnLogger
-logger = PnLogger.PnLogger()
+log = PnLogger.PnLogger()
 #------------------------------------------
 # PnCryptKey - the key object
 #------------------------------------------
@@ -58,11 +58,11 @@ class PnCryptoKeys:
 
     def load_keys(self):
         data_store_type = self.config['PnCrypto']['dataStoreType']
-        logger.info("Loading keys from:" + data_store_type)
+        log.info("Loading keys from:" + data_store_type)
 
         if ( data_store_type == 'json'): 
             key_store_file = self.config['PnCrypto']['keyStoreFile']
-            logger.info("Loading keys store from:" + key_store_file)
+            log.info("Loading keys store from:" + key_store_file)
             with open(key_store_file, 'r') as file:
                 dict = json.loads(file.read())
                 input_keys = dict['crypto_keys']
@@ -75,7 +75,7 @@ class PnCryptoKeys:
             host = self.config['PnCrypto']['mysql']['host']
             password = self.config['PnCrypto']['mysql']['password']
             database = PN_CRYPTO_DATABASE
-            logger.info("opening mysql with user:" + user + " host:port "
+            log.info("opening mysql with user:" + user + " host:port "
                         + host + ":" + str(port) + " database:" + database)
             if (self.config['PnCrypto']['mysql'].get("log_sql", "False").upper() == "TRUE"): 
                 log_sql = True
@@ -83,13 +83,13 @@ class PnCryptoKeys:
                 log_sql = False
             mysql_conn_str=('mysql+mysqlconnector://' + 
                             user + ':' + password + '@' + host + ':' + str(port)+ '/' + database )
-            logger.info("creating engine with connstr:" + mysql_conn_str)   
+#            log.info("creating engine with connstr:" + mysql_conn_str)   
             self.sqlalchemy_engine = create_engine(mysql_conn_str, echo=log_sql)
             self.datastore_sqlalchemy_conn = self.sqlalchemy_engine.connect()
 
             self.sync_keys_db()
         else:
-            logger.error("unsupported ID for dataStoreType" + data_store_type)
+            log.error("unsupported ID for dataStoreType" + data_store_type)
 
     def sync_keys_db(self):
         self.keys = {}

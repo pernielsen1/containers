@@ -1,10 +1,15 @@
 ToDo:
 
 SQLalchemy prettier insert & delete + sql_log in config file.
+nats queue 
+redis 
+https://stackoverflow.com/questions/51437139/execute-a-command-in-a-rate-by-n-requests-per-second
 
-rename logger to log all places.
-
+Improvements:
+change the tests in common to execute suite based on names ? just like for the crypto app
+Queing:
 https://betterstack.com/community/comparisons/redis-vs-kafka/
+https://icepanel.medium.com/top-6-message-queues-for-distributed-architectures-a3cbabf08993
 
 # and then start to dig into socket application ? 
 https://nginx.org/en/docs/stream/ngx_stream_core_module.html
@@ -13,9 +18,8 @@ https://www.datacamp.com/tutorial/python-redis-beginner-guide
 in validation build general validation request - 
 with fields to be mandatory and type
 In C- dive into the libcurl..
+https://medium.com/@albert.kim/understanding-user-authentication-in-your-web-app-and-how-to-implement-it-part-1-the-high-level-ab91336ab77c
 
-when fiber update MYSQL user in container.
-https://stackoverflow.com/questions/51437139/execute-a-command-in-a-rate-by-n-requests-per-second
 # change console colours - even better tabs in windows terminal
 # https://superuser.com/questions/1486054/windows-terminal-predefined-tabs-on-startup
 # sudo apt install mysql-client-core-8.0 should be another on ubuntu !
