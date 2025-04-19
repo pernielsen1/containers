@@ -22,6 +22,11 @@ class CryptoKeyInput(BaseModel):
     value: str
     type: str
 
+class CryptoKeyPutInput(BaseModel):
+    description: str
+    value: str
+    type: str
+
 #--------------------------------------------------------------------------------------------
 # the ARQC / APRC inputs 
 #-------------------------------------------------------------------------------------------
@@ -147,17 +152,19 @@ async def v1_post_key(request: Request):
             status_code=500, detail='An error occurred:' + str(e))
 
 #---------------------------------------------------------
-# the patcht a key 
+# the put  a key 
+#
+# @app.put("/users/{user_id}")
+# async def update_user(user_id: int, user: User):
 #---------------------------------------------------------
-# @app.route('/v1/keys 
-@app.patch("/v1/keys", status_code=200)
-async def v1_patch_key(request: Request):
-    log.info("patch key called")
+@app.put("/v1/keys/{id}", status_code = 200 )
+async def v1_put_key(id: str, request: Request):
+    log.info("put key called")
     try:
         # Extracting user data from the request body
         data_json = await request.json()
         # Validate the presence of required fields and returns a CryptoKeyInput object
-        CK_obj = validate_request_and_get_obj(data_json, CryptoKeyPatchInput)
+        CK_obj = validate_request_and_get_obj(data_json, CryptoKeyPutInput)
 
         # seems to be OK input let's try to import - we can get duplicate key in key DB :-) 
         keys = crypto_obj.get_PnCryptoKeys();        

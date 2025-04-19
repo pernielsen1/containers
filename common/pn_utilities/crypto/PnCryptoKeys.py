@@ -1,8 +1,17 @@
 
 import json
 import mysql.connector
+from sqlalchemy import create_engine
+from sqlalchemy import text
+# from sqlalchemy.orm import Session
+# engine = create_engine("sqlite+pysqlite:///:memory:", echo=True)
 # uses mysql  pip install mysql-connector-python
-
+# pip install SQLAlchemy
+# mysql connection input 
+# htps://planetscale.com/blog/using-mysql-with-sql-alchemy-hands-on-examples
+# mysql+<drivername>://<username>:<password>@<server>:<port>/dbname
+# https://dev.mysql.com/doc/connector-python/en/connector-python-connectargs.html
+           
 
 PN_CRYPTO_KEYS = "pn_crypto_keys"
 PN_CRYPTO_DATABASE = "pn_crypto_key_store"
@@ -68,10 +77,16 @@ class PnCryptoKeys:
             database = PN_CRYPTO_DATABASE
             logger.info("opening mysql with user:" + user + " host:port "
                         + host + ":" + str(port) + " database:" + database)
-            self.datastore_cnx = mysql.connector.connect(user=user, password=password,
-                              host=host,
-                              port=port,
-                              database=database)
+            if (self.config['PnCrypto']['mysql'].get("log_sql", "False").upper() == "TRUE"): 
+                log_sql = True
+            else:
+                log_sql = False
+            mysql_conn_str=('mysql+mysqlconnector://' + 
+                            user + ':' + password + '@' + host + ':' + str(port)+ '/' + database )
+            logger.info("creating engine with connstr:" + mysql_conn_str)   
+            self.sqlalchemy_engine = create_engine(mysql_conn_str, echo=log_sql)
+            self.datastore_sqlalchemy_conn = self.sqlalchemy_engine.connect()
+
             self.sync_keys_db()
         else:
             logger.error("unsupported ID for dataStoreType" + data_store_type)
@@ -79,11 +94,10 @@ class PnCryptoKeys:
     def sync_keys_db(self):
         self.keys = {}
         query = ("SELECT id, description, value, type from " + PN_CRYPTO_KEYS)
-        cursor = self.datastore_cnx.cursor()  
-        cursor.execute(query)
-        for (id, description, value, type) in cursor:
-                self.keys[id] = PnCryptKey(id, description, value, type)
-        
+        r1 = self.datastore_sqlalchemy_conn.execute(text(query))
+        result = r1.fetchall()
+        for row in result:
+            self.keys[row.id] = PnCryptKey(row.id, row.description, row.value, row.type)
 
     def get_keys(self):
         return self.keys
@@ -102,32 +116,31 @@ class PnCryptoKeys:
             entry['description'] = self.keys[k].get_description()
             entry['uri'] = self.keys[k].get_uri()
             r_dict[k] = entry
+
         return json.dumps(r_dict)
 
     def delete_key(self, id):
         PLING = "'"
         delete_sql = ( "delete from " + PN_CRYPTO_KEYS + " where id=" + PLING + id + PLING )
-        cursor = self.datastore_cnx.cursor()
-
-        cursor.execute(delete_sql)
-     
-        self.datastore_cnx.commit()
+        self.datastore_sqlalchemy_conn.execute(text(delete_sql))
+    
+        self.datastore_sqlalchemy_conn.commit()
         self.sync_keys_db()
 
     def update_key(self, id, description, value, type):
         if (self.get_key(id) == None):
             return False   # oops it does not exist then you can't update
         
-        PLING = "'"
-        update_sql = ( "update " + PN_CRYPTO_KEYS + " set " +   
-            "description =" +  PLING + description + PLING + ", " +
-            "value = " + PLING + value +  PLING + ", " + 
-            "type = " + PLING + type + PLING + 
-                      " where id=" + PLING + id + PLING )
-        cursor = self.datastore_cnx.cursor()
-        logger.info("updating:" + update_sql)
-        cursor.execute(update_sql)
-        self.datastore_cnx.commit()
+        self.datastore_sqlalchemy_conn.execute(
+            text(
+                "UPDATE " + PN_CRYPTO_KEYS + 
+                " set description=:description, value=:value, type=:type" +
+                " where id=:id"
+            ),
+             {"description": description, "value": value, "type": type, "id": id}
+        )
+        self.datastore_sqlalchemy_conn.commit()
+
         self.sync_keys_db()
         return True
     
@@ -145,9 +158,8 @@ class PnCryptoKeys:
                       pling + value +  pling + ", " + 
                       pling + type + pling + 
                       ")" ) 
-        cursor = self.datastore_cnx.cursor()
-        cursor.execute(insert_sql)
-        self.datastore_cnx.commit()
+        self.datastore_sqlalchemy_conn.execute(text(insert_sql))
+        self.datastore_sqlalchemy_conn.commit()
         # and updata our in memory copy - do a full reload..  - in prod we would need to reload all servers !
         self.sync_keys_db()
 

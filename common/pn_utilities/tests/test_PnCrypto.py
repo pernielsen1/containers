@@ -115,13 +115,16 @@ class TestPnCrypto(unittest.TestCase):
   
   def test_update_keys(self):
     self.log.info("in test_update")
+    new_desc = "this text is updated"
+    new_desc_not_updated = "this text is not updated"
+
     mysql_keys = self.my_crypto_mysql.get_PnCryptoKeys()
-    self.assertEqual(mysql_keys.update_key('test_keyx', 'test_key desc update', 
+    self.assertEqual(mysql_keys.update_key('test_keyx', new_desc, 
                      'C3C3C3C3C3C3C3C33C3C3C3C3C3C3C3C', 'DES'), True)
-    self.assertEqual(mysql_keys.update_key('test_key_not_found', 'test_key desc update', 
+    self.assertEqual(mysql_keys.update_key('test_key_not_found', new_desc_not_updated,
                      'C3C3C3C3C3C3C3C33C3C3C3C3C3C3C3C', 'DES'), False)
     key_obj = mysql_keys.get_key('test_keyx')
-    self.assertEqual(key_obj.get_description(), 'test_key desc update')
+    self.assertEqual(key_obj.get_description(), new_desc)
     
   def test_RSA(self):
     #    def do_RSA(self, operation, key, data, mode="OAEP", hash="SHA256"):

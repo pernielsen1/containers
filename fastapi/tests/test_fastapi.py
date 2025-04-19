@@ -45,10 +45,13 @@ class TestFastApi(unittest.TestCase):
                 response = requests.get(post_url, json=json_msg)
             if test_case['method'] == 'delete':
                 response = requests.delete(post_url, json=json_msg)
-
+            if test_case['method'] == 'put':
+                response = requests.put(post_url, json=json_msg)
+            if test_case['method'] == 'patch':
+                response = requests.patch(post_url, json=json_msg)
         except:
             # TODO - print the error request
-            log.error("error in request.post")
+            log.error("error in request post")
             return
         end = datetime.now()
         str_end = datetime.strftime(end, "%H:%M:%S.%f")
@@ -87,6 +90,10 @@ class TestFastApi(unittest.TestCase):
     self.run_test("EMV", "KEY_DELETE")
     self.run_test("EMV", "KEY_POST")
     self.run_test("EMV", "KEY_POST_DUPLICATE")   # force duplicate key
+    print("key put")
+    self.run_test("EMV", "KEY_PUT")     
+    self.run_test("EMV", "KEY_ERROR_NOT_FOUND")     
+
     self.run_test("EMV", "KEY_POST_BAD")   # force pydantic error   
 
 

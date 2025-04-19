@@ -1,29 +1,36 @@
 ToDo:
-request tests - pydantic how to do on delete / update ... build a patch also.
-Build sqlalcheme y maintain keys.
-Tidy up web module - should all the objects be in own source file ? should the routes ? 
-validate receved for the the "get operations" - and make the get operations more correct - what status code and expected value.
 
-tidy up ISO - a little more advanced pydantic perhaps here 
-should the input object be shared ? 
-Nice thing the fastapi does automatic reload upon save... ! when run in normal terminal with start_server
+SQLalchemy prettier insert & delete + sql_log in config file.
 
+rename logger to log all places.
 
-https://stackoverflow.com/questions/51437139/execute-a-command-in-a-rate-by-n-requests-per-second
+https://betterstack.com/community/comparisons/redis-vs-kafka/
+
+# and then start to dig into socket application ? 
+https://nginx.org/en/docs/stream/ngx_stream_core_module.html
+https://www.datacamp.com/tutorial/python-redis-beginner-guide
+
+in validation build general validation request - 
+with fields to be mandatory and type
 In C- dive into the libcurl..
 
-# https://docs.pydantic.dev/latest/examples/requests/
+when fiber update MYSQL user in container.
+https://stackoverflow.com/questions/51437139/execute-a-command-in-a-rate-by-n-requests-per-second
 # change console colours - even better tabs in windows terminal
 # https://superuser.com/questions/1486054/windows-terminal-predefined-tabs-on-startup
 # sudo apt install mysql-client-core-8.0 should be another on ubuntu !
-# https://github.com/pernielsen1/containers/security/dependabot/2  was just the OAEP 
+# https://github.com/pernielsen1/containers/security/dependabot/2
 # make the fastapi a "alpine installation" ? 
 # 
+
 # select virtual env press ctrl-shift-p  then python:select interpretator
+
 # https://www.geeksforgeeks.org/post-query-parameters-in-fastapi/
 # https://stackoverflow.com/questions/62553709/how-to-get-the-name-of-all-container-in-docker-using-docker-py
 # https://stackoverflow.com/questions/67663970/optimal-way-to-initialize-heavy-services-only-once-in-fastapi
 # https://restfulapi.net/http-methods/
+
+# TODO
 
 Resources FASTAPI
 # https://medium.com/@sadhu1998/hosting-multiple-services-on-docker-using-nginx-reverse-proxy-3cef6b01a5cf

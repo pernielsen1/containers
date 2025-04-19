@@ -97,13 +97,40 @@
             "description":"post bad request with a missing value pydantic error",
             "num_repeats": 1,
             "method" : "post",
-            "path": "/v1/keys",
+            "path": "/v1/keys/",
             "expected_status_code": 500,
             "msg": {
-                "id":"test_key_1",
-                "description":"Description for test_key_1",
+                "description":"Updated description & val for test_key_1",
+                "value":"C3C1C1C1C1C1C1C11C1C1C1C1C1C1C1C",
                 "type":"DES"
-                
+            }
+        },
+
+        "KEY_PUT": {
+            "port": "8080",
+            "description":"put request i.e. update",
+            "num_repeats": 1,
+            "method" : "put",
+            "path": "/v1/keys/test_key_1",
+            "expected_status_code": 200,
+            "msg": {
+                "value":"C3C1C1C1C1C1C1C11C1C1C1C1C1C1C1C",
+                "description":"Description for test_key_1",
+                "type":"DES"                
+            }
+        },
+
+        "KEY_ERROR_NOT_FOUND": {
+            "port": "8080",
+            "description":"bad put request key not found",
+            "num_repeats": 1,
+            "method" : "put",
+            "path": "/v1/keys/test_key_NOT_FOUND",
+            "expected_status_code": 422,
+            "msg": {
+                "value":"C3C1C1C1C1C1C1C11C1C1C1C1C1C1C1C",
+                "description":"Description for test_key_1",
+                "type":"DES"                
             }
         },
 
