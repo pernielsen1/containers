@@ -1,0 +1,40 @@
+{
+    "server": "127.0.0.1",
+    "port": 4242,
+    "redis_password": "pn_password",
+    "SEGMENT1": {
+        "TC1": {
+            "port": "8080",
+            "description":"First request to socket server",
+            "num_repeats": 2,
+            "expected_result": 200,
+            "message": {  
+                "data":"Hello world from here"
+            }
+        }
+    },
+    "REDIS": {
+        "PRODUCER1": {
+            "description":"First message to redis",
+            "role": "producer",
+            "num_repeats": 2,
+            "queue_name": "pn_queue",
+            "ttl": 3600,
+            "message_metadata": {  
+                "id": "msg123",
+                "sender_id": "deviceA",
+                "signal_code": "12345",  
+                "criteria_index": 1
+            },            
+            "message": {  
+                "data":"Hello redis here is testing",
+                "ttl":3600
+            }
+        },
+        "CONSUMER": {
+            "description":"Consume all there is",
+            "role": "consumer",
+            "queue_name": "pn_queue"
+        }
+    }
+}

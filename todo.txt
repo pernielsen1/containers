@@ -1,5 +1,8 @@
 ToDo:
 
+use the generel build_venv.sh instead of the specifics... obs common requirements needs to be in root
+
+
 SQLalchemy prettier insert & delete + sql_log in config file.
 nats queue 
 redis 

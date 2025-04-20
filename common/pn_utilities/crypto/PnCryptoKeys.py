@@ -1,6 +1,6 @@
 
 import json
-import mysql.connector
+# import mysql.connector
 from sqlalchemy import create_engine
 from sqlalchemy import text
 # from sqlalchemy.orm import Session
