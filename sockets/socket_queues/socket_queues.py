@@ -22,10 +22,10 @@ log = PnLogger.PnLogger()
 class SocketQueues():
     # the init load the config file to dict config.
     def __init__(self, config_file="config.json"):
-        print("config" + config_file)
+        log.info("Using config file" + config_file)
         with open(config_file, 'r') as file:
             self.config = json.loads(file.read())   
-        print(self.config) 
+
         # set up redis queue - used both by client & servers
         password = self.config['message_broker']['password']
         self.redis = redis.Redis(host='localhost', port=6379, db=0, password=password)
@@ -128,6 +128,9 @@ class Worker():
 
         raise Exception("Not possible to receive_forever both receive socket and queue are None")
 
+    #-------------------------------------------------------------
+    # send_socket- send message via socket
+    #-------------------------------------------------------------
     def send_socket(self, data):
         send_len = len(data)
         send_len_str = f"{send_len:04d}"
@@ -145,7 +148,9 @@ class Worker():
         self.redis.hset(msg_id, "data", data)
         self.redis.expire(msg_id, self.ttl)
         return len(data)
-
+    #---------------------------------------------------------------
+    # receive_socket_forever : read message from socket and send on
+    #---------------------------------------------------------------
     def receive_socket_forever(self):
         log.info("receiving from socket")
         while True:
@@ -159,20 +164,22 @@ class Worker():
             log.info("received:" + str(data))
             # now use the send worker
             self.send(data)
-
+    #---------------------------------------------------------------
+    # receive_queue_forever : read message from queue and send on
+    #---------------------------------------------------------------
     def receive_queue_forever(self):
         log.info("Receiving from:" + self.rcv_queue)
         while True:
             msg_id_tuple = self.SQ_obj.redis.brpop(self.rcv_queue)
             msg_id = msg_id_tuple[1]
-            print("received msg_id" + str(msg_id))
-            full_message = self.redis.hget(msg_id, "data")
-            print(f"Full message details: {full_message}")
+            data = self.redis.hget(msg_id, "data")
             # now use the send worker
-            data = full_message
-            print("extraccted the data")
+            log.info("receive_queue sending data:" + str(data))
             self.send(data)
     
+    #----------------------------------------------------
+    # filter functions where we install the real workers.
+    #----------------------------------------------------
     def filter_echo(self, data):
         str_response = data.decode("utf-8")
         str_response = "echo:" + str_response
