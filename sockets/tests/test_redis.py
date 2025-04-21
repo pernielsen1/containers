@@ -71,15 +71,14 @@ class TestRedis(unittest.TestCase):
       ttl = 3600
       test_msg = "Hello redis here is testing"
       queue_name="x"  
-      self.redis.lpush(queue_name, test_meta_json)
-      self.redis.hset(f"message:{test_meta['id']}", "data", test_msg)
-      self.redis.expire(f"message:{test_meta['id']}", ttl)
+      msg_id = "1001"
+      self.redis.lpush(queue_name, msg_id)
+      self.redis.hset(msg_id, "data", test_msg)
+      self.redis.expire(msg_id, ttl)
       while True:
-          metadata = self.redis.brpop(queue_name)
-          message_info = json.loads(metadata[1].decode('utf-8'))
-          # Retrieve full message details from Redis
-          full_message = self.redis.hget(f"message:{message_info['id']}", "data")
-          print(f"Processing message ID: {message_info['id']} from sender: {message_info['sender_id']}")
+          msg_id_tuple  = self.redis.brpop(queue_name)
+          msg_id = msg_id_tuple[1]
+          full_message = self.redis.hget(msg_id, "data")
           print(f"Full message details: {full_message}")
       
 

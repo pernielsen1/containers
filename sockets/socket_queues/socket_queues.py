@@ -131,23 +131,19 @@ class Worker():
     def send_socket(self, data):
         send_len = len(data)
         send_len_str = f"{send_len:04d}"
-        self.send_socket.sendall(send_len_str.encode("utf-8"))
-        self.send_socket.sendall(data)
+        self.snd_conn.sendall(send_len_str.encode("utf-8"))
+        self.snd_conn.sendall(data)
         return len(data)
     #-------------------------------------------------------------
     # send_queue- send message to redis queue
     #-------------------------------------------------------------
     def send_queue(self, data):
-        meta_data = {"id": "msg123", "sender_id": "deviceA", "signal_code": "12345",  "criteria_index": 1 }
         self.send_id = self.send_id + 1
         msg_id = self.id_prefix + str(self.send_id) 
-        meta_data['id'] = msg_id
         log.info("sending msg-id" + msg_id + " to queue:" + self.snd_queue)
-        meta_data_string = json.dumps(meta_data)
-        print("meta_data_string", meta_data_string)
-        self.redis.lpush(self.snd_queue, meta_data_string)
-        self.redis.hset(f"message:{msg_id}", "data:", data)
-        self.redis.expire(f"message:{msg_id}", self.ttl)
+        self.redis.lpush(self.snd_queue, msg_id)
+        self.redis.hset(msg_id, "data", data)
+        self.redis.expire(msg_id, self.ttl)
         return len(data)
 
     def receive_socket_forever(self):
@@ -167,15 +163,11 @@ class Worker():
     def receive_queue_forever(self):
         log.info("Receiving from:" + self.rcv_queue)
         while True:
-            metadata = self.SQ_obj.redis.brpop(self.rcv_queue)
-            print("received")
-            print(metadata)
-            message_info = json.loads(metadata[1].decode('utf-8'))
-            # Retrieve the data element from redis 
-            full_message = self.redis.hget(f"message:{message_info['id']}", "data")
-            print(f"Processing message ID: {message_info['id']} from sender: {message_info['sender_id']}")
+            msg_id_tuple = self.SQ_obj.redis.brpop(self.rcv_queue)
+            msg_id = msg_id_tuple[1]
+            print("received msg_id" + str(msg_id))
+            full_message = self.redis.hget(msg_id, "data")
             print(f"Full message details: {full_message}")
-            print(full_message)
             # now use the send worker
             data = full_message
             print("extraccted the data")
