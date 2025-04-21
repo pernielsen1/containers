@@ -18,7 +18,7 @@ class TestTcpServer(unittest.TestCase):
 
   @classmethod
   def setUpClass(cls):
-      with open("test_sockets.json", 'r') as file:
+      with open("test_config.json", 'r') as file:
         cls.test_cases = json.loads(file.read())    
       cls.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
       port = cls.test_cases['port']
@@ -36,7 +36,7 @@ class TestTcpServer(unittest.TestCase):
       log.info("testing:" + test_case['description'] + " repeat:" + str(num_repeats) + " on server:" + server_url)
       expected_result = test_case['expected_result']
       for _ in range(num_repeats):
-        data = test_case['msg']['data']
+        data = test_case['message']['data']
         data_bytes = data.encode("utf-8")
         data_len = len(data_bytes)
         data_len_str = f"{data_len:04d}"

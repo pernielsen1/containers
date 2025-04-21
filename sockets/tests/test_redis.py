@@ -1,8 +1,10 @@
 #-----------------------------------------------------
 # needed are
 # pip install redis
+# https://dev.to/chanh_le/setting-up-redis-as-a-message-queue-a-step-by-step-guide-5gj0
 #-----------------------------------------------------
-
+import os
+import sys
 import unittest
 import redis
 import json
@@ -58,8 +60,30 @@ class TestRedis(unittest.TestCase):
     return
   
   def test_redis_basic(self):
-    self.run_redis_tests('REDIS')
+    # self.run_redis_tests('REDIS')   
+      test_meta =  {  
+                "id": "msg123",
+                "sender_id": "deviceA",
+                "signal_code": "12345",  
+                "criteria_index": 1
+      }
+      test_meta_json = json.dumps(test_meta)
+      ttl = 3600
+      test_msg = "Hello redis here is testing"
+      queue_name="x"  
+      self.redis.lpush(queue_name, test_meta_json)
+      self.redis.hset(f"message:{test_meta['id']}", "data", test_msg)
+      self.redis.expire(f"message:{test_meta['id']}", ttl)
+      while True:
+          metadata = self.redis.brpop(queue_name)
+          message_info = json.loads(metadata[1].decode('utf-8'))
+          # Retrieve full message details from Redis
+          full_message = self.redis.hget(f"message:{message_info['id']}", "data")
+          print(f"Processing message ID: {message_info['id']} from sender: {message_info['sender_id']}")
+          print(f"Full message details: {full_message}")
+      
 
+    
   @classmethod
   def tearDownClass(cls):
       log.info("in tear down")
@@ -69,4 +93,7 @@ class TestRedis(unittest.TestCase):
 # local tests
 #--------------------------------
 if __name__ == '__main__':
+  os.chdir(sys.path[0])
+#  t  = TestRedis()
+#  t.
   unittest.main()
