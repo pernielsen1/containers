@@ -17,7 +17,7 @@ python3 -m venv $TARGET_DIR
 source $TARGET_DIR/bin/activate
 
 # remove the local lines - they are absolut and we will install with relative manually below
-REQ_FILE=$TARGET_DIR/${TARGET_DIR}_requierements.txt
+REQ_FILE=${TARGET_DIR}_requirements.txt
 echo "req_file:" $REQ_FILE
 sed -i "/@ file:/d" $REQ_FILE
 pip install -r $REQ_FILE

@@ -174,7 +174,7 @@ class Worker():
             msg_id = msg_id_tuple[1]
             data = self.redis.hget(msg_id, "data")
             # now use the send worker
-            log.info("receive_queue sending data:" + str(data))
+            log.info("receive_queue sending msg_id" + str(msg_id) + " data:" + str(data))
             self.send(data)
     
     #----------------------------------------------------
