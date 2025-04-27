@@ -17,8 +17,10 @@ import pn_utilities.logger.PnLogger as PnLogger
 import base64
 # from OpenSSL import crypto
 # pip install cryptography
-from cryptography.hazmat.primitives.serialization import pkcs12, load_der_private_key
+from cryptography.hazmat.primitives.serialization import pkcs12
 from cryptography.hazmat.primitives import serialization
+from datetime import datetime, timedelta, timezone
+
 KEY_DIR = "keys/"
 PFX_PASSWORD = b'pn_password'
 
@@ -32,7 +34,7 @@ def guess_type(pem):
   # still here = not found 
   return None
 
-  
+
 def extract_key(PC_obj, name):
   my_keys = PC_obj.get_PnCryptoKeys()
   key_val = my_keys.get_key(name).get_value()
@@ -41,7 +43,7 @@ def extract_key(PC_obj, name):
   der = base64.b64decode(clean_pem)
   if ( type == "RSA_PRIVATE" or type == "EC_PRIVATE"):
     log.info("extracting PRIVATE key for:" + name)
-    private_key = load_der_private_key(der, None)
+    private_key = serialization.load_der_private_key(der, None)
     friendly_name = name.encode('utf-8')
     p12data = pkcs12.serialize_key_and_certificates(friendly_name, private_key, None, None,
                                                   serialization.BestAvailableEncryption(PFX_PASSWORD) )
@@ -68,8 +70,9 @@ def extract_key(PC_obj, name):
       pemfile.write(pem_data)
       log.info("Extracted " + name + " to " + pem_file_name)
 
-    #      serialization.BestAvailableEncryption(b'mypassword')
+    create_cert(name, private_key)
     return
+
   if ( type == "PUBLIC" ):
     log.info("extracting PUBLIC key for:" + name)
     public_key = serialization.load_der_public_key(der, None)
@@ -86,6 +89,39 @@ def extract_key(PC_obj, name):
   
   log.error("Not able to guess the type of key for:" + name)
   return 
+#--------------------------------------------------------------
+#https://gist.github.com/bloodearnest/9017111a313777b9cce5
+#--------------------------------------------------------------
+def create_cert(name, priv_key):
+    from cryptography import x509
+    from cryptography.x509.oid import NameOID
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    x509_name = x509.Name([
+        x509.NameAttribute(NameOID.COMMON_NAME, name)
+    ])
+    basic_contraints = x509.BasicConstraints(ca=True, path_length=0)
+    now = datetime.now(timezone.utc)
+
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(x509_name)
+        .issuer_name(x509_name)
+        .public_key(priv_key.public_key())
+        .serial_number(1000)
+        .not_valid_before(now)
+        .not_valid_after(now + timedelta(days=10*365))
+        .add_extension(basic_contraints, False)
+        .sign(priv_key, hashes.SHA256(), default_backend())
+    )
+    cert_pem = cert.public_bytes(encoding=serialization.Encoding.PEM)
+    pem_file_name = (KEY_DIR + name + '_public.cer')
+    with open(pem_file_name, 'wb') as pemfile:
+      pemfile.write(cert_pem)
+      log.info("Cert extracted " + name + " to " + pem_file_name)
+
 
 
 
