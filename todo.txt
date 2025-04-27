@@ -1,5 +1,15 @@
 ToDo:
-https://stackoverflow.com/questions/54677841/how-do-can-i-generate-a-pkcs12-file-using-python-and-the-cryptography-module
+establish a queue to queue which is only one worker  - that's how you would want it.
+to bashrc in city
+function govenv() {
+  echo "establishing venv $1"
+  cd "$1"
+  source bin/activate
+}
+export -f govenv
+
+
+ alias go_common="source ~/containers/common/bin/activate"
 
 
 establish tabs in ubuntu consoles.
