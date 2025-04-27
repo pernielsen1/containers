@@ -65,6 +65,31 @@ class PnCrypto():
                 return k.get_value()
             else: # the key is assumed to be the raw value
                 return key
+    #-----------------------------------------------------------
+    # do_RSA
+    #------------------------------------------------------------
+    def do_RSA_OLD(self, operation, key, data, mode="OAEP", hash="SHA256"):
+        # ToDo look up SHA function object based on name
+        rsa_key = RSA.import_key(base64.b64decode(self.clean_pem(key)))     
+        if (mode == "OAEP"):
+            label=""
+            hash_obj = SHA256.new()
+            cipher_rsa = PKCS1_OAEP.new(key=rsa_key, hashAlgo=hash_obj, label=label)
+        if (mode == "PKCS1_v1_5"):
+            cipher_rsa =  PKCS1_v1_5.new(rsa_key)        
+
+        label=""
+        data_bytes = bytes.fromhex(data)
+        if (operation == "encrypt"):
+            return cipher_rsa.encrypt(data_bytes).hex()
+        if (operation == "decrypt"):
+            if (mode == "OAEP"):
+                return cipher_rsa.decrypt(data_bytes).hex()
+            if (mode == "PKCS1_v1_5"):
+                sentinel = get_random_bytes(16)
+                return cipher_rsa.decrypt(data_bytes, sentinel).hex()
+
+        return "Wrong operation"
  
     #-----------------------------------------------------------
     # do_RSA

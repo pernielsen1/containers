@@ -7,7 +7,9 @@ function govenv() {
   source bin/activate
 }
 export -f govenv
-
+Continue here for DES and AES.
+https://cryptography.io/en/latest/hazmat/primitives/symmetric-encryption/
+us cryptograpy instead of cryptodome
 
  alias go_common="source ~/containers/common/bin/activate"
 
