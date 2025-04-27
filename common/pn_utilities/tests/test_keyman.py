@@ -89,9 +89,11 @@ def extract_key(PC_obj, name):
   
   log.error("Not able to guess the type of key for:" + name)
   return 
-#--------------------------------------------------------------
-#https://gist.github.com/bloodearnest/9017111a313777b9cce5
-#--------------------------------------------------------------
+#-------------------------------------------------------------------------------
+# creates a self signed certificate with the public key signed by the private
+# taken from 
+# https://gist.github.com/bloodearnest/9017111a313777b9cce5
+#-------------------------------------------------------------------------------
 def create_cert(name, priv_key):
     from cryptography import x509
     from cryptography.x509.oid import NameOID
