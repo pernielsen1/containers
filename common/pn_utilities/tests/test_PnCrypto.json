@@ -165,7 +165,10 @@
                 "data": "2179994180982364ba067adca1ec8c1d",
                 "IV": "0102030405060708",
                 "expected_result" : "6bc1bee22e409f96e93d7e117393172a"
-            },
+            }
+
+        },
+        "DES_NOT_READY": {
             "0005": {
                 "description":"Calculate MAC",
                 "alg":"DES",
@@ -176,7 +179,6 @@
                 "IV": "0102030405060708",
                 "expected_result" : "7fb309a94e45cc43"
             }
-
         },
 
         "AES_BASIC": {
@@ -232,6 +234,7 @@
                 "key_name":"AES_GCM",
                 "data": "486920416C69636520776861742061626F75742064696E6E657220746F6E69676874203F",
                 "IV": "07e07d3ac1aaedf2fdfe5a4e",
+                "nonce": "Is the IV value i.e. 12 bytes",
                 "tag_len":16,
                 "expected_result" : "0E3FF3977F23489D4D320C8303F11E8A559ED3E16E5648E3049AC65A876E64A7A77C3C643737EBE03DD4BE8A901274F3C6F2D949"             
             },
@@ -243,6 +246,7 @@
                 "key_name":"AES_GCM",
                 "data" : "0E3FF3977F23489D4D320C8303F11E8A559ED3E16E5648E3049AC65A876E64A7A77C3C643737EBE03DD4BE8A901274F3C6F2D949",             
                 "IV": "07e07d3ac1aaedf2fdfe5a4e",
+                "nonce": "Is the IV value",
                 "tag_len":16,
                 "expected_result" : "486920416C69636520776861742061626F75742064696E6E657220746F6E69676874203F"
             }

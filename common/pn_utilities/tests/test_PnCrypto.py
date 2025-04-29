@@ -69,6 +69,14 @@ class TestPnCrypto(unittest.TestCase):
       res = self.my_crypto.do_DES(tc['operation'], tc["key_name"], tc['mode'], tc['data'], tc['IV'])
       expected_result = tc["expected_result"]
       self.assertEqual(res.upper(), expected_result.upper())
+
+  def test_AES(self):
+    segment = 'AES_BASIC'
+    for tc_number in self.crypto_cases['tests'][segment]:
+      tc = self.crypto_cases['tests'][segment][tc_number]
+      res = self.my_crypto.do_AES(tc['operation'], tc["key_name"], tc['mode'], tc['data'], tc['IV'])
+
+      self.assertEqual(res.upper(), tc['expected_result'].upper())
   def test_EMV(self):
     # test the UDK derivation
     tc = self.crypto_cases['tests']['EMV']['UDK']

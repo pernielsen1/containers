@@ -4,27 +4,17 @@ import base64
 
 from pn_utilities.crypto.PnCryptoKeys import PnCryptoKeys
 from pn_utilities.crypto.PnCryptoKeys import PnCryptKey
+
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import padding as sym_padding
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.decrepit.ciphers.algorithms import TripleDES
 
-from Crypto.Random import get_random_bytes
 
-# from Crypto.Cipher import AES
-from Crypto.Cipher import DES
-from Crypto.Cipher import DES3
-from Crypto.Hash import CMAC
-
-# from Crypto.PublicKey import ECC
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_v1_5
-from Crypto.Cipher import PKCS1_OAEP
-from Crypto.Hash import SHAKE256, SHA256
-# from Crypto.Protocol.DH import key_agreement
-# from Crypto.Util.Padding import pad
-# from Crypto.Util.Padding import unpad
-# from Crypto.Signature import pkcs1_15
-# from Crypto.Signature import DSS
+# from Crypto.Random import get_random_bytes
 from ff3 import FF3Cipher
 
 PN_CRYPTO_KEYS = "pn_crypto_keys"
@@ -93,39 +83,87 @@ class PnCrypto():
             return private_rsa_key.decrypt(data_bytes, pad_func).hex()
 
         return "Wrong operation"
- 
+
 
     #-------------------------------------------------------------
     # do_DES  - the key can be a id or a PnCryptoKey
     #-------------------------------------------------------------
     def do_DES(self, operation, key, mode, data, iv):
-        key_value = self.get_key_value(key)
-        if len(key_value) == 32 :
-            key_value = key_value + key_value[0: 16]  # double des set k3 = K1 
-
-        if (len(key_value) == 16):
-            des_obj = DES
-        else:
-            des_obj = DES3
-        key_token = bytes.fromhex(key_value)
-
+        key_value = bytes.fromhex(self.get_key_value(key))
+        iv_value = bytes.fromhex(iv)
+        alg  = TripleDES(key_value)
         if (mode == "ECB" and operation != 'mac'):
-            cipher_obj = des_obj.new(key_token, des_obj.MODE_ECB)
+            cipher = Cipher(alg, modes.ECB())
         if (mode == "CBC" and operation != 'mac'):
-            iv_bin = bytes.fromhex(iv)
-            cipher_obj = des_obj.new(key_token, des_obj.MODE_CBC, iv=iv_bin)
+            cipher = Cipher(alg, modes.CBC(iv_value))
 
         data_bin = bytes.fromhex(data)
         if (operation == "encrypt"):
-            return cipher_obj.encrypt(data_bin).hex()
+            encryptor = cipher.encryptor()
+            ct = encryptor.update(data_bin) + encryptor.finalize()
+            return ct.hex()
         if (operation == "decrypt"):
-            return cipher_obj.decrypt(data_bin).hex()
-        if (operation == "mac"):
-            cobj = CMAC.new(key_token, ciphermod=des_obj)
-            cobj.update(data_bin)
-            return cobj.hexdigest()
+            decryptor = cipher.decryptor()
+            pt=decryptor.update(data_bin) + decryptor.finalize()
+            return pt.hex()
+#        if (operation == "mac"):
+#            cobj = CMAC.new(key_token, ciphermod=des_obj)
+#            cobj.update(data_bin)
+#            return cobj.hexdigest()
         # still here something wrong 
         return "Invalid operation"
+
+    #-------------------------------------------------------------
+    # do_AES  - the key can be a id or a PnCryptoKey
+    #-------------------------------------------------------------
+    def do_AES(self, operation, key, mode, data, iv, pad='PKCS7'):
+        key_value = bytes.fromhex(self.get_key_value(key))
+        iv_value = bytes.fromhex(iv)
+        alg  = algorithms.AES(key_value)
+
+        if (mode == "ECB" and operation != 'mac'):
+            cipher = Cipher(alg, modes.ECB())
+        if (mode == "CBC" and operation != 'mac'):
+            cipher = Cipher(alg, modes.CBC(iv_value))
+
+        data_bin = bytes.fromhex(data)
+
+        if (mode == "GCM"): 
+            cipher = AESGCM(key_value)
+            nonce = iv_value   # TBD clean later.. it's iv or Nonce
+            aad = None
+            if (operation == "encrypt"):
+                ct = cipher.encrypt(nonce, data_bin, aad)
+                return ct.hex()  
+            if (operation == "decrypt"):
+                pt = cipher.decrypt(nonce, data_bin, aad)
+                return pt.hex()
+
+        if (operation == "encrypt"):
+            if (pad == 'PKCS7'):
+                padder = sym_padding.PKCS7(128).padder()
+                data_bin = padder.update(data_bin) + padder.finalize()
+   
+            encryptor = cipher.encryptor()
+            ct = encryptor.update(data_bin) + encryptor.finalize()
+            return ct.hex()
+
+        if (operation == "decrypt"):
+            decryptor = cipher.decryptor()
+            pt=decryptor.update(data_bin) + decryptor.finalize()
+            if (pad == 'PKCS7'):
+                unpadder = sym_padding.PKCS7(128).unpadder()
+                pt = unpadder.update(pt) + unpadder.finalize()
+            return pt.hex()
+
+#        if (operation == "mac"):
+#            cobj = CMAC.new(key_token, ciphermod=des_obj)
+#            cobj.update(data_bin)
+#            return cobj.hexdigest()
+        # still here something wrong 
+        return "Invalid operation"
+
+
     #---------------------------------------------------------------------
     # hex_string_xor(s1, s2)
     # https://stackoverflow.com/questions/52851023/python-3-xor-bytearrays

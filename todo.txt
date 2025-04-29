@@ -1,17 +1,8 @@
 ToDo:
 establish a queue to queue which is only one worker  - that's how you would want it.
-to bashrc in city
-function govenv() {
-  echo "establishing venv $1"
-  cd "$1"
-  source bin/activate
-}
-export -f govenv
-Continue here for DES and AES.
-https://cryptography.io/en/latest/hazmat/primitives/symmetric-encryption/
-us cryptograpy instead of cryptodome
+implement the FPE without the FF3 package who needs the pyCryptodome - use SSL instead. 
 
- alias go_common="source ~/containers/common/bin/activate"
+
 
 
 establish tabs in ubuntu consoles.
