@@ -1,4 +1,5 @@
 {
+    "name": "inbound", 
     "description": "Listens on port - everyting inbound is sent to queue to_host, anything read from queue from_host is sent to socket client",
     "message_broker": {
         "type": "redis",
@@ -8,7 +9,8 @@
         "ttl": 3600,
         "password": "pn_password",
         "id_prefix": "100"
-    },    
+    },  
+    "type": "socket_to_queues",  
     "client": {
         "type": "socket",
         "host": "localhost",

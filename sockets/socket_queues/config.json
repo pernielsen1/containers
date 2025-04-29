@@ -1,0 +1,12 @@
+{
+    "PnCrypto": {
+        "dataStoreType": "mysql", 
+        "mysql" : {
+            "port": 3306,
+            "host": "localhost",
+            "user": "pn_user",
+            "password": "pn_password",
+            "log_sql": "False"
+        }
+    }
+}

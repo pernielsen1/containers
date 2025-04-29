@@ -1,0 +1,20 @@
+{
+    "name": "crypto_2", 
+    "description": "Listens1 on port - everyting inbound is sent to queue to_host, anything read from queue from_host is sent to socket client",
+    "message_broker": {
+        "type": "redis",
+        "host": "localhost",
+        "port": 6379,
+        "db": 0,
+        "ttl": 3600,
+        "password": "pn_password",
+        "id_prefix": "100"
+    },
+    "setup": "queue_worker",
+    "queue_worker": {
+        "type": "queue",
+        "recv_queue": "to_crypto",
+        "filter": "arqc",
+        "send_queue": "debug"
+    }
+}

@@ -1,4 +1,5 @@
 {
+    "name": "echo", 
     "description": "Listens on port - everyting inbound is sent to queue to_host, anything read from queue from_host is sent to socket client",
     "message_broker": {
         "type": "redis",
@@ -9,6 +10,7 @@
         "password": "pn_password",
         "id_prefix": "100"
     },
+    "type": "queues_to_queues",  
     "client": {
         "desc": "we are acting the backend server reads to_host and sends to to_host_round_trip",
         "type": "queue",

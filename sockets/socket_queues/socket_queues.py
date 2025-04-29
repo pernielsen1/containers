@@ -13,7 +13,12 @@ import socket
 import redis
 import json
 import pn_utilities.logger.PnLogger as PnLogger
+import pn_utilities.crypto.PnCrypto as PnCrypto
+
 log = PnLogger.PnLogger()
+my_PnCrypto = PnCrypto.PnCrypto()
+
+
 
 class Filter():
     def __init__(self, name, func, private_obj=None):
@@ -45,7 +50,10 @@ class SocketQueues():
         with open(config_file, 'r') as file:
             self.config = json.loads(file.read())   
 
+        log.info("starting:" + self.config['name'])
         self.add_filter_func('echo', self.filter_echo)
+        self.add_filter_func('arqc', self.arqc)
+
         # set up redis queue - used both by client & servers
         password = self.config['message_broker']['password']
         self.redis = redis.Redis(host='localhost', port=6379, db=0, password=password)
@@ -105,21 +113,32 @@ class SocketQueues():
                                         filter=filter)  
 
     def start_workers(self):
-        log.info("establishing sockets")
-        self.client_conn = self.establish_socket_if_needed('client')
-        self.server_conn = self.establish_socket_if_needed('server')
-        log.info("sockets established")
+        if (self.config['setup'] == 'queue_worker'):
+            log.info("Establishing queue_worker")
+            self.client_worker = self.create_worker('queue_worker', 'queue_worker', None, None)
+            self.server_worker = None
+        else: 
 
-        self.client_worker = self.create_worker('client', 'server', self.client_conn, self.server_conn) 
-        self.server_worker = self.create_worker('server', 'client', self.server_conn, self.client_conn) 
+            log.info("establishing sockets")
+            self.client_conn = self.establish_socket_if_needed('client')
+            self.server_conn = self.establish_socket_if_needed('server')
+            log.info("sockets established creating workers")
+            self.client_worker = self.create_worker('client', 'server', self.client_conn, self.server_conn) 
+            self.server_worker = self.create_worker('server', 'client', self.server_conn, self.client_conn) 
+
         # setup client thread and start
         self.client_worker_thread = threading.Thread(target=self.client_worker.receive_forever)
         self.client_worker_thread.daemon = True
         self.client_worker_thread.start()
+        
+        if (self.server_worker != None):
         # setup server thread and start
-        self.server_worker_thread = threading.Thread(target=self.server_worker.receive_forever)
-        self.server_worker_thread.daemon = True
-        self.server_worker_thread.start()
+            self.server_worker_thread = threading.Thread(target=self.server_worker.receive_forever)
+            self.server_worker_thread.daemon = True
+            self.server_worker_thread.start()
+        else:
+            self.server_worker_thread = None
+
         self.go_controller()        
         
     def go_controller(self):
@@ -131,6 +150,15 @@ class SocketQueues():
         s= 'echo:' + data.decode('utf-8')
         byte_arr = s.encode('utf_8')
         return byte_arr
+
+    def arqc(self, data, private_obj):
+        arqc_data = "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000"
+
+        res = my_PnCrypto.do_arqc('IMK_k1','5656781234567891' , '01', '0001', arqc_data, True)
+        s= 'arqc:' + res
+        byte_arr = s.encode('utf_8')
+        return byte_arr
+
 #----------------------------------------------------------------------------------------------------------
 # Worker: the worker object - receives from either socket or queue and forwards to either socket or queue
 #----------------------------------------------------------------------------------------------------------
@@ -163,8 +191,11 @@ class Worker():
             return 0
         if (self.snd_conn != None):
             return self.send_socket(data)
+        if (self.send_queue == 'debug'):
+            return send_debug(data)
         if (self.send_queue != None):
             return self.send_queue(data)
+
         raise Exception("Not possible to send both conn and queue are None")
     
     def receive_forever(self):
@@ -197,6 +228,12 @@ class Worker():
         self.redis.expire(msg_id, self.ttl)
         self.redis.lpush(self.snd_queue, msg_id)
         return len(data)
+
+    #-------------------------------------------------------------
+    # send_debug: log into debug instead of sending
+    #-------------------------------------------------------------
+    def send_debug(self, data):
+        log.debug("sending to debug" + str(data))
 
     #---------------------------------------------------------------
     # receive_socket_forever : read message from socket and send on

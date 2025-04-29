@@ -1,8 +1,11 @@
 ToDo:
+import crypto into the crypto workers.. 
+add name in the logger function.
 establish a queue to queue which is only one worker  - that's how you would want it.
 implement the FPE without the FF3 package who needs the pyCryptodome - use SSL instead. 
 
 
+make the server & client to just workers... then we can harmonize.. (maybe.. - still need to share the socket.. )
 
 
 establish tabs in ubuntu consoles.

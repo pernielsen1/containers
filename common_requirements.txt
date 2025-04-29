@@ -8,7 +8,7 @@ idna==3.10
 mysql-connector-python==9.2.0
 Naked==0.1.32
 pycparser==2.22
-pycryptodome==3.10.1
+pycryptodome==3.22.0
 pyOpenSSL==25.0.0
 PyYAML==6.0.2
 requests==2.32.3
