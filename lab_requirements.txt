@@ -1,0 +1,3 @@
+ff3==1.0.2
+pn_utilities @ file:///home/perni/containers/lab/local_packages/pn_utilities-0.1.tar.gz#sha256=263ae5b7fd87d931e007073762eb706bc18ea6c22f95eee6d056adea7fd34a9d
+pycryptodome==3.22.0

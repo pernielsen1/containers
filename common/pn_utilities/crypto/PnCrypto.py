@@ -17,8 +17,6 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.decrepit.ciphers.algorithms import TripleDES
 
 
-# from Crypto.Random import get_random_bytes
-from ff3 import FF3Cipher
 
 PN_CRYPTO_KEYS = "pn_crypto_keys"
 PN_CRYPTO_DATABASE = "pn_crypto_key_store"
@@ -267,34 +265,12 @@ class PnCrypto():
         s = s.replace("-----END PRIVATE KEY-----", "")
         return s
 
-#-----------------------------------------------
-# test_fpe - create 1 million different values
-# pip3 install ff3
-#-----------------------------------------------
-def test_fpe():
-    key = "EF4359D8D580AA4F7F036D6F04FC6A94"
-    tweak = "D8E7920AFA330A73"
-    
-    # Create an FPE cipher object
-    cipher = FF3Cipher(key, tweak, radix=10)
-    # make 0 to 999999 (one million entries) in output.csv
-    outfile = open("output.csv","w")
-    num_entries = 1000000
-    for num in range(num_entries):  # Looping through 000 to 999999
-        formatted_num = f"{num:06}"  # Ensure six character format
-        encrypted_num = cipher.encrypt(formatted_num)
-        decrypted_num = cipher.decrypt(encrypted_num)
-        outfile.write(formatted_num + ";" + encrypted_num + ";" + decrypted_num + "\n")
-
-    outfile.close()
-
 
 #-------------------------------
 # local tests
 #--------------------------------
 if __name__ == '__main__':
 
- #   test_fpe()
     my_PnCrypto = PnCrypto()
     my_keys = my_PnCrypto.get_PnCryptoKeys()
     k = my_keys.get_key('k3') 
