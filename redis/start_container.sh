@@ -23,5 +23,5 @@ if [ "$BUILD" = true ] ; then
     echo "building"
     docker compose pull
 fi
-echo "starting mysql_container in detached mode log into the container to see what's going on"
+echo "starting redis_container in detached mode log into the container to see what's going on"
 docker compose up --remove-orphans  -d
