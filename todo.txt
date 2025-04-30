@@ -2,6 +2,8 @@ ToDo:
 add name in the logger function.
 establish a queue to queue which is only one worker  - that's how you would want it.
 
+clean the crypto modules from the consumers... restapi
+
 
 make the server & client to just workers... then we can harmonize.. (maybe.. - still need to share the socket.. )
 
