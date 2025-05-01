@@ -1,0 +1,17 @@
+certifi==2025.1.31
+cffi==1.17.1
+charset-normalizer==3.4.1
+cryptography==44.0.2
+greenlet==3.2.1
+idna==3.10
+mysql-connector-python==9.2.0
+Naked==0.1.32
+pn_utilities @ file:///home/perni/containers/common/dist/pn_utilities-0.1.tar.gz#sha256=b0ee9d745f69c9228bdf122e81e9e27e86d9292bdc82c58b216c5754da87f942
+pycparser==2.22
+PyYAML==6.0.2
+requests==2.32.3
+setuptools==76.0.0
+shellescape==3.8.1
+SQLAlchemy==2.0.40
+typing_extensions==4.13.2
+urllib3==2.3.0

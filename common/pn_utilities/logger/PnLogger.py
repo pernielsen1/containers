@@ -57,7 +57,8 @@ class PnLogger:
         self.logger.warning(message)
     def debug(self, message):
         self.logger.debug(message)
-        
+    def get_logger(self):
+        return self.logger
 
 #-------------------------------
 # local tests

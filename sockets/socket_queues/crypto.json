@@ -1,5 +1,6 @@
 {
     "name": "crypto_1", 
+    "log_level": 20, 
     "description": "Listens1 on port - everyting inbound is sent to queue to_host, anything read from queue from_host is sent to socket client",
     "message_broker": {
         "type": "redis",

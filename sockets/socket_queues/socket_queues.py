@@ -9,6 +9,7 @@
 import sys
 import threading
 import time
+import datetime
 import socket
 import redis
 import json
@@ -18,7 +19,7 @@ import pn_utilities.crypto.PnCrypto as PnCrypto
 log = PnLogger.PnLogger()
 my_PnCrypto = PnCrypto.PnCrypto()
 
-
+max_elapsed = 0
 
 class Filter():
     def __init__(self, name, func, private_obj=None):
@@ -27,7 +28,7 @@ class Filter():
         self.private_obj = private_obj
 
     def run(self, data):    
-        log.info("running filter" + self.name + " with data:" + str(data))
+        log.debug("running filter" + self.name + " with data:" + str(data))
         return self.func(data, self.private_obj)
         
 class Filters():
@@ -46,11 +47,15 @@ class SocketQueues():
     def __init__(self, config_file="config.json"):
         self.filters = {}
         self.filter_funcs = {}
-        log.info("Using config file" + config_file)
+        log.info("Using config file:" + config_file)
         with open(config_file, 'r') as file:
-            self.config = json.loads(file.read())   
-
-        log.info("starting:" + self.config['name'])
+            self.config = json.loads(file.read())
+        log_level = self.config.get('log_level', None)
+        if (log_level != None):
+            log_obj = log.get_logger()
+            log_obj.setLevel(log_level)
+        
+        log.info("starting:" +  self.config['name'])
         self.add_filter_func('echo', self.filter_echo)
         self.add_filter_func('arqc', self.arqc)
 
@@ -152,9 +157,28 @@ class SocketQueues():
         return byte_arr
 
     def arqc(self, data, private_obj):
+        s = data.decode('utf-8')
+        msg = json.loads(s)
+        command = msg['command']
         arqc_data = "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000"
 
         res = my_PnCrypto.do_arqc('IMK_k1','5656781234567891' , '01', '0001', arqc_data, True)
+        end_time = int(time.time() * 1000)
+        elapsed = 0
+        try:
+            elapsed = end_time - msg['start_time']
+        except:
+            print("small error")
+        global max_elapsed
+        ONE_MILLION = 100000
+        if (elapsed > max_elapsed):
+            max_elapsed = elapsed
+            in_secs = elapsed / ONE_MILLION
+            log.debug("new max elapsed:" + str(max_elapsed) + " in secs " + str(in_secs))
+        if (command == 'print'):
+            log.info("Print command - max elapsed:" + str(max_elapsed) + "in secs:" 
+                     + str(max_elapsed/ONE_MILLION))
+            
         s= 'arqc:' + res
         byte_arr = s.encode('utf_8')
         return byte_arr
@@ -181,18 +205,18 @@ class Worker():
 
     def send(self, data):
         if (self.filter != None):
-            log.info("apply filter:" + self.filter.name + " on:" + str(data))
+            log.debug("apply filter:" + self.filter.name + " on:" + str(data))
             data = self.filter.run(data)
         if (data == None):
-            log.info("Data is none ! - exiting send")
+            log.warning("Data is none ! - exiting send")
             return 0
         if (len(data) == 0):
-            log.info("len of data is zero - exiting send")
+            log.warning("len of data is zero - exiting send")
             return 0
         if (self.snd_conn != None):
             return self.send_socket(data)
         if (self.send_queue == 'debug'):
-            return send_debug(data)
+            return self.send_debug(data)
         if (self.send_queue != None):
             return self.send_queue(data)
 
@@ -223,7 +247,7 @@ class Worker():
     def send_queue(self, data):
         self.send_id = self.send_id + 1
         msg_id = self.id_prefix + str(self.send_id) 
-        log.info("sending msg-id" + msg_id + " to queue:" + self.snd_queue + " data:" + str(data))
+        log.debug("sending msg-id" + msg_id + " to queue:" + self.snd_queue + " data:" + str(data))
         self.redis.hset(msg_id, "data", data)
         self.redis.expire(msg_id, self.ttl)
         self.redis.lpush(self.snd_queue, msg_id)
@@ -245,10 +269,10 @@ class Worker():
             if (len(len_field) < 4):
                 log.error("we received less than 4 time to exit")
                 return
-            log.info("got len field:" + str(len_field))
+            log.debug("got len field:" + str(len_field))
             len_int = int(len_field)
             data = self.rcv_conn.recv(len_int)
-            log.info("received:" + str(data))
+            log.debug("received:" + str(data))
             # now use the send worker
             self.send(data)
     #---------------------------------------------------------------
@@ -261,7 +285,7 @@ class Worker():
             msg_id = msg_id_tuple[1]
             data = self.redis.hget(msg_id, "data")
             # now use the send worker
-            log.info("receive_queue sending msg_id" + str(msg_id) + " data:" + str(data))
+            log.debug("receive_queue sending msg_id" + str(msg_id) + " data:" + str(data))
             self.send(data)
     
 
