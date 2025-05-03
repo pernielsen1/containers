@@ -51,14 +51,6 @@ def send_receive():
   ro.set(str(1042), "1042 message no expire", px=MILLISECS_TO_EXPIRE)
   ro.set(str(1942), "1043 message expires", px=MILLISECS_TO_EXPIRE)
 
- # ro.set(str(1042), "here is the messagE")
- # ro.set("another_key", "here is the messagE")
- # ro.set("another_key", "here is the messagE")
- # send_to_queue(redis_obj, message_no + 1, 'print')
-
-
-#  send_to_queue(redis_obj, 1042, "run and wait")
-# import asyncio
 
 def wait_msg(pubsub, key_to_wait_for):
     subscribe_msg = "__keyspace@0__:" + "reply_" + key_to_wait_for
@@ -103,7 +95,7 @@ def go_send_and_wait(num_messages):
 #--------------------------------
 if __name__ == '__main__':
   os.chdir(sys.path[0])
-  send_receive()
+  # send_receive()
   go_send_and_wait(2000)
   # go()
   # go_threading()

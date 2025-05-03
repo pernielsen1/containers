@@ -26,6 +26,8 @@ class Filter():
         self.name = name
         self.func = func
         self.private_obj = private_obj
+        print("self name" + self.name)
+        print("self.private" + str(self.private_obj))
 
     def run(self, data):    
         log.debug("running filter" + self.name + " with data:" + str(data))
@@ -34,19 +36,19 @@ class Filter():
 class Filters():
     def __init__(self):
         self.filters = {}
-        self.filter_funcs = {}
 
     def add_filter(self, name, func, private_obj=None):
         self.filters[name] = Filter(name, func, private_obj)  
-
+    def get_filter(self, name):
+        return self.filters[name]
+    
 #-------------------------------------------------------------------
 # 
 #-------------------------------------------------------------------
 class SocketQueues():
     # the init load the config file to dict config.
     def __init__(self, config_file="config.json"):
-        self.filters = {}
-        self.filter_funcs = {}
+        self.filters = Filters()
         log.info("Using config file:" + config_file)
         with open(config_file, 'r') as file:
             self.config = json.loads(file.read())
@@ -61,8 +63,8 @@ class SocketQueues():
         password = self.config['message_broker']['password']
         self.redis = redis.Redis(host='localhost', port=6379, db=0, password=password)
     
-    def add_filter_func(self ,name, func):
-        self.filter_funcs[name] = func
+    def add_filter_func(self ,name, func, private_obj=None):
+        self.filters.add_filter(name, func, private_obj)
 #
     def establish_socket_if_needed(self, name):
         if (self.config[name]['type'] == 'socket'):
@@ -93,8 +95,7 @@ class SocketQueues():
         if (filter_name == None):
             filter = None
         else:
-            func = self.filter_funcs[filter_name]
-            filter =  Filter(filter_name, func, None)
+            filter = self.filters.get_filter(filter_name)
 
         if (self.config[frm]['type'] == 'socket' and self.config[to]['type'] == 'socket'):    
             return Worker(self, name,   rcv_conn=self.frm_conn, 
@@ -171,6 +172,7 @@ class Worker():
         self.redis = self.SQ_obj.redis
         self.notify_send_ttl_milliseconds = notity_send_ttl_milliseconds
         self.notify_send_ttl_milliseconds = notity_send_ttl_milliseconds
+
     def send(self, data):
         if (self.filter != None):
             log.debug("apply filter:" + self.filter.name + " on:" + str(data))

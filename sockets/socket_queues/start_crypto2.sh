@@ -1,2 +1,2 @@
 #!/bin/bash
-python3  socket_queues.py crypto2.json
+python3  crypto_server.py crypto2.json

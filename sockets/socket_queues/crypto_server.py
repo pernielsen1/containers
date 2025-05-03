@@ -1,5 +1,7 @@
 # ToDo - metadata what is reallly required ? 
+import sys
 import json
+import time
 from socket_queues import SocketQueues, Filter
 import pn_utilities.logger.PnLogger as PnLogger
 import pn_utilities.crypto.PnCrypto as PnCrypto
@@ -7,13 +9,13 @@ import pn_utilities.crypto.PnCrypto as PnCrypto
 log = PnLogger.PnLogger()
 my_PnCrypto = PnCrypto.PnCrypto()
 
-
-def filter_echo(self, data, private_obj):
+max_elapsed = 0
+def filter_echo(data, private_obj):
     s= 'echo:' + data.decode('utf-8')
     byte_arr = s.encode('utf_8')
     return byte_arr
 
-def arqc(self, data, private_obj):
+def arqc(data, private_obj):
     s = data.decode('utf-8')
     msg = json.loads(s)
     command = msg['command']
@@ -36,6 +38,7 @@ def arqc(self, data, private_obj):
     if (command == 'print'):
         log.info("Print command - max elapsed:" + str(max_elapsed) + "in secs:" 
                      + str(max_elapsed/ONE_MILLION))
+        max_elapsed = 0
             
     msg['reply'] = res
     s = json.dumps(msg)
@@ -48,5 +51,5 @@ def arqc(self, data, private_obj):
 #--------------------------------
 if __name__ == '__main__':
     my_server = SocketQueues(sys.argv[1])
-    my_server.add_filter_func(arqc)
+    my_server.add_filter_func("arqc", arqc, my_PnCrypto)
     my_server.start_workers()
