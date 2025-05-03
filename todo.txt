@@ -1,9 +1,30 @@
 ToDo:
+take reply key from inbound data... 
+or update the setlogger ? 
 add name in the logger function.
+add set level to logger function..
+put all requirements file in one directory in containers.
+find current env in bash contains path to env
+basename $VIRTUAL_ENV
+https://dev.to/serhatayata/redis-keyspace-notifications-with-docker-4o90
+
+sh -cx "redis-server --daemonize yes && redis-cli config set notify-keyspace-events KEA && sleep infinity"
+
+https://medium.com/@imamramadhanns/working-with-redis-keyspace-notifications-x-python-c5c6847368a
+
+build common as part of build_venv.sh
+make install filter external to socket_objects. 
+
+
+check failed tests on fastapi... 
+
+Qeuue - workers more long term... 
 establish a queue to queue which is only one worker  - that's how you would want it.
 
-clean the crypto modules from the consumers... restapi
+Locust... take it in lab first ...  incl redis in lab "pip install locust
 
+
+https://manojsingh0302.medium.com/load-test-redis-with-locust-io-in-python-b59d38724054
 
 make the server & client to just workers... then we can harmonize.. (maybe.. - still need to share the socket.. )
 
@@ -11,17 +32,9 @@ make the server & client to just workers... then we can harmonize.. (maybe.. - s
 establish tabs in ubuntu consoles.
 https://unix.stackexchange.com/questions/492365/opening-new-gnome-terminal-v3-28-with-multiple-tabs-and-different-commands
 
-Implement socket_queues filter
-use the generel build_venv.sh instead of the specifics... obs common requirements needs to be in root and need special build due to the shared terminal
-
-at the bottom of this there is an alias version which might do the trick... 
-https://superuser.com/questions/1218586/how-to-use-source-command-in-shell-script
-
 
 # https://unix.stackexchange.com/questions/492365/opening-new-gnome-terminal-v3-28-with-multiple-tabs-and-different-commands
 
-SQLalchemy prettier insert & delete + sql_log in config file.
-nats queue 
 
 https://stackoverflow.com/questions/51437139/execute-a-command-in-a-rate-by-n-requests-per-second
 

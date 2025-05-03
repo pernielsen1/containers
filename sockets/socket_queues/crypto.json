@@ -16,6 +16,7 @@
         "type": "queue",
         "recv_queue": "to_crypto",
         "filter": "arqc",
-        "send_queue": "debug"
+        "send_queue": "crypto_result",
+        "notify_send_ttl_milliseconds": 500
     }
 }

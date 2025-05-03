@@ -9,7 +9,7 @@ import redis
 import json
 import time
 import threading
-
+from redis import StrictRedis
 import pn_utilities.logger.PnLogger as PnLogger
 message_no = 0
 redis_password = 'pn_password'
@@ -17,10 +17,10 @@ log = PnLogger.PnLogger()
 
 redis_obj = redis.Redis(host='localhost', port=6379, db=0, password=redis_password)
 
-def send_to_queue(redis, send_id, command):
+def send_to_queue(redis, msg_id, command):
       to_queue = 'to_crypto'
-      msg_id = str(send_id)
       send_msg={}
+      send_msg['msg_id'] = msg_id
       send_msg['start_time'] = int(time.time() * 1000)
       send_msg['send_data'] = "here_we_go"
       send_msg['command'] = command 
@@ -30,9 +30,10 @@ def send_to_queue(redis, send_id, command):
       redis.hset(msg_id, "data", data)
       redis.expire(msg_id, 3600)
       redis.lpush(to_queue, msg_id)
+      return msg_id
 
 def go():
-  num_msg=5000
+  num_msg=5
  # setup connection to redis
   for i in range(num_msg): 
     send_to_queue(redis_obj, i, 'run') 
@@ -52,11 +53,71 @@ def do_task():
   send_to_queue(redis_obj, message_no + 1, 'run')
 
 
+def send_receive():
+  MILLISECS_TO_EXPIRE = 50  # 50 = half a second
+  ro= StrictRedis(host='localhost', port=6379, password=redis_password)
+
+  print("setting msg_id ready" + str(1042))
+  ro.set("another_key", "here is the messagE")
+  ro.set(str(1042), "1042 message no expire")
+  ro.set(str(1043), "1043 message expires", px=MILLISECS_TO_EXPIRE)
+
+  ro.set(str(1042), "here is the messagE")
+  ro.set("another_key", "here is the messagE")
+  ro.set("another_key", "here is the messagE")
+ # send_to_queue(redis_obj, message_no + 1, 'print')
+
+
+#  send_to_queue(redis_obj, 1042, "run and wait")
+import asyncio
+
+def wait_msg(pubsub, key_to_wait_for):
+    subscribe_msg = "__keyspace@0__:" + "reply_" + key_to_wait_for
+    print("Waiting for:" + subscribe_msg + "\n")
+    pubsub.psubscribe(subscribe_msg)
+    timeout = 20
+    stop_time = time.time() + timeout
+    print(stop_time)
+    while time.time() < stop_time:
+      message = pubsub.get_message(timeout=stop_time - time.time())
+      if (message):
+        print("got message" + str(message))
+        data = message['data']
+        if (data == b'set'):
+            print("we are there")
+            return
+      else:
+          print("did not get message ?")
+
+    log.error("Timed our for:" + key_to_wait_for)
+from threading import Thread  
+
+def send_and_wait(ro, pubsub, msg_id, message):
+    
+    wait_thread = Thread(target=wait_msg, args=[pubsub, msg_id])
+    wait_thread.start()  
+    send_to_queue(ro, msg_id, message)
+    wait_thread.join()
+    # now the data is available
+    data = ro.get("reply_" + msg_id)
+    print("received data:" + str(data))
+
+def go_send_and_wait(num_messages):
+    ro= StrictRedis(host='localhost', port=6379, password=redis_password)
+    pubsub = ro.pubsub(ignore_subscribe_messages=True)
+    for i in range(num_messages): 
+      send_and_wait(ro, pubsub, str(i), 'run') 
+  
+    send_to_queue(redis_obj, str(i + 1), 'print')
+
+
 #--------------------------------
 # local tests
 #--------------------------------
 if __name__ == '__main__':
   os.chdir(sys.path[0])
+  # send_receive()
+  go_send_and_wait(500)
   # go()
-  go_threading()
+  # go_threading()
   

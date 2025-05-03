@@ -89,7 +89,7 @@ class SocketQueues():
 
     def create_worker(self, frm, to, frm_conn, to_conn):
         filter_name = self.config[to].get('filter', None)
-
+        notity_send_ttl_milliseconds = self.config[to].get('notify_send_ttl_milliseconds', -1)
         name = frm + ' to ' + to
         log.info("creating worker:" + name + " filter:" + str(filter_name))
         
@@ -110,12 +110,12 @@ class SocketQueues():
         if (self.config[frm]['type'] == 'queue' and self.config[to]['type'] == 'socket'):    
             return Worker(self, name,   rcv_queue=self.config[frm]['recv_queue'], 
                                         snd_conn=to_conn, 
-                                        filter=filter)  
+                                        filter=filter, notity_send_ttl_milliseconds = notity_send_ttl_milliseconds)  
         if (self.config[frm]['type'] == 'queue' and self.config[to]['type'] == 'queue'):    
             # send to my own send queue   TBD - this needs more description... and thinking
             return Worker(self, name, rcv_queue=self.config[frm]['recv_queue'], 
                                         snd_queue=self.config[frm]['send_queue'],
-                                        filter=filter)  
+                                        filter=filter, notity_send_ttl_milliseconds = notity_send_ttl_milliseconds)  
 
     def start_workers(self):
         if (self.config['setup'] == 'queue_worker'):
@@ -160,6 +160,7 @@ class SocketQueues():
         s = data.decode('utf-8')
         msg = json.loads(s)
         command = msg['command']
+        log.debug("Command was:" + str(command))
         arqc_data = "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000"
 
         res = my_PnCrypto.do_arqc('IMK_k1','5656781234567891' , '01', '0001', arqc_data, True)
@@ -179,7 +180,8 @@ class SocketQueues():
             log.info("Print command - max elapsed:" + str(max_elapsed) + "in secs:" 
                      + str(max_elapsed/ONE_MILLION))
             
-        s= 'arqc:' + res
+        msg['reply'] = res
+        s = json.dumps(msg)
         byte_arr = s.encode('utf_8')
         return byte_arr
 
@@ -190,7 +192,8 @@ class Worker():
     def __init__(self, SQ_obj:SocketQueues, name:str, 
                  rcv_conn=None, rcv_queue=None, 
                  snd_conn=None, snd_queue=None, 
-                 filter = None):
+                 filter = None, notity_send_ttl_milliseconds=-1):
+        
         self.SQ_obj = SQ_obj
         self.name  = name
         self.rcv_conn  = rcv_conn
@@ -202,7 +205,8 @@ class Worker():
         self.id_prefix = self.SQ_obj.config['message_broker']['id_prefix']
         self.ttl = self.SQ_obj.config['message_broker']['ttl']
         self.redis = self.SQ_obj.redis
-
+        self.notify_send_ttl_milliseconds = notity_send_ttl_milliseconds
+        self.notify_send_ttl_milliseconds = notity_send_ttl_milliseconds
     def send(self, data):
         if (self.filter != None):
             log.debug("apply filter:" + self.filter.name + " on:" + str(data))
@@ -251,6 +255,19 @@ class Worker():
         self.redis.hset(msg_id, "data", data)
         self.redis.expire(msg_id, self.ttl)
         self.redis.lpush(self.snd_queue, msg_id)
+        if (self.notify_send_ttl_milliseconds > 0):
+            try: 
+                json_data = data.decode('utf-8')
+                log.debug("parsing data" + json_data)
+                msg_dict = json.loads(json_data)
+                msg_id = msg_dict.get('msg_id', None)
+                if (msg_id != None):
+                    reply_msg_id = "reply_" + msg_id 
+                    log.debug("Notifying msgid is ready" + msg_id + " with reply_msg_id:" + reply_msg_id)
+                    self.redis.set(reply_msg_id, data, px=self.notify_send_ttl_milliseconds)
+            except:
+                log.error("Error parsing json in send_queue" + str(data))
+
         return len(data)
 
     #-------------------------------------------------------------

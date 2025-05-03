@@ -4,7 +4,8 @@ services:
     restart: always
     ports:
       - '6379:6379'
-    command: redis-server --save 20 1 --loglevel warning --requirepass pn_password
+# redis server with notify-keyspace-events enabled and a password       
+    command: sh -cx "redis-server --daemonize yes --loglevel warning --requirepass pn_password && redis-cli --pass pn_password config set notify-keyspace-events KEA && sleep infinity"
     volumes: 
       - ../../container_data/redis/cache:/data
 volumes:
