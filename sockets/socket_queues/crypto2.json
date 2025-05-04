@@ -1,5 +1,6 @@
 {
-    "name": "crypto_2", 
+    "name": "crypto_2",
+    "controller_queue": "crypto2", 
     "log_level": 20, 
     "description": "Listens1 on port - everyting inbound is sent to queue to_host, anything read from queue from_host is sent to socket client",
     "message_broker": {
@@ -14,6 +15,7 @@
     "setup": "queue_worker",
     "queue_worker": {
         "type": "queue",
+        "format": "message",
         "recv_queue": "to_crypto",
         "filter": "arqc",
         "send_queue": "crypto_result",

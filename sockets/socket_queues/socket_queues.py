@@ -9,11 +9,12 @@
 import sys
 import threading
 import time
-import datetime
 import socket
 import redis
 import json
 import pn_utilities.logger.PnLogger as PnLogger
+from redis_queue_manager import RedisQueueManager
+from message import Message
 
 log = PnLogger.PnLogger()
 
@@ -53,7 +54,14 @@ class SocketQueues():
         # set up redis queue - used both by client & servers
         password = self.config['message_broker']['password']
         self.redis = redis.Redis(host='localhost', port=6379, db=0, password=password)
-    
+        self.RQM = RedisQueueManager(host=self.config['message_broker']['host'], 
+                                     port = self.config['message_broker']['port'], 
+                                     password = self.config['message_broker']['password']) 
+         
+                                     
+        self.controller_queue = self.config['controller_queue']
+
+
     def add_filter_func(self ,name, func, private_obj=None):
         self.filters[name] = Filter(name, func, private_obj)
 #
@@ -124,11 +132,25 @@ class SocketQueues():
         self.go_controller()        
         
     def go_controller(self):
-        log.info("in controller")
+        start_time_ns = time.time_ns() 
+        log.info("Starting controller at time_ns:" + str(start_time_ns))
         while True:
-            time.sleep(10)
+            message_json = self.RQM.queue_receive(self.controller_queue)
+            log.info("Controller got:" + str(message_json))
+            message_dict =  message_dict = json.loads(message_json)
+            create_time_ns = message_dict['create_time_ns']
+            if (create_time_ns < start_time_ns):
+                log.info("Ignoring old command from time_ns" + str(time_ns))
+            else:
+                payload = message_dict['payload']
+                log.info("Received payload" + payload)
+                if ( payload == 'stop'):
+                    log.info("received stop - exiting here will kill deamon threads")
+                    return
+                if ( payload =='stat'):
+                    log.info("TBD print stats")
 
-  
+
 #----------------------------------------------------------------------------------------------------------
 # Worker: the worker object - receives from either socket or queue and forwards to either socket or queue
 #----------------------------------------------------------------------------------------------------------
@@ -195,15 +217,16 @@ class Worker():
     # send_queue- send message to redis queue
     #-------------------------------------------------------------
     def send_queue(self, data):
-        self.send_id = self.send_id + 1
-        msg_id = self.id_prefix + str(self.send_id) 
-        log.debug("sending msg-id" + msg_id + " to queue:" + self.snd_queue + " data:" + str(data))
-        self.redis.hset(msg_id, "data", data)
-        self.redis.expire(msg_id, self.ttl)
-        self.redis.lpush(self.snd_queue, msg_id)
+
+    #    self.send_id = self.send_id + 1
+    #    msg_id = self.id_prefix + str(self.send_id) 
+        log.debug("sending " + str(data))
+    #    self.redis.hset(msg_id, "data", data)
+    #    self.redis.expire(msg_id, self.ttl)
+    #    self.redis.lpush(self.snd_queue, msg_id)
         if (self.notify_send_ttl_milliseconds > 0):
             try: 
-                json_data = data.decode('utf-8')
+                json_data = data
                 log.debug("parsing data" + json_data)
                 msg_dict = json.loads(json_data)
                 msg_id = msg_dict.get('msg_id', None)
@@ -244,11 +267,12 @@ class Worker():
     def receive_queue_forever(self):
         log.info("Receiving from:" + self.rcv_queue)
         while True:
-            msg_id_tuple = self.SQ_obj.redis.brpop(self.rcv_queue)
-            msg_id = msg_id_tuple[1]
-            data = self.redis.hget(msg_id, "data")
+            data = self.SQ_obj.RQM.queue_receive(self.rcv_queue)
+#            msg_id_tuple = self.SQ_obj.redis.brpop(self.rcv_queue)
+#            msg_id = msg_id_tuple[1]
+#            data = self.redis.hget(msg_id, "data")
             # now use the send worker
-            log.debug("receive_queue sending msg_id" + str(msg_id) + " data:" + str(data))
+            log.debug("receive_queue sending " + str(data))
             self.send(data)
     
 #-------------------------------

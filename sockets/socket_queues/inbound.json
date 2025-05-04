@@ -1,5 +1,6 @@
 {
     "name": "inbound", 
+    "controller_queue": "inbound", 
     "description": "Listens on port - everyting inbound is sent to queue to_host, anything read from queue from_host is sent to socket client",
     "message_broker": {
         "type": "redis",
@@ -12,6 +13,7 @@
     },  
     "type": "socket_to_queues",  
     "client": {
+        "format": "binary",
         "type": "socket",
         "host": "localhost",
         "role": "server",
@@ -21,6 +23,7 @@
     },    
     "server": {
         "type": "queue",
+        "format": "message",
         "send_queue": "to_host",
         "recv_queue": "from_host"
     }    

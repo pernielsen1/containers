@@ -1,10 +1,26 @@
 ToDo:
+
+Externalize RedisQueueManager 
+send_message(queue, string_data, message_number=None)
+receive_message(queue)
+returns string-data
+
+Create internal message format ha en parameter "raw input" som sir om der skal ske translate.
+
+Message:
+create_time_ns
+receive_time_ns
+send_time_ns
+payload
+message os a json string.
+payload is a string - if binary inbound translated on the way.
+
+
 establish default timestamp standard... also in the "controller"... 
 controller only acts on queue messages which are produced after start up.
+see if active and act on kill message
+create redis queue object.
 
-
-put all requirements file in one directory in containers.
-build_env with special for build_common
 
 move the establish sockets to receive forever... i.e. to the thread.. 
 

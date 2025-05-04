@@ -16,7 +16,7 @@ def filter_echo(data, private_obj):
     return byte_arr
 
 def arqc(data, private_obj):
-    msg = json.loads(data.decode('utf-8'))
+    msg = json.loads(data)
     command = msg['command']
     log.debug("Command was:" + str(command))
     arqc_data = "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000"

@@ -1,5 +1,6 @@
 {
     "name": "echo", 
+    "controller_queue": "echo", 
     "description": "Listens on port - everyting inbound is sent to queue to_host, anything read from queue from_host is sent to socket client",
     "message_broker": {
         "type": "redis",
@@ -12,6 +13,7 @@
     },
     "type": "queues_to_queues",  
     "client": {
+        "format": "message",
         "desc": "we are acting the backend server reads to_host and sends to to_host_round_trip",
         "type": "queue",
         "recv_queue": "to_host",
@@ -20,6 +22,7 @@
     },    
     "server": {
         "type": "queue",
+        "format": "message",
         "recv_queue": "host_round_trip",
         "send_queue": "from_host"
     }    
