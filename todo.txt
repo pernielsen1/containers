@@ -1,20 +1,25 @@
 ToDo:
-take reply key from inbound data... 
-or update the setlogger ? 
+establish default timestamp standard... also in the "controller"... 
+controller only acts on queue messages which are produced after start up.
+
+
+put all requirements file in one directory in containers.
+build_env with special for build_common
+
+move the establish sockets to receive forever... i.e. to the thread.. 
+
+
+test asynk worker... 
+read queue - send every 100 message to output queue
+
+Socket - qeueus: 
+Controller with the statistics function and a controller queue.
+
+
+Logging: 
+check the the setlogger with name & logger ? 
 add name in the logger function.
 add set level to logger function..
-put all requirements file in one directory in containers.
-find current env in bash contains path to env
-basename $VIRTUAL_ENV
-https://dev.to/serhatayata/redis-keyspace-notifications-with-docker-4o90
-
-sh -cx "redis-server --daemonize yes && redis-cli config set notify-keyspace-events KEA && sleep infinity"
-
-https://medium.com/@imamramadhanns/working-with-redis-keyspace-notifications-x-python-c5c6847368a
-
-build common as part of build_venv.sh
-make install filter external to socket_objects. 
-
 
 check failed tests on fastapi... 
 
@@ -22,8 +27,6 @@ Qeuue - workers more long term...
 establish a queue to queue which is only one worker  - that's how you would want it.
 
 Locust... take it in lab first ...  incl redis in lab "pip install locust
-
-
 https://manojsingh0302.medium.com/load-test-redis-with-locust-io-in-python-b59d38724054
 
 make the server & client to just workers... then we can harmonize.. (maybe.. - still need to share the socket.. )

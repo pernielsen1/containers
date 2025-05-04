@@ -2,7 +2,7 @@
 import sys
 import json
 import time
-from socket_queues import SocketQueues, Filter
+from socket_queues import SocketQueues
 import pn_utilities.logger.PnLogger as PnLogger
 import pn_utilities.crypto.PnCrypto as PnCrypto
 
@@ -16,8 +16,7 @@ def filter_echo(data, private_obj):
     return byte_arr
 
 def arqc(data, private_obj):
-    s = data.decode('utf-8')
-    msg = json.loads(s)
+    msg = json.loads(data.decode('utf-8'))
     command = msg['command']
     log.debug("Command was:" + str(command))
     arqc_data = "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000"
@@ -28,7 +27,7 @@ def arqc(data, private_obj):
     try:
         elapsed = end_time - msg['start_time']
     except:
-        print("small error")
+        log.error("Error calculating elapsed probably no start_time in input")
     global max_elapsed
     ONE_MILLION = 100000
     if (elapsed > max_elapsed):
@@ -41,15 +40,13 @@ def arqc(data, private_obj):
         max_elapsed = 0
             
     msg['reply'] = res
-    s = json.dumps(msg)
-    byte_arr = s.encode('utf_8')
+    byte_arr = json.dumps(msg).encode('utf-8')
     return byte_arr
-
 
 #-------------------------------
 # local tests
 #--------------------------------
 if __name__ == '__main__':
     my_server = SocketQueues(sys.argv[1])
-    my_server.add_filter_func("arqc", arqc, my_PnCrypto)
+    my_server.add_filter_func("arqc", arqc, None)
     my_server.start_workers()

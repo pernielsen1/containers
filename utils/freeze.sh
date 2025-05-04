@@ -4,7 +4,7 @@ if [[ -z "${VIRTUAL_ENV}" ]]; then
     exit 1
 else
     TARGET=$(basename $VIRTUAL_ENV)
-    TARGET_FILE=${TARGET}"_requirements.txt"
+    TARGET_FILE=$HOME/containers/requirements/${TARGET}.txt
     echo "Freezing <" $TARGET "> into " $TARGET_FILE
 fi
 pip freeze>$TARGET_FILE

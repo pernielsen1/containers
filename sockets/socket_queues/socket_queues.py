@@ -14,10 +14,8 @@ import socket
 import redis
 import json
 import pn_utilities.logger.PnLogger as PnLogger
-# import pn_utilities.crypto.PnCrypto as PnCrypto
 
 log = PnLogger.PnLogger()
-# my_PnCrypto = PnCrypto.PnCrypto()
 
 max_elapsed = 0
 
@@ -26,29 +24,22 @@ class Filter():
         self.name = name
         self.func = func
         self.private_obj = private_obj
-        print("self name" + self.name)
-        print("self.private" + str(self.private_obj))
+        log.debug("Filter object created name" + self.name + " private object is:" +str(self.private_obj))
 
     def run(self, data):    
         log.debug("running filter" + self.name + " with data:" + str(data))
         return self.func(data, self.private_obj)
         
-class Filters():
-    def __init__(self):
-        self.filters = {}
-
-    def add_filter(self, name, func, private_obj=None):
-        self.filters[name] = Filter(name, func, private_obj)  
-    def get_filter(self, name):
-        return self.filters[name]
     
 #-------------------------------------------------------------------
-# 
+# SocketQueues - class brigde sockets to qeueue or vise versa...
+# rename to comm bridges ? 
 #-------------------------------------------------------------------
 class SocketQueues():
     # the init load the config file to dict config.
     def __init__(self, config_file="config.json"):
-        self.filters = Filters()
+        self.filters = {}
+        self.workers = {}
         log.info("Using config file:" + config_file)
         with open(config_file, 'r') as file:
             self.config = json.loads(file.read())
@@ -64,7 +55,7 @@ class SocketQueues():
         self.redis = redis.Redis(host='localhost', port=6379, db=0, password=password)
     
     def add_filter_func(self ,name, func, private_obj=None):
-        self.filters.add_filter(name, func, private_obj)
+        self.filters[name] = Filter(name, func, private_obj)
 #
     def establish_socket_if_needed(self, name):
         if (self.config[name]['type'] == 'socket'):
@@ -91,11 +82,8 @@ class SocketQueues():
         notity_send_ttl_milliseconds = self.config[to].get('notify_send_ttl_milliseconds', -1)
         name = frm + ' to ' + to
         log.info("creating worker:" + name + " filter:" + str(filter_name))
-        
-        if (filter_name == None):
-            filter = None
-        else:
-            filter = self.filters.get_filter(filter_name)
+       
+        filter = self.filters.get(filter_name, None)
 
         if (self.config[frm]['type'] == 'socket' and self.config[to]['type'] == 'socket'):    
             return Worker(self, name,   rcv_conn=self.frm_conn, 
@@ -116,32 +104,23 @@ class SocketQueues():
                                         filter=filter, notity_send_ttl_milliseconds = notity_send_ttl_milliseconds)  
 
     def start_workers(self):
+        # create the workers from config
         if (self.config['setup'] == 'queue_worker'):
             log.info("Establishing queue_worker")
-            self.client_worker = self.create_worker('queue_worker', 'queue_worker', None, None)
-            self.server_worker = None
+            self.workers['client_worker'] = self.create_worker('queue_worker', 'queue_worker', None, None)
         else: 
-
             log.info("establishing sockets")
             self.client_conn = self.establish_socket_if_needed('client')
             self.server_conn = self.establish_socket_if_needed('server')
             log.info("sockets established creating workers")
-            self.client_worker = self.create_worker('client', 'server', self.client_conn, self.server_conn) 
-            self.server_worker = self.create_worker('server', 'client', self.server_conn, self.client_conn) 
+            self.workers['client_worker'] = self.create_worker('client', 'server', self.client_conn, self.server_conn) 
+            self.workers['server_worker'] = self.create_worker('server', 'client', self.server_conn, self.client_conn) 
 
-        # setup client thread and start
-        self.client_worker_thread = threading.Thread(target=self.client_worker.receive_forever)
-        self.client_worker_thread.daemon = True
-        self.client_worker_thread.start()
-        
-        if (self.server_worker != None):
-        # setup server thread and start
-            self.server_worker_thread = threading.Thread(target=self.server_worker.receive_forever)
-            self.server_worker_thread.daemon = True
-            self.server_worker_thread.start()
-        else:
-            self.server_worker_thread = None
+        # and start the threads
+        for key in self.workers:
+            self.workers[key].thread.start()
 
+        # plus go in controller mode
         self.go_controller()        
         
     def go_controller(self):
@@ -171,7 +150,8 @@ class Worker():
         self.ttl = self.SQ_obj.config['message_broker']['ttl']
         self.redis = self.SQ_obj.redis
         self.notify_send_ttl_milliseconds = notity_send_ttl_milliseconds
-        self.notify_send_ttl_milliseconds = notity_send_ttl_milliseconds
+        self.thread = threading.Thread(target=self.receive_forever)
+        self.thread.deamon = True
 
     def send(self, data):
         if (self.filter != None):
@@ -271,7 +251,6 @@ class Worker():
             log.debug("receive_queue sending msg_id" + str(msg_id) + " data:" + str(data))
             self.send(data)
     
-
 #-------------------------------
 # local tests
 #--------------------------------

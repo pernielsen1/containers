@@ -6,6 +6,7 @@ greenlet==3.2.1
 idna==3.10
 mysql-connector-python==9.3.0
 Naked==0.1.32
+pycparser==2.22
 PyYAML==6.0.2
 redis==5.2.1
 requests==2.32.3
