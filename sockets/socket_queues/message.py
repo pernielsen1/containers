@@ -11,7 +11,7 @@ class Message():
         self.message_dict['create_time_ns'] = time.time_ns() 
         self.message_dict['receive_time_ns'] = 0
         self.message_dict['send_time_ns'] = 0
-        self.message_dict['message_id'] = None
+        self.message_dict['message_id'] = ''
         return
 
     def get_json(self):

@@ -40,8 +40,9 @@ def arqc(data, private_obj):
         max_elapsed = 0
             
     msg['reply'] = res
-    byte_arr = json.dumps(msg).encode('utf-8')
-    return byte_arr
+    return json.dumps(msg)
+#    byte_arr = json.dumps(msg).encode('utf-8')
+#    return byte_arr
 
 #-------------------------------
 # local tests

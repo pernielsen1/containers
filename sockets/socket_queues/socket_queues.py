@@ -140,12 +140,13 @@ class SocketQueues():
             message_dict =  message_dict = json.loads(message_json)
             create_time_ns = message_dict['create_time_ns']
             if (create_time_ns < start_time_ns):
-                log.info("Ignoring old command from time_ns" + str(time_ns))
+                log.info("Ignoring old command from time_ns" + str(create_time_ns))
             else:
                 payload = message_dict['payload']
                 log.info("Received payload" + payload)
                 if ( payload == 'stop'):
                     log.info("received stop - exiting here will kill deamon threads")
+                    exit(0)
                     return
                 if ( payload =='stat'):
                     log.info("TBD print stats")
@@ -218,24 +219,23 @@ class Worker():
     #-------------------------------------------------------------
     def send_queue(self, data):
 
-    #    self.send_id = self.send_id + 1
-    #    msg_id = self.id_prefix + str(self.send_id) 
         log.debug("sending " + str(data))
-    #    self.redis.hset(msg_id, "data", data)
-    #    self.redis.expire(msg_id, self.ttl)
-    #    self.redis.lpush(self.snd_queue, msg_id)
         if (self.notify_send_ttl_milliseconds > 0):
+            log.debug("sending notification instead of to queue")
             try: 
                 json_data = data
-                log.debug("parsing data" + json_data)
+                log.debug("parsing data:" + json_data)
                 msg_dict = json.loads(json_data)
                 msg_id = msg_dict.get('msg_id', None)
                 if (msg_id != None):
                     reply_msg_id = "reply_" + msg_id 
                     log.debug("Notifying msgid is ready" + msg_id + " with reply_msg_id:" + reply_msg_id)
                     self.redis.set(reply_msg_id, data, px=self.notify_send_ttl_milliseconds)
-            except:
+            except Exception as e:
                 log.error("Error parsing json in send_queue" + str(data))
+                log.error(str(e))
+        else: 
+            self.SQ_obj.RQM.queue_send(self.send_queue)
 
         return len(data)
 
@@ -268,10 +268,6 @@ class Worker():
         log.info("Receiving from:" + self.rcv_queue)
         while True:
             data = self.SQ_obj.RQM.queue_receive(self.rcv_queue)
-#            msg_id_tuple = self.SQ_obj.redis.brpop(self.rcv_queue)
-#            msg_id = msg_id_tuple[1]
-#            data = self.redis.hget(msg_id, "data")
-            # now use the send worker
             log.debug("receive_queue sending " + str(data))
             self.send(data)
     

@@ -91,7 +91,7 @@ def go_send_and_wait(num_messages):
 if __name__ == '__main__':
   os.chdir(sys.path[0])
   # send_receive()
-  go_send_and_wait(300)
+  go_send_and_wait(130)
   # go()
   # go_threading()
   
