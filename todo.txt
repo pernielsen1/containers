@@ -1,19 +1,8 @@
 ToDo:
 
-Externalize RedisQueueManager 
-send_message(queue, string_data, message_number=None)
-receive_message(queue)
-returns string-data
+Refactor to send around message_dict insted of json data !  we parse back and forth all the time.  but hard redis will send us binary.. hmmm... associated envelope object ?
+My QEUE  manager to take queue and command as input argc > 0 then ... 
 
-Create internal message format ha en parameter "raw input" som sir om der skal ske translate.
-
-Message:
-create_time_ns
-receive_time_ns
-send_time_ns
-payload
-message os a json string.
-payload is a string - if binary inbound translated on the way.
 
 
 establish default timestamp standard... also in the "controller"... 

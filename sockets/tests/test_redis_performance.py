@@ -11,31 +11,20 @@ import time
 from threading import Thread  
 import pn_utilities.logger.PnLogger as PnLogger
 
+#--------------------------------------------------------------
+# so we need to cheat a little and add the socket_queues directory to path
+# to find the redis_qyeye manage obj - ... 
+sys.path.insert(0, '../socket_queues')
+#--------------------------------------------------------
+from message import Message
+ 
+from redis_queue_manager import RedisQueueManager
+
 log = PnLogger.PnLogger()
 
 redis_password = 'pn_password'
+my_RQM =  RedisQueueManager(host='localhost', port=6479, password =  redis_password)
 redis_obj = redis.Redis(host='localhost', port=6379, db=0, password=redis_password)
-
-def send_to_queue(redis, msg_id, command):
-      to_queue = 'to_crypto'
-      send_msg={}
-      send_msg['msg_id'] = msg_id
-      send_msg['start_time'] = int(time.time() * 1000)
-      send_msg['send_data'] = "here_we_go"
-      send_msg['command'] = command 
-
-      data = json.dumps(send_msg).encode('utf-8')
-      log.debug("sending msg-id" + msg_id + " to queue:" + to_queue + " data:" + str(data))
-      redis.hset(msg_id, "data", data)
-      redis.expire(msg_id, 3600)
-      redis.lpush(to_queue, msg_id)
-      return msg_id
-
-def go_async(num_messages):
-  for i in range(num_messages): 
-    send_to_queue(redis_obj, i, 'run') 
-  
-  send_to_queue(redis_obj, i + 1, 'print')
 
 
 
@@ -66,24 +55,21 @@ def wait_msg(pubsub, key_to_wait_for):
 
     log.error("Timed out for:" + key_to_wait_for)
 
-def send_and_wait(ro, pubsub, msg_id, message):
+def send_and_wait(ro, pubsub, msg_no, msg):
     
-    wait_thread = Thread(target=wait_msg, args=[pubsub, msg_id])
+    wait_thread = Thread(target=wait_msg, args=[pubsub, str(msg_no)])
     wait_thread.start()  
-    send_to_queue(ro, msg_id, message)
+    my_message = Message(msg)
+    my_RQM.queue_send('to_crypto',my_message.get_json(), msg_no)
     wait_thread.join()
     # now the data is available
-    data = ro.get("reply_" + msg_id)
+    data = ro.get("reply_" + str(msg_no))
     log.debug("received data:" + str(data))
 
 def go_send_and_wait(num_messages):
     pubsub = redis_obj.pubsub(ignore_subscribe_messages=True)
     for i in range(num_messages): 
-      send_and_wait(redis_obj, pubsub, str(i), 'run') 
-      if (i % 100 == 0):
-         log.info("processed:" + str(i) + " messages")
-
-    send_to_queue(redis_obj, str(i + 1), 'print')
+      send_and_wait(redis_obj, pubsub, i, 'run') 
 
 #--------------------------------
 # local tests
@@ -91,7 +77,7 @@ def go_send_and_wait(num_messages):
 if __name__ == '__main__':
   os.chdir(sys.path[0])
   # send_receive()
-  go_send_and_wait(130)
+  go_send_and_wait(10)
   # go()
   # go_threading()
   

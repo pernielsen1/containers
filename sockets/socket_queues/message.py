@@ -3,6 +3,9 @@
 # 
 import time
 import json
+import pn_utilities.logger.PnLogger as PnLogger
+
+log = PnLogger.PnLogger()
 
 class Message():
     def __init__(self, payload: str):
@@ -17,3 +20,40 @@ class Message():
     def get_json(self):
         return json.dumps(self.message_dict)
     
+class Measurement():
+    
+    def __init__(self):
+        self.measure_time_ns = 0
+        self.start_time_ns = 0
+        self.elapsed = 0
+
+class Measurements():
+    
+    def __init__(self, capacity):
+        self.measurements = []
+        self.capacity = capacity
+        self.last_ix = capacity
+        self.max_elapsed = 0
+        for x in range(self.capacity):
+            self.measurements.append(Measurement())
+    
+    def add_measurement(self, data_json):
+        just_now = time.time_ns()
+    #    print("DATAJSON" + data_json)
+        message_dict = json.loads(data_json)
+        start_time_ns = message_dict['create_time_ns']
+        elapsed = just_now - start_time_ns
+        
+        if (elapsed > self.max_elapsed):
+            self.last_ix +=1 
+            if (self.last_ix >= self.capacity):
+                self.last_ix = 0
+
+            self.measurements[self.last_ix].start_time_ns = start_time_ns
+            self.measurements[self.last_ix].measure_time_ns = just_now
+            self.measurements[self.last_ix].elapsed = just_now - start_time_ns
+
+    def print_stat(self):
+        for x in range(self.capacity):
+            log.info("time:" + str(self.measurements[x].measure_time_ns) + " elapsed:" + str(self.measurements[x].elapsed) )
+

@@ -14,11 +14,12 @@ import redis
 import json
 import pn_utilities.logger.PnLogger as PnLogger
 from redis_queue_manager import RedisQueueManager
-from message import Message
+from message import Message, Measurements
 
 log = PnLogger.PnLogger()
 
 max_elapsed = 0
+
 
 class Filter():
     def __init__(self, name, func, private_obj=None):
@@ -30,8 +31,7 @@ class Filter():
     def run(self, data):    
         log.debug("running filter" + self.name + " with data:" + str(data))
         return self.func(data, self.private_obj)
-        
-    
+            
 #-------------------------------------------------------------------
 # SocketQueues - class brigde sockets to qeueue or vise versa...
 # rename to comm bridges ? 
@@ -149,6 +149,8 @@ class SocketQueues():
                     exit(0)
                     return
                 if ( payload =='stat'):
+                    for key in self.workers:
+                        self.workers[key].measurements.print_stat()
                     log.info("TBD print stats")
 
 
@@ -175,6 +177,7 @@ class Worker():
         self.notify_send_ttl_milliseconds = notity_send_ttl_milliseconds
         self.thread = threading.Thread(target=self.receive_forever)
         self.thread.deamon = True
+        self.measurements = Measurements(10)
 
     def send(self, data):
         if (self.filter != None):
@@ -186,6 +189,7 @@ class Worker():
         if (len(data) == 0):
             log.warning("len of data is zero - exiting send")
             return 0
+        self.measurements.add_measurement(data)
         if (self.snd_conn != None):
             return self.send_socket(data)
         if (self.send_queue == 'debug'):

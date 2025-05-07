@@ -51,5 +51,5 @@ if __name__ == '__main__':
     from message import Message
     my_message = Message('stat')
     my_RQM.queue_send('crypto',my_message.get_json())
-    my_message = Message('stop')
-    my_RQM.queue_send('crypto',my_message.get_json())
+#    my_message = Message('stop')
+#    my_RQM.queue_send('crypto',my_message.get_json())
