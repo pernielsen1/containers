@@ -34,15 +34,22 @@ class Measurements():
         self.capacity = capacity
         self.last_ix = capacity
         self.max_elapsed = 0
+        self.first_measurement_ns = 0
         for x in range(self.capacity):
             self.measurements.append(Measurement())
-    
+        self.reset()
+        
     def add_measurement(self, data_json):
         just_now = time.time_ns()
     #    print("DATAJSON" + data_json)
         message_dict = json.loads(data_json)
         start_time_ns = message_dict['create_time_ns']
         elapsed = just_now - start_time_ns
+        self.num_measurements += 1
+        self.last_measurement_ns = just_now
+        
+        if (self.first_measurement_ns == 0):
+            self.first_measurement_ns = just_now
         
         if (elapsed > self.max_elapsed):
             self.last_ix +=1 
@@ -53,7 +60,29 @@ class Measurements():
             self.measurements[self.last_ix].measure_time_ns = just_now
             self.measurements[self.last_ix].elapsed = just_now - start_time_ns
 
-    def print_stat(self):
+    def reset(self): 
+        self.first_measurement_ns = 0
+        self.last_measurement_ns = 0
+        self.num_measurements = 0 
         for x in range(self.capacity):
-            log.info("time:" + str(self.measurements[x].measure_time_ns) + " elapsed:" + str(self.measurements[x].elapsed) )
+            self.measurements[x].measure_time_ns = 0
+            self.measurements[x].start_time_ns = 0
+            self.measurements[x].elapsed = 0
+            self.max_elapsed = 0
+        
+    def print_stat(self, reset = False):
+        NANO_TO_SECONDS = 1000000000
+        for x in range(self.capacity):
+            measure_time_ns = self.measurements[x].measure_time_ns
+            seconds = measure_time_ns // NANO_TO_SECONDS
+            time_str = time.strftime("%Y%m%d %H:%M:%S", time.localtime(seconds)) 
+            log.info("time:" + str(self.measurements[x].measure_time_ns) + " " + time_str + " elapsed:" + str(self.measurements[x].elapsed / NANO_TO_SECONDS) )
+        
+        total_elapsed_ns = self.last_measurement_ns - self.first_measurement_ns
+        total_elapsed_secs = total_elapsed_ns / NANO_TO_SECONDS
 
+        log.info("Total measurements: " + str(self.num_measurements)+ " total_elapsed secs:" + str(total_elapsed_secs) + 
+                                              " avg:" + str(total_elapsed_secs/self.num_measurements))
+
+        if (reset):
+            self.reset()

@@ -136,22 +136,21 @@ class SocketQueues():
         log.info("Starting controller at time_ns:" + str(start_time_ns))
         while True:
             message_json = self.RQM.queue_receive(self.controller_queue)
-            log.info("Controller got:" + str(message_json))
+            log.debug("Controller got:" + str(message_json))
             message_dict =  message_dict = json.loads(message_json)
             create_time_ns = message_dict['create_time_ns']
             if (create_time_ns < start_time_ns):
                 log.info("Ignoring old command from time_ns" + str(create_time_ns))
             else:
                 payload = message_dict['payload']
-                log.info("Received payload" + payload)
+                log.debug("Received payload" + payload)
                 if ( payload == 'stop'):
                     log.info("received stop - exiting here will kill deamon threads")
                     exit(0)
                     return
                 if ( payload =='stat'):
                     for key in self.workers:
-                        self.workers[key].measurements.print_stat()
-                    log.info("TBD print stats")
+                        self.workers[key].measurements.print_stat(reset=True)
 
 
 #----------------------------------------------------------------------------------------------------------
@@ -230,7 +229,7 @@ class Worker():
                 json_data = data
                 log.debug("parsing data:" + json_data)
                 msg_dict = json.loads(json_data)
-                msg_id = msg_dict.get('msg_id', None)
+                msg_id = msg_dict.get('message_id', None)
                 if (msg_id != None):
                     reply_msg_id = "reply_" + msg_id 
                     log.debug("Notifying msgid is ready" + msg_id + " with reply_msg_id:" + reply_msg_id)

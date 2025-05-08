@@ -21,6 +21,7 @@ from message import Message
 from redis_queue_manager import RedisQueueManager
 
 log = PnLogger.PnLogger()
+log.get_logger().level  = 20  # 10 = debug, 20 = info
 
 redis_password = 'pn_password'
 my_RQM =  RedisQueueManager(host='localhost', port=6479, password =  redis_password)
@@ -55,7 +56,7 @@ def wait_msg(pubsub, key_to_wait_for):
 
     log.error("Timed out for:" + key_to_wait_for)
 
-def send_and_wait(ro, pubsub, msg_no, msg):
+def send_and_wait(ro, pubsub, msg_no, msg, delay_millisecs):
     
     wait_thread = Thread(target=wait_msg, args=[pubsub, str(msg_no)])
     wait_thread.start()  
@@ -65,11 +66,17 @@ def send_and_wait(ro, pubsub, msg_no, msg):
     # now the data is available
     data = ro.get("reply_" + str(msg_no))
     log.debug("received data:" + str(data))
+    if (delay_millisecs > 0):
+       time.sleep(delay_millisecs/1000)
 
-def go_send_and_wait(num_messages):
+def go_send_and_wait(num_messages, sleep_burst_millisecs, delay_millisecs):
     pubsub = redis_obj.pubsub(ignore_subscribe_messages=True)
     for i in range(num_messages): 
-      send_and_wait(redis_obj, pubsub, i, 'run') 
+      send_and_wait(redis_obj, pubsub, i, 'run', delay_millisecs) 
+      if (i % 100 == 0 and i > 0):
+         log.info("processed " + str(i) + " messages")
+         if (sleep_burst_millisecs > 0):
+           time.sleep(sleep_burst_millisecs / 1000)
 
 #--------------------------------
 # local tests
@@ -77,7 +84,12 @@ def go_send_and_wait(num_messages):
 if __name__ == '__main__':
   os.chdir(sys.path[0])
   # send_receive()
-  go_send_and_wait(10)
+  go_send_and_wait(5000, 0, 30)
+  my_message = Message('stat')
+  my_RQM.queue_send('crypto',my_message.get_json())
+  my_RQM.queue_send('crypto2',my_message.get_json())
+  my_RQM.queue_send('crypto3',my_message.get_json())
+
   # go()
   # go_threading()
   
