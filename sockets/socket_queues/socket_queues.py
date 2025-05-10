@@ -18,7 +18,7 @@ from message import Message, Measurements
 
 log = PnLogger.PnLogger()
 
-max_elapsed = 0
+# ¤max_elapsed = 0
 
 
 class Filter():
@@ -26,10 +26,12 @@ class Filter():
         self.name = name
         self.func = func
         self.private_obj = private_obj
+        self.measurements = Measurements(5)
         log.debug("Filter object created name" + self.name + " private object is:" +str(self.private_obj))
 
     def run(self, data):    
         log.debug("running filter" + self.name + " with data:" + str(data))
+        self.measurements.add_measurement(data)
         return self.func(data, self.private_obj)
             
 #-------------------------------------------------------------------
@@ -135,23 +137,40 @@ class SocketQueues():
         start_time_ns = time.time_ns() 
         log.info("Starting controller at time_ns:" + str(start_time_ns))
         while True:
-            message_json = self.RQM.queue_receive(self.controller_queue)
-            log.debug("Controller got:" + str(message_json))
-            message_dict =  message_dict = json.loads(message_json)
-            create_time_ns = message_dict['create_time_ns']
-            if (create_time_ns < start_time_ns):
-                log.info("Ignoring old command from time_ns" + str(create_time_ns))
-            else:
-                payload = message_dict['payload']
-                log.debug("Received payload" + payload)
-                if ( payload == 'stop'):
-                    log.info("received stop - exiting here will kill deamon threads")
-                    exit(0)
-                    return
-                if ( payload =='stat'):
-                    for key in self.workers:
-                        self.workers[key].measurements.print_stat(reset=True)
-
+            try:
+                message_json = self.RQM.queue_receive(self.controller_queue)
+                log.debug("Controller got:" + str(message_json))
+                message_dict =  message_dict = json.loads(message_json)
+                create_time_ns = message_dict['create_time_ns']
+                if (create_time_ns < start_time_ns):
+                    log.info("Ignoring old command from time_ns" + str(create_time_ns))
+                else:
+                    payload = message_dict['payload']
+                    log.debug("Controller Received payload" + payload)
+                    command_dict  = json.loads(payload)
+                    reset_str = command_dict.get("reset", None)
+                    if (reset_str == 'yes'):
+                        reset = True
+                    key = command_dict.get("key", None)
+                    log.info(f"Controller command_dict: key:{key} reset_str:{reset_str}")
+                    if ( command_dict['command'] == 'stop'):
+                        log.info("received stop - exiting here will kill deamon threads")
+                        exit(0)
+                        return
+                    if ( command_dict['command'] =='stat'):
+                        for k in self.workers:
+                            self.workers[k].measurements.print_stat(reset=reset)
+ 
+                    if ( command_dict['command'] =='filter_stat'):
+                        log.info("filter stat")
+                        for k in self.workers:
+                            filter = self.workers[k].filter
+                            if (filter != None):
+                                filter.measurements.print_stat(reset=reset)
+ 
+            except Exception as e:
+                log.error("Error parsing json in send_queue" + str(data))
+                log.error(str(e))
 
 #----------------------------------------------------------------------------------------------------------
 # Worker: the worker object - receives from either socket or queue and forwards to either socket or queue

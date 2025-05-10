@@ -15,7 +15,7 @@ sys.path.insert(0, '../socket_queues')
 #--------------------------------------------------------
  
 from redis_queue_manager import RedisQueueManager
-from message import Message
+from message import Message, CommandMessage
 
 log = PnLogger.PnLogger()
 log.get_logger().level  = 20  # 10 = debug, 20 = info
@@ -64,6 +64,7 @@ if __name__ == '__main__':
   else:
     print("No args passed usage test_redis_performance num_messages message_wait burst_size burst_wait")
 
+# ./run_redis_performance.sh nowait 6000 0 100 0
   log.info(f'Running: {wait_str} {num_messages} in {burst_size} with wait {burst_wait} between burst and message_wait {message_wait}')
            
 
@@ -72,8 +73,11 @@ if __name__ == '__main__':
     log.info("Waiting one minute before asking for stats")
     time.sleep(60)
 
-  my_message = Message('stat')
+  my_message_filter = CommandMessage('filter_stat', reset='yes', key='the_key')
+  my_message = CommandMessage('stat', reset='yes', key='the_key')
   my_RQM.queue_send('crypto',my_message.get_json())
+  my_RQM.queue_send('crypto',my_message_filter.get_json())
+
   my_RQM.queue_send('crypto2',my_message.get_json())
   my_RQM.queue_send('crypto3',my_message.get_json())
   my_RQM.queue_send('crypto_async',my_message.get_json())

@@ -1,12 +1,14 @@
 ToDo:
-try asynk to fastapi.....
 
+Command as message
+
+do it to real application ? .. parse iso etc ??? 
+can statistics async be better ?  nu er di in socket queue inte helt perfekt..
+flyt alle config filer till configs och ha kun en start... 
 
 locust - can be done with send_and_wait now... 
+Try with many, many messages. 
 
-run 100000 transactions with two queue workers. 
-My QEUE  manager to take queue and command as input argc > 0 then ... 
-Queu manager to implement the wait for encapsulate there...
 
 
 

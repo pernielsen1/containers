@@ -21,7 +21,7 @@
         "send_queue": "crypto_result",
         "notify_send_ttl_milliseconds": 500
     },
-    "method" : "fastapi",
+    "method" : "direct_not_fastapi",
     "fastapi" : {
         "server": "127.0.0.1",
         "port": "8080",

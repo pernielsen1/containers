@@ -19,7 +19,18 @@ class Message():
 
     def get_json(self):
         return json.dumps(self.message_dict)
-    
+
+class CommandMessage(Message):
+    def __init__(self, commmand: str, key: str = None, reset:str = None):
+        self.command_dict = {}
+        self.command_dict['command'] = commmand
+        if (key != None):
+            self.command_dict['key'] = key
+        if (reset != None):
+            self.command_dict['reset'] = reset
+        command_json  = json.dumps(self.command_dict)
+        super().__init__(command_json)
+
 class Measurement():
     
     def __init__(self):
