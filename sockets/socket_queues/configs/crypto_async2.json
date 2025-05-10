@@ -1,6 +1,6 @@
 {
-    "name": "crypto_1", 
-    "controller_queue": "crypto",
+    "name": "crypto_async2", 
+    "controller_queue": "crypto_async2",
     "log_level": 20,
     "description": "Crypto worker - receives request on queue and does crypto",
     "message_broker": {
@@ -18,8 +18,8 @@
         "format": "message",
         "recv_queue": "to_crypto",
         "filter": "arqc",
-        "send_queue": "crypto_result",
-        "notify_send_ttl_milliseconds": 500
+        "send_queue": "debug",
+        "xx_notify_send_ttl_milliseconds": 500
     },
     "method" : "fastapi",
     "fastapi" : {

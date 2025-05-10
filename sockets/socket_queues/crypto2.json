@@ -1,8 +1,8 @@
 {
-    "name": "crypto_2",
-    "controller_queue": "crypto2", 
-    "log_level": 20, 
-    "description": "Listens1 on port - everyting inbound is sent to queue to_host, anything read from queue from_host is sent to socket client",
+    "name": "crypto_2", 
+    "controller_queue": "crypto2",
+    "log_level": 20,
+    "description": "Crypto worker - receives request on queue and does crypto",
     "message_broker": {
         "type": "redis",
         "host": "localhost",
@@ -20,5 +20,24 @@
         "filter": "arqc",
         "send_queue": "crypto_result",
         "notify_send_ttl_milliseconds": 500
+    },
+    "method" : "fastapi",
+    "fastapi" : {
+        "server": "127.0.0.1",
+        "port": "8080",
+        "description":"Calculate ARQC for EMV",
+        "path": "/v1/arqc",
+        "expected_status_code": 200,
+        "msg": {  
+                "key_name":"IMK_k1",
+                "pan":"5656781234567891", 
+                "psn": "01",
+                "atc": "0001",
+                "data": "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000",
+                "data_with_80": "00000000510000000000000007920000208000094917041900B49762F2390000010105A040000020000000000000000080"  
+        },
+        "expected_json": {
+            "arqc" : "F5EB72ED4F51B9DE"
+        }
     }
 }

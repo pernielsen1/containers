@@ -24,10 +24,14 @@ redis_password = 'pn_password'
 my_RQM =  RedisQueueManager(host='localhost', port=6479, password =  redis_password)
 
 
-def send_and_wait(num_messages, burst_size, sleep_burst_millisecs, delay_millisecs):
+def send(wait_str, num_messages, burst_size, sleep_burst_millisecs, delay_millisecs):
+    msg = Message('run')
     for i in range(num_messages): 
-      my_RQM.send_and_wait('to_crypto', i, 'run') 
-#     my_RQM.send_and_wait_no_thread('to_crypto', i, 'run') 
+      if (wait_str == 'wait'):
+        my_RQM.send_and_wait('to_crypto', i, 'run') 
+      else:
+        my_RQM.queue_send('to_crypto', msg.get_json(), i) 
+        
 
       # wait after message ? 
       if (delay_millisecs > 0):
@@ -38,36 +42,40 @@ def send_and_wait(num_messages, burst_size, sleep_burst_millisecs, delay_millise
          if (sleep_burst_millisecs > 0):
            time.sleep(sleep_burst_millisecs / 1000)
 
+
 #--------------------------------
 # local tests
 #--------------------------------
 if __name__ == '__main__':
-  # a wait per message on 1 is enough - have tried 8000 messages.
   os.chdir(sys.path[0])
+  wait_str = 'wait'
   num_messages = 201
   burst_size = 100
   burst_wait = 0
-  message_wait = 1
-#  ./run_redis_performance.sh 1000 40 100 0
-  print(sys.argv)
-  if (len(sys.argv) == 5):
-    num_messages = int(sys.argv[1])
-    message_wait = int(sys.argv[2]) 
-    burst_size = int(sys.argv[3])
-    burst_wait = int(sys.argv[4])
+  message_wait = 0
+#  ./run_redis_performance.sh 16000 0 100 0 runs in 112 seconds with two queue workers  = 142 per sec. doens't really help with three
+#  print(sys.argv)
+  if (len(sys.argv) == 6):
+    wait_str = sys.argv[1]
+    num_messages = int(sys.argv[2])
+    message_wait = int(sys.argv[3]) 
+    burst_size = int(sys.argv[4])
+    burst_wait = int(sys.argv[5])
   else:
     print("No args passed usage test_redis_performance num_messages message_wait burst_size burst_wait")
 
-  log.info(f'Running: {num_messages} in {burst_size} with wait {burst_wait} between burst and message_wait {message_wait}')
+  log.info(f'Running: {wait_str} {num_messages} in {burst_size} with wait {burst_wait} between burst and message_wait {message_wait}')
            
-   
-  send_and_wait(num_messages, burst_size, burst_wait, message_wait) 
+
+  send(wait_str, num_messages, burst_size, burst_wait, message_wait) 
+  if (wait_str != 'wait'):
+    log.info("Waiting one minute before asking for stats")
+    time.sleep(60)
 
   my_message = Message('stat')
   my_RQM.queue_send('crypto',my_message.get_json())
   my_RQM.queue_send('crypto2',my_message.get_json())
   my_RQM.queue_send('crypto3',my_message.get_json())
+  my_RQM.queue_send('crypto_async',my_message.get_json())
 
-  # go()
-  # go_threading()
   

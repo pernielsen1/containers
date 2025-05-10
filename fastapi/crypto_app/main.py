@@ -60,8 +60,18 @@ import pn_utilities.crypto.PnCrypto as PnCrypto
 # config file will be taken from PN_CRYPTO_CONFIG_FILE
 # in container it is config_fastapi_container.json
 # in local mode defaulting to config.json = local mysql started.
+config_file = os.environ.get('PN_CRYPTO_CONFIG_FILE', 'config.json')
+log.info("Using config file:" + config_file)
+with open(config_file, 'r') as file:
+    config = json.loads(file.read())
+    log_level = config.get('log_level', None)
+    if (log_level != None):
+        log.info("setting new log level to" + str(log_level))
+        log_obj = log.get_logger()
+        log_obj.setLevel(log_level)
 
-crypto_obj = PnCrypto.PnCrypto(os.environ.get('PN_CRYPTO_CONFIG_FILE', 'config.json'))
+crypto_obj = PnCrypto.PnCrypto(config_file)
+
 
 #---------------------------------------------------
 # here we go load the FastAPI
@@ -74,10 +84,10 @@ app = FastAPI()
 #-------------------------------------------------------------------------------------------------
 def validate_request_and_get_obj(data_json, object_class):
     try:
-        log.info("Request received ready to pydantic" + data_json)
+        log.debug("Request received ready to pydantic" + data_json)
         data = json.loads(data_json)
         obj = object_class.model_validate(data)
-        log.info("Passed the validation")
+        log.debug("Passed the validation")
         return obj
     except Exception as e:   # just raise it will be logged in calling routine
         raise e
@@ -87,7 +97,7 @@ def validate_request_and_get_obj(data_json, object_class):
 #---------------------------------------------------------
 @app.get("/")
 async def root():
-    log.info("in root")
+    log.debug("in root")
     return {"message": "Hello from my World"}
 
 #---------------------------------------------------------
@@ -95,7 +105,7 @@ async def root():
 #---------------------------------------------------------
 @app.get("/v1/keys")
 async def v1_keys():
-    log.info("get keys")
+    log.debug("get keys")
     keys = crypto_obj.get_PnCryptoKeys();
     r_msg = keys.get_keys_json()
     return {r_msg}
@@ -105,7 +115,7 @@ async def v1_keys():
 #---------------------------------------------------------
 @app.get("/v1/keys/{id}")
 async def v1_get_key(id: str):
-    log.info("get key called with parameter id:" + id)
+    log.debug("get key called with parameter id:" + id)
     keys = crypto_obj.get_PnCryptoKeys();
     r_msg = keys.get_key_json(id)
     return {r_msg}
@@ -115,7 +125,7 @@ async def v1_get_key(id: str):
 #---------------------------------------------------------
 @app.delete("/v1/keys/{id}")
 def delete_key(id: str):
-    log.info("delete key called with parameter id:" + id)
+    log.debug("delete key called with parameter id:" + id)
     keys = crypto_obj.get_PnCryptoKeys();
     keys.delete_key(id)
     return {"ok": True}
@@ -125,7 +135,7 @@ def delete_key(id: str):
 # @app.route('/v1/keys 
 @app.post("/v1/keys", status_code=201)
 async def v1_post_key(request: Request):
-    log.info("post key called")
+    log.debug("post key called")
     try:
         # Extracting user data from the request body
         data_json = await request.json()
@@ -159,7 +169,7 @@ async def v1_post_key(request: Request):
 #---------------------------------------------------------
 @app.put("/v1/keys/{id}", status_code = 200 )
 async def v1_put_key(id: str, request: Request):
-    log.info("put key called")
+    log.debug("put key called")
     try:
         # Extracting user data from the request body
         data_json = await request.json()
@@ -198,7 +208,7 @@ async def v1_arqc(request: Request):
         # Extracting user data from the request body
         data_json = await request.json()
         
-        log.info("ARQC Request received" + data_json)
+        log.debug("ARQC Request received" + data_json)
         # parse the dato with json loads and extract AQRC request using pydantic to ARQC_Input object
         ARQC_obj = validate_request_and_get_obj(data_json, ARQC_Input)
 
@@ -207,7 +217,7 @@ async def v1_arqc(request: Request):
         ret_message['arqc'] = crypto_obj.do_arqc(ARQC_obj.key_name, ARQC_obj.pan, 
                                                  ARQC_obj.psn, ARQC_obj.atc, ARQC_obj.data, True)
         json_response = jsonable_encoder(ret_message)
-        log.info("replying:" + str(json_response))
+        log.debug("replying:" + str(json_response))
         return JSONResponse(content=json_response)
 
     except Exception as e:
@@ -225,7 +235,7 @@ async def v1_arpc(request: Request):
     try:
         # Extracting user data from the request body
         data_json = await request.json()
-        log.info("Request received" + data_json)
+        log.debug("Request received" + data_json)
         
         # parse the dato with json loads and get ARPC_Input object with pydantify 
         ARPC_obj = validate_request_and_get_obj(data_json, ARPC_Input)
@@ -236,7 +246,7 @@ async def v1_arpc(request: Request):
                                                  ARPC_obj.atc, ARPC_obj.arqc, ARPC_obj.csu)
         # Returning a confirmation message
         json_response = jsonable_encoder(ret_message)
-        log.info("replying:" + str(json_response))
+        log.debug("replying:" + str(json_response))
         return JSONResponse(content=json_response)
 
     except Exception as e:
@@ -269,7 +279,7 @@ async def add_transcode_0100(request: Request):
 
         # Returning a confirmation message
         ret_message = 'host:' + hostname + ': pan and key submitted updated successfully pan:' + pan + ' cur:' + cur
-        log.info(ret_message)
+        log.debug(ret_message)
         return {'message': ret_message}
 
     except HTTPException as e:

@@ -1,24 +1,17 @@
 ToDo:
+try asynk to fastapi.....
 
-Refactor to send around message_dict insted of json data !  we parse back and forth all the time.  but hard redis will send us binary.. hmmm... associated envelope object ?
+
+locust - can be done with send_and_wait now... 
+
+run 100000 transactions with two queue workers. 
 My QEUE  manager to take queue and command as input argc > 0 then ... 
+Queu manager to implement the wait for encapsulate there...
 
 
-
-establish default timestamp standard... also in the "controller"... 
-controller only acts on queue messages which are produced after start up.
-see if active and act on kill message
-create redis queue object.
 
 
 move the establish sockets to receive forever... i.e. to the thread.. 
-
-
-test asynk worker... 
-read queue - send every 100 message to output queue
-
-Socket - qeueus: 
-Controller with the statistics function and a controller queue.
 
 
 Logging: 

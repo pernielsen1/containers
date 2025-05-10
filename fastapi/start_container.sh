@@ -8,6 +8,9 @@
 #v https://docs.docker.com/reference/compose-file/build/
 # adapted from:
 # https://www.reddit.com/r/docker/comments/mje7u2/dockercompose_dynamically_static_port_assignments/
+echo "stopping if local mysql is running"
+stop_container.sh mysql_container
+
 TARGET_DIR="crypto_app"
 export FULL_DATA=$HOME/containers/fastapi/data
 echo $FULL_DATA

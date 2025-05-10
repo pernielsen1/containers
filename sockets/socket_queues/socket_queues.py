@@ -191,8 +191,9 @@ class Worker():
         self.measurements.add_measurement(data)
         if (self.snd_conn != None):
             return self.send_socket(data)
-        if (self.send_queue == 'debug'):
+        if (self.snd_queue == 'debug'):
             return self.send_debug(data)
+    
         if (self.send_queue != None):
             return self.send_queue(data)
 
@@ -222,7 +223,7 @@ class Worker():
     #-------------------------------------------------------------
     def send_queue(self, data):
 
-        log.debug("sending " + str(data))
+        log.debug("sending to queue:" + self.snd_queue + " data:" + str(data) )
         if (self.notify_send_ttl_milliseconds > 0):
             log.debug("sending notification instead of to queue")
             try: 
@@ -238,7 +239,7 @@ class Worker():
                 log.error("Error parsing json in send_queue" + str(data))
                 log.error(str(e))
         else: 
-            self.SQ_obj.RQM.queue_send(self.send_queue)
+            self.SQ_obj.RQM.queue_send(self.snd_queue, data)
 
         return len(data)
 
@@ -268,11 +269,22 @@ class Worker():
     # receive_queue_forever : read message from queue and send on
     #---------------------------------------------------------------
     def receive_queue_forever(self):
+        NANO_TO_SECONDS = 1000000000
+        num_handled = 0
         log.info("Receiving from:" + self.rcv_queue)
         while True:
             data = self.SQ_obj.RQM.queue_receive(self.rcv_queue)
             log.debug("receive_queue sending " + str(data))
             self.send(data)
+            if (num_handled == 0):
+                first_received_ns = time.time_ns()
+            num_handled += 1
+            if (num_handled % 1000 == 0):
+                now_ns = time.time_ns()
+                elapsed = now_ns - first_received_ns
+                log.info("handled" + str(num_handled) + " in:" + str(elapsed/NANO_TO_SECONDS))
+                log.info("Total avg elapsed:" + str((elapsed/num_handled)/NANO_TO_SECONDS))
+                
     
 #-------------------------------
 # local tests

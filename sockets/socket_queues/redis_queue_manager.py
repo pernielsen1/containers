@@ -28,11 +28,11 @@ class RedisQueueManager():
 
             self.queues_message_number[queue] = self.queues_message_number[queue] + 1
             message_id = str(self.queues_message_number[queue]) 
-        
         message_dict = json.loads(data)
         message_dict['message_id'] = message_id
         send_str = json.dumps(message_dict)
-        data_utf8 = send_str.encode('utf-8')        
+        data_utf8 = send_str.encode('utf-8')      
+ 
         self.redis.hset(message_id, "data", data_utf8)
         self.redis.expire(message_id, ttl)
         self.redis.lpush(queue, message_id)
@@ -47,31 +47,6 @@ class RedisQueueManager():
         data_bin = self.redis.hget(msg_id, "data")
         return data_bin.decode('utf-8')
 
-    #----------------------------------------------------------------------------------
-    # wait_message_thread: Thread waiting for specific message to come 
-    # is set up before the command is actually sent
-    #--------------------------------------------------------------------------     
-    def wait_msg_thread(self, key_to_wait_for, timeout=20):
-        subscribe_msg = "__keyspace@0__:" + "reply_" + key_to_wait_for
-        self.pubsub.psubscribe(subscribe_msg)
-        stop_time = time.time() + timeout
-        while time.time() < stop_time:
-            message = self.pubsub.get_message(timeout=stop_time - time.time())
-            if (message):
-                log.debug("got message" + str(message))
-                data = message['data']
-                if (data == b'set'):
-                    return
-            else:
-                log.debug("did not get message ?")
-
-    def send_and_wait_with_thread(self, queue, msg_no, msg):    
-        wait_thread = Thread(target=self.wait_msg_thread, args=[str(msg_no)])
-        wait_thread.start()  
-        my_message = Message(msg)
-        self.queue_send(queue,my_message.get_json(), msg_no)
-        wait_thread.join()
-        # now the data is available
 
     def send_and_wait(self, queue, msg_no, msg, timeout=20):
         subscribe_msg = "__keyspace@0__:" + "reply_" + str(msg_no)
