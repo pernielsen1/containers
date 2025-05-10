@@ -47,6 +47,7 @@ class Measurements():
         elapsed = just_now - start_time_ns
         self.num_measurements += 1
         self.last_measurement_ns = just_now
+        self.total_elapsed_ns += elapsed
         
         if (self.first_measurement_ns == 0):
             self.first_measurement_ns = just_now
@@ -64,6 +65,8 @@ class Measurements():
         self.first_measurement_ns = 0
         self.last_measurement_ns = 0
         self.num_measurements = 0 
+        self.total_elapsed_ns = 0
+
         for x in range(self.capacity):
             self.measurements[x].measure_time_ns = 0
             self.measurements[x].start_time_ns = 0
@@ -78,11 +81,11 @@ class Measurements():
             time_str = time.strftime("%Y%m%d %H:%M:%S", time.localtime(seconds)) 
             log.info("time:" + str(self.measurements[x].measure_time_ns) + " " + time_str + " elapsed:" + str(self.measurements[x].elapsed / NANO_TO_SECONDS) )
         
-        total_elapsed_ns = self.last_measurement_ns - self.first_measurement_ns
-        total_elapsed_secs = total_elapsed_ns / NANO_TO_SECONDS
-
-        log.info("Total measurements: " + str(self.num_measurements)+ " total_elapsed secs:" + str(total_elapsed_secs) + 
-                                              " avg:" + str(total_elapsed_secs/self.num_measurements))
-
+        total_measurement_ns = self.last_measurement_ns - self.first_measurement_ns
+        total_measurement_secs = total_measurement_ns / NANO_TO_SECONDS
+        if (self.num_measurements > 0):
+            log.info("Total measurements: " + str(self.num_measurements)+ " total_elapsed secs:" + str(total_measurement_secs) + 
+                                                " avg:" + str(total_measurement_secs/self.num_measurements))
+            log.info("Total avg elapsed:" + str((self.total_elapsed_ns/self.num_measurements)/NANO_TO_SECONDS))
         if (reset):
             self.reset()
