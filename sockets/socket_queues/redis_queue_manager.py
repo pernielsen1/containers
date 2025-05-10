@@ -89,7 +89,7 @@ class RedisQueueManager():
                     more = False
             else:
                 log.debug("did not get message ?")
-        
+        self.pubsub.punsubscribe(subscribe_msg)
         data = self.redis.get("reply_" + str(msg_no))
         log.debug("received data:" + str(data))
 

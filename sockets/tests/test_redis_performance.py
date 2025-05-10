@@ -42,11 +42,12 @@ def send_and_wait(num_messages, burst_size, sleep_burst_millisecs, delay_millise
 # local tests
 #--------------------------------
 if __name__ == '__main__':
+  # a wait per message on 1 is enough - have tried 8000 messages.
   os.chdir(sys.path[0])
   num_messages = 201
   burst_size = 100
   burst_wait = 0
-  message_wait = 0
+  message_wait = 1
 #  ./run_redis_performance.sh 1000 40 100 0
   print(sys.argv)
   if (len(sys.argv) == 5):
