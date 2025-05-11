@@ -1,6 +1,5 @@
 #  message - defines the Message object
 # 
-# 
 import time
 import json
 import pn_utilities.logger.PnLogger as PnLogger
@@ -40,7 +39,7 @@ class Measurement():
 
 class Measurements():
     
-    def __init__(self, capacity):
+    def __init__(self, capacity:int = 5):
         self.measurements = []
         self.capacity = capacity
         self.last_ix = capacity
@@ -50,11 +49,12 @@ class Measurements():
             self.measurements.append(Measurement())
         self.reset()
         
-    def add_measurement(self, data_json):
+    def add_measurement(self, data_json: str,  start_time_ns: int  = None):
         just_now = time.time_ns()
     #    print("DATAJSON" + data_json)
         message_dict = json.loads(data_json)
-        start_time_ns = message_dict['create_time_ns']
+        if (start_time_ns == None):
+            start_time_ns = message_dict['create_time_ns']
         elapsed = just_now - start_time_ns
         self.num_measurements += 1
         self.last_measurement_ns = just_now
@@ -96,7 +96,9 @@ class Measurements():
         total_measurement_secs = total_measurement_ns / NANO_TO_SECONDS
         if (self.num_measurements > 0):
             log.info("Total measurements: " + str(self.num_measurements)+ " total_elapsed secs:" + str(total_measurement_secs) + 
-                                                " avg:" + str(total_measurement_secs/self.num_measurements))
+                                                " avg:" + str(total_measurement_secs/self.num_measurements) +
+                                                " per/sec:" + str(self.num_measurements/total_measurement_secs))
+            
             log.info("Total avg elapsed:" + str((self.total_elapsed_ns/self.num_measurements)/NANO_TO_SECONDS))
         if (reset):
             self.reset()

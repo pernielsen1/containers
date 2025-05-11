@@ -68,6 +68,23 @@ class RedisQueueManager():
         data = self.redis.get("reply_" + str(msg_no))
         log.debug("received data:" + str(data))
 
+    #------------------------------------------------------------------------
+    # notify_reply - 
+    #--------------------------------------------------------------------------
+    def notify_reply(self, data: str, notify_send_ttl_milliseconds = 600):
+        try:
+            log.debug("parsing data:" + data)
+            msg_dict = json.loads(data)
+            msg_id = msg_dict.get('message_id', None)
+            if (msg_id != None):
+                reply_msg_id = "reply_" + msg_id 
+                log.debug("Notifying msgid is ready" + msg_id + " with reply_msg_id:" + reply_msg_id)
+                self.redis.set(reply_msg_id, data, px=notify_send_ttl_milliseconds)
+       
+        except Exception as e:
+            log.error("Error parsing json in notify reply" + str(data))
+            log.error(str(e))
+       
 #-------------------------------
 # local tests
 #--------------------------------
@@ -76,5 +93,3 @@ if __name__ == '__main__':
     from message import Message
     my_message = Message('stat')
     my_RQM.queue_send('crypto',my_message.get_json())
-#    my_message = Message('stop')
-#    my_RQM.queue_send('crypto',my_message.get_json())

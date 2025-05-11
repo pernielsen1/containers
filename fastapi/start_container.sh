@@ -59,4 +59,6 @@ if [ "$BUILD" = true ] ; then
     docker compose build $NO_CACHE # build it
 fi
 # let's start the containers
-docker compose up --remove-orphans 
+echo "starting containers in detached mode log into the container to see what's going on"
+docker compose up --remove-orphans  -d
+# docker compose up --remove-orphans 

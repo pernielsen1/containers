@@ -10,16 +10,12 @@ import sys
 import threading
 import time
 import socket
-import redis
 import json
 import pn_utilities.logger.PnLogger as PnLogger
 from redis_queue_manager import RedisQueueManager
 from message import Message, Measurements
 
 log = PnLogger.PnLogger()
-
-# ¤max_elapsed = 0
-
 
 class Filter():
     def __init__(self, name, func, private_obj=None):
@@ -30,9 +26,12 @@ class Filter():
         log.debug("Filter object created name" + self.name + " private object is:" +str(self.private_obj))
 
     def run(self, data):    
+        start_time_ns = time.time_ns()  # take a timestamp before
         log.debug("running filter" + self.name + " with data:" + str(data))
-        self.measurements.add_measurement(data)
-        return self.func(data, self.private_obj)
+        # need to have a new start time for the filter for the measurement i.e. filter entry as create time 
+        filter_result = self.func(data, self.private_obj)
+        self.measurements.add_measurement(filter_result, start_time_ns)  # use  run start instead of message 
+        return filter_result
             
 #-------------------------------------------------------------------
 # SocketQueues - class brigde sockets to qeueue or vise versa...
@@ -48,21 +47,15 @@ class SocketQueues():
             self.config = json.loads(file.read())
         log_level = self.config.get('log_level', None)
         if (log_level != None):
-            log_obj = log.get_logger()
-            log_obj.setLevel(log_level)
+            log.setlevel(log_level)
         
         log.info("starting:" +  self.config['name'])
-  
         # set up redis queue - used both by client & servers
-        password = self.config['message_broker']['password']
-        self.redis = redis.Redis(host='localhost', port=6379, db=0, password=password)
         self.RQM = RedisQueueManager(host=self.config['message_broker']['host'], 
                                      port = self.config['message_broker']['port'], 
                                      password = self.config['message_broker']['password']) 
-         
                                      
         self.controller_queue = self.config['controller_queue']
-
 
     def add_filter_func(self ,name, func, private_obj=None):
         self.filters[name] = Filter(name, func, private_obj)
@@ -141,14 +134,14 @@ class SocketQueues():
                 message_json = self.RQM.queue_receive(self.controller_queue)
                 log.debug("Controller got:" + str(message_json))
                 message_dict =  message_dict = json.loads(message_json)
-                create_time_ns = message_dict['create_time_ns']
-                if (create_time_ns < start_time_ns):
+                if (message_dict['create_time_ns'] < start_time_ns):
                     log.info("Ignoring old command from time_ns" + str(create_time_ns))
                 else:
                     payload = message_dict['payload']
                     log.debug("Controller Received payload" + payload)
                     command_dict  = json.loads(payload)
                     reset_str = command_dict.get("reset", None)
+                    reset = False
                     if (reset_str == 'yes'):
                         reset = True
                     key = command_dict.get("key", None)
@@ -169,8 +162,7 @@ class SocketQueues():
                                 filter.measurements.print_stat(reset=reset)
  
             except Exception as e:
-                log.error("Error parsing json in send_queue" + str(data))
-                log.error(str(e))
+                log.error("Error in send_queue" + str(e))
 
 #----------------------------------------------------------------------------------------------------------
 # Worker: the worker object - receives from either socket or queue and forwards to either socket or queue
@@ -191,7 +183,6 @@ class Worker():
         self.send_id = 0
         self.id_prefix = self.SQ_obj.config['message_broker']['id_prefix']
         self.ttl = self.SQ_obj.config['message_broker']['ttl']
-        self.redis = self.SQ_obj.redis
         self.notify_send_ttl_milliseconds = notity_send_ttl_milliseconds
         self.thread = threading.Thread(target=self.receive_forever)
         self.thread.deamon = True
@@ -235,32 +226,16 @@ class Worker():
         send_len_str = f"{send_len:04d}"
         self.snd_conn.sendall(send_len_str.encode("utf-8"))
         self.snd_conn.sendall(data)
-        return len(data)
 
     #-------------------------------------------------------------
     # send_queue- send message to redis queue
     #-------------------------------------------------------------
     def send_queue(self, data):
-
         log.debug("sending to queue:" + self.snd_queue + " data:" + str(data) )
         if (self.notify_send_ttl_milliseconds > 0):
-            log.debug("sending notification instead of to queue")
-            try: 
-                json_data = data
-                log.debug("parsing data:" + json_data)
-                msg_dict = json.loads(json_data)
-                msg_id = msg_dict.get('message_id', None)
-                if (msg_id != None):
-                    reply_msg_id = "reply_" + msg_id 
-                    log.debug("Notifying msgid is ready" + msg_id + " with reply_msg_id:" + reply_msg_id)
-                    self.redis.set(reply_msg_id, data, px=self.notify_send_ttl_milliseconds)
-            except Exception as e:
-                log.error("Error parsing json in send_queue" + str(data))
-                log.error(str(e))
+            self.SQ_obj.RQM.notify_reply(data, self.notify_send_ttl_milliseconds)
         else: 
             self.SQ_obj.RQM.queue_send(self.snd_queue, data)
-
-        return len(data)
 
     #-------------------------------------------------------------
     # send_debug: log into debug instead of sending
@@ -282,28 +257,17 @@ class Worker():
             len_int = int(len_field)
             data = self.rcv_conn.recv(len_int)
             log.debug("received:" + str(data))
-            # now use the send worker
             self.send(data)
+
     #---------------------------------------------------------------
     # receive_queue_forever : read message from queue and send on
     #---------------------------------------------------------------
     def receive_queue_forever(self):
-        NANO_TO_SECONDS = 1000000000
-        num_handled = 0
         log.info("Receiving from:" + self.rcv_queue)
         while True:
             data = self.SQ_obj.RQM.queue_receive(self.rcv_queue)
             log.debug("receive_queue sending " + str(data))
             self.send(data)
-            if (num_handled == 0):
-                first_received_ns = time.time_ns()
-            num_handled += 1
-            if (num_handled % 1000 == 0):
-                now_ns = time.time_ns()
-                elapsed = now_ns - first_received_ns
-                log.info("handled" + str(num_handled) + " in:" + str(elapsed/NANO_TO_SECONDS))
-                log.info("Total avg elapsed:" + str((elapsed/num_handled)/NANO_TO_SECONDS))
-                
     
 #-------------------------------
 # local tests

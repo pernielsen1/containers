@@ -1,4 +1,6 @@
 {
+    "log_level": 30,
+    "log_level_explanation": "using warning in container since we want to suppress during performance tests",
     "PnCrypto": {
         "dataStoreType": "mysql", 
         "mysql" : {

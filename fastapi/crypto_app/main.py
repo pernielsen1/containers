@@ -45,21 +45,38 @@ class ARPC_Input(BaseModel):
     csu: str
     arqc: str
 
-       
-# import logging  
+import logging  
 import pn_utilities.logger.PnLogger as PnLogger
 #---------------------------------------------------
 # set the logging
 #---------------------------------------------------
 log=PnLogger.PnLogger()
+
 #---------------------------------------------------
 # load the crypto environment
 #---------------------------------------------------
 import pn_utilities.crypto.PnCrypto as PnCrypto
 
+class StartMeUp():
+    def __init__(self):
+        self.setlogger_warning("fastapi_cli.discover")
+        self.setlogger_warning("fastapi_cli")
+        self.setlogger_warning("fastapi_cli.utils.cli") 
+        self.setlogger_warning("fastapi_cli.utils")
+        self.setlogger_warning("fastapi_cli.cli")       
+        loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+        print(loggers)
+
+    def setlogger_warning(self, name):
+        try:
+            logger = logging.getLogger(name)
+            logger.level = 30
+        except:
+            print("failed setting log on:" + name)
 # config file will be taken from PN_CRYPTO_CONFIG_FILE
 # in container it is config_fastapi_container.json
 # in local mode defaulting to config.json = local mysql started.
+
 config_file = os.environ.get('PN_CRYPTO_CONFIG_FILE', 'config.json')
 log.info("Using config file:" + config_file)
 with open(config_file, 'r') as file:
@@ -67,9 +84,19 @@ with open(config_file, 'r') as file:
     log_level = config.get('log_level', None)
     if (log_level != None):
         log.info("setting new log level to" + str(log_level))
-        log_obj = log.get_logger()
-        log_obj.setLevel(log_level)
+        log.setlevel(log_level)
+        uvicorn_logger = logging.getLogger("uvicorn.error")
+        uvicorn_logger.level = log_level
+        uvicorn_access = logging.getLogger("uvicorn.access")
+        uvicorn_access.level = log_level
+        log.info("after log level sending an info")
+        log.warning("after log level sending a warning")
+        uvicorn_logger.info("Uvicorn info")
+        uvicorn_logger.warning("Uvicorn warning")
 
+# dummy object setting warning on lvel for fastapi loggers not that it helps..
+
+dummy_obj = StartMeUp()        
 crypto_obj = PnCrypto.PnCrypto(config_file)
 
 
@@ -78,6 +105,7 @@ crypto_obj = PnCrypto.PnCrypto(config_file)
 #---------------------------------------------------
 
 app = FastAPI()
+
 
 #--------------------------------------------------------------------------------------------------
 # validate_request:  Convert request to dictorionary and perform pydantic plus return dictionary
@@ -300,6 +328,7 @@ async def add_transcode_0100(request: Request):
 #-----------------------------------------------------------
 if __name__ == '__main__':
     import uvicorn
+ 
     # Run the FastAPI application using uvicorn
     uvicorn.run(app, host='127.0.0.1', port=8080)
 

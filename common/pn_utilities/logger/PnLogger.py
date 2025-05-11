@@ -48,7 +48,10 @@ class PnLogger:
  #       fh.setLevel(level)
         fh.setFormatter(formatter)
         self.logger.addHandler(fh)
-  
+
+    def setlevel(self, level):
+        self.logger.setLevel(level)
+        
     def info(self, message):
         self.logger.info(message)
     def error(self, message):

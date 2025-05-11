@@ -31,7 +31,7 @@ services:
       - ./data:/data
     environment:
       - PN_CRYPTO_CONFIG_FILE=config_fastapi_container.json
-  
+
     depends_on:
       fastapi_mysql:
         condition: service_healthy    
@@ -44,6 +44,7 @@ services:
       - main.py
       - --port 
       - "8001"
+
     
   api2:
     image: fastapi/pn_app
@@ -53,7 +54,7 @@ services:
       - ./data:/data
     environment:
       - PN_CRYPTO_CONFIG_FILE=config_fastapi_container.json
-  
+
     depends_on:
       fastapi_mysql:
         condition: service_healthy    
@@ -66,6 +67,7 @@ services:
       - main.py
       - --port 
       - "8002"
+
     
   nginx:
     restart: unless-stopped

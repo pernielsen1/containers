@@ -68,18 +68,22 @@ if __name__ == '__main__':
   log.info(f'Running: {wait_str} {num_messages} in {burst_size} with wait {burst_wait} between burst and message_wait {message_wait}')
            
 
-  send(wait_str, num_messages, burst_size, burst_wait, message_wait) 
   if (wait_str != 'wait'):
-    log.info("Waiting one minute before asking for stats")
-    time.sleep(60)
+    log.info("Resetting filter stats before start")
+    my_message_filter = CommandMessage('filter_stat', reset='yes', key='the_key')
+    my_RQM.queue_send('crypto_async',my_message_filter.get_json())
+    my_RQM.queue_send('crypto_async2',my_message_filter.get_json())
 
-  my_message_filter = CommandMessage('filter_stat', reset='yes', key='the_key')
-  my_message = CommandMessage('stat', reset='yes', key='the_key')
-  my_RQM.queue_send('crypto',my_message.get_json())
-  my_RQM.queue_send('crypto',my_message_filter.get_json())
+  send(wait_str, num_messages, burst_size, burst_wait, message_wait) 
 
-  my_RQM.queue_send('crypto2',my_message.get_json())
-  my_RQM.queue_send('crypto3',my_message.get_json())
-  my_RQM.queue_send('crypto_async',my_message.get_json())
+  log.info("Get your stats using the stats.sh command")
+            
+#  my_message = CommandMessage('stat', reset='no', key='the_key')
+# my_RQM.queue_send('crypto',my_message.get_json())
+#  my_RQM.queue_send('crypto',my_message_filter.get_json())
+#
+#  my_RQM.queue_send('crypto2',my_message.get_json())
+#  my_RQM.queue_send('crypto3',my_message.get_json())
+#  my_RQM.queue_send('crypto_async',my_message.get_json())
 
   
