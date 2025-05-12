@@ -66,8 +66,6 @@ def extract_key(PC_obj, name):
 
     # try 3DES
 
-#    PFX_PASSWORD_3DES = b'pn_password12345'
-#    alg3DES  = TripleDES(PFX_PASSWORD_3DES)
     encryption = (
         PrivateFormat.PKCS12.encryption_builder().
         kdf_rounds(500).
