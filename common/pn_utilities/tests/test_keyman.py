@@ -20,6 +20,12 @@ import base64
 from cryptography.hazmat.primitives.serialization import pkcs12
 from cryptography.hazmat.primitives import serialization
 from datetime import datetime, timedelta, timezone
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.decrepit.ciphers.algorithms import TripleDES
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.serialization import pkcs12, PrivateFormat
+
 
 KEY_DIR = "keys/"
 PFX_PASSWORD = b'pn_password'
@@ -51,6 +57,32 @@ def extract_key(PC_obj, name):
     with open(pfx_file_name, 'wb') as pfxfile:
       pfxfile.write(p12data)
       log.info("Extracted " + name + " to " + pfx_file_name)
+
+# PBESv1SHA1And3KeyTripleDESCBC
+# PBESv1 using SHA1 as the KDF PRF and 3-key triple DES-CBC as the cipher.
+
+# PBESv2SHA256AndAES256CBC
+# PBESv2 using SHA256 as the KDF PRF and AES256-CBC as the cipher. This is only supported on OpenSSL 3.0.0 or newer.
+
+    # try 3DES
+
+#    PFX_PASSWORD_3DES = b'pn_password12345'
+#    alg3DES  = TripleDES(PFX_PASSWORD_3DES)
+    encryption = (
+        PrivateFormat.PKCS12.encryption_builder().
+        kdf_rounds(500).
+        key_cert_algorithm(pkcs12.PBES.PBESv1SHA1And3KeyTripleDESCBC).
+        hmac_hash(hashes.SHA256()).build(PFX_PASSWORD)
+    )
+
+    p12data = pkcs12.serialize_key_and_certificates(friendly_name, private_key, None, None,
+                                                  encryption )
+ 
+    pfx_file_name = (KEY_DIR + name + '_encrypted_3DES.pfx')
+    with open(pfx_file_name, 'wb') as pfxfile:
+      pfxfile.write(p12data)
+      log.info("Extracted " + name + " to " + pfx_file_name)
+
 
     p12data = pkcs12.serialize_key_and_certificates(friendly_name, private_key, None, None,
                                                   serialization.NoEncryption() )

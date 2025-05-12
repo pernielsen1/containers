@@ -1,13 +1,16 @@
 ToDo:
 
 get the stop to works.. 
-send command to all queues async*  
+send command to all queues async*  (list)
+  
 do it to real application ? .. parse iso etc ??? 
 
 locust - can be done with send_and_wait now... 
 Try with many, many messages. 
 
 
+Really nice to have:
+return stats from server to client requesting it.
 
 
 move the establish sockets to receive forever... i.e. to the thread.. 

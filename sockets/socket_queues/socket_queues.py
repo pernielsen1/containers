@@ -28,9 +28,8 @@ class Filter():
     def run(self, data):    
         start_time_ns = time.time_ns()  # take a timestamp before
         log.debug("running filter" + self.name + " with data:" + str(data))
-        # need to have a new start time for the filter for the measurement i.e. filter entry as create time 
         filter_result = self.func(data, self.private_obj)
-        self.measurements.add_measurement(filter_result, start_time_ns)  # use  run start instead of message 
+        self.measurements.add_measurement(filter_result, start_time_ns)  # use  run start instead of message entry 
         return filter_result
             
 #-------------------------------------------------------------------
