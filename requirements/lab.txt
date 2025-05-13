@@ -5,6 +5,7 @@ certifi==2025.4.26
 charset-normalizer==3.4.1
 click==8.1.8
 ConfigArgParse==1.7
+et_xmlfile==2.0.0
 ff3==1.0.2
 Flask==3.1.0
 flask-cors==5.0.1
@@ -20,16 +21,24 @@ locust==2.36.2
 locust-cloud==1.20.7
 MarkupSafe==3.0.2
 msgpack==1.1.0
+numpy==2.2.5
+openpyxl==3.1.5
+pandas==2.2.3
 platformdirs==4.3.7
+pn_utilities @ file:///home/perni/containers/lab/local_packages/pn_utilities-0.1.tar.gz#sha256=23227c1c4774001e0073235adc8056bc4620f099e13ea98fb4c16eae43e9e5c9
 psutil==7.0.0
 pycryptodome==3.22.0
+python-dateutil==2.9.0.post0
 python-engineio==4.12.0
 python-socketio==5.13.0
+pytz==2025.2
 pyzmq==26.4.0
 redis==6.0.0
 requests==2.32.3
 setuptools==80.1.0
 simple-websocket==1.1.0
+six==1.17.0
+tzdata==2025.2
 urllib3==2.4.0
 websocket-client==1.8.0
 Werkzeug==3.1.3
