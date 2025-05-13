@@ -1,5 +1,5 @@
 ToDo:
-
+make a winhome_onedrive /mnt/c/perni/winhome_onedrive
 get the stop to works.. 
 send command to all queues async*  (list)
   
