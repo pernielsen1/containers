@@ -1,27 +1,38 @@
 ToDo:
-make a winhome_onedrive /mnt/c/perni/winhome_onedrive
-get the stop to works.. 
-send command to all queues async*  (list)
-  
-do it to real application ? .. parse iso etc ??? 
+Monitor queue - depth in redis should be possible from test runner ?  display a queue ? 
 
+make a winhome_onedrive /mnt/c/perni/winhome_onedrive
+get the stop to works..  with the threads
+move the establish sockets to receive forever... i.e. to the thread.. 
+
+------------------------------------------------
+send command to all queues async*  (list)  
+do it to real application ? .. parse iso etc ??? 
 locust - can be done with send_and_wait now... 
-Try with many, many messages. 
 
 
 Really nice to have:
 return stats from server to client requesting it.
 
+Draw the application
 
-move the establish sockets to receive forever... i.e. to the thread.. 
-
+-----------------   ----------------------    -------------------    ---------------------------------       --------------------------
+- TEST          -   - CLIENT simulator   -    - SERVER          -    -  WORKER(s)                    -       - API server             -
+-               -   - reads inbound_test -    - listen          -    -  reads worker_inbound         -       - nginx port 8080        -
+-               -   - sends to socket    -    - reads socket    -    -  parses ISO8583               -       - api1 8001 and          - 
+- test.py       -   -                    -    - sends to        -    -  sends/receives http request  -       - api2 8002              -
+- Test-runner-> ----- reads socket       ------ worker_inbound  ------  to crypto_app                --------- uvicon                 -
+- inbound_test  -   - sends to           -    - reads           -    -  builds patched iso8583 sends -       - calls crypto functions -
+-               -   - outbound_test      -    - worker_outbound -    -  sends to worker_outbound     -       - python cryptography    -
+-               -   -                    -    - sends to socket -    -                               -       - interface (openssl)    -
+-               -   -                    -    -                 -    -  (well auth host first)       -       - keysDB mysql container -
+-----------------   ----------------------    -------------------    ---------------------------------       --------------------------
 
 Logging: 
 check the the setlogger with name & logger ? 
 add name in the logger function.
-add set level to logger function..
-
 check failed tests on fastapi... 
+
 
 Qeuue - workers more long term... 
 establish a queue to queue which is only one worker  - that's how you would want it.
@@ -38,23 +49,7 @@ https://unix.stackexchange.com/questions/492365/opening-new-gnome-terminal-v3-28
 
 # https://unix.stackexchange.com/questions/492365/opening-new-gnome-terminal-v3-28-with-multiple-tabs-and-different-commands
 
-
-https://stackoverflow.com/questions/51437139/execute-a-command-in-a-rate-by-n-requests-per-second
-
-Improvements:
-change the tests in common to execute suite based on names ? just like for the crypto app
-Queing:
-https://icepanel.medium.com/top-6-message-queues-for-distributed-architectures-a3cbabf08993
-https://betterstack.com/community/comparisons/redis-vs-kafka/
-
-# and then start to dig into socket application ? 
-https://nginx.org/en/docs/stream/ngx_stream_core_module.html
-https://www.datacamp.com/tutorial/python-redis-beginner-guide
-
-in validation build general validation request - 
-with fields to be mandatory and type
-In C- dive into the libcurl..
-https://medium.com/@albert.kim/understanding-user-authentication-in-your-web-app-and-how-to-implement-it-part-1-the-high-level-ab91336ab77c
+sends to socket  -1-the-high-level-ab91336ab77c
 
 # change console colours - even better tabs in windows terminal
 # https://superuser.com/questions/1486054/windows-terminal-predefined-tabs-on-startup

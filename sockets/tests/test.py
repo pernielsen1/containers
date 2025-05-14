@@ -5,52 +5,65 @@
 #-----------------------------------------------------
 import os
 import sys
+import json
 import time
-# om threading import Thread  
 import pn_utilities.logger.PnLogger as PnLogger
 #--------------------------------------------------------------
 # so we need to cheat a little and add the socket_queues directory to path
-# to find the redis_qyeye manage obj - ... 
+# to find the redis_qyeye manage obj - ...
 abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
+os.chdir(dname)
 sys.path.insert(0, '../socket_queues')
+dname = os.path.dirname(abspath) 
 #--------------------------------------------------------
-print("Current work dir is:" + os.getcwd())
 from redis_queue_manager import RedisQueueManager
 from message import Message, CommandMessage
 
 log = PnLogger.PnLogger()
-log.get_logger().level  = 20  # 10 = debug, 20 = info
+log.setlevel(20)  # 10 = debug, 20 = info
 
-redis_password = 'pn_password'
-my_RQM =  RedisQueueManager(host='localhost', port=6479, password =  redis_password)
+class TestClass():
+  def __init__(self, config_file="TEST.json"):
+    log.info("loading config file:" + config_file + " in dir:" + os.getcwd())
+    with open(config_file, 'r') as file:
+      self.config = json.loads(file.read())
+    self.RQM = RedisQueueManager(host=self.config['message_broker']['host'], 
+                port = self.config['message_broker']['port'], 
+                password = self.config['message_broker']['password']) 
+    self.to_queue = self.config['to_queue']
 
+  def send(self, wait_str, num_messages, burst_size, sleep_burst_millisecs, delay_millisecs):
+    log.info(f'Running: {wait_str} {num_messages} in {burst_size} with wait {burst_wait} between burst and message_wait {message_wait}')
+    log.info("Resetting filter stats before start and sends to queue:" + self.to_queue)
+    my_message_filter = CommandMessage('filter_stat', reset='yes', key='the_key')
+    self.RQM.queue_send(self.to_queue,my_message_filter.get_json())
+    # TBD put other queues to be reset in the json.
 
-def send(wait_str, num_messages, burst_size, sleep_burst_millisecs, delay_millisecs):
     msg = Message('run')
     for i in range(num_messages): 
       if (wait_str == 'wait'):
-        my_RQM.send_and_wait('to_crypto', i, 'run') 
+        self.RQM.send_and_wait(self.to_queue, i, 'run') 
       else:
-        my_RQM.queue_send('to_crypto', msg.get_json(), i) 
+        self.RQM.queue_send(self.to_queue, msg.get_json(), i) 
         
-
       # wait after message ? 
       if (delay_millisecs > 0):
         time.sleep(delay_millisecs/1000)
       # wait after burst
       if (i % burst_size == 0 and i > 0):
-         log.info("processed " + str(i) + " messages")
-         if (sleep_burst_millisecs > 0):
-           time.sleep(sleep_burst_millisecs / 1000)
+        log.info("processed " + str(i) + " messages")
+      if (sleep_burst_millisecs > 0):
+        time.sleep(sleep_burst_millisecs / 1000)
+
+    log.info("for stats run the stats.sh command")
 
 
 #--------------------------------
 # local tests
 #--------------------------------
 if __name__ == '__main__':
-  os.chdir(sys.path[0])
-  wait_str = 'wait'
+  wait_str = 'nowait'
   num_messages = 1
   burst_size = 100
   burst_wait = 0
@@ -67,25 +80,5 @@ if __name__ == '__main__':
     print("No args passed usage test_redis_performance num_messages message_wait burst_size burst_wait")
 
 # ./run_redis_performance.sh nowait 6000 0 100 0
-  log.info(f'Running: {wait_str} {num_messages} in {burst_size} with wait {burst_wait} between burst and message_wait {message_wait}')
-           
-
-  if (wait_str != 'wait'):
-    log.info("Resetting filter stats before start")
-    my_message_filter = CommandMessage('filter_stat', reset='yes', key='the_key')
-    my_RQM.queue_send('crypto_async',my_message_filter.get_json())
-    my_RQM.queue_send('crypto_async2',my_message_filter.get_json())
-
-  send(wait_str, num_messages, burst_size, burst_wait, message_wait) 
-
-  log.info("Get your stats using the stats.sh command")
-            
-#  my_message = CommandMessage('stat', reset='no', key='the_key')
-# my_RQM.queue_send('crypto',my_message.get_json())
-#  my_RQM.queue_send('crypto',my_message_filter.get_json())
-#
-#  my_RQM.queue_send('crypto2',my_message.get_json())
-#  my_RQM.queue_send('crypto3',my_message.get_json())
-#  my_RQM.queue_send('crypto_async',my_message.get_json())
-
-  
+  my_test_class = TestClass()
+  my_test_class.send(wait_str, num_messages, burst_size, burst_wait, message_wait) 

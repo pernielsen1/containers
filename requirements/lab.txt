@@ -25,7 +25,6 @@ numpy==2.2.5
 openpyxl==3.1.5
 pandas==2.2.3
 platformdirs==4.3.7
-pn_utilities @ file:///home/perni/containers/lab/local_packages/pn_utilities-0.1.tar.gz#sha256=23227c1c4774001e0073235adc8056bc4620f099e13ea98fb4c16eae43e9e5c9
 psutil==7.0.0
 pycryptodome==3.22.0
 python-dateutil==2.9.0.post0

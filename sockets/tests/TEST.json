@@ -1,0 +1,14 @@
+{
+    "name": "TEST", 
+    "description": "The test generator fires in test messages",
+    "message_broker": {
+        "type": "redis",
+        "host": "localhost",
+        "port": 6379,
+        "db": 0,
+        "ttl": 3600,
+        "password": "pn_password",
+        "id_prefix": "100"
+    },  
+    "to_queue": "inbound_test"
+}

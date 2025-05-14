@@ -1,0 +1,30 @@
+{
+    "name": "SERVER", 
+    "controller_queue": "SERVER", 
+    "description": "Listens on port - everyting inbound is sent to queue to_host, anything read from queue from_host is sent to socket client",
+    "message_broker": {
+        "type": "redis",
+        "host": "localhost",
+        "port": 6379,
+        "db": 0,
+        "ttl": 3600,
+        "password": "pn_password",
+        "id_prefix": "100"
+    },  
+    "type": "socket_to_queues",  
+    "client": {
+        "format": "binary",
+        "type": "socket",
+        "host": "localhost",
+        "role": "server",
+        "port": 4242,
+        "len_type": "text",
+        "len_length": 4
+    },    
+    "server": {
+        "type": "queue",
+        "format": "message",
+        "send_queue": "worker_inbound",
+        "recv_queue": "worker_outbound"
+    }    
+}
