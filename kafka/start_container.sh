@@ -1,6 +1,7 @@
 #!/bin/bash
 # https://geshan.com.np/blog/2022/01/redis-docker/
 # https://hub.docker.com/r/apache/kafka
+# https://docs.confluent.io/platform/current/installation/docker/operations/external-volumes.html
 NO_CACHE=""
 BUILD=false
 if [ $# -eq 0 ]

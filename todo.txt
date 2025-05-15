@@ -1,11 +1,14 @@
 ToDo:
+QueueManager som virtual class -  RedisManager loads from - KafkaManager loads from
+RedisManager
+KafkaManager i socket queues
 Monitor queue - depth in redis should be possible from test runner ?  display a queue ? 
 
 make a winhome_onedrive /mnt/c/perni/winhome_onedrive
 get the stop to works..  with the threads
 move the establish sockets to receive forever... i.e. to the thread.. 
 
-------------------------------------------------
+------------------------------------------------+-
 send command to all queues async*  (list)  
 do it to real application ? .. parse iso etc ??? 
 locust - can be done with send_and_wait now... 
