@@ -1,0 +1,2 @@
+kafka-python==2.2.7
+pn_utilities @ file:///home/per-nielsen/containers/kafka/local_packages/pn_utilities-0.1.tar.gz#sha256=d92c5cc92f8ed633d7a68074ba399c32ed15994396ca3da061259401bd9c8765
