@@ -32,13 +32,17 @@ class TestClass():
                 port = self.config['message_broker']['port'], 
                 password = self.config['message_broker']['password']) 
     self.to_queue = self.config['to_queue']
+    self.filter_stat = self.config['filter_stat']
+
 
   def send(self, wait_str, num_messages, burst_size, sleep_burst_millisecs, delay_millisecs):
     log.info(f'Running: {wait_str} {num_messages} in {burst_size} with wait {burst_wait} between burst and message_wait {message_wait}')
-    log.info("Resetting filter stats before start and sends to queue:" + self.to_queue)
+    log.info("Resetting filter stats in " + self.filter_stat + " before start and sends test messages to queue:" + self.to_queue)
     my_message_filter = CommandMessage('filter_stat', reset='yes', key='the_key')
-    self.RQM.queue_send(self.to_queue,my_message_filter.get_json())
-    # TBD put other queues to be reset in the json.
+    self.RQM.queue_send(self.filter_stat,my_message_filter.get_json())
+    self.RQM.queue_send('WORKER2',my_message_filter.get_json())
+    
+    # TBD put all queues to  reset in the json.
 
     msg = Message('run')
     for i in range(num_messages): 
@@ -68,8 +72,8 @@ if __name__ == '__main__':
   burst_size = 100
   burst_wait = 0
   message_wait = 0
-#  ./run_redis_performance.sh 16000 0 100 0 runs in 112 seconds with two queue workers  = 142 per sec. doens't really help with three
-#  print(sys.argv)
+#  ./test.sh nowait 201 0 100 0 
+# 
   if (len(sys.argv) == 6):
     wait_str = sys.argv[1]
     num_messages = int(sys.argv[2])

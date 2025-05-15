@@ -1,7 +1,9 @@
 #!/bin/bash
 gnome-terminal --title "Containers" --tab --working-directory ~/containers
-gnome-terminal --title "Containers" --tab --working-directory ~/containers/common
-gnome-terminal --title "Containers" --tab --working-directory ~/containers/sockets
+gnome-terminal --title "Containers" --tab --working-directory ~/containers
+gnome-terminal --title "Containers" --tab --working-directory ~/containers
+gnome-terminal --title "Containers" --tab --working-directory ~/containers
+gnome-terminal --title "Containers" --tab --working-directory ~/containers
 
 # gnome-terminal --tab -t "Docker" --working-directory="$BASE_DIR/backend" -- \
 #  zsh -is eval "docker-compose up"

@@ -1,5 +1,7 @@
 {
     "name": "CLIENT", 
+    "log_level": 20,
+
     "controller_queue": "CLIENT", 
     "description": " Connects to server and forwards inut from queue to socket sends reply on another queue",
     "message_broker": {
@@ -11,7 +13,8 @@
         "password": "pn_password",
         "id_prefix": "100"
     },  
-    "type": "socket_to_queues",  
+    "setup": "socket_to_queues",
+
     "client": {
         "format": "binary",
         "type": "socket",
@@ -25,6 +28,6 @@
         "type": "queue",
         "format": "message",
         "send_queue": "outbound_test",
-        "recv_queue": "finbound_test"
+        "recv_queue": "inbound_test"
     }    
 }

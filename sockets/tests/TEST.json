@@ -10,5 +10,7 @@
         "password": "pn_password",
         "id_prefix": "100"
     },  
-    "to_queue": "inbound_test"
+    "to_queue": "inbound_test",
+    "filter_stat": "WORKER1"
+
 }

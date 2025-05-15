@@ -189,7 +189,7 @@ class Worker():
 
     def send(self, data):
         if (self.filter != None):
-            log.debug("apply filter:" + self.filter.name + " on:" + str(data))
+            log.debug("apply filter:" + self.filter.name + " on:" + data)
             data = self.filter.run(data)
         if (data == None):
             log.warning("Data is none ! - exiting send")
@@ -220,17 +220,18 @@ class Worker():
     # send_socket- send message via socket
     #-------------------------------------------------------------
     def send_socket(self, data):
-        log.info("sending on socket:" + str(data))
-        send_len = len(data)
+        log.debug("sending on socket:" + data)
+        data_bytes = data.encode("utf_8")
+        send_len = len(data_bytes)
         send_len_str = f"{send_len:04d}"
         self.snd_conn.sendall(send_len_str.encode("utf-8"))
-        self.snd_conn.sendall(data)
+        self.snd_conn.sendall(data_bytes)
 
     #-------------------------------------------------------------
     # send_queue- send message to redis queue
     #-------------------------------------------------------------
     def send_queue(self, data):
-        log.debug("sending to queue:" + self.snd_queue + " data:" + str(data) )
+        log.debug("sending to queue:" + self.snd_queue + " data:" + data )
         if (self.notify_send_ttl_milliseconds > 0):
             self.SQ_obj.RQM.notify_reply(data, self.notify_send_ttl_milliseconds)
         else: 
@@ -240,13 +241,13 @@ class Worker():
     # send_debug: log into debug instead of sending
     #-------------------------------------------------------------
     def send_debug(self, data):
-        log.debug("sending to debug" + str(data))
+        log.debug("sending to debug" + data)
 
     #---------------------------------------------------------------
     # receive_socket_forever : read message from socket and send on
     #---------------------------------------------------------------
     def receive_socket_forever(self):
-        log.info("receiving from socket")
+        log.info("receiving from socket forever established")
         while True:
             len_field = self.rcv_conn.recv(4)
             if (len(len_field) < 4):
@@ -255,8 +256,9 @@ class Worker():
             log.debug("got len field:" + str(len_field))
             len_int = int(len_field)
             data = self.rcv_conn.recv(len_int)
-            log.debug("received:" + str(data))
-            self.send(data)
+            data_str = data.decode('utf-8')
+            log.debug("received:" + data_str)
+            self.send(data_str)
 
     #---------------------------------------------------------------
     # receive_queue_forever : read message from queue and send on

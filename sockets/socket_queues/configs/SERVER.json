@@ -11,7 +11,9 @@
         "password": "pn_password",
         "id_prefix": "100"
     },  
-    "type": "socket_to_queues",  
+    "setup": "socket_to_queues",
+
+    "typex": "socket_to_queues",  
     "client": {
         "format": "binary",
         "type": "socket",

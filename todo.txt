@@ -17,7 +17,7 @@ return stats from server to client requesting it.
 Draw the application
 
 -----------------   ----------------------    -------------------    ---------------------------------       --------------------------
-- TEST          -   - CLIENT simulator   -    - SERVER          -    -  WORKER(s)                    -       - API server             -
+- TEST          -   - CLIENT simulator   -    - SERVER          -    -  WORKER(s)                    -       - APISERVER              -
 -               -   - reads inbound_test -    - listen          -    -  reads worker_inbound         -       - nginx port 8080        -
 -               -   - sends to socket    -    - reads socket    -    -  parses ISO8583               -       - api1 8001 and          - 
 - test.py       -   -                    -    - sends to        -    -  sends/receives http request  -       - api2 8002              -
