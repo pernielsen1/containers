@@ -1,7 +1,14 @@
-ToDo:
+ToDo: next
+kafka goto confluence latest in image...
+implement redis_post and kafka_port
+
+KafkaManager implementation of QueueManager
+stop all containers...
+
+# obs the line below needs to be under sudo... improve if not found then sudo...
+
+Done QueueManager
 QueueManager som virtual class -  RedisManager loads from - KafkaManager loads from
-RedisManager
-KafkaManager i socket queues
 Monitor queue - depth in redis should be possible from test runner ?  display a queue ? 
 
 make a winhome_onedrive /mnt/c/perni/winhome_onedrive

@@ -18,8 +18,12 @@ if [ $# -eq 0 ]
            echo "illegal argument " $1 " supplied - valid is REBUILD  BUILD or no argument - exiting"
         fi
 fi
-# mkdir ../../container_data/redis
-# mkdir ../../container_data/redis/cache
+mkdir -p ../../container_data/kafka-data
+# obs the line below needs to be under sudo... improve if not found then sudo...
+chown -R 1000:1000 ../../container_data/kafka-data
+mkdir -p ../../container_data/kafka-data/kafka
+mkdir -p ../../container_data/kafka-data/zookeeper
+
 
 if [ "$BUILD" = true ] ; then
     echo "building"

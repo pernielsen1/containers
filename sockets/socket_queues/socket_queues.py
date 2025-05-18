@@ -12,7 +12,10 @@ import time
 import socket
 import json
 import pn_utilities.logger.PnLogger as PnLogger
-from redis_queue_manager import RedisQueueManager
+from queue_manager import QueueManager
+from queue_manager_factory import create_queue_manager
+
+# from redis_queue_manager import RedisQueueManager
 from message import Message, Measurements
 
 log = PnLogger.PnLogger()
@@ -48,12 +51,9 @@ class SocketQueues():
         if (log_level != None):
             log.setlevel(log_level)
         
-        log.info("starting:" +  self.config['name'])
-        # set up redis queue - used both by client & servers
-        self.RQM = RedisQueueManager(host=self.config['message_broker']['host'], 
-                                     port = self.config['message_broker']['port'], 
-                                     password = self.config['message_broker']['password']) 
-                                     
+        log.info("starting now with QM:" +  self.config['name'])
+        self.QM = create_queue_manager(config_dict = self.config)
+
         self.controller_queue = self.config['controller_queue']
 
     def add_filter_func(self ,name, func, private_obj=None):
@@ -130,7 +130,7 @@ class SocketQueues():
         log.info("Starting controller at time_ns:" + str(start_time_ns))
         while True:
             try:
-                message_json = self.RQM.queue_receive(self.controller_queue)
+                message_json = self.QM.queue_receive(self.controller_queue)
                 log.debug("Controller got:" + str(message_json))
                 message_dict =  message_dict = json.loads(message_json)
                 if (message_dict['create_time_ns'] < start_time_ns):
@@ -233,9 +233,9 @@ class Worker():
     def send_queue(self, data):
         log.debug("sending to queue:" + self.snd_queue + " data:" + data )
         if (self.notify_send_ttl_milliseconds > 0):
-            self.SQ_obj.RQM.notify_reply(data, self.notify_send_ttl_milliseconds)
+            self.SQ_obj.QM.notify_reply(data, self.notify_send_ttl_milliseconds)
         else: 
-            self.SQ_obj.RQM.queue_send(self.snd_queue, data)
+            self.SQ_obj.QM.queue_send(self.snd_queue, data)
 
     #-------------------------------------------------------------
     # send_debug: log into debug instead of sending
@@ -266,7 +266,7 @@ class Worker():
     def receive_queue_forever(self):
         log.info("Receiving from:" + self.rcv_queue)
         while True:
-            data = self.SQ_obj.RQM.queue_receive(self.rcv_queue)
+            data = self.SQ_obj.QM.queue_receive(self.rcv_queue)
             log.debug("receive_queue sending " + str(data))
             self.send(data)
     

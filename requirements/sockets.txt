@@ -1,11 +1,13 @@
 certifi==2025.4.26
 cffi==1.17.1
 charset-normalizer==3.4.1
+confluent-kafka==2.10.0
 cryptography==44.0.2
 greenlet==3.2.1
 idna==3.10
 mysql-connector-python==9.3.0
 Naked==0.1.32
+pn_utilities @ file:///home/perni/containers/sockets/local_packages/pn_utilities-0.1.tar.gz#sha256=3d3a211bd1e2ddaea5d57c437c5f123b23f678b6584579076389b73fdc408ee0
 pycparser==2.22
 PyYAML==6.0.2
 redis==5.2.1
