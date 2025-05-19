@@ -3,7 +3,9 @@
 #
 import json
 import pn_utilities.logger.PnLogger as PnLogger
-from redis_queue_manager import RedisQueueManager
+from queue_manager_redis import QueueManagerRedis
+from queue_manager_kafka import QueueManagerKafka
+
 log = PnLogger.PnLogger()
 
 def create_queue_manager(config_dict = None, config_file="config.json"):
@@ -18,14 +20,13 @@ def create_queue_manager(config_dict = None, config_file="config.json"):
     queue_manager = config.get("queue_manager", None) 
     if (queue_manager == None or queue_manager == "redis"):   
         log.info("creating redis queue manager in create_queue_manager")
-        X = RedisQueueManager(host=config['message_broker']['host'], 
-                                port = config['message_broker']['port'], 
+        return QueueManagerRedis(host=config['message_broker']['host'], 
+                                port = config['message_broker']['redis_port'], 
                                 password = config['message_broker']['password']) 
-        log.info("after X")
-        return X
     if (queue_manager == "kafka"):
-        raise ValueError("kafka_queue_manager not implemented yet")
-
+       return QueueManagerKafka(host=config['message_broker']['host'], 
+                                port = config['message_broker']['kafka_port']) 
+ 
     # still here unknown value 
     raise ValueError("queue_manager" + str(queue_manager) + " not implemented yet")
 

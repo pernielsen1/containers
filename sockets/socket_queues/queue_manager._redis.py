@@ -9,7 +9,7 @@ from message import Message
 
 log = PnLogger.PnLogger()
 
-class RedisQueueManager():
+class QueueManagerRedis():
     def __init__(self, host='localhost', port=6379, password=None):
         log.info("Createing redis queue manager")
         log.info("host is" + str(host))
@@ -91,7 +91,7 @@ class RedisQueueManager():
 # local tests
 #--------------------------------
 if __name__ == '__main__':
-    my_RQM =  RedisQueueManager(host='localhost', port=6479, password = 'pn_password')
+    my_RQM =  QueueManagerRedis(host='localhost', port=6479, password = 'pn_password')
     from message import Message
     my_message = Message('stat')
     my_RQM.queue_send('crypto',my_message.get_json())

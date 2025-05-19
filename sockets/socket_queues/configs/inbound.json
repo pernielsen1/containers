@@ -5,13 +5,14 @@
     "message_broker": {
         "type": "redis",
         "host": "localhost",
-        "port": 6379,
+        "redis_port": 6379,
+        "kafka_port": 9092,
         "db": 0,
         "ttl": 3600,
         "password": "pn_password",
         "id_prefix": "100"
     },  
-    "type": "socket_to_queues",  
+    "setup": "socket_to_queues",  
     "client": {
         "format": "binary",
         "type": "socket",

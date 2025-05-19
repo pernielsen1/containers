@@ -1,4 +1,7 @@
 ToDo: next
+rename server to socket and client to queue...  ? no what then with the socket to socket - variant...
+
+
 kafka goto confluence latest in image...
 implement redis_post and kafka_port
 
