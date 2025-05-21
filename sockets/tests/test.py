@@ -40,7 +40,7 @@ class TestClass():
     log.info("Resetting filter stats in " + self.filter_stat + " before start and sends test messages to queue:" + self.to_queue)
     my_message_filter = CommandMessage('filter_stat', reset='yes', key='the_key')
     self.QM.queue_send(self.filter_stat,my_message_filter.get_json())
-    self.QM.queue_send('WORKER2',my_message_filter.get_json())
+ #   self.QM.queue_send('WORKER2',my_message_filter.get_json())
     
     # TBD put all queues to  reset in the json.
 
@@ -68,7 +68,7 @@ class TestClass():
 #--------------------------------
 if __name__ == '__main__':
   wait_str = 'nowait'
-  num_messages = 1
+  num_messages = 5
   burst_size = 100
   burst_wait = 0
   message_wait = 0

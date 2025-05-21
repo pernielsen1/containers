@@ -129,12 +129,12 @@ class SocketQueues():
         start_time_ns = time.time_ns() 
         log.info("Starting controller at time_ns:" + str(start_time_ns))
         while True:
-            try:
+#            try:
                 message_json = self.QM.queue_receive(self.controller_queue)
                 log.debug("Controller got:" + str(message_json))
                 message_dict =  message_dict = json.loads(message_json)
                 if (message_dict['create_time_ns'] < start_time_ns):
-                    log.info("Ignoring old command from time_ns" + str(create_time_ns))
+                    log.info("Ignoring old command from time_ns" + str(message_dict['create_time_ns']))
                 else:
                     payload = message_dict['payload']
                     log.debug("Controller Received payload" + payload)
@@ -160,8 +160,8 @@ class SocketQueues():
                             if (filter != None):
                                 filter.measurements.print_stat(reset=reset)
  
-            except Exception as e:
-                log.error("Error in send_queue" + str(e))
+#           except Exception as e:
+#                log.error("Error in send_queue" + str(e))
 
 #----------------------------------------------------------------------------------------------------------
 # Worker: the worker object - receives from either socket or queue and forwards to either socket or queue

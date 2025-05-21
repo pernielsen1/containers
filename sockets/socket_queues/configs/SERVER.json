@@ -1,9 +1,10 @@
 {
     "name": "SERVER", 
+    "log_level": 10,
     "controller_queue": "SERVER", 
     "description": "Listens on port - everyting inbound is sent to queue to_host, anything read from queue from_host is sent to socket client",
     "message_broker": {
-        "type": "redis",
+        "type": "kafka",
         "host": "localhost",
         "redis_port": 6379,
         "kafka_port": 9092,

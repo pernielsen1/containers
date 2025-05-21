@@ -1,21 +1,24 @@
-#  redis_queue_manager -  
-#  interfaces to redis and implements the low level queue_send amd queue_receive
+#  kafka_queue_manager -  
+#  interfaces to kafka and implements the low level queue_send amd queue_receive
 import json
 import pn_utilities.logger.PnLogger as PnLogger
 from message import Message
 from confluent_kafka import Producer, Consumer, KafkaException
-
+from queue_manager import QueueManager
 log = PnLogger.PnLogger()
 
-class QueueManagerKafka():
+class QueueManagerKafka(QueueManager):
     def __init__(self, host='localhost', port=9092, client_id="no_name"):
         self.bootstrap_servers = host + ":" + str(port)
         self.client_id = client_id
-        log.info("Createing kafkaqueue manager bothstrap_servers:" + conf['bootstrap.servers'] ) 
-        conf = {'bootstrap.servers': 'host1:9092,host2:9092',
+        self.queues_message_number = {}
+      
+        conf = {'bootstrap.servers':  host + ":" + str(port),
                 'client.id': client_id}
-        self.producer = Producer(conf)
+        log.info("Creating kafkaqueue manager bothstrap_servers:" + conf['bootstrap.servers'] ) 
 
+        self.producer = Producer(conf)
+        self.consumer_queues = {}
 
     #------------------------------------------------------------
     # Delivery callback function
@@ -32,20 +35,21 @@ class QueueManagerKafka():
     #              obs takes string as input which is encoded to utf-8 before sending
     #--------------------------------------------------------------------------
     def queue_send(self, queue: str, data : str, message_number: int = None, ttl=3600):
+        log.info("in queue send for queue" + queue)
         if (message_number != None): 
             message_id = str(message_number)
         else:
+            x = self.queues_message_number.get(queue, None)
+            log.info("x is " + str(x))
             if (self.queues_message_number.get(queue, None) == None):
                 self.queues_message_number[queue] = 0   # first time send - initialize the 
-
-        self.queues_message_number[queue] = self.queues_message_number[queue] + 1
-        message_id = str(self.queues_message_number[queue]) 
+            self.queues_message_number[queue] = self.queues_message_number[queue] + 1
+            message_id = str(self.queues_message_number[queue]) 
 
         message_dict = json.loads(data)
         message_dict['message_id'] = message_id
         send_str = json.dumps(message_dict)
-        
-        self.producer.produce(topic=queue, key=message_id, value=send_str, callback=self.delivery_report)
+        self.producer.produce(topic=queue, key=message_id, value=send_str)
         self.producer.flush()
 
         
@@ -54,39 +58,34 @@ class QueueManagerKafka():
     #                   obs will decode the data to utf-8
     #--------------------------------------------------------------------------
     def queue_receive(self, queue: str):
-        conf_consumer = {
-            'bootstrap.servers': self.bootstrap_servers, 
-            'group.id': queue,
-            'auto.offset.reset': 'earliest'  # Start from the beginning if no offset is committed
-        }
-        consumer = Consumer(conf_consumer)
-        topic = queue
-        consumer.subscribe([topic])
-        log.info(f"📥 Listening for messages on topic '{topic}'... Press Ctrl+C to stop.\n")
-        try:
-            while True:
-                msg = consumer.poll(timeout=1.0)  # Wait for message or timeout
-                if msg is None:
-                    continue
-                if msg.error():
-                    raise KafkaException(msg.error())
-                else:
-                    log.debug(f"✅ Received message: key={msg.key().decode('utf-8') if msg.key() else None}, "
+        if (self.consumer_queues.get(queue, None) == None):
+            conf_consumer = {
+                'bootstrap.servers': self.bootstrap_servers, 
+                'group.id': queue,
+                'auto.offset.reset': 'earliest'  # Start from the beginning if no offset is committed
+            }
+            consumer = Consumer(conf_consumer)
+            topic = queue
+            consumer.subscribe([topic])
+            self.consumer_queues[queue] = consumer
+            log.info(f"📥 Listening for messages on topic '{topic}'... Press Ctrl+C to stop.\n")
+
+        
+        consumer = self.consumer_queues[queue]
+        while True:
+            msg = consumer.poll(timeout=1.0)  # Wait for message or timeout
+            if msg is None:
+                continue
+            if msg.error():
+                raise KafkaException(msg.error())
+            else:
+                log.debug(f"✅ Received message: key={msg.key().decode('utf-8') if msg.key() else None}, "
                         f"value={msg.value().decode('utf-8')}, "
                         f"partition={msg.partition()}, offset={msg.offset()}")
-                    
-        except KeyboardInterrupt:
-            print("\n🛑 Stopping consumer...")
-        finally:
-            consumer.close()
-
-
-
-    
-
-# Subscribe to the topic
-
-
+                
+                return msg.value().decode('utf-8')         
+            
+        consumer.close()
 
 
 

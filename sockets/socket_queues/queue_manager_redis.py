@@ -6,10 +6,12 @@ import pn_utilities.logger.PnLogger as PnLogger
 import time
 from threading import Thread  
 from message import Message
+from queue_manager import QueueManager
+
 
 log = PnLogger.PnLogger()
 
-class QueueManagerRedis():
+class QueueManagerRedis(QueueManager):
     def __init__(self, host='localhost', port=6379, password=None):
         log.info("Createing redis queue manager")
         log.info("host is" + str(host))

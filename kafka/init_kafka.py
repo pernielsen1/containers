@@ -29,7 +29,7 @@ class InitKafka():
         else:
             if (self.topic_exists(queue)):
                 if (replace == False):
-                    log.info("Not creating queue it already exists and replace is False")
+                    log.info("Not creating queue " + queue +  " it already exists and replace is False")
                     return
                 else:
                     self.delete_queue(queue)
@@ -58,6 +58,9 @@ class InitKafka():
         log.info("connected listing topics before")
         self.list_topics()
         setup = self.config['setup']
+        # name needs a command topic also... 
+        self.create_queue(self.config['name'], replace)
+        
         if (setup == 'queue_worker'):
             self.list_topics()
             recv_queue = self.config['queue_worker']['recv_queue']

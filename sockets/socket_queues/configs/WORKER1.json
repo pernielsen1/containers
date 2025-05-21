@@ -1,10 +1,10 @@
 {
     "name": "WORKER1", 
     "controller_queue": "WORKER1",
-    "log_level": 20,
+    "log_level": 10,
     "description": "Crypto worker - receives request on queue and does crypto",
     "message_broker": {
-        "type": "redis",
+        "type": "kafka",
         "host": "localhost",
         "redis_port": 6379,
         "kafka_port": 9092,

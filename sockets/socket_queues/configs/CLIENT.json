@@ -1,11 +1,11 @@
 {
     "name": "CLIENT", 
-    "log_level": 20,
+    "log_level": 10,
 
     "controller_queue": "CLIENT", 
     "description": " Connects to server and forwards inut from queue to socket sends reply on another queue",
     "message_broker": {
-        "type": "redis",
+        "type": "kafka",
         "host": "localhost",
         "redis_port": 6379,
         "kafka_port": 9092,

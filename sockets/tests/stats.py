@@ -16,7 +16,9 @@ sys.path.insert(0, '../socket_queues')
 dname = os.path.dirname(abspath) 
 
 #--------------------------------------------------------
-from redis_queue_manager import RedisQueueManager
+from queue_manager import QueueManager
+from queue_manager_factory import create_queue_manager
+
 from message import CommandMessage
 
 
@@ -26,9 +28,13 @@ class StatClass():
     log.info("loading config file:" + config_file + " in dir:" + os.getcwd())
     with open(config_file, 'r') as file:
       self.config = json.loads(file.read())
-    self.RQM = RedisQueueManager(host=self.config['message_broker']['host'], 
-                port = self.config['message_broker']['port'], 
-                password = self.config['message_broker']['password']) 
+    
+    log.info("using create_queuemanager")
+    self.QM = create_queue_manager(config_dict = self.config)
+
+#     self.RQM = RedisQueueManager(host=self.config['message_broker']['host'], 
+#                port = self.config['message_broker']['port'], 
+#                password = self.config['message_broker']['password']) 
     self.filter_stat   = self.config['filter_stat']
 
   def the_menu(self):
@@ -45,13 +51,13 @@ class StatClass():
       command = input("Enter command")
       if (command == 'f'):
         message = CommandMessage('filter_stat', reset='no', key='the_key')
-        self.RQM.queue_send(to_queue,message.get_json())
+        self.QM.queue_send(to_queue,message.get_json())
       if (command == 'F'):
         message = CommandMessage('filter_stat', reset='yes', key='the_key')
-        self.RQM.queue_send(to_queue, message.get_json())
+        self.QM.queue_send(to_queue, message.get_json())
       if (command == 's'):  
         message = CommandMessage('stop', reset='yes', key='the_key')
-        self.queue_send(to_queue , message.get_json())
+        self.QM.queue_send(to_queue , message.get_json())
       if (command == 'c'):
         to_queue = input("New queue_name:\n")
    

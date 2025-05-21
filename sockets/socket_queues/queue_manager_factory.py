@@ -17,16 +17,16 @@ def create_queue_manager(config_dict = None, config_file="config.json"):
             config = json.loads(file.read())
 
 
-    queue_manager = config.get("queue_manager", None) 
-    if (queue_manager == None or queue_manager == "redis"):   
+    queue_manager_type = config['message_broker'].get("type", None) 
+    if (queue_manager_type == None or queue_manager_type == "redis"):   
         log.info("creating redis queue manager in create_queue_manager")
         return QueueManagerRedis(host=config['message_broker']['host'], 
                                 port = config['message_broker']['redis_port'], 
                                 password = config['message_broker']['password']) 
-    if (queue_manager == "kafka"):
+    if (queue_manager_type == "kafka"):
        return QueueManagerKafka(host=config['message_broker']['host'], 
                                 port = config['message_broker']['kafka_port']) 
  
     # still here unknown value 
-    raise ValueError("queue_manager" + str(queue_manager) + " not implemented yet")
+    raise ValueError("queue_manager" + str(queue_manager_type) + " not implemented yet")
 
