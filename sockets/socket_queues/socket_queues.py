@@ -20,6 +20,8 @@ from message import Message, Measurements
 
 log = PnLogger.PnLogger()
 
+
+
 class Filter():
     def __init__(self, name, func, private_obj=None):
         self.name = name
@@ -184,7 +186,7 @@ class Worker():
         self.ttl = self.SQ_obj.config['message_broker']['ttl']
         self.notify_send_ttl_milliseconds = notity_send_ttl_milliseconds
         self.thread = threading.Thread(target=self.receive_forever)
-        self.thread.deamon = True
+        self.thread.deamon = False  # changed from True... 
         self.measurements = Measurements(10)
 
     def send(self, data):
