@@ -1,0 +1,272 @@
+import sys
+import json
+import socket
+import threading
+import time
+import base64
+import logging
+from queue import Queue
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+
+# QueueObject class
+class QueueObject:
+    def __init__(self, name, config):
+        self.name = name
+        self.config = config
+        self.queue = Queue()
+
+    def put(self, data):
+        self.queue.put(data)
+
+    def get(self, timeout):
+        try:
+            return self.queue.get(timeout=timeout / 1000)
+        except:
+            return None
+
+# Message class
+class Message:
+    def __init__(self, data):
+        self.msg = {
+            "data_base64": base64.b64encode(data).decode('utf-8'),
+            "time_created_ns": time.time_ns()
+        }
+
+    def get_data(self):
+        return base64.b64decode(self.msg["data_base64"])
+
+    def get_json(self):
+        return self.msg
+
+    def get_create_ns(self):
+        return self.msg["time_created_ns"]
+
+# MessageString class
+class MessageString(Message):
+    def __init__(self, string):
+        super().__init__(string.encode('utf-8'))
+
+    def get_string(self):
+        return self.get_data().decode('utf-8')
+
+# Filter class
+class Filter:
+    def __init__(self, name, run_function):
+        self.name = name
+        self.run_function = run_function
+
+    def run(self, message):
+        return self.run_function(message)
+
+    def get_name(self):
+        return self.name
+
+# CommunicationApplication class
+class CommunicationApplication:
+    def __init__(self, config):
+        self.config = config
+        self.filters = {}
+        self.queues = {}
+        self.threads = []
+
+    def add_filter(self, filter_obj):
+        self.filters[filter_obj.get_name()] = filter_obj
+
+    def get_filter(self, name):
+        return self.filters.get(name, None)
+
+    def add_queue(self, name):
+        if name not in self.queues:
+            self.queues[name] = QueueObject(name, self.config)
+        return self.queues[name]
+
+# CommunicationThread class
+class CommunicationThread(threading.Thread):
+    def __init__(self, name, queue_name, exit_if_inactive, filter_name=None):
+        super().__init__()
+        self.name = name
+        self.queue_name = queue_name
+        self.exit_if_inactive = exit_if_inactive
+        self.filter_name = filter_name
+        self.heartbeat = time.time()
+        self.active = True
+        self.queue = app.add_queue(self.queue_name)
+        self.filter = app.get_filter(self.filter_name)
+
+    def run(self):
+        while self.active:
+            self.heartbeat = time.time()
+            time.sleep(0.5)
+
+# SocketReceiverThread class
+class SocketReceiverThread(CommunicationThread):
+    def __init__(self, name, socket, length_field_type, queue_name, exit_if_inactive, filter_name=None):
+        super().__init__(name, queue_name, exit_if_inactive, filter_name)
+        self.socket = socket
+        self.length_field_type = length_field_type
+
+    def run(self):
+        while self.active:
+            self.heartbeat = time.time()
+            try:
+                length_field = self.socket.recv(4)
+                if self.length_field_type == 'ascii_4':
+                    length = int(length_field.decode('ascii'))
+                elif self.length_field_type == 'binary_4':
+                    length = int.from_bytes(length_field, 'big')
+                data = self.socket.recv(length)
+                message = Message(data)
+                if self.filter:
+                    message = self.filter.run(message)
+                self.queue.put(message)
+            except:
+                pass
+            time.sleep(0.5)
+
+# SocketSenderThread class
+class SocketSenderThread(CommunicationThread):
+    def __init__(self, name, socket, length_field_type, queue_name, exit_if_inactive, filter_name=None):
+        super().__init__(name, queue_name, exit_if_inactive, filter_name)
+        self.socket = socket
+        self.length_field_type = length_field_type
+
+    def run(self):
+        while self.active:
+            self.heartbeat = time.time()
+            message = self.queue.get(500)
+            if message:
+                data = message.get_data()
+                length = len(data)
+                if self.filter:
+                    message = self.filter.run(message)
+                if self.length_field_type == 'ascii_4':
+                    length_field = f"{length:04}".encode('ascii')
+                elif self.length_field_type == 'binary_4':
+                    length_field = length.to_bytes(4, 'big')
+                self.socket.send(length_field)
+                self.socket.send(data)
+            time.sleep(0.5)
+
+# BigMamaThread class
+class BigMamaThread(CommunicationThread):
+    def __init__(self, name, queue_name, exit_if_inactive, filter_name=None):
+        super().__init__(name, queue_name, exit_if_inactive, filter_name)
+
+    def run(self):
+        while self.active:
+            self.heartbeat = time.time()
+            for thread in app.threads:
+                if time.time() - thread.heartbeat > 30:
+                    if thread.exit_if_inactive:
+                        thread.active = False
+                        logging.warning(f"Thread {thread.name} is inactive and will be stopped.")
+            time.sleep(0.5)
+
+# BackendHostThread class
+class BackendHostThread(CommunicationThread):
+    def __init__(self, name, queue_name, exit_if_inactive, filter_name=None):
+        super().__init__(name, queue_name, exit_if_inactive, filter_name)
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.connect(('localhost', 4243))
+        self.receiver_thread = SocketReceiverThread('host_receiver', self.socket, 'binary_4', 'host_receiver', True, 'host_receiver')
+        self.sender_thread = SocketSenderThread('host_sender', self.socket, 'binary_4', 'host_sender', True, 'host_sender')
+        app.threads.append(self.receiver_thread)
+        app.threads.append(self.sender_thread)
+
+    def run(self):
+        self.receiver_thread.start()
+        self.sender_thread.start()
+        while self.active:
+            self.heartbeat = time.time()
+            command = self.queue.get(500)
+            if command and command.get_string() == 'stop':
+                self.active = False
+                self.receiver_thread.active = False
+                self.sender_thread.active = False
+            time.sleep(0.5)
+
+# ListenClientThread class
+class ListenClientThread(CommunicationThread):
+    def __init__(self, name, queue_name, exit_if_inactive, filter_name=None):
+        super().__init__(name, queue_name, exit_if_inactive, filter_name)
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.bind(('localhost', 4242))
+        self.socket.listen(1)
+
+    def run(self):
+        while self.active:
+            self.heartbeat = time.time()
+            try:
+                client_socket, _ = self.socket.accept()
+                receiver_thread = SocketReceiverThread('client_receiver', client_socket, 'ascii_4', 'from_client', True, 'client_receiver')
+                sender_thread = SocketSenderThread('client_sender', client_socket, 'ascii_4', 'to_client', True, 'client_sender')
+                app.threads.append(receiver_thread)
+                app.threads.append(sender_thread)
+                receiver_thread.start()
+                sender_thread.start()
+                for i in range(3):
+                    worker_thread = CommunicationThread(f'worker_{i+1}', 'from_client', False, 'from_client')
+                    app.threads.append(worker_thread)
+                    worker_thread.start()
+                break
+            except:
+                pass
+            time.sleep(0.5)
+        while self.active:
+            self.heartbeat = time.time()
+            command = self.queue.get(500)
+            if command and command.get_string() == 'stop':
+                self.active = False
+            time.sleep(0.5)
+
+# CommandThread class
+class CommandThread(CommunicationThread):
+    def __init__(self, name, queue_name, exit_if_inactive, filter_name=None):
+        super().__init__(name, queue_name, exit_if_inactive, filter_name)
+
+    def run(self):
+        server = HTTPServer(('localhost', 8079), CommandHandler)
+        while self.active:
+            self.heartbeat = time.time()
+            server.handle_request()
+            time.sleep(0.5)
+
+class CommandHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path.startswith('/command/stop'):
+            queue_name = self.path.split('/')[-1]
+            message = MessageString('stop')
+            app.add_queue(queue_name).put(message)
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b'Command received')
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+# Main function
+if __name__ == "__main__":
+    config_file = sys.argv[1] if len(sys.argv) > 1 else 'config.json'
+    with open(config_file, 'r') as f:
+        config = json.load(f)
+
+    app = CommunicationApplication(config)
+
+    big_mama_thread = BigMamaThread('big_mama', 'big_mama', True)
+    app.threads.append(big_mama_thread)
+    big_mama_thread.start()
+
+    backend_host_thread = BackendHostThread('backend_host', 'backend_host', True)
+    app.threads.append(backend_host_thread)
+    backend_host_thread.start()
+
+    listen_client_thread = ListenClientThread('listen_client', 'listen_client', True)
+    app.threads.append(listen_client_thread)
+    listen_client_thread.start()
+
+    command_thread = CommandThread('command_thread', 'command', True)
+    app.threads.append(command_thread)
+    command_thread.start()
