@@ -1,4 +1,6 @@
 ToDo: next
+https://code.visualstudio.com/docs/copilot/overview
+
 socket stop... 
 rename server to socket and client to queue...  ? no what then with the socket to socket - variant...
 
