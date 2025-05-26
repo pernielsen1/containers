@@ -1,0 +1,5 @@
+#!/bin/bash
+
+
+per-nielsen@per-nielsen-X541NA:~/containers/lab/commapp$ curl --data "{\"this\":\"is a test\"}" --header "Content-Type: application/json" http://lo
+python3  communication_app.py middle.json

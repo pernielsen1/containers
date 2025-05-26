@@ -33,7 +33,7 @@ class TestFastApi(unittest.TestCase):
     test_msg = test_case['msg']
     log.info(test_msg)
     log.info("testing:" + test_case['description'] + " repeat:" + str(num_repeats))
- 
+
     for _ in range(num_repeats):
         start = datetime.now()
         str_start = datetime.strftime(start, "%H:%M:%S.%f")

@@ -5,8 +5,6 @@ import threading
 import time
 import base64
 import logging
-import cgi
-
 from queue import Queue
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -169,18 +167,12 @@ class BigMamaThread(CommunicationThread):
 
 # BackendHostThread class
 class BackendHostThread(CommunicationThread):
-    def __init__(self, name, queue_name, port, exit_if_inactive, filter_name=None):
+    def __init__(self, name, queue_name, exit_if_inactive, filter_name=None):
         super().__init__(name, queue_name, exit_if_inactive, filter_name)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.settimeout(10)
-        self.port=port
-        logging.info(f'{self.name} connecting to {self.port}')
-        self.socket.connect(('localhost', port))
-        logging.info(f'{self.name} connectedto {self.port}')
-        length_field_type = 'ascii_4'
-
-        self.receiver_thread = SocketReceiverThread('host_receiver', self.socket, length_field_type, 'host_receiver', True, 'host_receiver')
-        self.sender_thread = SocketSenderThread('host_sender', self.socket, length_field_type, 'host_sender', True, 'host_sender')
+        self.socket.connect(('localhost', 4243))
+        self.receiver_thread = SocketReceiverThread('host_receiver', self.socket, 'binary_4', 'host_receiver', True, 'host_receiver')
+        self.sender_thread = SocketSenderThread('host_sender', self.socket, 'binary_4', 'host_sender', True, 'host_sender')
         app.threads.append(self.receiver_thread)
         app.threads.append(self.sender_thread)
 
@@ -194,32 +186,23 @@ class BackendHostThread(CommunicationThread):
                 self.active = False
                 self.receiver_thread.active = False
                 self.sender_thread.active = False
+            time.sleep(0.5)
 
 # ListenClientThread class
 class ListenClientThread(CommunicationThread):
-    def __init__(self, name, queue_name, port, exit_if_inactive, filter_name=None):
+    def __init__(self, name, queue_name, exit_if_inactive, filter_name=None):
         super().__init__(name, queue_name, exit_if_inactive, filter_name)
-        self.port = port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        logging.info(f'{self.name} Listening for client on {self.port}')
-        
-    def run(self):
-        length_field_type = 'ascii_4'
-        self.socket.bind(('localhost', self.port))
-        while self.active:
-            logging.debug(f'run still {self.name} Listening for client on {self.port}')
-            self.heartbeat = time.time()
-            self.socket.settimeout(5)
-            self.socket.listen(10)  # max backlog of 10... not really needed.. 
+        self.socket.bind(('localhost', 4242))
+        self.socket.listen(1)
 
+    def run(self):
+        while self.active:
+            self.heartbeat = time.time()
             try:
                 client_socket, _ = self.socket.accept()
-                client_socket.settimeout(5)
-
-                logging.info(f'Client accepted by {self.name}')
-
-                receiver_thread = SocketReceiverThread('client_receiver', client_socket, length_field_type, 'from_client', True, 'client_receiver')
-                sender_thread = SocketSenderThread('client_sender', client_socket, length_field_type, 'to_client', True, 'client_sender')
+                receiver_thread = SocketReceiverThread('client_receiver', client_socket, 'ascii_4', 'from_client', True, 'client_receiver')
+                sender_thread = SocketSenderThread('client_sender', client_socket, 'ascii_4', 'to_client', True, 'client_sender')
                 app.threads.append(receiver_thread)
                 app.threads.append(sender_thread)
                 receiver_thread.start()
@@ -233,58 +216,26 @@ class ListenClientThread(CommunicationThread):
                 pass
             time.sleep(0.5)
         while self.active:
-            logging.debug(f'Listener waitin for commands {self.name}')
             self.heartbeat = time.time()
-            command = self.queue.get(10000)
+            command = self.queue.get(500)
             if command and command.get_string() == 'stop':
                 self.active = False
+            time.sleep(0.5)
 
 # CommandThread class
 class CommandThread(CommunicationThread):
-    def __init__(self, name, queue_name, port, exit_if_inactive, filter_name=None):
+    def __init__(self, name, queue_name, exit_if_inactive, filter_name=None):
         super().__init__(name, queue_name, exit_if_inactive, filter_name)
-        self.port = port
+
     def run(self):
-        logging.info(f'command server started on {self.port}')
-        server = HTTPServer(('localhost', self.port), CommandHandler)
-        server.timeout = 5
+        server = HTTPServer(('localhost', 8079), CommandHandler)
         while self.active:
             self.heartbeat = time.time()
-            logging.debug("Command ready")
             server.handle_request()
+            time.sleep(0.5)
 
-
-# taken from https://gist.github.com/nitaku/10d0662536f37a087e1b
 class CommandHandler(BaseHTTPRequestHandler):
-    def setup(self):
-        BaseHTTPRequestHandler.setup(self)
-        self.request.settimeout(10)
-
-    def _set_headers(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'application/json')
-        self.end_headers()
-        
-    def do_HEAD(self):
-        self._set_headers()
-
-# POST echoes the message adding a JSON fields
-    def do_POST(self):
-        length = int(self.headers.get('Content-Length'))
-        message = json.loads(self.rfile.read(length))
-        msg2 = json.loads(message)  # TBD why do we need 2 json.loads ? 
-        # add a property to the object, just to mess with data
-        msg2["received"] = "ok"
-        return_msg = json.dumps(msg2)
-        # send the message back
-        self._set_headers()
-        self.wfile.write(return_msg.encode())
-
     def do_GET(self):
-        logging.info("received" + str(self.path))
-        last_part =  self.path.split('/')[-1]
-
-
         if self.path.startswith('/command/stop'):
             queue_name = self.path.split('/')[-1]
             message = MessageString('stop')
@@ -308,22 +259,14 @@ if __name__ == "__main__":
     app.threads.append(big_mama_thread)
     big_mama_thread.start()
 
-    if (config['BackendHostThread']):
-        backend_host_thread = BackendHostThread('backend_host', 'backend_host', config['BackendHostPort'], True)
-        app.threads.append(backend_host_thread)
-        backend_host_thread.start()
+    backend_host_thread = BackendHostThread('backend_host', 'backend_host', True)
+    app.threads.append(backend_host_thread)
+    backend_host_thread.start()
 
-    if (config['ListenHostThread']):
-        listen_client_thread = ListenClientThread('listen_client', 'listen_client', config['ListenHostPort'], True)
-        app.threads.append(listen_client_thread)
-        listen_client_thread.start()
+    listen_client_thread = ListenClientThread('listen_client', 'listen_client', True)
+    app.threads.append(listen_client_thread)
+    listen_client_thread.start()
 
-    command_thread = CommandThread('command_thread', 'command', config['CommandThreadPort'], True)
+    command_thread = CommandThread('command_thread', 'command', True)
     app.threads.append(command_thread)
     command_thread.start()
-
-# curl http://localhost:8009
-#{"received": "ok", "hello": "world"}
-
-#curl --data "{\"this\":\"is a test\"}" --header "Content-Type: application/json" http://localhost:8009
-# {"this": "is a test", "received": "ok"}

@@ -1,0 +1,11 @@
+{
+    "name": "backend", 
+    "description": "Simulates being the backend - wait for middle to connect and just echo back the received data",
+    "log_level": 10,
+    "BackendHostThread": false,
+    "BackendHostPort": 0,
+    "ListenHostThread": true,
+    "ListenHostPort": 4243,
+    "CommandThreadPort": 8079,
+    "filter": "echo"
+}

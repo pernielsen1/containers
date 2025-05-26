@@ -1,0 +1,10 @@
+{
+    "name": "middle", 
+    "description": "The actual application connecting client and backend",
+    "log_level": 10,
+    "BackendHostThread": true,
+    "BackendHostPort": 4243,
+    "ListenHostThread": true,
+    "ListenHostPort": 4242, 
+    "CommandThreadPort": 8078
+}
