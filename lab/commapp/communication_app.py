@@ -1,3 +1,5 @@
+# OK a little challenge can you make a Java version of the following python program ? 
+
 import sys
 import json
 import socket
@@ -5,7 +7,6 @@ import threading
 import time
 import base64
 import logging
-import cgi
 
 from queue import Queue
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -73,6 +74,14 @@ class CommunicationApplication:
         self.filters = {}
         self.queues = {}
         self.threads = []
+    
+    def stop(self):
+        logging.info("Stopping all threads")
+        for thread in self.threads:
+            thread.active = False
+        for thread in self.threads:
+            thread.join()
+        logging.info("All threads stopped")
 
     def add_filter(self, filter_obj):
         self.filters[filter_obj.get_name()] = filter_obj
@@ -109,8 +118,8 @@ class SocketReceiverThread(CommunicationThread):
         super().__init__(name, queue_name, exit_if_inactive, filter_name)
         self.socket = socket
         self.length_field_type = length_field_type
-
     def run(self):
+        logging.info(f'Starting {self.name} receiving from socket sending to {self.queue_name}')
         while self.active:
             self.heartbeat = time.time()
             try:
@@ -123,6 +132,8 @@ class SocketReceiverThread(CommunicationThread):
                 message = Message(data)
                 if self.filter:
                     message = self.filter.run(message)
+                logging.debug(f'{self.name} sending message to queue: {data}')
+
                 self.queue.put(message)
             except:
                 pass
@@ -136,11 +147,15 @@ class SocketSenderThread(CommunicationThread):
         self.length_field_type = length_field_type
 
     def run(self):
+        logging.info(f'Starting {self.name} receiving from {self.queue_name}')
+
         while self.active:
             self.heartbeat = time.time()
             message = self.queue.get(500)
             if message:
                 data = message.get_data()
+                logging.debug(f'{self.name} sending message to socket: {data}')
+
                 length = len(data)
                 if self.filter:
                     message = self.filter.run(message)
@@ -165,7 +180,7 @@ class BigMamaThread(CommunicationThread):
                     if thread.exit_if_inactive:
                         thread.active = False
                         logging.warning(f"Thread {thread.name} is inactive and will be stopped.")
-            time.sleep(0.5)
+            time.sleep(1.5)
 
 # BackendHostThread class
 class BackendHostThread(CommunicationThread):
@@ -195,8 +210,8 @@ class BackendHostThread(CommunicationThread):
                 self.receiver_thread.active = False
                 self.sender_thread.active = False
 
-# ListenClientThread class
-class ListenClientThread(CommunicationThread):
+# FrontendThread class - rename to FrontendThread
+class FrontendThread(CommunicationThread):
     def __init__(self, name, queue_name, port, exit_if_inactive, filter_name=None):
         super().__init__(name, queue_name, exit_if_inactive, filter_name)
         self.port = port
@@ -231,9 +246,9 @@ class ListenClientThread(CommunicationThread):
                 break
             except:
                 pass
-            time.sleep(0.5)
+
         while self.active:
-            logging.debug(f'Listener waitin for commands {self.name}')
+            logging.debug(f'Listener waitingfor commands {self.name}')
             self.heartbeat = time.time()
             command = self.queue.get(10000)
             if command and command.get_string() == 'stop':
@@ -268,17 +283,71 @@ class CommandHandler(BaseHTTPRequestHandler):
     def do_HEAD(self):
         self._set_headers()
 
-# POST echoes the message adding a JSON fields
-    def do_POST(self):
-        length = int(self.headers.get('Content-Length'))
-        message = json.loads(self.rfile.read(length))
-        msg2 = json.loads(message)  # TBD why do we need 2 json.loads ? 
-        # add a property to the object, just to mess with data
-        msg2["received"] = "ok"
-        return_msg = json.dumps(msg2)
-        # send the message back
+    def send_error(self, error_code, error_text):
+        self.send_response(error_code)
         self._set_headers()
-        self.wfile.write(return_msg.encode())
+        self.wfile.write(json.dumps(error_text).encode())
+
+    def do_POST(self):
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body)  
+
+            data = json.loads(data) # we need to decode the json string twice... why
+
+            command = data.get('command', None)
+            if command is None:
+                self.send_error(400, {"error": "Missing 'command' field"})
+                return
+            command = command.lower()
+            if command not in ['stop', 'stat', 'reset', 'send']:
+                self.send_error(400, {"error": f"Invalid command '{command}'"})
+                return
+
+            if command == 'stop':
+                logging.info("Stop command received")
+                app.stop()
+
+                
+            if command == 'send':
+               queue_name = data.get('queue_name', None)
+               if (queue_name is None):
+                    self.send_error(400, {"error": "Missing 'queue_name' field for 'send' command"})
+                    return
+
+                # Check if the queue exists
+               if queue_name not in app.queues:
+                    self.send_error(400, {"error": f"Queue '{queue_name}' does not exist"})
+                    return
+                # check text is in command 
+               text = data.get('text', None)
+               if (text is None):
+                    self.send_error(400, {"error": "Missing 'text' field for 'send' command"})
+                    return
+
+               logging.info(f"sending {text} to {queue_name}")
+               message = MessageString(text)
+               app.add_queue(queue_name).put(message)
+
+            self.send_response(200)
+            self._set_headers()
+            self.wfile.write(json.dumps({
+                "status": "OK",
+                "command": command
+            }).encode())
+
+        except json.JSONDecodeError:
+            self.send_response(400)
+            self._set_headers()
+            self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+        except Exception as e:
+            logging.exception("Error handling POST request")
+            self.send_response(500)
+            self._set_headers()
+            self.wfile.write(json.dumps({"error": str(e)}).encode())
+
+
 
     def do_GET(self):
         logging.info("received" + str(self.path))
@@ -301,7 +370,8 @@ if __name__ == "__main__":
     config_file = sys.argv[1] if len(sys.argv) > 1 else 'config.json'
     with open(config_file, 'r') as f:
         config = json.load(f)
-
+    logging.getLogger().setLevel(config['log_level'])
+    
     app = CommunicationApplication(config)
 
     big_mama_thread = BigMamaThread('big_mama', 'big_mama', True)
@@ -313,10 +383,10 @@ if __name__ == "__main__":
         app.threads.append(backend_host_thread)
         backend_host_thread.start()
 
-    if (config['ListenHostThread']):
-        listen_client_thread = ListenClientThread('listen_client', 'listen_client', config['ListenHostPort'], True)
-        app.threads.append(listen_client_thread)
-        listen_client_thread.start()
+    if (config['FrontendThread']):
+        frontend_thread = FrontendThread('listen_client', 'listen_client', config['FrontendPort'], True)
+        app.threads.append(frontend_thread)
+        frontend_thread.start()
 
     command_thread = CommandThread('command_thread', 'command', config['CommandThreadPort'], True)
     app.threads.append(command_thread)

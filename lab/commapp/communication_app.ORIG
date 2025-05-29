@@ -188,8 +188,8 @@ class BackendHostThread(CommunicationThread):
                 self.sender_thread.active = False
             time.sleep(0.5)
 
-# ListenClientThread class
-class ListenClientThread(CommunicationThread):
+# FrontendThread class
+class FrontendThread(CommunicationThread):
     def __init__(self, name, queue_name, exit_if_inactive, filter_name=None):
         super().__init__(name, queue_name, exit_if_inactive, filter_name)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -263,7 +263,7 @@ if __name__ == "__main__":
     app.threads.append(backend_host_thread)
     backend_host_thread.start()
 
-    listen_client_thread = ListenClientThread('listen_client', 'listen_client', True)
+    listen_client_thread = FrontendThread('listen_client', 'listen_client', True)
     app.threads.append(listen_client_thread)
     listen_client_thread.start()
 

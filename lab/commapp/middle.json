@@ -4,7 +4,7 @@
     "log_level": 10,
     "BackendHostThread": true,
     "BackendHostPort": 4243,
-    "ListenHostThread": true,
-    "ListenHostPort": 4242, 
+    "FrontendThread": true,
+    "FrontendPort": 4242, 
     "CommandThreadPort": 8078
 }

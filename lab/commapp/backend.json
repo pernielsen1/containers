@@ -4,8 +4,8 @@
     "log_level": 10,
     "BackendHostThread": false,
     "BackendHostPort": 0,
-    "ListenHostThread": true,
-    "ListenHostPort": 4243,
+    "FrontendThread": true,
+    "FrontendPort": 4243,
     "CommandThreadPort": 8079,
     "filter": "echo"
 }
