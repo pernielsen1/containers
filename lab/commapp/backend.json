@@ -2,10 +2,14 @@
     "name": "backend", 
     "description": "Simulates being the backend - wait for middle to connect and just echo back the received data",
     "log_level": 10,
-    "BackendHostThread": false,
-    "BackendHostPort": 0,
-    "FrontendThread": true,
-    "FrontendPort": 4243,
-    "CommandThreadPort": 8079,
-    "filter": "echo"
+    "CommandPort": 8079,
+
+    "router_1":
+        "type": "listen",
+        "socket_to_queue": "to_middle",
+        "queue_to_socket": "from_middle",
+        "filter": "echo",
+        "host:": "localhost",
+        "port": 4243               
+     }
 }
