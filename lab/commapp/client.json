@@ -3,13 +3,14 @@
     "description": "Simulates being the client connects on 4242 and sends in test message",
     "log_level": 10,
     "CommandPort": 8077,
-
-    "router_1": {
-        "type": "connect",
-        "socket_to_queue": "from_middle",
-        "queue_to_socket": "to_middle",
-        "filter": "echo",
-        "host": "localhost",
-        "port": 4242
+    "routers": {
+        "router_1": {
+            "type": "connect",
+            "socket_to_queue": "from_middle",
+            "queue_to_socket": "to_middle",
+            "filter": "echo",
+            "host": "localhost",
+            "port": 4242
+        }
     }
 }

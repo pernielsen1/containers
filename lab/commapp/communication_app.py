@@ -111,6 +111,7 @@ class CommunicationThread(threading.Thread):
         while self.active:
             self.heartbeat = time.time()
             time.sleep(0.5)
+    
 
 # SocketReceiverThread class
 class SocketReceiverThread(CommunicationThread):
@@ -118,6 +119,7 @@ class SocketReceiverThread(CommunicationThread):
         super().__init__(name, queue_name, exit_if_inactive, filter_name)
         self.socket = socket
         self.length_field_type = length_field_type
+
     def run(self):
         logging.info(f'Starting {self.name} receiving from socket sending to {self.queue_name}')
         while self.active:
@@ -182,26 +184,56 @@ class BigMamaThread(CommunicationThread):
                         logging.warning(f"Thread {thread.name} is inactive and will be stopped.")
             time.sleep(1.5)
 
-# BackendHostThread class
-class BackendHostThread(CommunicationThread):
-    def __init__(self, name, queue_name, port, exit_if_inactive, filter_name=None):
-        super().__init__(name, queue_name, exit_if_inactive, filter_name)
+# ConnectThread class
+class EstablishConnectionThread(CommunicationThread):
+    def __init__(self, name, type:str, socket_to_queue, queue_to_socket, port, exit_if_inactive, filter_name=None):
+        super().__init__(name, name, exit_if_inactive, filter_name)
+        self.type = type
+        self.socket_to_queue = socket_to_queue
+        self.queue_to_socket = queue_to_socket
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.settimeout(10)
         self.port=port
-        logging.info(f'{self.name} connecting to {self.port}')
-        self.socket.connect(('localhost', port))
-        logging.info(f'{self.name} connectedto {self.port}')
-        length_field_type = 'ascii_4'
-
-        self.receiver_thread = SocketReceiverThread('host_receiver', self.socket, length_field_type, 'host_receiver', True, 'host_receiver')
-        self.sender_thread = SocketSenderThread('host_sender', self.socket, length_field_type, 'host_sender', True, 'host_sender')
-        app.threads.append(self.receiver_thread)
-        app.threads.append(self.sender_thread)
+        self.length_field_type = 'ascii_4'
 
     def run(self):
-        self.receiver_thread.start()
-        self.sender_thread.start()
+        # first part = establish connection outbound or accept client inbound
+        self.socket.settimeout(10)
+        if self.type == 'connect':
+            self.socket.connect(('localhost', self.port))
+        if self.type == 'listen':
+            self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.listen_socket.bind(('localhost', self.port))
+            self.listen_socket.listen(10)  # max backlog of 10... not really needed.. 
+        connection_ready = False
+        while self.active and connection_ready is False:
+            logging.debug(f'{self.name} waiting for Establish {self.port} type:{self.type}')
+            self.heartbeat = time.time()
+
+            try:
+                if self.type == 'connect':
+                    self.socket.connect(('localhost', self.port))
+                    connection_ready = True
+                    logging.info(f'Connected to server {self.name} on port {self.port}')
+                if self.type == 'listen':
+                    self.socket, addr  = self.listen_socket.accept()
+                    connection_ready = True
+                    logging.info(f'Client accepted by {self.name} from {addr}')
+
+                # still here we have a connection
+                receiver_thread = SocketReceiverThread(self.socket_to_queue, self.socket, self.length_field_type, 
+                                                       'from_client', True, self.socket_to_queue)
+                sender_thread = SocketSenderThread(self.queue_to_socket, self.socket, self.length_field_type, 
+                                                   'to_client', True, self.queue_to_socket)
+
+                app.threads.append(receiver_thread)
+                app.threads.append(sender_thread)
+
+                receiver_thread.start()
+                sender_thread.start()
+
+            except:
+                pass
+
         while self.active:
             self.heartbeat = time.time()
             command = self.queue.get(500)
@@ -209,50 +241,6 @@ class BackendHostThread(CommunicationThread):
                 self.active = False
                 self.receiver_thread.active = False
                 self.sender_thread.active = False
-
-# FrontendThread class - rename to FrontendThread
-class FrontendThread(CommunicationThread):
-    def __init__(self, name, queue_name, port, exit_if_inactive, filter_name=None):
-        super().__init__(name, queue_name, exit_if_inactive, filter_name)
-        self.port = port
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        logging.info(f'{self.name} Listening for client on {self.port}')
-        
-    def run(self):
-        length_field_type = 'ascii_4'
-        self.socket.bind(('localhost', self.port))
-        while self.active:
-            logging.debug(f'run still {self.name} Listening for client on {self.port}')
-            self.heartbeat = time.time()
-            self.socket.settimeout(5)
-            self.socket.listen(10)  # max backlog of 10... not really needed.. 
-
-            try:
-                client_socket, _ = self.socket.accept()
-                client_socket.settimeout(5)
-
-                logging.info(f'Client accepted by {self.name}')
-
-                receiver_thread = SocketReceiverThread('client_receiver', client_socket, length_field_type, 'from_client', True, 'client_receiver')
-                sender_thread = SocketSenderThread('client_sender', client_socket, length_field_type, 'to_client', True, 'client_sender')
-                app.threads.append(receiver_thread)
-                app.threads.append(sender_thread)
-                receiver_thread.start()
-                sender_thread.start()
-                for i in range(3):
-                    worker_thread = CommunicationThread(f'worker_{i+1}', 'from_client', False, 'from_client')
-                    app.threads.append(worker_thread)
-                    worker_thread.start()
-                break
-            except:
-                pass
-
-        while self.active:
-            logging.debug(f'Listener waitingfor commands {self.name}')
-            self.heartbeat = time.time()
-            command = self.queue.get(10000)
-            if command and command.get_string() == 'stop':
-                self.active = False
 
 # CommandThread class
 class CommandThread(CommunicationThread):
@@ -268,8 +256,6 @@ class CommandThread(CommunicationThread):
             logging.debug("Command ready")
             server.handle_request()
 
-
-# taken from https://gist.github.com/nitaku/10d0662536f37a087e1b
 class CommandHandler(BaseHTTPRequestHandler):
     def setup(self):
         BaseHTTPRequestHandler.setup(self)
@@ -370,27 +356,23 @@ if __name__ == "__main__":
     config_file = sys.argv[1] if len(sys.argv) > 1 else 'config.json'
     with open(config_file, 'r') as f:
         config = json.load(f)
+
     logging.getLogger().setLevel(config['log_level'])
     
     app = CommunicationApplication(config)
+    command_thread = CommandThread('command_thread', 'command', config['CommandPort'], True)
+    app.threads.append(command_thread)
+    command_thread.start()
 
     big_mama_thread = BigMamaThread('big_mama', 'big_mama', True)
     app.threads.append(big_mama_thread)
     big_mama_thread.start()
-
-    if (config['BackendHostThread']):
-        backend_host_thread = BackendHostThread('backend_host', 'backend_host', config['BackendHostPort'], True)
-        app.threads.append(backend_host_thread)
-        backend_host_thread.start()
-
-    if (config['FrontendThread']):
-        frontend_thread = FrontendThread('listen_client', 'listen_client', config['FrontendPort'], True)
-        app.threads.append(frontend_thread)
-        frontend_thread.start()
-
-    command_thread = CommandThread('command_thread', 'command', config['CommandThreadPort'], True)
-    app.threads.append(command_thread)
-    command_thread.start()
+    for router_name, router in config['routers'].items():
+        t = EstablishConnectionThread(router_name, router['type'], 
+            router['socket_to_queue'], router['queue_to_socket'],
+            router['port'], True)
+        app.threads.append(t)
+        t.start()
 
 # curl http://localhost:8009
 #{"received": "ok", "hello": "world"}
