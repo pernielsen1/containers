@@ -167,8 +167,7 @@ class SocketSenderThread(CommunicationThread):
                     length_field = length.to_bytes(4, 'big')
                 self.socket.send(length_field)
                 self.socket.send(data)
-            time.sleep(0.5)
-
+        
 # BigMamaThread class
 class BigMamaThread(CommunicationThread):
     def __init__(self, name, queue_name, exit_if_inactive, filter_name=None):
@@ -197,29 +196,33 @@ class EstablishConnectionThread(CommunicationThread):
 
     def run(self):
         # first part = establish connection outbound or accept client inbound
-        self.socket.settimeout(10)
-        if self.type == 'connect':
-            self.socket.connect(('localhost', self.port))
         if self.type == 'listen':
+            logging.debug('setting timeout')
             self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.listen_socket.settimeout(10)  # necessary here or only below ?
             self.listen_socket.bind(('localhost', self.port))
-            self.listen_socket.listen(10)  # max backlog of 10... not really needed.. 
+
+        logging.info(f'{self.name} waiting for Establish {self.port} type:{self.type}')
         connection_ready = False
+        # waiting to connect to host of for client to connect
         while self.active and connection_ready is False:
             logging.debug(f'{self.name} waiting for Establish {self.port} type:{self.type}')
             self.heartbeat = time.time()
 
             try:
                 if self.type == 'connect':
+                    self.socket.settimeout(10)
                     self.socket.connect(('localhost', self.port))
-                    connection_ready = True
                     logging.info(f'Connected to server {self.name} on port {self.port}')
-                if self.type == 'listen':
+
+                elif self.type == 'listen':
+                    self.listen_socket.listen(5)  # listen for incoming connections 
                     self.socket, addr  = self.listen_socket.accept()
-                    connection_ready = True
+                    self.socket.settimeout(10)  # still here set socket = client timeout
                     logging.info(f'Client accepted by {self.name} from {addr}')
 
                 # still here we have a connection
+                connection_ready = True
                 receiver_thread = SocketReceiverThread(self.socket_to_queue, self.socket, self.length_field_type, 
                                                        'from_client', True, self.socket_to_queue)
                 sender_thread = SocketSenderThread(self.queue_to_socket, self.socket, self.length_field_type, 
@@ -231,8 +234,13 @@ class EstablishConnectionThread(CommunicationThread):
                 receiver_thread.start()
                 sender_thread.start()
 
-            except:
+            except socket.timeout as e:  # TBD timeout error... nothing to worry abount let it pass
                 pass
+
+            except Exception as e:  
+                logging.error(f"Error in {self.name} connection: {e}")
+                time.sleep(5) # tbd should it be removed - if we get connect error we might as well wait..
+                pass    
 
         while self.active:
             self.heartbeat = time.time()
@@ -278,9 +286,7 @@ class CommandHandler(BaseHTTPRequestHandler):
         try:
             content_length = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_length)
-            data = json.loads(body)  
-
-            data = json.loads(data) # we need to decode the json string twice... why
+            data = json.loads(json.loads(body))  # we need to decode the json string twice... why 
 
             command = data.get('command', None)
             if command is None:
@@ -294,14 +300,12 @@ class CommandHandler(BaseHTTPRequestHandler):
             if command == 'stop':
                 logging.info("Stop command received")
                 app.stop()
-
                 
             if command == 'send':
                queue_name = data.get('queue_name', None)
                if (queue_name is None):
                     self.send_error(400, {"error": "Missing 'queue_name' field for 'send' command"})
                     return
-
                 # Check if the queue exists
                if queue_name not in app.queues:
                     self.send_error(400, {"error": f"Queue '{queue_name}' does not exist"})
@@ -333,12 +337,8 @@ class CommandHandler(BaseHTTPRequestHandler):
             self._set_headers()
             self.wfile.write(json.dumps({"error": str(e)}).encode())
 
-
-
     def do_GET(self):
         logging.info("received" + str(self.path))
-        last_part =  self.path.split('/')[-1]
-
 
         if self.path.startswith('/command/stop'):
             queue_name = self.path.split('/')[-1]
@@ -367,6 +367,9 @@ if __name__ == "__main__":
     big_mama_thread = BigMamaThread('big_mama', 'big_mama', True)
     app.threads.append(big_mama_thread)
     big_mama_thread.start()
+
+    # TBD start workers as well.
+
     for router_name, router in config['routers'].items():
         t = EstablishConnectionThread(router_name, router['type'], 
             router['socket_to_queue'], router['queue_to_socket'],
