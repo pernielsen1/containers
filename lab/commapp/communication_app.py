@@ -1,4 +1,4 @@
-# OK a little challenge can you make a Java version of the following python program ? 
+# TBD:  Cannot join + gracefully exit info
 
 import sys
 import json
@@ -80,7 +80,9 @@ class CommunicationApplication:
         for thread in self.threads:
             thread.active = False
         for thread in self.threads:
-            thread.join()
+            if thread.ident != threading.currentThread().ident:
+               thread.join()
+
         logging.info("All threads stopped")
 
     def add_filter(self, filter_obj):
@@ -106,6 +108,7 @@ class CommunicationThread(threading.Thread):
         self.active = True
         self.queue = app.add_queue(self.queue_name)
         self.filter = app.get_filter(self.filter_name)
+        logging.info(f'Initializing {self.name} with queue {self.queue_name}, exit_if_inactive={self.exit_if_inactive}, filter={self.filter_name}')
 
     def run(self):
         while self.active:
@@ -130,16 +133,20 @@ class SocketReceiverThread(CommunicationThread):
                     length = int(length_field.decode('ascii'))
                 elif self.length_field_type == 'binary_4':
                     length = int.from_bytes(length_field, 'big')
+                logging.info(f'Received length field: {length_field} with length {length}')
                 data = self.socket.recv(length)
                 message = Message(data)
                 if self.filter:
                     message = self.filter.run(message)
-                logging.debug(f'{self.name} sending message to queue: {data}')
+                logging.info(f'{self.name} sending message to queue: {data}')
 
                 self.queue.put(message)
             except:
                 pass
             time.sleep(0.5)
+
+        self.socket.close()
+        logging.info(f"Time to stop {self.name}")
 
 # SocketSenderThread class
 class SocketSenderThread(CommunicationThread):
@@ -156,7 +163,7 @@ class SocketSenderThread(CommunicationThread):
             message = self.queue.get(500)
             if message:
                 data = message.get_data()
-                logging.debug(f'{self.name} sending message to socket: {data}')
+                logging.info(f'{self.name} sending message to socket: {data}')
 
                 length = len(data)
                 if self.filter:
@@ -165,9 +172,13 @@ class SocketSenderThread(CommunicationThread):
                     length_field = f"{length:04}".encode('ascii')
                 elif self.length_field_type == 'binary_4':
                     length_field = length.to_bytes(4, 'big')
+                logging.info(f'Sending length field: {length_field} with data{data}')
                 self.socket.send(length_field)
                 self.socket.send(data)
-        
+
+        self.socket.close()
+        logging.info(f"Time to stop {self.name}")
+
 # BigMamaThread class
 class BigMamaThread(CommunicationThread):
     def __init__(self, name, queue_name, exit_if_inactive, filter_name=None):
@@ -182,6 +193,7 @@ class BigMamaThread(CommunicationThread):
                         thread.active = False
                         logging.warning(f"Thread {thread.name} is inactive and will be stopped.")
             time.sleep(1.5)
+        logging.info(f"Time to stop {self.name}")
 
 # ConnectThread class
 class EstablishConnectionThread(CommunicationThread):
@@ -197,7 +209,6 @@ class EstablishConnectionThread(CommunicationThread):
     def run(self):
         # first part = establish connection outbound or accept client inbound
         if self.type == 'listen':
-            logging.debug('setting timeout')
             self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.listen_socket.settimeout(10)  # necessary here or only below ?
             self.listen_socket.bind(('localhost', self.port))
@@ -224,9 +235,9 @@ class EstablishConnectionThread(CommunicationThread):
                 # still here we have a connection
                 connection_ready = True
                 receiver_thread = SocketReceiverThread(self.socket_to_queue, self.socket, self.length_field_type, 
-                                                       'from_client', True, self.socket_to_queue)
+                                                     self.socket_to_queue, True, self.socket_to_queue)
                 sender_thread = SocketSenderThread(self.queue_to_socket, self.socket, self.length_field_type, 
-                                                   'to_client', True, self.queue_to_socket)
+                                                   self.queue_to_socket, True, self.queue_to_socket)
 
                 app.threads.append(receiver_thread)
                 app.threads.append(sender_thread)
@@ -250,6 +261,11 @@ class EstablishConnectionThread(CommunicationThread):
                 self.receiver_thread.active = False
                 self.sender_thread.active = False
 
+        # TBD - should we just do this after established connection ?
+        if (self.type == "listen"):
+            self.listen_socket.close()
+        logging.info(f"Time to stop {self.name}")
+
 # CommandThread class
 class CommandThread(CommunicationThread):
     def __init__(self, name, queue_name, port, exit_if_inactive, filter_name=None):
@@ -263,6 +279,7 @@ class CommandThread(CommunicationThread):
             self.heartbeat = time.time()
             logging.debug("Command ready")
             server.handle_request()
+        logging.info(f"Time to stop guess I am last man standing {self.name}")
 
 class CommandHandler(BaseHTTPRequestHandler):
     def setup(self):
@@ -369,6 +386,8 @@ if __name__ == "__main__":
     big_mama_thread.start()
 
     # TBD start workers as well.
+    if 'workers' in config:
+        print("workers exist")
 
     for router_name, router in config['routers'].items():
         t = EstablishConnectionThread(router_name, router['type'], 

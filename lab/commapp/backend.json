@@ -1,13 +1,13 @@
 {
     "name": "backend", 
     "description": "Simulates being the backend - wait for middle to connect and just echo back the received data",
-    "log_level": 10,
+    "log_level": 20,
     "CommandPort": 8079,
     "routers": {
         "router_1": {
             "type": "listen",
-            "socket_to_queue": "to_middle",
-            "queue_to_socket": "from_middle",
+            "socket_to_queue": "from_middle",
+            "queue_to_socket": "to_middle",
             "filter": "echo",
             "host": "localhost",
             "port": 4243               

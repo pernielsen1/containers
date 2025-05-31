@@ -1,22 +1,33 @@
 {
     "name": "middle", 
     "description": "The actual application connecting client and backend",
-    "log_level": 10,
+    "log_level": 20,
     "CommandPort": 8078,
     "routers": {
         "router_1" : {
             "type": "listen",
-            "socket_to_queue": "to_backend",
+            "socket_to_queue": "worker_to_backend",
             "queue_to_socket": "to_client",
             "host:": "localhost",
             "port": 4242             
         },
         "router_2": {
             "type": "connect",
-            "socket_to_queue": "to_client",
+            "socket_to_queue": "worker_to_client",
             "queue_to_socket": "to_backend",
             "host:": "localhost",
             "port": 4243               
         }
+    },
+    "workers": {
+        "worker_to_backend": {
+            "in_queue": "worker_to_backend",
+            "out_queue": "to_backend"
+        },
+        "worker_to_client": {
+            "in_queue": "worker_to_client",
+            "out_queue": "to_client"
+        }
+  
     }
 }
