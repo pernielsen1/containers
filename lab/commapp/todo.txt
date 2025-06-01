@@ -1,17 +1,16 @@
 ToDo: 
-Put name of server (middle . bakcend ) etc in response after stopping.
+better to queeu messages - enclose in brackets... and there is send to queue who doesn't name it
+
 put measurement in MessageObject and adapt in Queue - after work.
 implment logger queue... (only absorb or dual ? ) log_to_queue --- 
 
-better to queeu - enclose in brackets... and there is send to queue who doesn't name it
-move init routers & workers to the application instead of in main  
 Big Mama decision to stopp - if no activity..
 make a "debug out" - queue.
-look a debug messages - what should be there and not.
+look a debug messages - what should be there and not.  could be a logger worker...
+
 
 Nice to have:
 cast a message to messagestring
-Understand why is app globally available  ?
 
 
 Instructions:

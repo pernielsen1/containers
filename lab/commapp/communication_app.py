@@ -64,28 +64,51 @@ class Filter:
     def run(self, message):
         return self.run_function(message)
 
-    def get_name(self):
-        return self.name
-
 # CommunicationApplication class
 class CommunicationApplication:
-    def __init__(self, config):
-        self.config = config
+    def __init__(self, config_file):
+        with open(config_file, 'r') as f:
+            self.config = json.load(f)
+        logging.getLogger().setLevel(self.config['log_level'])
+        self.name=self.config['name']
         self.filters = {}
         self.queues = {}
         self.threads = []
-    
+
+    def start(self):
+        command_thread = CommandThread(self, 'command_thread', 'command', self.config['CommandPort'])
+        self.threads.append(command_thread)
+        command_thread.start()
+
+        big_mama_thread = BigMamaThread(self, 'big_mama', 'big_mama')
+        self.threads.append(big_mama_thread)
+        big_mama_thread.start()
+
+        if 'workers' in self.config:
+            for worker_name, worker in self.config['workers'].items():
+                t = WorkerThread(self, worker_name, worker['in_queue'],
+                                 worker['to_queue'], worker.get('filter_name', None))
+                self.threads.append(t)
+                t.start()
+            
+        for router_name, router in self.config['routers'].items():
+            t = EstablishConnectionThread(self, router_name, router['type'],
+                                           router['socket_to_queue'], router['queue_to_socket'],
+                                           router['port'], router.get('filter_name', None))
+            self.threads.append(t)
+            t.start()
+
     def stop(self):
         logging.info("Stopping all threads")
         for thread in self.threads:
             thread.active = False
         for thread in self.threads:
-            if thread.ident != threading.currentThread().ident:
+            if thread.ident != threading.current_thread().ident:
                thread.join()
         logging.info("All threads stopped")
 
     def add_filter(self, filter_obj):
-        self.filters[filter_obj.get_name()] = filter_obj
+        self.filters[filter_obj.name] = filter_obj
 
     def get_filter(self, name):
         return self.filters.get(name, None)
@@ -97,8 +120,9 @@ class CommunicationApplication:
 
 # CommunicationThread class
 class CommunicationThread(threading.Thread):
-    def __init__(self, name, queue_name, filter_name=None):
+    def __init__(self, app, name, queue_name, filter_name=None):
         super().__init__()
+        self.app = app
         self.name = name
         self.queue_name = queue_name
         self.filter_name = filter_name
@@ -106,7 +130,7 @@ class CommunicationThread(threading.Thread):
         self.active = True
         self.queue = app.add_queue(self.queue_name)
         self.filter = app.get_filter(self.filter_name)
-        logging.info(f'Initializing {self.name} with queue {self.queue_name}, filter={self.filter_name}')
+        logging.info(f'App:{self.app.name} initializing {self.name} with queue[{self.queue_name}], filter={self.filter_name}')
 
     def run(self):
         while self.active:
@@ -115,8 +139,9 @@ class CommunicationThread(threading.Thread):
 
 # WorkerThread class
 class WorkerThread(CommunicationThread):
-    def __init__(self, name, queue_name, to_queue_name,  filter_name=None):
-        super().__init__(name, queue_name, filter_name)
+    def __init__(self, app, name, queue_name, to_queue_name,  filter_name=None):
+        super().__init__(app, name, queue_name, filter_name)
+        logging.info(f"Adding worker queue[{to_queue_name}]")
         self.to_queue = app.add_queue(to_queue_name)
 
     def run(self):
@@ -133,13 +158,13 @@ class WorkerThread(CommunicationThread):
 
 # SocketReceiverThread class
 class SocketReceiverThread(CommunicationThread):
-    def __init__(self, name, socket, length_field_type, queue_name, filter_name=None):
-        super().__init__(name, queue_name, filter_name)
+    def __init__(self, app, name, socket, length_field_type, queue_name, filter_name=None):
+        super().__init__(app, name, queue_name, filter_name)
         self.socket = socket
         self.length_field_type = length_field_type
 
     def run(self):
-        logging.info(f'Starting {self.name} receiving from socket sending to {self.queue_name}')
+        logging.info(f'Starting {self.name} receiving from socket sending to queue[{self.queue_name}]')
         while self.active:
             self.heartbeat = time.time()
             try:
@@ -153,7 +178,7 @@ class SocketReceiverThread(CommunicationThread):
                 message = Message(data)
                 if self.filter:
                     message = self.filter.run(message)
-                logging.info(f'{self.name} sending message to queue: {data}')
+                logging.info(f'{self.name} sending message to queue[{self.queue.name}]: {data}')
 
                 self.queue.put(message)
             except:
@@ -164,13 +189,13 @@ class SocketReceiverThread(CommunicationThread):
 
 # SocketSenderThread class
 class SocketSenderThread(CommunicationThread):
-    def __init__(self, name, socket, length_field_type, queue_name, exit_if_inactive, filter_name=None):
-        super().__init__(name, queue_name, filter_name)
+    def __init__(self, app, name, socket, length_field_type, queue_name, exit_if_inactive, filter_name=None):
+        super().__init__(app, name, queue_name, filter_name)
         self.socket = socket
         self.length_field_type = length_field_type
 
     def run(self):
-        logging.info(f'Starting {self.name} receiving from {self.queue_name}')
+        logging.info(f'Starting {self.name} receiving from queue[{self.queue_name}] sending to socket')
 
         while self.active:
             self.heartbeat = time.time()
@@ -193,8 +218,8 @@ class SocketSenderThread(CommunicationThread):
 
 # BigMamaThread class
 class BigMamaThread(CommunicationThread):
-    def __init__(self, name, queue_name,  filter_name=None):
-        super().__init__(name, queue_name, filter_name)
+    def __init__(self, app, name, queue_name,  filter_name=None):
+        super().__init__(app, name, queue_name, filter_name)
 
     def run(self):
         while self.active:
@@ -207,8 +232,8 @@ class BigMamaThread(CommunicationThread):
 
 # ConnectThread class
 class EstablishConnectionThread(CommunicationThread):
-    def __init__(self, name, type:str, socket_to_queue, queue_to_socket, port, filter_name=None):
-        super().__init__(name, name, None)  # no filter for this thread
+    def __init__(self, app, name, type:str, socket_to_queue, queue_to_socket, port, filter_name=None):
+        super().__init__(app, name, name, None)  # no filter for this thread
         self.type = type
         self.socket_to_queue = socket_to_queue
         self.queue_to_socket = queue_to_socket
@@ -245,12 +270,12 @@ class EstablishConnectionThread(CommunicationThread):
 
                 # still here we have a connection
                 connection_ready = True
-                receiver_thread = SocketReceiverThread(self.socket_to_queue, self.socket, self.length_field_type, 
+                receiver_thread = SocketReceiverThread(self.app, self.name + '_socket_to_queue', self.socket, self.length_field_type, 
                                                      self.socket_to_queue, self.received_filter_name)
-                sender_thread = SocketSenderThread(self.queue_to_socket, self.socket, self.length_field_type, 
+                sender_thread = SocketSenderThread(self.app, self.name + '_queue_to_socket', self.socket, self.length_field_type, 
                                                    self.queue_to_socket, None)
-                app.threads.append(receiver_thread)
-                app.threads.append(sender_thread)
+                self.app.threads.append(receiver_thread)
+                self.app.threads.append(sender_thread)
 
                 receiver_thread.start()
                 sender_thread.start()
@@ -278,11 +303,11 @@ class EstablishConnectionThread(CommunicationThread):
 
 # CommandThread class
 class CommandThread(CommunicationThread):
-    def __init__(self, name, queue_name, port, filter_name=None):
-        super().__init__(name, queue_name, filter_name)
+    def __init__(self, app, name, queue_name, port, filter_name=None):
+        super().__init__(app, name, queue_name, filter_name)
         self.port = port
     def run(self):
-        logging.info(f'command server started on {self.port}')
+        logging.info(f'command server for {self.name} started on {self.port}')
         server = HTTPServer(('localhost', self.port), CommandHandler)
         server.timeout = 5
         while self.active:
@@ -295,6 +320,7 @@ class CommandHandler(BaseHTTPRequestHandler):
     def setup(self):
         BaseHTTPRequestHandler.setup(self)
         self.request.settimeout(10)
+        self.app = threading.current_thread().app   # ensure we have a link to the communication app easily available.
 
     def _set_headers(self):
         self.send_response(200)
@@ -326,7 +352,7 @@ class CommandHandler(BaseHTTPRequestHandler):
 
             if command == 'stop':
                 logging.info("Stop command received")
-                app.stop()
+                self.app.stop()
                 
             if command == 'send':
                queue_name = data.get('queue_name', None)
@@ -345,12 +371,15 @@ class CommandHandler(BaseHTTPRequestHandler):
 
                logging.info(f"sending {text} to {queue_name}")
                message = MessageString(text)
-               app.add_queue(queue_name).put(message)
-
-            self.send_response(200)
+               logging.info("Finding current thread")
+               current_thread = threading.current_thread()
+               logging.info(f"Current thread: {current_thread.name}")
+               self.app.add_queue(queue_name).put(message)
+              
             self._set_headers()
             self.wfile.write(json.dumps({
                 "status": "OK",
+                "from:" : self.app.name,
                 "command": command
             }).encode())
 
@@ -370,7 +399,7 @@ class CommandHandler(BaseHTTPRequestHandler):
         if self.path.startswith('/command/stop'):
             queue_name = self.path.split('/')[-1]
             message = MessageString('stop')
-            app.add_queue(queue_name).put(message)
+            self.app.add_queue(queue_name).put(message)
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b'Command received')
@@ -385,46 +414,14 @@ def echo_filter(message):
     app.queues['to_middle'].put(out_message)
     return message
 
-def upper_filter(message):
-    logging.info(f"upper filter received message: {message.get_json()}")
-    return MessageString(message.get_data().decode('utf-8').upper())
  
 # Main function
 if __name__ == "__main__":
     config_file = sys.argv[1] if len(sys.argv) > 1 else 'config.json'
-    with open(config_file, 'r') as f:
-        config = json.load(f)
-
-    logging.getLogger().setLevel(config['log_level'])
     
-    app = CommunicationApplication(config)
+    app = CommunicationApplication(config_file)
     app.add_filter(Filter('echo', echo_filter))
-    app.add_filter(Filter('upper', upper_filter))
+ #   app.add_filter(Filter('upper', upper_filter))
+    app.start()
 
-    command_thread = CommandThread('command_thread', 'command', config['CommandPort'])
-    app.threads.append(command_thread)
-    command_thread.start()
-
-    big_mama_thread = BigMamaThread('big_mama', 'big_mama')
-    app.threads.append(big_mama_thread)
-    big_mama_thread.start()
-
-    if 'workers' in config:
-        for worker_name, worker in config['workers'].items():
-            t = WorkerThread(worker_name, worker['in_queue'], 
-                worker['to_queue'], worker.get('filter_name', None))
-            app.threads.append(t)
-            t.start()
-        
-    for router_name, router in config['routers'].items():
-        t = EstablishConnectionThread(router_name, router['type'], 
-            router['socket_to_queue'], router['queue_to_socket'],
-            router['port'], router.get('filter_name', None))
-        app.threads.append(t)
-        t.start()
-
-# curl http://localhost:8009
-#{"received": "ok", "hello": "world"}
-
-#curl --data "{\"this\":\"is a test\"}" --header "Content-Type: application/json" http://localhost:8009
-# {"this": "is a test", "received": "ok"}
+ 

@@ -41,3 +41,10 @@ if __name__ == '__main__':
         text = sys.argv[4]
         print(sys.argv)
     send_request(port, command, queue_name, text)
+
+
+# curl http://localhost:8009
+#{"received": "ok", "hello": "world"}
+
+#curl --data "{\"this\":\"is a test\"}" --header "Content-Type: application/json" http://localhost:8009
+# {"this": "is a test", "received": "ok"}
