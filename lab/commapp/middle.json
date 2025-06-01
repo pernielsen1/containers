@@ -4,14 +4,14 @@
     "log_level": 20,
     "CommandPort": 8078,
     "routers": {
-        "router_1" : {
+        "router_client" : {
             "type": "listen",
             "socket_to_queue": "worker_to_backend",
             "queue_to_socket": "to_client",
             "host:": "localhost",
             "port": 4242             
         },
-        "router_2": {
+        "router_backend": {
             "type": "connect",
             "socket_to_queue": "worker_to_client",
             "queue_to_socket": "to_backend",
@@ -22,11 +22,12 @@
     "workers": {
         "worker_to_backend": {
             "in_queue": "worker_to_backend",
-            "out_queue": "to_backend"
+            "filter_name": "upper",
+            "to_queue": "to_backend"
         },
         "worker_to_client": {
             "in_queue": "worker_to_client",
-            "out_queue": "to_client"
+            "to_queue": "to_client"
         }
   
     }

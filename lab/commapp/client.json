@@ -8,7 +8,6 @@
             "type": "connect",
             "socket_to_queue": "from_middle",
             "queue_to_socket": "to_middle",
-            "filter": "echo",
             "host": "localhost",
             "port": 4242
         }

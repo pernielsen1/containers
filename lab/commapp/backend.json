@@ -8,7 +8,7 @@
             "type": "listen",
             "socket_to_queue": "from_middle",
             "queue_to_socket": "to_middle",
-            "filter": "echo",
+            "filter_name": "echo",
             "host": "localhost",
             "port": 4243               
         }
