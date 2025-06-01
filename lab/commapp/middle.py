@@ -1,10 +1,9 @@
 import sys
 import logging
-from communication_app import CommunicationApplication, Filter, MessageString
-
+from communication_app import CommunicationApplication, Filter, Message
 def upper_filter(message):
-    logging.info(f"upper filter received message: {message.get_json()}")
-    return MessageString(message.get_data().decode('utf-8').upper())
+    logging.info(f"upper filter receivd message: {message.get_json()}")
+    return Message(message.get_string().upper())
 
 # Main function
 if __name__ == "__main__":

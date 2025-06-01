@@ -11,5 +11,11 @@
             "host": "localhost",
             "port": 4242
         }
+    },
+    "workers": {
+        "log_result": {
+            "description": "basically logs the result to the client after received on socket - currently in general logging",
+            "in_queue": "from_middle"
+        }
     }
 }

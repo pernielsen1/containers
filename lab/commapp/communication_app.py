@@ -7,7 +7,6 @@ import threading
 import time
 import base64
 import logging
-
 from queue import Queue
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -33,7 +32,12 @@ class QueueObject:
 # Message class
 class Message:
     def __init__(self, data):
+        if isinstance(data, str):
+            data = data.encode('utf-8') 
+        elif not isinstance(data, bytes):
+            raise TypeError("Data must be a string or bytes")
         self.msg = {
+
             "data_base64": base64.b64encode(data).decode('utf-8'),
             "time_created_ns": time.time_ns()
         }
@@ -41,19 +45,14 @@ class Message:
     def get_data(self):
         return base64.b64decode(self.msg["data_base64"])
 
+    def get_string(self):
+        return self.get_data().decode('utf-8')
+
     def get_json(self):
         return self.msg
 
     def get_create_ns(self):
         return self.msg["time_created_ns"]
-
-# MessageString class
-class MessageString(Message):
-    def __init__(self, string):
-        super().__init__(string.encode('utf-8'))
-
-    def get_string(self):
-        return self.get_data().decode('utf-8')
 
 # Filter class
 class Filter:
@@ -87,10 +86,10 @@ class CommunicationApplication:
         if 'workers' in self.config:
             for worker_name, worker in self.config['workers'].items():
                 t = WorkerThread(self, worker_name, worker['in_queue'],
-                                 worker['to_queue'], worker.get('filter_name', None))
+                                 worker.get('to_queue', None), worker.get('filter_name', None))
                 self.threads.append(t)
                 t.start()
-            
+             
         for router_name, router in self.config['routers'].items():
             t = EstablishConnectionThread(self, router_name, router['type'],
                                            router['socket_to_queue'], router['queue_to_socket'],
@@ -139,22 +138,26 @@ class CommunicationThread(threading.Thread):
 
 # WorkerThread class
 class WorkerThread(CommunicationThread):
-    def __init__(self, app, name, queue_name, to_queue_name,  filter_name=None):
+    def __init__(self, app, name, queue_name, to_queue_name=None,  filter_name=None):
         super().__init__(app, name, queue_name, filter_name)
         logging.info(f"Adding worker queue[{to_queue_name}]")
-        self.to_queue = app.add_queue(to_queue_name)
+        self.to_queue_name = to_queue_name
+        if self.to_queue_name is not None:
+            self.to_queue = app.add_queue(to_queue_name)
 
     def run(self):
         while self.active:
             self.heartbeat = time.time()
             message = self.queue.get(500)
             if message:
+                logging.info(f"Worker {self.name} received message {message.get_json()} to queue {self.to_queue_name}")
                 # the the work =  apply the filter.
                 if self.filter is not None:
                     message = self.filter.run(message)
                 # and send the message to the to_queue
-                self.to_queue.put(message)
-                logging.info(f"Worker {self.name} put message {message.get_json()} to queue {self.to_queue.name}")
+                if self.to_queue_name is not None:
+                    self.to_queue.put(message)
+                    logging.info(f"Worker {self.name} put message {message.get_json()} to queue {self.to_queue.name}")
 
 # SocketReceiverThread class
 class SocketReceiverThread(CommunicationThread):
@@ -224,7 +227,7 @@ class BigMamaThread(CommunicationThread):
     def run(self):
         while self.active:
             self.heartbeat = time.time()
-            for thread in app.threads:
+            for thread in self.app.threads:
                 if time.time() - thread.heartbeat > 30:
                     logging.warning(f"Thread {thread.name} is inactive and will be stopped.")
             time.sleep(1.5)
@@ -360,7 +363,7 @@ class CommandHandler(BaseHTTPRequestHandler):
                     self.send_error(400, {"error": "Missing 'queue_name' field for 'send' command"})
                     return
                 # Check if the queue exists
-               if queue_name not in app.queues:
+               if queue_name not in self.app.queues:
                     self.send_error(400, {"error": f"Queue '{queue_name}' does not exist"})
                     return
                 # check text is in command 
@@ -370,7 +373,7 @@ class CommandHandler(BaseHTTPRequestHandler):
                     return
 
                logging.info(f"sending {text} to {queue_name}")
-               message = MessageString(text)
+               message = Message(text)
                logging.info("Finding current thread")
                current_thread = threading.current_thread()
                logging.info(f"Current thread: {current_thread.name}")
@@ -398,7 +401,7 @@ class CommandHandler(BaseHTTPRequestHandler):
 
         if self.path.startswith('/command/stop'):
             queue_name = self.path.split('/')[-1]
-            message = MessageString('stop')
+            message = Message('stop')
             self.app.add_queue(queue_name).put(message)
             self.send_response(200)
             self.end_headers()
@@ -407,12 +410,6 @@ class CommandHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
-def echo_filter(message):
-    # A simple filter that echoes the message back a bit of cheating... .
-    logging.info(f"Echo filter received message: {message.get_json()}")
-    out_message = MessageString(message.get_data().decode('utf-8') + " and return")
-    app.queues['to_middle'].put(out_message)
-    return message
 
  
 # Main function
@@ -420,8 +417,6 @@ if __name__ == "__main__":
     config_file = sys.argv[1] if len(sys.argv) > 1 else 'config.json'
     
     app = CommunicationApplication(config_file)
-    app.add_filter(Filter('echo', echo_filter))
- #   app.add_filter(Filter('upper', upper_filter))
     app.start()
 
  
