@@ -1,12 +1,11 @@
 ToDo: 
-put measurement in MessageObject and adapt in Queue - after work.
+# time.strftime(format[, t])¶
 
+measurements done for workers now it's all about presentation now.
 put host name in the connections...  currenty just hardcoded localhost
-
+reset all measurements..
 
 Big Mama decision to stopp - if no activity..
-make a "debug out" - queue.
-look a debug messages - what should be there and not.  could be a logger worker...
 
 
 Nice to have:

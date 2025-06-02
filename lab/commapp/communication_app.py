@@ -63,6 +63,43 @@ class Filter:
     def run(self, message):
         return self.run_function(message)
 
+class Measurements():
+    def __init__(self, name: str, capacity:int = 5):
+        self.measurements = []
+        self.last_ix = capacity
+        self.max_elapsed = 0
+        self.last_ns = 0 
+        self.first_ns = 0 
+        self.num_measurements = 0
+        self.name = name
+        for x in range(capacity):
+            self.measurements.append({'start_ns': 0, 'end_ns': 0}) 
+        return
+
+    def add_measurement(self, start_ns:0):
+        self.num_measurements += 1
+        self.last_ns = time.time_ns()
+        if (self.first_ns == 0):
+            self.first_ns = start_ns
+        if ((self.last_ns - start_ns) > self.max_elapsed):
+            self.max_elapsed = self.last_ns - start_ns
+            if self.last_ix == len(self.measurements):
+                self.last_ix = 0
+            self.measurements[self.last_ix] = {'start_ns': start_ns, 'end_ns': self.last_ns}
+            self.last_ix += 1
+
+        return 
+    
+    def reset(self):
+        for x in range(self.capacity): 
+            self.measurements[self.last_ix] = {'start_ns': 0, 'end_ns': 0}
+        return
+    
+    def get_measurements(self):
+        return_dict = {'name': self.name, 'first_ns' : self.first_ns, 'last_ns': self.last_ns, 'num_measurements': self.num_measurements, 
+                       'top_list': self.measurements }
+        return return_dict 
+    
 # CommunicationApplication class
 class CommunicationApplication:
     def __init__(self, config_file):
@@ -116,7 +153,14 @@ class CommunicationApplication:
         if name not in self.queues:
             self.queues[name] = QueueObject(name, self.config)
         return self.queues[name]
-
+    
+    def get_measurements(self):
+        all_measurements = []
+        for thread in self.threads:
+            if thread.measurements: 
+                all_measurements.append(thread.measurements.get_measurements())
+ 
+        return json.dumps(all_measurements)
 # CommunicationThread class
 class CommunicationThread(threading.Thread):
     def __init__(self, app, name, queue_name, filter_name=None):
@@ -129,6 +173,7 @@ class CommunicationThread(threading.Thread):
         self.active = True
         self.queue = app.add_queue(self.queue_name)
         self.filter = app.get_filter(self.filter_name)
+        self.measurements = None # will be overridden in worker thread..
         logging.info(f'App:{self.app.name} initializing {self.name} with queue[{self.queue_name}], filter={self.filter_name}')
 
     def run(self):
@@ -136,12 +181,14 @@ class CommunicationThread(threading.Thread):
             self.heartbeat = time.time()
             time.sleep(0.5)
 
+        
 # WorkerThread class
 class WorkerThread(CommunicationThread):
     def __init__(self, app, name, queue_name, to_queue_name=None,  filter_name=None):
         super().__init__(app, name, queue_name, filter_name)
         logging.info(f"Adding worker queue[{to_queue_name}]")
         self.to_queue_name = to_queue_name
+        self.measurements = Measurements(name, 4)
         if self.to_queue_name is not None:
             self.to_queue = app.add_queue(to_queue_name)
 
@@ -150,6 +197,7 @@ class WorkerThread(CommunicationThread):
             self.heartbeat = time.time()
             message = self.queue.get(500)
             if message:
+                start_ns = time.time_ns()
                 logging.info(f"Worker {self.name} received message {message.get_json()} to queue {self.to_queue_name}")
                 # the the work =  apply the filter.
                 if self.filter is not None:
@@ -158,6 +206,7 @@ class WorkerThread(CommunicationThread):
                 if self.to_queue_name is not None:
                     self.to_queue.put(message)
                     logging.info(f"Worker {self.name} put message {message.get_json()} to queue {self.to_queue.name}")
+                self.measurements.add_measurement(start_ns)
 
 # SocketReceiverThread class
 class SocketReceiverThread(CommunicationThread):
@@ -345,6 +394,7 @@ class CommandHandler(BaseHTTPRequestHandler):
             data = json.loads(json.loads(body))  # we need to decode the json string twice... why 
 
             command = data.get('command', None)
+            return_data = None
             if command is None:
                 self.send_error(400, {"error": "Missing 'command' field"})
                 return
@@ -356,7 +406,12 @@ class CommandHandler(BaseHTTPRequestHandler):
             if command == 'stop':
                 logging.info("Stop command received")
                 self.app.stop()
-                
+
+            if command == 'stat':
+                logging.info("stop command received")
+                return_data = json.dumps(self.app.get_measurements())
+
+
             if command == 'send':
                queue_name = data.get('queue_name', None)
                if (queue_name is None):
@@ -383,7 +438,8 @@ class CommandHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({
                 "status": "OK",
                 "from:" : self.app.name,
-                "command": command
+                "command": command, 
+                "return_data": return_data 
             }).encode())
 
         except json.JSONDecodeError:
