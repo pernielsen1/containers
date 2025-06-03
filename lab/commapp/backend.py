@@ -5,7 +5,7 @@ from communication_app import CommunicationApplication, Filter, Message
 
 def echo_filter(message):
     # A simple filter that echoes the message back a bit of cheating... .
-    logging.info(f"Echo filter received message: {message.get_json()}")
+    logging.debug(f"Echo filter received message: {message.get_json()}")
     out_message = Message(message.get_string() + " and return")
     app.queues['to_middle'].put(out_message)
     return message

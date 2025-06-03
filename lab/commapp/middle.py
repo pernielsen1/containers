@@ -2,7 +2,7 @@ import sys
 import logging
 from communication_app import CommunicationApplication, Filter, Message
 def upper_filter(message):
-    logging.info(f"upper filter receivd message: {message.get_json()}")
+    logging.debug(f"upper filter receivd message: {message.get_json()}")
     return Message(message.get_string().upper())
 
 # Main function

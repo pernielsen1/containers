@@ -2,6 +2,8 @@
 import json
 import requests
 import sys
+import time
+from datetime import datetime
 server_url = 'localhost'
 
 # time.strftime(format[, t])¶
@@ -15,25 +17,31 @@ def do_stat(json_response):
 #        print(thread_stat)
         first_ns  = thread_stat['first_ns']
         last_ns  = thread_stat['last_ns']
-        elapsed = last_ns - first_ns
+        elapsed = last_ns - first_ns 
         num_measurements = thread_stat['num_measurements']
         if num_measurements == 0:
             average_sec = 0 
         else:
             average_sec = (elapsed / num_measurements)/ NANO_TO_SECONDS
+          
         name  = thread_stat['name']
-        print(f'{name} start_ns: {first_ns} elapsed:{elapsed} average per sec: {average_sec}' )
+        first_ns_str = datetime.fromtimestamp(first_ns/NANO_TO_SECONDS).strftime('%H:%M:%S.%f')
+        last_ns_str = datetime.fromtimestamp(last_ns/NANO_TO_SECONDS).strftime('%H:%M:%S.%f')
+#        average_sec_str  = 
+        print(f'{name} start {first_ns_str} end {last_ns_str} {num_measurements} elapsed:{elapsed/NANO_TO_SECONDS:.2f} average per sec: {average_sec:.4f}' )
 
     print("after")
 
 #-----------------------------------------------
-def send_request(port, command, queue_name=None, text=None):
+def send_request(port, command, queue_name:str=None, text:str =None, num_messages:int = 1):
     post_url = "http://" + server_url + ":" + str(port) 
     if (command == 'send'):
         msg = {
             "command": command,
             "queue_name": queue_name,
-            "text": text    
+            "text": text,
+            "num_messages": num_messages    
+
         }
     else: 
         msg = {
@@ -66,6 +74,7 @@ def send_request(port, command, queue_name=None, text=None):
 # local tests
 #--------------------------------
 if __name__ == '__main__':
+    num_messages  = None
     text = None
     queue_name = None
     port = int(sys.argv[1])
@@ -73,8 +82,9 @@ if __name__ == '__main__':
     if (command == 'send'):
         queue_name = sys.argv[3]
         text = sys.argv[4]
-        print(sys.argv)
-    send_request(port, command, queue_name, text)
+        if len(sys.argv) > 5: 
+            num_messages = int(sys.argv[5])
+    send_request(port, command, queue_name, text, num_messages)
 
 
 # curl http://localhost:8009

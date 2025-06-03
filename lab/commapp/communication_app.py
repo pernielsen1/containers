@@ -67,13 +67,10 @@ class Measurements():
     def __init__(self, name: str, capacity:int = 5):
         self.measurements = []
         self.last_ix = capacity
-        self.max_elapsed = 0
-        self.last_ns = 0 
-        self.first_ns = 0 
-        self.num_measurements = 0
         self.name = name
         for x in range(capacity):
             self.measurements.append({'start_ns': 0, 'end_ns': 0}) 
+        self.reset()
         return
 
     def add_measurement(self, start_ns:0):
@@ -91,8 +88,13 @@ class Measurements():
         return 
     
     def reset(self):
-        for x in range(self.capacity): 
-            self.measurements[self.last_ix] = {'start_ns': 0, 'end_ns': 0}
+        self.max_elapsed = 0
+        self.last_ns = 0 
+        self.first_ns = 0 
+        self.num_measurements = 0
+
+        for item in self.measurements: 
+            item = {'start_ns': 0, 'end_ns': 0}
         return
     
     def get_measurements(self):
@@ -161,6 +163,13 @@ class CommunicationApplication:
                 all_measurements.append(thread.measurements.get_measurements())
  
         return json.dumps(all_measurements)
+
+    def reset_measurements(self):
+        for thread in self.threads:
+            if thread.measurements:
+                thread.measurements.reset() 
+ 
+ 
 # CommunicationThread class
 class CommunicationThread(threading.Thread):
     def __init__(self, app, name, queue_name, filter_name=None):
@@ -198,14 +207,14 @@ class WorkerThread(CommunicationThread):
             message = self.queue.get(500)
             if message:
                 start_ns = time.time_ns()
-                logging.info(f"Worker {self.name} received message {message.get_json()} to queue {self.to_queue_name}")
+                logging.debug(f"Worker {self.name} received message {message.get_json()} to queue {self.to_queue_name}")
                 # the the work =  apply the filter.
                 if self.filter is not None:
                     message = self.filter.run(message)
                 # and send the message to the to_queue
                 if self.to_queue_name is not None:
                     self.to_queue.put(message)
-                    logging.info(f"Worker {self.name} put message {message.get_json()} to queue {self.to_queue.name}")
+                    logging.debug(f"Worker {self.name} put message {message.get_json()} to queue {self.to_queue.name}")
                 self.measurements.add_measurement(start_ns)
 
 # SocketReceiverThread class
@@ -230,7 +239,7 @@ class SocketReceiverThread(CommunicationThread):
                 message = Message(data)
                 if self.filter:
                     message = self.filter.run(message)
-                logging.info(f'{self.name} sending message to queue[{self.queue.name}]: {data}')
+                logging.debug(f'{self.name} sending message to queue[{self.queue.name}]: {data}')
 
                 self.queue.put(message)
             except:
@@ -261,7 +270,7 @@ class SocketSenderThread(CommunicationThread):
                     length_field = f"{length:04}".encode('ascii')
                 elif self.length_field_type == 'binary_4':
                     length_field = length.to_bytes(4, 'big')
-                logging.info(f'Sending length field: {length_field} with data: {data}')
+                logging.debug(f'Sending length field: {length_field} with data: {data}')
                 self.socket.send(length_field)
                 self.socket.send(data)
 
@@ -410,29 +419,32 @@ class CommandHandler(BaseHTTPRequestHandler):
             if command == 'stat':
                 logging.info("stop command received")
                 return_data = json.dumps(self.app.get_measurements())
+            if command == 'reset':
+                logging.info("reset command received")
+                self.app.reset_measurements()
+                return_data = json.dumps(self.app.get_measurements())
 
 
             if command == 'send':
-               queue_name = data.get('queue_name', None)
-               if (queue_name is None):
+                queue_name = data.get('queue_name', None)
+                if (queue_name is None):
                     self.send_error(400, {"error": "Missing 'queue_name' field for 'send' command"})
                     return
                 # Check if the queue exists
-               if queue_name not in self.app.queues:
+                if queue_name not in self.app.queues:
                     self.send_error(400, {"error": f"Queue '{queue_name}' does not exist"})
                     return
                 # check text is in command 
-               text = data.get('text', None)
-               if (text is None):
+                text = data.get('text', None)
+                if (text is None):
                     self.send_error(400, {"error": "Missing 'text' field for 'send' command"})
                     return
-
-               logging.info(f"sending {text} to {queue_name}")
-               message = Message(text)
-               logging.info("Finding current thread")
-               current_thread = threading.current_thread()
-               logging.info(f"Current thread: {current_thread.name}")
-               self.app.add_queue(queue_name).put(message)
+                num_messages = data.get('num_messages', 1)            
+                logging.info(f"sending {text} to {queue_name} {num_messages} times")
+                message = Message(text)
+                current_thread = threading.current_thread()
+                for x in range(num_messages):
+                    self.app.add_queue(queue_name).put(message)
               
             self._set_headers()
             self.wfile.write(json.dumps({

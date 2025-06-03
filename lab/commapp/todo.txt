@@ -1,5 +1,6 @@
 ToDo: 
-# time.strftime(format[, t])¶
+implement reset 
+implement num messages in send
 
 measurements done for workers now it's all about presentation now.
 put host name in the connections...  currenty just hardcoded localhost
@@ -20,7 +21,9 @@ logger thread became variation of worker... document in client.json
 
 Instructions:
 ./stopall.sh
-./sendmsg.sh 8077 send to_middle "Merry go round"
+./sendmsg.sh 8077 send to_middle "Merry go round" 5
+./sendmsg.sh 8078 stat 
+./sendmsg.sh 8078 reset 
 
 
 
