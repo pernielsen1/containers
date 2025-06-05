@@ -1,5 +1,5 @@
 # TBD:  Cannot join + gracefully exit info
-
+import os
 import sys
 import json
 import socket
@@ -54,15 +54,6 @@ class Message:
     def get_create_ns(self):
         return self.msg["time_created_ns"]
 
-# Filter class
-class Filter:
-    def __init__(self, name, run_function):
-        self.name = name
-        self.run_function = run_function
-
-    def run(self, message):
-        return self.run_function(message)
-
 class Measurements():
     def __init__(self, name: str, capacity:int = 5):
         self.measurements = []
@@ -105,13 +96,31 @@ class Measurements():
 # CommunicationApplication class
 class CommunicationApplication:
     def __init__(self, config_file):
-        with open(config_file, 'r') as f:
+        # OK vscode - weird.... this should work - need to add the path to the config file
+        config_file_path = config_file
+        if not os.path.isabs(config_file):
+            config_file_path = os.path.join(os.getcwd(), config_file)
+
+        with open(config_file_path, 'r') as f:
             self.config = json.load(f)
         logging.getLogger().setLevel(self.config['log_level'])
         self.name=self.config['name']
         self.filters = {}
         self.queues = {}
         self.threads = []
+        # load filters
+        if 'filters' in self.config:
+            for filter_name, filter_config in self.config['filters'].items():
+                module_name = filter_config['module']
+                class_name = filter_config['class']
+                try:
+                    module = __import__(module_name)
+                    filter_class = getattr(module, class_name)
+                    filter_obj = filter_class(self, filter_name)
+                    self.filters[filter_obj.name] = filter_obj
+                    logging.info(f"Filter {filter_name} loaded from {module_name}.{class_name}")
+                except Exception as e:
+                    logging.error(f"Error loading filter {filter_name}: {e}")
 
     def start(self):
         command_thread = CommandThread(self, 'command_thread', 'command', self.config['CommandPort'])
@@ -130,8 +139,10 @@ class CommunicationApplication:
                 t.start()
              
         for router_name, router in self.config['routers'].items():
+            print(router)
             t = EstablishConnectionThread(self, router_name, router['type'],
                                            router['socket_to_queue'], router['queue_to_socket'],
+                                           router['host'],
                                            router['port'], router.get('filter_name', None))
             self.threads.append(t)
             t.start()
@@ -145,8 +156,8 @@ class CommunicationApplication:
                thread.join()
         logging.info("All threads stopped")
 
-    def add_filter(self, filter_obj):
-        self.filters[filter_obj.name] = filter_obj
+#    def add_filter(self, filter_obj):
+#        self.filters[filter_obj.name] = filter_obj
 
     def get_filter(self, name):
         return self.filters.get(name, None)
@@ -169,7 +180,15 @@ class CommunicationApplication:
             if thread.measurements:
                 thread.measurements.reset() 
  
- 
+class Filter:
+    def __init__(self, app: CommunicationApplication, name:str):
+        self.app = app
+        self.name = name
+
+    def run(self, message):
+        pass
+        # This method should be overridden by subclasses
+        
 # CommunicationThread class
 class CommunicationThread(threading.Thread):
     def __init__(self, app, name, queue_name, filter_name=None):
@@ -293,13 +312,14 @@ class BigMamaThread(CommunicationThread):
 
 # ConnectThread class
 class EstablishConnectionThread(CommunicationThread):
-    def __init__(self, app, name, type:str, socket_to_queue, queue_to_socket, port, filter_name=None):
+    def __init__(self, app, name, type:str, socket_to_queue, queue_to_socket, host, port, filter_name=None,):
         super().__init__(app, name, name, None)  # no filter for this thread
         self.type = type
         self.socket_to_queue = socket_to_queue
         self.queue_to_socket = queue_to_socket
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.port=port
+        self.host = host
+        self.port = port
         self.length_field_type = 'ascii_4'
         self.received_filter_name = filter_name
 
@@ -308,7 +328,7 @@ class EstablishConnectionThread(CommunicationThread):
         if self.type == 'listen':
             self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.listen_socket.settimeout(10)  # necessary here or only below ?
-            self.listen_socket.bind(('localhost', self.port))
+            self.listen_socket.bind((self.host, self.port))
 
         logging.info(f'{self.name} waiting for Establish {self.port} type:{self.type}')
         connection_ready = False
@@ -320,7 +340,7 @@ class EstablishConnectionThread(CommunicationThread):
             try:
                 if self.type == 'connect':
                     self.socket.settimeout(10)
-                    self.socket.connect(('localhost', self.port))
+                    self.socket.connect((self.host, self.port))
                     logging.info(f'Connected to server {self.name} on port {self.port}')
 
                 elif self.type == 'listen':

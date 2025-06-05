@@ -3,19 +3,27 @@
     "description": "The actual application connecting client and backend",
     "log_level": 20,
     "CommandPort": 8078,
+    "filters"   : {
+        "upper": {
+            "module": "simple_filters",
+            "class": "FilterUpper",
+            "description": "makes string upper case"
+        }
+    },    
+
     "routers": {
         "router_client" : {
             "type": "listen",
             "socket_to_queue": "worker_to_backend",
             "queue_to_socket": "to_client",
-            "host:": "localhost",
+            "host": "localhost",
             "port": 4242             
         },
         "router_backend": {
             "type": "connect",
             "socket_to_queue": "worker_to_client",
             "queue_to_socket": "to_backend",
-            "host:": "localhost",
+            "host": "localhost",
             "port": 4243               
         }
     },

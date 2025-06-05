@@ -3,6 +3,13 @@
     "description": "Simulates being the backend - wait for middle to connect and just echo back the received data",
     "log_level": 20,
     "CommandPort": 8079,
+    "filters"   : {
+        "echo": {
+            "module": "simple_filters",
+            "class": "FilterEcho",
+            "description": "Echoes back the received data"
+        }
+    },    
     "routers": {
         "router_1": {
             "type": "listen",
