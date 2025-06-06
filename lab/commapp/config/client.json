@@ -8,7 +8,14 @@
             "module": "simple_filters",
             "class": "FilterWebServerAnswer",
             "description": "playing the web server adjusting string and returning"
+        },
+        "crypto_answer": {
+            "module": "crypto_filters",
+            "class": "FilterCryptoAnswer",
+            "crypto_config_file" : "config/config_crypto.json",
+            "description": "Doing the crypto stuff"
         }
+
     },
 
     "routers": {

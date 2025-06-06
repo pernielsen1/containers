@@ -139,14 +139,15 @@ class CommunicationApplication:
                                  worker.get('to_queue', None), worker.get('filter_name', None))
                 self.threads.append(t)
                 t.start()
-             
-        for router_name, router in self.config['routers'].items():
-            t = EstablishConnectionThread(self, router_name, router['type'],
-                                           router['socket_to_queue'], router['queue_to_socket'],
-                                           router['host'],
-                                           router['port'], router.get('filter_name', None))
-            self.threads.append(t)
-            t.start()
+
+        if 'routers' in self.config:          
+            for router_name, router in self.config['routers'].items():
+                t = EstablishConnectionThread(self, router_name, router['type'],
+                                            router['socket_to_queue'], router['queue_to_socket'],
+                                            router['host'],
+                                            router['port'], router.get('filter_name', None))
+                self.threads.append(t)
+                t.start()
 
     def stop(self):
         logging.info("Stopping all threads")
@@ -440,13 +441,22 @@ class CommandHandler(BaseHTTPRequestHandler):
                 self.send_error(400, {"error": "Missing 'command' field"})
                 return
             command = command.lower()
-            if command not in ['stop', 'stat', 'reset', 'send', 'work']:
+            if command not in ['stop', 'stat', 'reset', 'send', 'work', 'debug', 'info']:
                 self.send_error(400, {"error": f"Invalid command '{command}'"})
                 return
 
             if command == 'stop':
                 logging.info("Stop command received")
                 self.app.stop()
+
+            if command == 'debug':
+                logging.info("Debug command received")
+                logging.getLogger().setLevel(10)
+                logging.debug("Logging debug after change to debug level")
+
+            if command == 'info':
+                logging.info("info command received")
+                logging.getLogger().setLevel(20)
 
             if command == 'stat':
                 logging.info("stop command received")

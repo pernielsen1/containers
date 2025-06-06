@@ -16,6 +16,14 @@
             "url": "http://localhost:8077",
             "method": "POST",
             "filter_name_to_send": "web_server_answer"
+        },
+       "crypto_request": {
+            "module": "crypto_filters",
+            "class": "FilterCryptoRequest",
+            "description": "call crypto server on 8076 for now",
+            "url": "http://localhost:8076",
+            "method": "POST",
+            "filter_name_to_send": "crypto_answer"
         }
 
     },    
@@ -39,8 +47,7 @@
     "workers": {
         "worker_to_backend": {
             "in_queue": "worker_to_backend",
-            "filter_name_old": "upper",
-            "filter_name": "web_request",
+            "filter_name": "crypto_request",
             "to_queue": "to_backend"
         },
         "worker_to_client": {

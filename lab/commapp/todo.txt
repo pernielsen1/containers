@@ -1,10 +1,12 @@
 ToDo: 
-implement the crypto calculation in a filter
+Implement command debug och info = change log level.
+
+
 
 
 Document the whole flow it's about time again
 Clean up... 
-
+Error handling... refused connection .. what to do.. not fail on none..
 Next steps:
 implement the ISO-filters ? 
 
