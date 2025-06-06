@@ -3,6 +3,14 @@
     "description": "Simulates being the client connects on 4242 and sends in test message",
     "log_level": 20,
     "CommandPort": 8077,
+    "filters"   : {
+        "web_server_answer": {
+            "module": "simple_filters",
+            "class": "FilterWebServerAnswer",
+            "description": "playing the web server adjusting string and returning"
+        }
+    },
+
     "routers": {
         "router_1": {
             "type": "connect",
@@ -16,6 +24,16 @@
         "log_result": {
             "description": "basically logs the result to the client after received on socket - currently in general logging",
             "in_queue": "from_middle"
+        }
+    },
+    "queue_details": {
+        "from_middle": {
+            "description": "Queue to receive messages from the middle application",
+            "max_size": 1000
+        },
+        "to_middle": {
+            "description": "Queue to send messages to the middle application max size is 1000 controlling our burst size",
+            "max_size": 1000
         }
     }
 }

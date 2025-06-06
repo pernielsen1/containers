@@ -8,7 +8,16 @@
             "module": "simple_filters",
             "class": "FilterUpper",
             "description": "makes string upper case"
+        },
+        "web_request": {
+            "module": "simple_filters",
+            "class": "FilterWebRequest",
+            "description": "call web service on 8077 for now",
+            "url": "http://localhost:8077",
+            "method": "POST",
+            "filter_name_to_send": "web_server_answer"
         }
+
     },    
 
     "routers": {
@@ -30,13 +39,31 @@
     "workers": {
         "worker_to_backend": {
             "in_queue": "worker_to_backend",
-            "filter_name": "upper",
+            "filter_name_old": "upper",
+            "filter_name": "web_request",
             "to_queue": "to_backend"
         },
         "worker_to_client": {
             "in_queue": "worker_to_client",
             "to_queue": "to_client"
         }
-  
+    },
+    "queue_details": {
+        "worker_to_backend": {
+                "description": "Queue to receive messages from the client and send to backend",
+                "max_size": 1000
+        },
+        "worker_to_client": {
+                "description": "Queue to receive messages from the backend and send to client",
+                "max_size": 1000
+        },
+        "to_backend": {
+                "description": "Queue to send messages to the backend application",
+                "max_size": 1000
+        },
+        "to_client": {
+                "description": "Queue to send messages to the client application",
+                "max_size": 1000
+        }
     }
 }

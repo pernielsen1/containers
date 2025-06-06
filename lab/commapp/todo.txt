@@ -1,10 +1,46 @@
 ToDo: 
-Short things:
-put host name in the connections...  currenty just hardcoded localhost
+implement the crypto calculation in a filter
+
+
+Document the whole flow it's about time again
+Clean up... 
+
+Next steps:
+implement the ISO-filters ? 
+
+
+
+
+smmall things:
+timeout på en put... ? - det var det som gick galt någing "consumed from_middle"
+
+Iso message built in ? 
 Next bit thing: 
+lad data som sendes indeholde en json struktur... og om den gör så lägger vi 
+"producer_ns"
+"echo_ns ind". 
+
+" nu har vi en loop situation som vi kan provocera - bara change "echo_in" to "no_echo_in" i worker så timer den ud... 
+
+Men hvorfor for Mama inte stoppet den tråd ?  eller skal man bara lave timeout på put and then die ? 
+
+
+Lav en variation som ere en "web server" - så vi kan köre helt isoleret uden fastapi.. 
+
+
 A msg_id and notification so "send" can throttle..
+can we even emulate the crypto backend here ?? .. why not.
 
+Data and message... 
+Json (msg_id + data) and waitfilter.... hmm 
+Command object gets "send message 100000 times"... 
+Starts new thread with this task (not under mama ? well not initially)
+SEt max size on queue instead... 
 
+Constructor for a FIFO queue. maxsize is an integer that sets the upperbound limit on the number of items that can be placed in the queue. Insertion will block once this size has been reached, until queue items are consumed. If maxsize is less than or equal to zero, the queue size is infinite.
+https://www.geeksforgeeks.org/multithreading-in-python-set-2-synchronization/
+
+(Message id not nescessary to control speed... 
 
 Long term:
 Big Mama decision to stopp - if no activity..

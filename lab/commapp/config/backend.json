@@ -3,21 +3,31 @@
     "description": "Simulates being the backend - wait for middle to connect and just echo back the received data",
     "log_level": 20,
     "CommandPort": 8079,
-    "filters"   : {
-        "echo": {
-            "module": "simple_filters",
-            "class": "FilterEcho",
-            "description": "Echoes back the received data"
+    "workers": {
+        "echo_worker": {
+            "description": "Echoes back the received data",
+            "in_queue": "echo_in",
+            "to_queue": "to_middle"
         }
-    },    
+    },
+
     "routers": {
         "router_1": {
             "type": "listen",
-            "socket_to_queue": "from_middle",
+            "socket_to_queue": "echo_in",
             "queue_to_socket": "to_middle",
-            "filter_name": "echo",
             "host": "localhost",
             "port": 4243               
+        }
+    },
+    "queue_details": {
+        "from_middle": {
+            "description": "Queue to receive messages from the middle application",
+            "max_size": 1000
+        },
+        "to_middle": {
+            "description": "Queue to send messages to the middle application max size is 1000 controlling our burst size",
+            "max_size": 1000
         }
     }
 }

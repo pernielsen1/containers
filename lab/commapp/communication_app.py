@@ -18,7 +18,9 @@ class QueueObject:
     def __init__(self, name, config):
         self.name = name
         self.config = config
-        self.queue = Queue()
+        max_size = config.get('queue_details', {}).get(name, {}).get('max_size', 0)
+        logging.debug(f"creating queue {name} with max_size {max_size}")
+        self.queue = Queue(maxsize=max_size)
 
     def put(self, data):
         self.queue.put(data)
@@ -139,7 +141,6 @@ class CommunicationApplication:
                 t.start()
              
         for router_name, router in self.config['routers'].items():
-            print(router)
             t = EstablishConnectionThread(self, router_name, router['type'],
                                            router['socket_to_queue'], router['queue_to_socket'],
                                            router['host'],
@@ -306,8 +307,13 @@ class BigMamaThread(CommunicationThread):
             self.heartbeat = time.time()
             for thread in self.app.threads:
                 if time.time() - thread.heartbeat > 30:
-                    logging.warning(f"Thread {thread.name} is inactive and will be stopped.")
-            time.sleep(1.5)
+                    logging.error(f"Thread {thread.name} is inactive and all will be stopped.")
+                    self.app.stop()
+
+            command = self.queue.get(1500)   
+            if (command):
+                logging.info(f"command {command} received to big_mama")
+
         logging.info(f"Time to stop {self.name}")
 
 # ConnectThread class
@@ -390,7 +396,7 @@ class CommandThread(CommunicationThread):
     def run(self):
         logging.info(f'command server for {self.name} started on {self.port}')
         server = HTTPServer(('localhost', self.port), CommandHandler)
-        server.timeout = 5
+        server.timeout = 20
         while self.active:
             self.heartbeat = time.time()
             logging.debug("Command ready")
@@ -411,6 +417,12 @@ class CommandHandler(BaseHTTPRequestHandler):
     def do_HEAD(self):
         self._set_headers()
 
+    def burst_messages(self, queue_name:str, message:Message, num_messages: int):
+        # a thread started when sending messages will put the messages to the queue.
+        # the queue has a max_size so when filled it will go slower.
+        for i in range  (num_messages):
+            self.app.add_queue(queue_name).put(message)
+
     def send_error(self, error_code, error_text):
         self.send_response(error_code)
         self._set_headers()
@@ -421,14 +433,14 @@ class CommandHandler(BaseHTTPRequestHandler):
             content_length = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_length)
             data = json.loads(json.loads(body))  # we need to decode the json string twice... why 
-
+            print("in command handler" + str(data))
             command = data.get('command', None)
             return_data = None
             if command is None:
                 self.send_error(400, {"error": "Missing 'command' field"})
                 return
             command = command.lower()
-            if command not in ['stop', 'stat', 'reset', 'send']:
+            if command not in ['stop', 'stat', 'reset', 'send', 'work']:
                 self.send_error(400, {"error": f"Invalid command '{command}'"})
                 return
 
@@ -439,6 +451,7 @@ class CommandHandler(BaseHTTPRequestHandler):
             if command == 'stat':
                 logging.info("stop command received")
                 return_data = json.dumps(self.app.get_measurements())
+
             if command == 'reset':
                 logging.info("reset command received")
                 self.app.reset_measurements()
@@ -460,12 +473,29 @@ class CommandHandler(BaseHTTPRequestHandler):
                     self.send_error(400, {"error": "Missing 'text' field for 'send' command"})
                     return
                 num_messages = data.get('num_messages', 1)            
-                logging.info(f"sending {text} to {queue_name} {num_messages} times")
+                logging.info(f"sending {text} to {queue_name} {num_messages} times in a seperate thread")
                 message = Message(text)
-                current_thread = threading.current_thread()
-                for x in range(num_messages):
-                    self.app.add_queue(queue_name).put(message)
-              
+                t1 = threading.Thread(target=self.burst_messages, args=(queue_name, message, num_messages))
+                t1.start()
+                
+            if (command == 'work'):
+                logging.info("IN WORK")
+                print(data)
+                data_base64 = data.get('data_base64', None)
+                if (data_base64 is None):
+                    self.send_error(400, {"error": "Missing 'data_base64' field for 'work' command"})
+                    return
+                # decode the base64 data
+                request_data_bytes = base64.b64decode(data_base64)
+                message = Message(request_data_bytes)
+                filter_name = data.get('filter_name', None)
+                if filter_name is not None:
+                    filter_obj = self.app.get_filter(filter_name)
+                    if filter_obj is not None:
+                        logging.info(f"Applying filter {filter_name} to message {message.get_json()}")
+                        message = filter_obj.run(message)
+                        return_data = message.get_json()
+                            
             self._set_headers()
             self.wfile.write(json.dumps({
                 "status": "OK",
