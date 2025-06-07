@@ -3,8 +3,12 @@ import logging
 import json
 import base64
 import requests
+import iso8583
+from iso_spec import test_spec
+
 
 from communication_app import Message, Filter, CommunicationApplication   
+
 import pn_utilities.crypto.PnCrypto as PnCrypto
 
 class FilterCryptoAnswer(Filter):
@@ -12,23 +16,27 @@ class FilterCryptoAnswer(Filter):
         super().__init__(app, name)
         self.pn_crypto = PnCrypto.PnCrypto(self.app.config['filters'][name]['crypto_config_file'])
 
-
     def run(self, message):
-        logging.debug(f'filter {self.name} in {self.app.name}')
-        input_string = message.get_string()
-        input_dict = json.loads(input_string)
-        print("input_dict:" + str(input_dict))
-        imk = input_dict['imk']
-        pan = input_dict['pan']
-        psn = input_dict['psn']
-        atc = input_dict['atc']
-        data  = input_dict['data']
+        data = message.get_data()
+        logging.debug(f'filter {self.name} in {self.app.name} running data{data.hex()}')
+        try:
+            decoded, encoded = iso8583.decode(data, test_spec)
+        except Exception as e:
+            # TBD what should error handling be in such a case
+            logging.error("iso decode failed exiting silent !")
+            return message
+        
+        imk = 'IMK_k1' 
+        pan = decoded['2']
+        psn = '01'
+        atc = '0001'
+        data = "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000"
+        
         resp = {}
         resp['arqc'] = self.pn_crypto.do_arqc(imk, pan, psn, atc, data, True)
-        resp['text'] = input_dict['text']
-        resp_str = json.dumps(resp)
-        return Message(resp_str)
-
+        resp['text'] = decoded.get('47', "No incoming f047:") + " with crypto" 
+        print(resp)
+        return Message(json.dumps(resp))
 
 #------------------------------------------------------
 # makes a simple "work" command to the other party.
@@ -41,14 +49,15 @@ class FilterCryptoRequest(Filter):
         self.filter_name_to_send = app.config['filters'][name]['filter_name_to_send']
 
     def run(self, message):
-        text = message.get_string()
-        logging.debug(f'CryptoRequest processing this text:{text}')
-        input_dict = { "imk" : "IMK_k1", "pan": "5656781234567891", "psn": "01", "atc": "0001",
-                      "data" : "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000"}
-        input_dict['text'] = text
-        input_dict_as_json = json.dumps(input_dict)
+        data = message.get_data()
+        logging.debug(f'CryptoRequest processing {data.hex()}')
 
-        data_base64 = base64.b64encode(input_dict_as_json.encode('utf-8')).decode('utf-8')
+#        input_dict = { "imk" : "IMK_k1", "pan": "5656781234567891", "psn": "01", "atc": "0001",
+#                      "data" : "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000"}
+#        input_dict['text'] = text
+#        input_dict_as_json = json.dumps(input_dict)
+
+        data_base64 = base64.b64encode(data).decode('ascii')
         logging.debug(f'data {data_base64} filter: {self.filter_name_to_send}')
         msg = {
             "command": "work",
@@ -89,8 +98,19 @@ if __name__ == "__main__":
 
     logging.getLogger().setLevel(logging.DEBUG)
 
-    filter_crypto = FilterCryptoAnswer(client_app, "crypto_answer")
+    filter_crypto_answer = FilterCryptoAnswer(client_app, "crypto_answer")
     filter_crypto_request = FilterCryptoRequest(middle_app, "crypto_request")
     message = Message("A dummy message")
-    result = filter_crypto_request.run(message)
-    print(result.get_string())
+    from sendmsg import build_iso_message
+    print("running answer locally")
+    test_iso_message = Message(build_iso_message(test_case_name='test_case_1'))
+    result = filter_crypto_answer.run(test_iso_message)
+    print(result.get_data())
+    print("running via request to crypto server")
+    result = filter_crypto_request.run(test_iso_message)
+    print(result.get_data())
+    print("running another test case via request to crypto server")
+    test_iso_message_2 = Message(build_iso_message(test_case_name='test_case_2'))
+    result = filter_crypto_request.run(test_iso_message_2)
+    print(result.get_data())
+    

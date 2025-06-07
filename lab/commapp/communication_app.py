@@ -11,7 +11,8 @@ from queue import Queue
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # Setup logging
-logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s - %(funcName)s() %(message)s') 
 
 # QueueObject class
 class QueueObject:
@@ -36,7 +37,7 @@ class Message:
     def __init__(self, data):
         if isinstance(data, str):
             data = data.encode('utf-8') 
-        elif not isinstance(data, bytes):
+        elif not (isinstance(data, bytes) or isinstance(data, bytearray)):
             raise TypeError("Data must be a string or bytes")
         self.msg = {
 
@@ -158,9 +159,6 @@ class CommunicationApplication:
                thread.join()
         logging.info("All threads stopped")
 
-#    def add_filter(self, filter_obj):
-#        self.filters[filter_obj.name] = filter_obj
-
     def get_filter(self, name):
         return self.filters.get(name, None)
 
@@ -210,8 +208,7 @@ class CommunicationThread(threading.Thread):
         while self.active:
             self.heartbeat = time.time()
             time.sleep(0.5)
-
-        
+     
 # WorkerThread class
 class WorkerThread(CommunicationThread):
     def __init__(self, app, name, queue_name, to_queue_name=None,  filter_name=None):
@@ -537,8 +534,6 @@ class CommandHandler(BaseHTTPRequestHandler):
         else:
             self.send_response(404)
             self.end_headers()
-
-
  
 # Main function
 if __name__ == "__main__":

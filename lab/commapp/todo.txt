@@ -1,20 +1,22 @@
 ToDo: 
-Implement command debug och info = change log level.
+put reply in iso message after received - update message and pass it on
 
 
-
+Done: 
+test case can make iso message now..  - parse it in the reader... 
+put testcase description in field 47 - for the fun of it.
+get a myspec to the iso.
 
 Document the whole flow it's about time again
 Clean up... 
-Error handling... refused connection .. what to do.. not fail on none..
 Next steps:
 implement the ISO-filters ? 
 
-
-
-
-smmall things:
+small things:
 timeout på en put... ? - det var det som gick galt någing "consumed from_middle"
+Error handling... refused connection .. what to do.. not fail on none..
+
+https://github.blog/developer-skills/github/a-beginners-guide-to-ci-cd-and-automation-on-github/
 
 Iso message built in ? 
 Next bit thing: 
@@ -64,7 +66,7 @@ Instructions:
 ./sendmsg.sh 8078 stat 
 ./sendmsg.sh 8078 reset 
 
-
+error handling iso decode.. 
 Done:
 Echo filter in backend - add " and return" to the message
 upper filter applied before sending to backend

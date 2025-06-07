@@ -1,9 +1,12 @@
-
+import os
 import json
 import requests
 import sys
-import time
+import base64
 from datetime import datetime
+import iso8583
+from iso_spec import test_spec
+
 server_url = 'localhost'
 
 # time.strftime(format[, t])¶
@@ -33,15 +36,22 @@ def do_stat(json_response):
     print("after")
 
 #-----------------------------------------------
-def send_request(port, command, queue_name:str=None, text:str =None, num_messages:int = 1):
+def send_request(port, command, queue_name:str=None, data:any =None, num_messages:int = 1):
     post_url = "http://" + server_url + ":" + str(port) 
+    is_base64 = False
+    if isinstance(data, bytes):
+        is_base64 = True
+        text = base64.b64encode(data).decode("ascii")
+    else:  # text is already string   
+        text = data
+
     if (command == 'send'):
         msg = {
             "command": command,
             "queue_name": queue_name,
+            "is_base64": is_base64,
             "text": text,
             "num_messages": num_messages    
-
         }
     else: 
         msg = {
@@ -69,7 +79,25 @@ def send_request(port, command, queue_name:str=None, text:str =None, num_message
     except requests.exceptions.RequestException as e:
         print("will that didn't work out exiting")
         raise Exception(e)
-    
+
+def build_iso_message(test_case_name:str):
+    test_case_file = "sendmsg.json"
+    if not os.path.isabs(test_case_file):
+            test_case_file = os.path.join(os.getcwd(), test_case_file)
+    with open(test_case_file, 'r') as f:
+            test_cases = json.load(f)
+    tc = test_cases['tests'].get(test_case_name, None)
+    if (tc == None):
+        raise ValueError(f'testcase {test_case_name} not found in {test_case_file}')
+    # still here good to go
+    iso_message =tc['iso_message']
+    try:
+        iso_message_raw, encoded = iso8583.encode(iso_message, test_spec)
+        print(iso_message_raw)
+        return iso_message_raw  # bytes
+    except Exception as e:
+        raise Exception(e)
+ 
 #-------------------------------
 # local tests
 #--------------------------------
@@ -77,15 +105,21 @@ if __name__ == '__main__':
     num_messages  = None
     text = None
     queue_name = None
-    port = int(sys.argv[1])
-    command = sys.argv[2]
+    command = 'test'
+
+    if (len(sys.argv) > 1):
+        port = int(sys.argv[1])
+        command = sys.argv[2]
+        
     if (command == 'send'):
         queue_name = sys.argv[3]
         text = sys.argv[4]
         if len(sys.argv) > 5: 
             num_messages = int(sys.argv[5])
-    send_request(port, command, queue_name, text, num_messages)
-
+    if command != 'test':
+        send_request(port, command, queue_name, text, num_messages)
+    if command == 'test':
+         build_iso_message(test_case_name='test_case_1')
 
 # curl http://localhost:8009
 #{"received": "ok", "hello": "world"}

@@ -1,0 +1,26 @@
+{
+    "name": "sendmsg test cases", 
+    "description": "Contains test cases which can be converted to iso 8583 message and sent in",
+    "tests"   : {
+        "test_case_1": {
+            "description": "First iso 0100 test",
+            "iso_message": {
+                "t" : "0100",
+                "2": "5656781234567891",
+                "4": "000000012345",
+                "47": "Secret sauce",
+                "49": "752"
+            }
+        },
+        "test_case_2": {
+            "description": "Second iso 0100 test",
+            "iso_message": {
+                "t" : "0100",
+                "2": "5656424242424242",
+                "4": "000000004242",
+                "47": "Even more Secret sauce",
+                "49": "752"
+            }
+        }
+    }
+} 
