@@ -1,7 +1,7 @@
 {
     "name": "middle", 
     "description": "The actual application connecting client and backend",
-    "log_level": 20,
+    "log_level": 10,
     "CommandPort": 8078,
     "filters"   : {
         "upper": {

@@ -482,9 +482,10 @@ class CommandHandler(BaseHTTPRequestHandler):
                 is_base64 = data.get("is_base64", False)
                 print(f'is_base64 is: {is_base64}')
                 if (is_base64):
-                    data = base64.b64decode(text)
-                    print("data is:{data}")
-                    message = Message(data)
+                    print(f'text:{text}')
+                    data_bytes = base64.b64decode(text.encode("ascii"))
+                    print(f'data is:{data_bytes}')
+                    message = Message(data_bytes)
                 else:
                     message = Message(text)
               
