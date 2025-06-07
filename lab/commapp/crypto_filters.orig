@@ -11,11 +11,6 @@ from communication_app import Message, Filter, CommunicationApplication
 
 import pn_utilities.crypto.PnCrypto as PnCrypto
 
-#-------------------------------------------------------------------------------
-# filter_crypto_answer filter. -  answering crypto requess on the crypto_server.
-# called from "work" in command app - actual request  
-# input is a json string with the request 
-#---------------------------------------------------------------------------------
 class FilterCryptoAnswer(Filter):
     def __init__(self, app:CommunicationApplication , name:str):
         super().__init__(app, name)
@@ -23,18 +18,24 @@ class FilterCryptoAnswer(Filter):
 
     def run(self, message):
         data = message.get_data()
-        logging.debug(f'filter {self.name} in {self.app.name} running data{data}')
-        json_string = message.get_string()
-        json_dict = json.loads(json_string)
+        logging.debug(f'filter {self.name} in {self.app.name} running data{data.hex()}')
+        try:
+            decoded, encoded = iso8583.decode(data, test_spec)
+        except Exception as e:
+            # TBD what should error handling be in such a case
+            logging.error("iso decode failed exiting silent !")
+            return message
+        
         imk = 'IMK_k1' 
-        pan = json_dict['pan']
+        pan = decoded['2']
         psn = '01'
         atc = '0001'
         data = "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000"
         
         resp = {}
         resp['arqc'] = self.pn_crypto.do_arqc(imk, pan, psn, atc, data, True)
-        resp['text'] = json_dict['text'] + " with a lot of crypto" 
+        resp['text'] = decoded.get('47', "No incoming f047:") + " with crypto" 
+        print(resp)
         return Message(json.dumps(resp))
 
 #------------------------------------------------------
@@ -50,19 +51,13 @@ class FilterCryptoRequest(Filter):
     def run(self, message):
         data = message.get_data()
         logging.debug(f'CryptoRequest processing {data.hex()}')
-        try:
-            decoded, encoded = iso8583.decode(data, test_spec)
-        except Exception as e:
-            # TBD what should error handling be in such a case
-            logging.error("iso decode failed exiting silent !")
-            return message
-             
-        input_dict = { "imk" : "IMK_k1", "pan": "5656781234567891", "psn": "01", "atc": "0001",
-                      "data" : "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000"}
-        input_dict['pan'] = decoded['2']
-        input_dict['text'] = decoded['47']
-        input_dict_as_json_bytes = json.dumps(input_dict).encode('ascii')
-        data_base64 = base64.b64encode(input_dict_as_json_bytes).decode('ascii')
+
+#        input_dict = { "imk" : "IMK_k1", "pan": "5656781234567891", "psn": "01", "atc": "0001",
+#                      "data" : "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000"}
+#        input_dict['text'] = text
+#        input_dict_as_json = json.dumps(input_dict)
+
+        data_base64 = base64.b64encode(data).decode('ascii')
         logging.debug(f'data {data_base64} filter: {self.filter_name_to_send}')
         msg = {
             "command": "work",
@@ -83,7 +78,8 @@ class FilterCryptoRequest(Filter):
             return_data_dict = json_response['return_data']
             data_base64 = return_data_dict['data_base64']
             data = base64.b64decode(data_base64)      
-            return Message(data)
+            return_message  =  Message(data)
+            return return_message
                         
         except requests.exceptions.ConnectionError as errc:
             logging.error(f'So there was no luck with {self.url} gracefully exiting')
@@ -108,8 +104,8 @@ if __name__ == "__main__":
     from sendmsg import build_iso_message
     print("running answer locally")
     test_iso_message = Message(build_iso_message(test_case_name='test_case_1'))
-#    result = filter_crypto_answer.run(test_iso_message)
-#    print(result.get_data())
+    result = filter_crypto_answer.run(test_iso_message)
+    print(result.get_data())
     print("running via request to crypto server")
     result = filter_crypto_request.run(test_iso_message)
     print(result.get_data())

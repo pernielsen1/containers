@@ -499,7 +499,7 @@ class CommandHandler(BaseHTTPRequestHandler):
                 if filter_name is not None:
                     filter_obj = self.app.get_filter(filter_name)
                     if filter_obj is not None:
-                        logging.info(f"Applying filter {filter_name} to message {message.get_json()}")
+                        logging.info(f"Applying filter {filter_name} to message {message.get_data()}")
                         message = filter_obj.run(message)
                         return_data = message.get_json()
                             

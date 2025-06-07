@@ -1,6 +1,11 @@
 ToDo: 
-put reply in iso message after received - update message and pass it on
+let's integrate the iso into the whole stream ? 
+clean up... 
 
+
+put reply in iso message after received - update message and pass it on
+log process - to write what the result was in field 47 ... 
+make the return be iso as well.. 
 
 Done: 
 test case can make iso message now..  - parse it in the reader... 
