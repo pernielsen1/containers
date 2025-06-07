@@ -39,7 +39,7 @@ def do_stat(json_response):
 def send_request(port, command, queue_name:str=None, data:any =None, num_messages:int = 1):
     post_url = "http://" + server_url + ":" + str(port) 
     is_base64 = False
-    if isinstance(data, bytes):
+    if isinstance(data, bytes) or isinstance(data, bytearray):
         is_base64 = True
         text = base64.b64encode(data).decode("ascii")
     else:  # text is already string   
@@ -111,7 +111,7 @@ if __name__ == '__main__':
         port = int(sys.argv[1])
         command = sys.argv[2]
         
-    if (command == 'send'):
+    if (command == 'send' or command == 'test'):
         queue_name = sys.argv[3]
         text = sys.argv[4]
         if len(sys.argv) > 5: 
@@ -119,7 +119,8 @@ if __name__ == '__main__':
     if command != 'test':
         send_request(port, command, queue_name, text, num_messages)
     if command == 'test':
-         build_iso_message(test_case_name='test_case_1')
+        iso_msg_raw = build_iso_message(test_case_name='test_case_1')
+        send_request(port, "send", queue_name, iso_msg_raw, num_messages)
 
 # curl http://localhost:8009
 #{"received": "ok", "hello": "world"}

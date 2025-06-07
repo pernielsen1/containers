@@ -479,9 +479,17 @@ class CommandHandler(BaseHTTPRequestHandler):
                 if (text is None):
                     self.send_error(400, {"error": "Missing 'text' field for 'send' command"})
                     return
+                is_base64 = data.get("is_base64", False)
+                print(f'is_base64 is: {is_base64}')
+                if (is_base64):
+                    data = base64.b64decode(text)
+                    print("data is:{data}")
+                    message = Message(data)
+                else:
+                    message = Message(text)
+              
                 num_messages = data.get('num_messages', 1)            
                 logging.info(f"sending {text} to {queue_name} {num_messages} times in a seperate thread")
-                message = Message(text)
                 t1 = threading.Thread(target=self.burst_messages, args=(queue_name, message, num_messages))
                 t1.start()
                 

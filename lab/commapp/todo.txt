@@ -2,6 +2,7 @@ ToDo:
 let's integrate the iso into the whole stream ? 
 clean up... 
 
+./sendmsg.sh 8077 test to_middle "test_case_1" 1
 
 put reply in iso message after received - update message and pass it on
 log process - to write what the result was in field 47 ... 

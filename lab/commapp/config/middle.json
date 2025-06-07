@@ -24,7 +24,16 @@
             "url": "http://localhost:8076",
             "method": "POST",
             "filter_name_to_send": "crypto_answer"
+        },
+        "crypto_response": {
+            "module": "crypto_filters",
+            "class": "FilterCryptoResponse",
+            "description": "call crypto server on 8076 for now",
+            "url": "http://localhost:8076",
+            "method": "POST",
+            "filter_name_to_send": "crypto_answer"
         }
+
 
     },    
 
@@ -52,6 +61,7 @@
         },
         "worker_to_client": {
             "in_queue": "worker_to_client",
+            "filter_name": "crypto_response",
             "to_queue": "to_client"
         }
     },
