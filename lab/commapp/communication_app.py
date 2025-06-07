@@ -225,14 +225,14 @@ class WorkerThread(CommunicationThread):
             message = self.queue.get(500)
             if message:
                 start_ns = time.time_ns()
-                logging.debug(f"Worker {self.name} received message {message.get_json()} to queue {self.to_queue_name}")
+                logging.debug(f"Worker {self.name} received message {message.get_data()} to queue {self.to_queue_name}")
                 # the the work =  apply the filter.
                 if self.filter is not None:
                     message = self.filter.run(message)
                 # and send the message to the to_queue
                 if self.to_queue_name is not None:
                     self.to_queue.put(message)
-                    logging.debug(f"Worker {self.name} put message {message.get_json()} to queue {self.to_queue.name}")
+                    logging.debug(f"Worker {self.name} put message {message.get_data()} to queue {self.to_queue.name}")
                 self.measurements.add_measurement(start_ns)
 
 # SocketReceiverThread class
@@ -431,7 +431,6 @@ class CommandHandler(BaseHTTPRequestHandler):
             content_length = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_length)
             data = json.loads(json.loads(body))  # we need to decode the json string twice... why 
-            print("in command handler" + str(data))
             command = data.get('command', None)
             return_data = None
             if command is None:
@@ -480,12 +479,8 @@ class CommandHandler(BaseHTTPRequestHandler):
                     self.send_error(400, {"error": "Missing 'text' field for 'send' command"})
                     return
                 is_base64 = data.get("is_base64", False)
-                print(f'is_base64 is: {is_base64}')
                 if (is_base64):
-                    print(f'text:{text}')
-                    data_bytes = base64.b64decode(text.encode("ascii"))
-                    print(f'data is:{data_bytes}')
-                    message = Message(data_bytes)
+                    message = Message(base64.b64decode(text.encode("ascii")))
                 else:
                     message = Message(text)
               
@@ -495,8 +490,6 @@ class CommandHandler(BaseHTTPRequestHandler):
                 t1.start()
                 
             if (command == 'work'):
-                logging.info("IN WORK")
-                print(data)
                 data_base64 = data.get('data_base64', None)
                 if (data_base64 is None):
                     self.send_error(400, {"error": "Missing 'data_base64' field for 'work' command"})

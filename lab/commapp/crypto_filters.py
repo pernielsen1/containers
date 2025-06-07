@@ -146,10 +146,17 @@ class FilterCryptoResponse(Filter):
                 return
             # stilll here
             json_response = response.json()
+#            data_base64 = json_response['return_data']['data_base64']
+#            data = base64.b64decode(data_base64)      
+
+            json_response = response.json()
             data_base64 = json_response['return_data']['data_base64']
-            data = base64.b64decode(data_base64)      
-            return Message(data)
-                        
+            decoded['47'] = base64.b64decode(data_base64).decode('ascii')
+            new_iso_raw, encoded =  iso8583.encode(decoded, test_spec)
+            return Message(new_iso_raw)
+
+
+
         except requests.exceptions.ConnectionError as errc:
             logging.error(f'So there was no luck with {self.url} gracefully exiting')
             logging.error("Error Connecting:",errc)
