@@ -2,7 +2,8 @@
     "name": "backend", 
     "description": "Simulates being the backend - wait for middle to connect and just echo back the received data",
     "log_level": 10,
-    "CommandPort": 8079,
+    "server" : "localhost",
+    "command_port": 8079,
     "workers": {
         "echo_worker": {
             "description": "Echoes back the received data",

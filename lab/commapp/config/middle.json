@@ -2,7 +2,8 @@
     "name": "middle", 
     "description": "The actual application connecting client and backend",
     "log_level": 10,
-    "CommandPort": 8078,
+    "server": "localhost",
+    "command_port": 8078,
     "filters"   : {
         "upper": {
             "module": "simple_filters",

@@ -2,7 +2,8 @@
     "name": "client", 
     "description": "Simulates being the client connects on 4242 and sends in test message",
     "log_level": 10,
-    "CommandPort": 8077,
+    "server": "localhost",
+    "command_port": 8077,
     "filters"   : {
         "web_server_answer": {
             "module": "simple_filters",

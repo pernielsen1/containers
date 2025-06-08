@@ -1,22 +1,25 @@
 ToDo: 
-let's integrate the iso into the whole stream ? 
-clean up... 
-
+create response worker - alters 0100 to 0110 and adds a decline or approval Filter BackendSimulator
+clean up...  to snake_case... not a mix with PascalCase. (CommandPort)
 ./sendmsg.sh 8077 test to_middle "test_case_1" 1
 
-put reply in iso message after received - update message and pass it on
-log process - to write what the result was in field 47 ... 
-make the return be iso as well.. 
+https://realpython.com/html-css-python/
 
-Done: 
-test case can make iso message now..  - parse it in the reader... 
-put testcase description in field 47 - for the fun of it.
-get a myspec to the iso.
-
+Clean up...
 Document the whole flow it's about time again
-Clean up... 
+https://daringfireball.net/projects/markdown/syntax#header
+
+documentation
+pandoc -i the_flow.md -o the_flow.html
+create the drawing in ppt and get to the md.. 
+
 Next steps:
-implement the ISO-filters ? 
+Restart..
+mama_stats... 
+the web admin page.. manamgement console = own application. console.py
+
+
+for i in *.md ; do echo "$i" && pandoc -s $i -o $i.html ; done
 
 small things:
 timeout på en put... ? - det var det som gick galt någing "consumed from_middle"
@@ -24,12 +27,10 @@ Error handling... refused connection .. what to do.. not fail on none..
 
 https://github.blog/developer-skills/github/a-beginners-guide-to-ci-cd-and-automation-on-github/
 
-Iso message built in ? 
 Next bit thing: 
 lad data som sendes indeholde en json struktur... og om den gör så lägger vi 
 "producer_ns"
 "echo_ns ind". 
-
 " nu har vi en loop situation som vi kan provocera - bara change "echo_in" to "no_echo_in" i worker så timer den ud... 
 
 Men hvorfor for Mama inte stoppet den tråd ?  eller skal man bara lave timeout på put and then die ? 

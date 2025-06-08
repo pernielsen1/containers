@@ -1,4 +1,3 @@
-# TBD:  Cannot join + gracefully exit info
 import os
 import sys
 import json
@@ -11,7 +10,6 @@ from queue import Queue
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # Setup logging
-# logging.basicConfig(level=logging.INFO)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s - %(funcName)s() %(message)s') 
 
 # QueueObject class
@@ -126,7 +124,7 @@ class CommunicationApplication:
                     logging.error(f"Error loading filter {filter_name}: {e}")
 
     def start(self):
-        command_thread = CommandThread(self, 'command_thread', 'command', self.config['CommandPort'])
+        command_thread = CommandThread(self, 'command_thread', 'command', self.config['command_port'])
         self.threads.append(command_thread)
         command_thread.start()
 
@@ -494,9 +492,9 @@ class CommandHandler(BaseHTTPRequestHandler):
                 if (data_base64 is None):
                     self.send_error(400, {"error": "Missing 'data_base64' field for 'work' command"})
                     return
-                # decode the base64 data
-                request_data_bytes = base64.b64decode(data_base64)
-                message = Message(request_data_bytes)
+                # decode the base64 data, create Message and run the filter
+                message = Message(base64.b64decode(data_base64))
+
                 filter_name = data.get('filter_name', None)
                 if filter_name is not None:
                     filter_obj = self.app.get_filter(filter_name)
