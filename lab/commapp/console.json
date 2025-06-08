@@ -1,4 +1,6 @@
 {
     "name": "console",
-    "config_dir": "config"
+    "config_dir": "config",
+    "test_case_file": "sendmsg.json",
+    "test_process": "client"
 }

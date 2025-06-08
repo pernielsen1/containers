@@ -5,6 +5,8 @@ import sys
 import base64
 import logging
 import time
+from datetime import datetime
+
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 server_url = 'localhost'
@@ -15,8 +17,7 @@ class ConsoleHTTPServer(HTTPServer):
     def __init__(self, console_app, server, port, command_handler):
         super().__init__((server, port), command_handler)
         self.console_app = console_app    
-        print(self.console_app.processes)
-        print("after")
+       
 class ConsoleApp():
     def __init__(self, config_file="console.json"):
         super().__init__()
@@ -25,6 +26,11 @@ class ConsoleApp():
             config_file_path = os.path.join(os.getcwd(), config_file)
         with open(config_file_path, 'r') as f:
             self.config = json.load(f)
+        with open(self.config['test_case_file'], 'r') as f:
+            self.test_case_file = json.load(f)
+        self.test_cases = self.test_case_file['tests']
+
+#        print(self.test_cases)      
         self.name = self.config['name']
  
         # list all config files in config dir
@@ -81,51 +87,41 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_response(error_code)
         self._set_headers()
         self.wfile.write(json.dumps(error_text).encode())
-
-    def do_POST(self):
+    #----------------------------------------------------
+    #
+    #----------------------------------------------------
+    def get_statistics(self, process_name):
+        url = self.console_app.processes[process_name].get('url', 'What ?')
+        description = self.console_app.processes[process_name].get('description', 'What ?')
+        msg = { "command": "stat"}
+        json_msg = json.dumps(msg)
         try:
-            content_length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(content_length)
-            data = json.loads(json.loads(body))  # we need to decode the json string twice... why 
-            command = data.get('command', None)
-            return_data = None
-            if command is None:
-                self.send_error(400, {"error": "Missing 'command' field"})
-                return
-            command = command.lower()
-            if command not in ['stop', 'stat', 'reset', 'send', 'work', 'debug', 'info']:
-                self.send_error(400, {"error": f"Invalid command '{command}'"})
-                return
+            response = requests.post(url, json=json_msg)
+            print(response)
+            if (response.status_code != 200):
+                return "Error: " + str(response.status_code) + " " + response.text
+            # still here all good
+            result = f'stats: retrieved from {url} for {description}'
+            result += do_stat(response.json())
+            return result
 
-            if command == 'stop':
-                logging.info("Stop command received")
-                self.app.stop()
+        except requests.exceptions.ConnectionError as errc:
+            return f'So there was no luck with {url} gracefully exiting'
+        # Maybe set up for a retry, or continue in a retry loop
+        except requests.exceptions.RequestException as e:
+            return "well that didn't work out exiting" + str(e)
 
-                            
-            self._set_headers()
-            self.wfile.write(json.dumps({
-                "status": "OK",
-                "from:" : self.app.name,
-                "command": command, 
-                "return_data": return_data 
-            }).encode())
-
-        except json.JSONDecodeError:
-            self.send_response(400)
-            self._set_headers('json')
-            self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
-
-        except Exception as e:
-            logging.exception("Error handling POST request")
-            self.send_response(500)
-            self._set_headers('json')
-            self.wfile.write(json.dumps({"error": str(e)}).encode())
-
+#--------------------------
+# do_GET - the main traffic control
+#---------------------------
     def do_GET(self):
         logging.info("received" + str(self.path))
+        # TBD find from server... 
+        host_uri ="http://localhost:" + str(port) 
+
         self._set_headers('html')
-        page_start ="<html><head><title>Hello World</title></head><body>"
-        page_body = "A text"
+        page_start ="<html><head><title>Commapp console</title></head><body>"
+        page_body = "<h1>commapp console</h1>"
         page_end =  "</body></html>"
         # msg = "<html><head><title>Hello World</title></head><body>a_text</body></html>"
 
@@ -139,69 +135,66 @@ class RequestHandler(BaseHTTPRequestHandler):
                 description = self.console_app.processes[process_name].get('description', 'What ?')
                 page_body = page_body + " you want to see " + process_name + ' ' + description + " url" + url
 
-        host_uri ="http://localhost:" + str(port) 
+        if self.path.startswith('/statistics'):
+            process_name = self.path.split('/')[-1]
+            if (process_name == 'statistics'):
+                page_body =  page_body + " you want to see statistics for all processes"
+            else:
+                page_body += self.get_statistics(process_name)
+
+        if self.path.startswith('/testcases'):
+            test_case = self.path.split('/')[-1]
+            if (test_case == 'testcases'):
+                page_body =  page_body + " you want to see all testcases"
+            else:
+                page_body += " you want to executre" + test_case
+
         if self.path.startswith('/index') or self.path == '/':
-            page_body =  page_body + " you want to see main menu"
+            page_body =  page_body + "<h2>Processes</h2>"
+            process_table = "<table><tr><th>process</th><th>statistics</th></tr>" 
             for process_name in self.console_app.processes:
                 #   <a href="url">link text</a>
-                page_body +=f'<br><a href={host_uri}/processes/{process_name}>{process_name}</a>'
-                print(page_body)
+                process_table += "<tr>"
+                process_table += f'<td><a href={host_uri}/processes/{process_name}>{process_name}</td>'
+                process_table += f'<td><a href={host_uri}/statistics/{process_name}>stats for {process_name}</a></td>'
+                process_table += "</tr>"
+            process_table +='</table>'
+            page_body += process_table
+
+            page_body += "<h2>test cases</h2>"
+            testcase_table = "<table><tr><th>test cases</th></tr>" 
+            for test_case in self.console_app.test_cases:
+                testcase_table += "<tr>"
+                testcase_table +=f'<td><a href={host_uri}/testcases/{test_case}>{test_case}</a></td>'
+                process_table += "</tr>"
+            page_body += testcase_table
 
         page = page_start + page_body + page_end 
         self.wfile.write(bytes(page, 'UTF-8'))
 
-     
-#        if self.path.startswith('/processes'):
-#            queue_name = self.path.split('/')[-1]
-#
-#        else:
-#            self.send_response(404)
-#            self.end_headers()
 
-#-----------------------------------------------
-def send_request(port, command, queue_name:str=None, data:any =None, num_messages:int = 1):
-    post_url = "http://" + server_url + ":" + str(port) 
-    is_base64 = False
-    if isinstance(data, bytes) or isinstance(data, bytearray):
-        is_base64 = True
-        text = base64.b64encode(data).decode("ascii")
-    else:  # text is already string   
-        text = data
-
-    if (command == 'send'):
-        msg = {
-            "command": command,
-            "queue_name": queue_name,
-            "is_base64": is_base64,
-            "text": text,
-            "num_messages": num_messages    
-        }
-    else: 
-        msg = {
-            "command": command,
-        }
-    
-    json_msg = json.dumps(msg)
-    try:
-        response = requests.post(post_url, json=json_msg)
-    
-        print(response)
-        if (response.status_code != 200):
-            print("Error: " + str(response.status_code) + " " + response.text)
-            return
-        # stilll here
-        if (command == 'stat'): 
-            do_stat(response.json())
+def do_stat(json_response):
+    NANO_TO_SECONDS = 1000000000
+    return_data_str = json_response['return_data']
+    return_data_threads = json.loads(json.loads(return_data_str))
+    res = ""
+    for thread_stat in return_data_threads:
+        first_ns  = thread_stat['first_ns']
+        last_ns  = thread_stat['last_ns']
+        elapsed = last_ns - first_ns 
+        num_measurements = thread_stat['num_measurements']
+        if num_measurements == 0:
+            average_sec = 0 
         else:
-            print(response.json())
-    except requests.exceptions.ConnectionError as errc:
-           print(f'So there was no luck with {post_url} gracefully exiting')
-           print ("Error Connecting:",errc)
-       
-    # Maybe set up for a retry, or continue in a retry loop
-    except requests.exceptions.RequestException as e:
-        print("will that didn't work out exiting")
-        raise Exception(e)
+            average_sec = (elapsed / num_measurements)/ NANO_TO_SECONDS
+          
+        name  = thread_stat['name']
+        first_ns_str = datetime.fromtimestamp(first_ns/NANO_TO_SECONDS).strftime('%H:%M:%S.%f')
+        last_ns_str = datetime.fromtimestamp(last_ns/NANO_TO_SECONDS).strftime('%H:%M:%S.%f')
+        res += f'<br>{name} start {first_ns_str} end {last_ns_str} {num_measurements} elapsed:{elapsed/NANO_TO_SECONDS:.2f} average per sec: {average_sec:.4f}' 
+    return res
+
+
 
 #-------------------------------
 # local tests

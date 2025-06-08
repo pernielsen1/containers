@@ -2,7 +2,8 @@
     "name": "crypto_server", 
     "description": "Simulates being the client connects on 4242 and sends in test message",
     "log_level": 10,
-    "CommandPort": 8076,
+     "server" : "localhost",
+    "command_port": 8076,
     "filters"   : {
         "crypto_answer": {
             "module": "crypto_filters",
