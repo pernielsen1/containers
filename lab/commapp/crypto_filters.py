@@ -6,11 +6,21 @@ import requests
 import iso8583
 from iso_spec import test_spec
 
-
+from sendmsg import build_iso_message
 from communication_app import Message, Filter, CommunicationApplication   
 
 import pn_utilities.crypto.PnCrypto as PnCrypto
 
+class utils:
+    # convert a base64 str to a bytes and then to string
+    @staticmethod
+    def base64_to_str(base64_str:str, encoding = 'ascii'):
+        return base64.b64decode(base64_str).decode(encoding)
+    # convert a string to bytes and then to base64 as ascii string
+    @staticmethod
+    def str_to_base64(s:str, encoding = 'ascii'):
+        return base64.b64encode(s.encode(encoding)).decode('ascii')
+        
 #-------------------------------------------------------------------------------
 # filter_crypto_answer filter. -  answering crypto requess on the crypto_server.
 # called from "work" in command app - actual request  
@@ -71,8 +81,7 @@ class FilterCryptoRequest(Filter):
         input_dict['what'] = 'arqc'
         input_dict['pan'] = decoded['2']
         input_dict['text'] = decoded['47']
-        input_dict_as_json_bytes = json.dumps(input_dict).encode('ascii')
-        data_base64 = base64.b64encode(input_dict_as_json_bytes).decode('ascii')
+        data_base64 = utils.str_to_base64(json.dumps(input_dict))
         logging.debug(f'data {data_base64} filter: {self.filter_name_to_send}')
         msg = {
             "command": "work",
@@ -87,8 +96,7 @@ class FilterCryptoRequest(Filter):
                 return
             # stilll here place the response (return_data. data_base64 in field 47
             json_response = response.json()
-            data_base64 = json_response['return_data']['data_base64']
-            decoded['47'] = base64.b64decode(data_base64).decode('ascii')
+            decoded['47'] = utils.base64_to_str(json_response['return_data']['data_base64'])
             new_iso_raw, encoded =  iso8583.encode(decoded, test_spec)
             return Message(new_iso_raw)
                         
@@ -130,8 +138,7 @@ class FilterCryptoResponse(Filter):
         input_dict['arqc'] = field_47_dict['arqc']
         input_dict['text'] = decoded['47']
 
-        input_dict_as_json_bytes = json.dumps(input_dict).encode('ascii')
-        data_base64 = base64.b64encode(input_dict_as_json_bytes).decode('ascii')
+        data_base64 = utils.str_to_base64(json.dumps(input_dict))
         logging.debug(f'data {data_base64} filter: {self.filter_name_to_send}')
         msg = {
             "command": "work",
@@ -146,12 +153,8 @@ class FilterCryptoResponse(Filter):
                 return
             # stilll here
             json_response = response.json()
-#            data_base64 = json_response['return_data']['data_base64']
-#            data = base64.b64decode(data_base64)      
+            decoded['47'] = utils.base64_to_str(json_response['return_data']['data_base64'])
 
-            json_response = response.json()
-            data_base64 = json_response['return_data']['data_base64']
-            decoded['47'] = base64.b64decode(data_base64).decode('ascii')
             new_iso_raw, encoded =  iso8583.encode(decoded, test_spec)
             return Message(new_iso_raw)
 
@@ -179,7 +182,6 @@ if __name__ == "__main__":
     filter_crypto_request = FilterCryptoRequest(middle_app, "crypto_request")
     filter_crypto_response = FilterCryptoResponse(middle_app, "crypto_response")
 
-    from sendmsg import build_iso_message
     test_iso_message = Message(build_iso_message(test_case_name='test_case_1'))
     result = filter_crypto_request.run(test_iso_message)
     # make a reply
