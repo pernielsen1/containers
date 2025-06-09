@@ -1,6 +1,8 @@
 {
     "name": "console",
+    "server": "localhost",
+    "port": 8070,
     "config_dir": "config",
-    "test_case_file": "sendmsg.json",
-    "test_process": "client"
+    "test_case_file": "sendmsg.json"
+
 }

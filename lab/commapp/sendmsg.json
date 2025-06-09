@@ -1,6 +1,9 @@
 {
     "name": "sendmsg test cases", 
     "description": "Contains test cases which can be converted to iso 8583 message and sent in",
+    "test_process_name": "client",
+    "test_process_queue_name": "to_middle",
+ 
     "tests"   : {
         "test_case_1": {
             "description": "First iso 0100 test",

@@ -1,9 +1,8 @@
 ToDo: 
 create response worker - alters 0100 to 0110 and adds a decline or approval Filter BackendSimulator
-add a "reset" to the stats page 
-add a "send-test" - they are now listed.
-add a "return" buttom to overview. - link home.
 and get a status... implement "ping"
+
+
 
 
 ./sendmsg.sh 8077 test to_middle "test_case_1" 1
