@@ -1,6 +1,7 @@
 ToDo: 
 create response worker - alters 0100 to 0110 and adds a decline or approval Filter BackendSimulator
-and get a status... implement "ping"
+clean up move console & sendmsg to config dir
+clean up get_name + set_name in thread... and others  ?
 
 
 

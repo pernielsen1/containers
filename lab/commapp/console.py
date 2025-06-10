@@ -9,6 +9,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import iso8583
 from iso_spec import test_spec
+NANO_TO_SECONDS = 1000000000
+TIME_TO_SECONDS = 1000
 
 
 # inheritance from HTTP-server let's us store an object where we have the data - the console_app
@@ -115,6 +117,10 @@ class RequestHandler(BaseHTTPRequestHandler):
                 result += do_stat(response.json())
             if msg['command'] in ('send', 'reset'):
                 result += f"Command {msg['command']} successfull !"
+            if msg['command'] in ('threads', 'ping'):
+                result = response.json()
+    
+
             return result
 
         except requests.exceptions.ConnectionError as errc:
@@ -137,8 +143,30 @@ class RequestHandler(BaseHTTPRequestHandler):
     def get_process(self, process_name):
         url = self.console_app.processes[process_name].get('url', 'What ?')
         description = self.console_app.processes[process_name].get('description', 'What ?')
-        return "you want to see " + process_name + ' ' + description + " url" + url
+        res = "you want to see " + process_name + ' ' + description + " url" + url
+        threads = self.run_command(process_name,{ "command": "threads"})
+        res += "<table><tr><th>name</th><th>heartbeat</th><th>active</th><th>class</th><th>native_id</th></tr>"
+        for key, t in threads['return_data'].items():
+            heartbeat_str = datetime.fromtimestamp(t['heartbeat']/TIME_TO_SECONDS).strftime('%H:%M:%S.%f')
+            res += f'<tr><td>{t['name']}</td><td>{heartbeat_str}</td><td>{t['active']}</td><td>{t['class']}</td><td>{key}</td></tr>' 
 
+        res += "</table>"
+        return res
+
+    # do a ping and see if we get a result OK 
+    def check_ping(self, process_name):
+        result =  self.run_command(process_name,{ "command": "ping"})
+        heartbeat= time.time()
+        heartbeat_str = datetime.fromtimestamp(heartbeat/TIME_TO_SECONDS).strftime('%H:%M:%S.%f')
+        if isinstance(result, dict):
+            color="green"
+            text="OK " + heartbeat_str 
+        else:
+            color="red"
+            text = "Failed " + heartbeat_str + str(result)
+
+        return f'<p style="color:{color}">{text}</p>'
+        
 
     def run_test(self, test_case):
         if (test_case is None):
@@ -164,12 +192,14 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def do_index(self,key):
         index_page =  "<h2>Processes</h2>"
-        process_table = "<table><tr><th>process</th><th>statistics</th><th>reset</th></tr>" 
+        process_table = "<table><tr><th>process</th><th>statistics</th><th>reset</th><th>status</status></tr>" 
         for process_name in self.console_app.processes:
+            status = self.check_ping(process_name)
             process_table += "<tr>"
             process_table += f'<td><a href={self.host_uri}/processes/{process_name}>{process_name}</td>'
             process_table += f'<td><a href={self.host_uri}/statistics/{process_name}>stats for {process_name}</a></td>'
             process_table += f'<td><a href={self.host_uri}/reset/{process_name}>reset for {process_name}</a></td>'
+            process_table += f'<td>{status}</td>'
             process_table += "</tr>"
 
         process_table +='</table>'
@@ -206,7 +236,6 @@ class RequestHandler(BaseHTTPRequestHandler):
 
 
 def do_stat(json_response):
-    NANO_TO_SECONDS = 1000000000
     return_data_str = json_response['return_data']
     return_data_threads = json.loads(json.loads(return_data_str))
     res = "<table><tr><th>process</th><th>start</th><th>end</th><th>num msg</th><th>elapsed</th><th>avg pr sec</th></tr>"

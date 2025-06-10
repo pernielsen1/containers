@@ -52,8 +52,6 @@ class Message:
     def get_json(self):
         return self.msg
 
-    def get_create_ns(self):
-        return self.msg["time_created_ns"]
 
 class Measurements():
     def __init__(self, name: str, capacity:int = 5):
@@ -93,6 +91,8 @@ class Measurements():
         return_dict = {'name': self.name, 'first_ns' : self.first_ns, 'last_ns': self.last_ns, 'num_measurements': self.num_measurements, 
                        'top_list': self.measurements }
         return return_dict 
+    
+
     
 # CommunicationApplication class
 class CommunicationApplication:
@@ -177,6 +177,13 @@ class CommunicationApplication:
         for thread in self.threads:
             if thread.measurements:
                 thread.measurements.reset() 
+    
+    def get_threads(self):
+        return_dict = {}
+        for t in self.threads:
+            return_dict[t.native_id] = {'name': t.name, 'active': t.active, 'heartbeat': t.heartbeat, 'class': type(t).__name__ }
+        return return_dict 
+
  
 class Filter:
     def __init__(self, app: CommunicationApplication, name:str):
@@ -224,7 +231,7 @@ class WorkerThread(CommunicationThread):
             if message:
                 start_ns = time.time_ns()
                 logging.debug(f"Worker {self.name} received message {message.get_data()} to queue {self.to_queue_name}")
-                # the the work =  apply the filter.
+                # the work =  apply the filter.
                 if self.filter is not None:
                     message = self.filter.run(message)
                 # and send the message to the to_queue
@@ -435,7 +442,7 @@ class CommandHandler(BaseHTTPRequestHandler):
                 self.send_error(400, {"error": "Missing 'command' field"})
                 return
             command = command.lower()
-            if command not in ['stop', 'stat', 'reset', 'send', 'work', 'debug', 'info']:
+            if command not in ['stop', 'stat', 'reset', 'send', 'work', 'debug', 'info', 'ping', 'threads']:
                 self.send_error(400, {"error": f"Invalid command '{command}'"})
                 return
 
@@ -459,8 +466,14 @@ class CommandHandler(BaseHTTPRequestHandler):
             if command == 'reset':
                 logging.info("reset command received")
                 self.app.reset_measurements()
-                return_data = json.dumps(self.app.get_measurements())
 
+            if command == 'threads':
+                logging.info("reset command received")
+                return_data = self.app.get_threads()
+                print(return_data)
+
+            if command == 'ping':
+                logging.debug("ping - do nothing")
 
             if command == 'send':
                 queue_name = data.get('queue_name', None)
@@ -521,19 +534,6 @@ class CommandHandler(BaseHTTPRequestHandler):
             self._set_headers()
             self.wfile.write(json.dumps({"error": str(e)}).encode())
 
-    def do_GET(self):
-        logging.info("received" + str(self.path))
-
-        if self.path.startswith('/command/stop'):
-            queue_name = self.path.split('/')[-1]
-            message = Message('stop')
-            self.app.add_queue(queue_name).put(message)
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b'Command received')
-        else:
-            self.send_response(404)
-            self.end_headers()
  
 # Main function
 if __name__ == "__main__":
