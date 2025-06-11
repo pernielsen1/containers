@@ -7,7 +7,7 @@ import iso8583
 from iso_spec import test_spec
 
 from sendmsg import build_iso_message
-from communication_app import Message, Filter, CommunicationApplication   
+from communication_app import Message, Filter, CommunicationApplication, QueueObject   
 
 import pn_utilities.crypto.PnCrypto as PnCrypto
 
@@ -20,7 +20,45 @@ class utils:
     @staticmethod
     def str_to_base64(s:str, encoding = 'ascii'):
         return base64.b64encode(s.encode(encoding)).decode('ascii')
+
+#-------------------------------------------------------------------------------
+# filter_backend_simulator.  simulate being the backend i.e. 
+# take the 0100 message and create a 0110 - starts with the same code as 0110
+#---------------------------------------------------------------------------------
+class FilterBackendSimulator(Filter):
+    pans = {
+        "5656781234567891": "00", 
+        "5656424242424242": "01"
+    }
+
+    def __init__(self, app:CommunicationApplication , name:str):
+        super().__init__(app, name)
+        # Add the queue to the application - if not already there
+        if 'to_middle' not in self.app.queues:
+            logging.debug('Creating new queue to_middle')
+        #    self.app.queues['to_middle'] = QueueObject('to_middle', self.app.config)
         
+    def run(self, message):
+        data = message.get_data()
+        logging.debug(f"backend simulator filter received message: {data}")
+        try:
+            decoded, encoded = iso8583.decode(data, test_spec)
+        except Exception as e:
+            # TBD what should error handling be in such a case
+            logging.error("iso decode failed exiting silent !")
+            return message
+
+        pan = decoded['2']
+        decoded['39'] = self.pans.get(pan, "99")
+        decoded['t'] = '0110'
+
+        new_iso_raw, encoded =  iso8583.encode(decoded, test_spec)
+        out_message = Message(new_iso_raw)
+        logging.debug(f"backend simulator filter answered: {new_iso_raw}")
+        # self.app.queues['to_middle'].put(out_message)
+        
+        return out_message
+
 #-------------------------------------------------------------------------------
 # filter_crypto_answer filter. -  answering crypto requess on the crypto_server.
 # called from "work" in command app - actual request  

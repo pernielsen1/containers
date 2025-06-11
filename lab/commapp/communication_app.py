@@ -181,7 +181,7 @@ class CommunicationApplication:
     def get_threads(self):
         return_dict = {}
         for t in self.threads:
-            return_dict[t.native_id] = {'name': t.name, 'active': t.active, 'heartbeat': t.heartbeat, 'class': type(t).__name__ }
+            return_dict[t.native_id] = {'name': t.name, 'active': t.active, 'heartbeat': t.heartbeat, 'class': type(t).__name__ , "state" : t.state}
         return return_dict 
 
  
@@ -196,6 +196,11 @@ class Filter:
         
 # CommunicationThread class
 class CommunicationThread(threading.Thread):
+    INITIALIZED="Initialized"
+    STARTED="Started"
+    RUNNING="Running"
+    DONE="Done"
+
     def __init__(self, app, name, queue_name, filter_name=None):
         super().__init__()
         self.app = app
@@ -208,11 +213,9 @@ class CommunicationThread(threading.Thread):
         self.filter = app.get_filter(self.filter_name)
         self.measurements = None # will be overridden in worker thread..
         logging.info(f'App:{self.app.name} initializing {self.name} with queue[{self.queue_name}], filter={self.filter_name}')
-
+        self.state = self.INITIALIZED
     def run(self):
-        while self.active:
-            self.heartbeat = time.time()
-            time.sleep(0.5)
+        pass
      
 # WorkerThread class
 class WorkerThread(CommunicationThread):
@@ -225,6 +228,7 @@ class WorkerThread(CommunicationThread):
             self.to_queue = app.add_queue(to_queue_name)
 
     def run(self):
+        self.state=self.RUNNING
         while self.active:
             self.heartbeat = time.time()
             message = self.queue.get(500)
@@ -239,6 +243,7 @@ class WorkerThread(CommunicationThread):
                     self.to_queue.put(message)
                     logging.debug(f"Worker {self.name} put message {message.get_data()} to queue {self.to_queue.name}")
                 self.measurements.add_measurement(start_ns)
+        self.state=self.DONE
 
 # SocketReceiverThread class
 class SocketReceiverThread(CommunicationThread):
@@ -248,6 +253,7 @@ class SocketReceiverThread(CommunicationThread):
         self.length_field_type = length_field_type
 
     def run(self):
+        self.state=self.RUNNING
         logging.info(f'Starting {self.name} receiving from socket sending to queue[{self.queue_name}]')
         while self.active:
             self.heartbeat = time.time()
@@ -270,6 +276,7 @@ class SocketReceiverThread(CommunicationThread):
 
         self.socket.close()
         logging.info(f"Time to stop {self.name}")
+        self.state=self.DONE
 
 # SocketSenderThread class
 class SocketSenderThread(CommunicationThread):
@@ -279,6 +286,7 @@ class SocketSenderThread(CommunicationThread):
         self.length_field_type = length_field_type
 
     def run(self):
+        self.state=self.RUNNING
         logging.info(f'Starting {self.name} receiving from queue[{self.queue_name}] sending to socket')
 
         while self.active:
@@ -299,6 +307,7 @@ class SocketSenderThread(CommunicationThread):
 
         self.socket.close()
         logging.info(f"Time to stop {self.name}")
+        self.state=self.DONE
 
 # BigMamaThread class
 class BigMamaThread(CommunicationThread):
@@ -306,10 +315,11 @@ class BigMamaThread(CommunicationThread):
         super().__init__(app, name, queue_name, filter_name)
 
     def run(self):
+        self.state=self.RUNNING
         while self.active:
             self.heartbeat = time.time()
             for thread in self.app.threads:
-                if time.time() - thread.heartbeat > 30:
+                if (time.time() - thread.heartbeat > 30) and thread.state != self.DONE:
                     logging.error(f"Thread {thread.name} is inactive and all will be stopped.")
                     self.app.stop()
 
@@ -318,6 +328,7 @@ class BigMamaThread(CommunicationThread):
                 logging.info(f"command {command} received to big_mama")
 
         logging.info(f"Time to stop {self.name}")
+        self.state=self.DONE
 
 # ConnectThread class
 class EstablishConnectionThread(CommunicationThread):
@@ -333,6 +344,7 @@ class EstablishConnectionThread(CommunicationThread):
         self.received_filter_name = filter_name
 
     def run(self):
+        self.state=self.RUNNING
         # first part = establish connection outbound or accept client inbound
         if self.type == 'listen':
             self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -340,9 +352,8 @@ class EstablishConnectionThread(CommunicationThread):
             self.listen_socket.bind((self.host, self.port))
 
         logging.info(f'{self.name} waiting for Establish {self.port} type:{self.type}')
-        connection_ready = False
         # waiting to connect to host of for client to connect
-        while self.active and connection_ready is False:
+        while self.active and self.state == self.RUNNING:
             logging.debug(f'{self.name} waiting for Establish {self.port} type:{self.type}')
             self.heartbeat = time.time()
 
@@ -351,15 +362,15 @@ class EstablishConnectionThread(CommunicationThread):
                     self.socket.settimeout(10)
                     self.socket.connect((self.host, self.port))
                     logging.info(f'Connected to server {self.name} on port {self.port}')
-
+                    self.state=self.DONE
                 elif self.type == 'listen':
                     self.listen_socket.listen(5)  # listen for incoming connections 
                     self.socket, addr  = self.listen_socket.accept()
                     self.socket.settimeout(10)  # still here set socket = client timeout
                     logging.info(f'Client accepted by {self.name} from {addr}')
-
+                    self.listen_socket.close()
+                    self.state = self.DONE
                 # still here we have a connection
-                connection_ready = True
                 receiver_thread = SocketReceiverThread(self.app, self.name + '_socket_to_queue', self.socket, self.length_field_type, 
                                                      self.socket_to_queue, self.received_filter_name)
                 sender_thread = SocketSenderThread(self.app, self.name + '_queue_to_socket', self.socket, self.length_field_type, 
@@ -377,19 +388,7 @@ class EstablishConnectionThread(CommunicationThread):
                 logging.error(f"Error in {self.name} connection: {e}")
                 time.sleep(5) # tbd should it be removed - if we get connect error we might as well wait..
                 pass    
-
-        while self.active:
-            self.heartbeat = time.time()
-            command = self.queue.get(500)
-            if command and command.get_string() == 'stop':
-                self.active = False
-                self.receiver_thread.active = False
-                self.sender_thread.active = False
-
-        # TBD - should we just do this after established connection ?
-        if (self.type == "listen"):
-            self.listen_socket.close()
-        logging.info(f"Time to stop {self.name}")
+        self.active =  False
 
 # CommandThread class
 class CommandThread(CommunicationThread):
@@ -397,6 +396,7 @@ class CommandThread(CommunicationThread):
         super().__init__(app, name, queue_name, filter_name)
         self.port = port
     def run(self):
+        self.state=self.RUNNING
         logging.info(f'command server for {self.name} started on {self.port}')
         server = HTTPServer(('localhost', self.port), CommandHandler)
         server.timeout = 20
@@ -405,6 +405,7 @@ class CommandThread(CommunicationThread):
             logging.debug("Command ready")
             server.handle_request()
         logging.info(f"Time to stop guess I am last man standing {self.name}")
+        self.state=self.DONE
 
 class CommandHandler(BaseHTTPRequestHandler):
     def setup(self):

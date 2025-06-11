@@ -4,10 +4,18 @@
     "log_level": 10,
     "server" : "localhost",
     "command_port": 8079,
+    "filters"   : {
+        "filter_backend_simulator": {
+            "module": "crypto_filters",
+            "class": "FilterBackendSimulator",
+            "description": "simulate backend 0100 becomes 0110"
+        }
+    },
     "workers": {
-        "echo_worker": {
-            "description": "Echoes back the received data",
-            "in_queue": "echo_in",
+        "backend_simulator": {
+            "description": "simulating backend 0100 becomes 0110",
+            "in_queue": "backend_simulator_in",
+            "filter_name": "filter_backend_simulator",
             "to_queue": "to_middle"
         }
     },
@@ -15,7 +23,7 @@
     "routers": {
         "router_1": {
             "type": "listen",
-            "socket_to_queue": "echo_in",
+            "socket_to_queue": "backend_simulator_in",
             "queue_to_socket": "to_middle",
             "host": "localhost",
             "port": 4243               

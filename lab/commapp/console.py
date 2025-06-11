@@ -148,7 +148,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         res += "<table><tr><th>name</th><th>heartbeat</th><th>active</th><th>class</th><th>native_id</th></tr>"
         for key, t in threads['return_data'].items():
             heartbeat_str = datetime.fromtimestamp(t['heartbeat']/TIME_TO_SECONDS).strftime('%H:%M:%S.%f')
-            res += f'<tr><td>{t['name']}</td><td>{heartbeat_str}</td><td>{t['active']}</td><td>{t['class']}</td><td>{key}</td></tr>' 
+            res += f'<tr><td>{t['name']}</td><td>{heartbeat_str}</td><td>{t['active']}</td><td>{t['class']}</td><td>{key}</td><td>{t['state']}</td></tr>' 
 
         res += "</table>"
         return res
