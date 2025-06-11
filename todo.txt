@@ -1,6 +1,6 @@
 ToDo: next
 https://code.visualstudio.com/docs/copilot/overview
-
+https://superuser.com/questions/307624/how-to-close-or-unbind-a-port-left-open-by-a-rogue-application
 socket stop... 
 rename server to socket and client to queue...  ? no what then with the socket to socket - variant...
 
