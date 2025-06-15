@@ -75,12 +75,15 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.host_uri = "http://" + self.console_app.server + ":" +  str(self.console_app.port) 
 
         self.routes = {
-            'index': self.do_index, 
-            '': self.do_index, 
-            'statistics': self.get_statistics, 
-            'reset': self.do_reset, 
-            'testcases' : self.run_test,
-            'processes' : self.get_process 
+            "index": {"text":"index", "function" :self.do_index, "menu": "index", "data_func": None}, 
+            "": {"text" : "index", "function": self.do_index, "menu" : "index", "data_func": None},
+            'processes' : {"text": "{key}", "function": self.get_process, "menu": "processes", "data_func" : self.get_link}, 
+            "statistics": {"text": "show stats", "function": self.get_statistics, "menu": "processes", "data_func": self.get_link}, 
+            "reset": {"text": "reset stats", "function": self.do_reset, "menu": "processes", "data_func": self.get_link}, 
+            "stop": {"text": "stop", "function": self.do_stop, "menu": "processes", "data_func": self.get_link}, 
+
+            'status' : {"text": "status", "function": self.get_process, "menu": "processes", "data_func" : self.get_status}, 
+            "testcases" : {"text": "test cases", "function": self.run_test, "menu" : "testcases", "data_func": self.get_link}
         }
 
 
@@ -133,9 +136,16 @@ class RequestHandler(BaseHTTPRequestHandler):
     #------------------------------------------
     def do_reset(self, process_name):
         if process_name is None:
-            return " you want to reset all testcases"
+            return " you want to reset all processes - not implemented"
         else:
             return self.run_command(process_name,{ "command": "reset"})
+    
+    def do_stop(self, process_name):
+        if process_name is None:
+            return " you want to stop all processes - not implemented"
+        else:
+            return self.run_command(process_name,{ "command": "stop"})
+
     #
     def get_statistics(self, process_name):
         return self.run_command(process_name,{ "command": "stat"})
@@ -143,9 +153,9 @@ class RequestHandler(BaseHTTPRequestHandler):
     def get_process(self, process_name):
         url = self.console_app.processes[process_name].get('url', 'What ?')
         description = self.console_app.processes[process_name].get('description', 'What ?')
-        res = "you want to see " + process_name + ' ' + description + " url" + url
+        res = "you want to see " + process_name + ' ' + description + " url:" + url
         threads = self.run_command(process_name,{ "command": "threads"})
-        res += "<table><tr><th>name</th><th>heartbeat</th><th>active</th><th>class</th><th>native_id</th></tr>"
+        res += "<table><tr><th>name</th><th>heartbeat</th><th>active</th><th>class</th><th>native_id</th><th>state</th></tr>"
         for key, t in threads['return_data'].items():
             heartbeat_str = datetime.fromtimestamp(t['heartbeat']/TIME_TO_SECONDS).strftime('%H:%M:%S.%f')
             res += f'<tr><td>{t['name']}</td><td>{heartbeat_str}</td><td>{t['active']}</td><td>{t['class']}</td><td>{key}</td><td>{t['state']}</td></tr>' 
@@ -167,7 +177,6 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         return f'<p style="color:{color}">{text}</p>'
         
-
     def run_test(self, test_case):
         if (test_case is None):
             return "You want to see all test cases"
@@ -189,33 +198,46 @@ class RequestHandler(BaseHTTPRequestHandler):
         }
         return result + self.run_command(process_name, msg)
 
+    def get_link(self, process_name, key, item): 
+            line = f'<td><a href={self.host_uri}/{key}/{process_name}>{item['text']}</td>'
+            line = line.replace("{key}", process_name)
+            return line
 
+    def get_status(self, process_name, key, item):
+        status = self.check_ping(process_name)
+        return f'<td>{status}</td>'
+    
     def do_index(self,key):
-        index_page =  "<h2>Processes</h2>"
-        process_table = "<table><tr><th>process</th><th>statistics</th><th>reset</th><th>status</status></tr>" 
+
+        index_page =  ""
+        # header row
+        process_table = "<h2>Processes</h2>"
+        process_table += "<table><tr>" 
+        for key, item in self.routes.items():
+                if (item['menu'] == 'processes'):
+                    process_table += f'<th>{item['text']}</th>'
+        process_table += "</tr>"
+
         for process_name in self.console_app.processes:
-            status = self.check_ping(process_name)
             process_table += "<tr>"
-            process_table += f'<td><a href={self.host_uri}/processes/{process_name}>{process_name}</td>'
-            process_table += f'<td><a href={self.host_uri}/statistics/{process_name}>stats for {process_name}</a></td>'
-            process_table += f'<td><a href={self.host_uri}/reset/{process_name}>reset for {process_name}</a></td>'
-            process_table += f'<td>{status}</td>'
+            for key, item in self.routes.items():
+                if (item['menu'] == 'processes'):
+                    # run the data func for the item and get a link or status in return
+                    process_table += item['data_func'](process_name, key, item)
             process_table += "</tr>"
-
         process_table +='</table>'
-        index_page += process_table
-
-        index_page += "<h2>test cases</h2>"        
-        testcase_table = "<table><tr><th>test cases</th></tr>" 
+     
+        testcase_table = "<h2>test cases</h2>"        
+        testcase_table += "<table><tr><th>test cases</th></tr>" 
         for test_case in self.console_app.test_cases:
             testcase_table += "<tr>"
             testcase_table +=f'<td><a href={self.host_uri}/testcases/{test_case}>{test_case}</a></td>'
             testcase_table += "</tr>"
         testcase_table +='</table>'
-        return index_page + testcase_table
-#--------------------------
+        return index_page + process_table + testcase_table
+#-----------------------------------
 # do_GET - the main traffic control
-#---------------------------
+#-----------------------------------
     def do_GET(self):
         self._set_headers('html')  
         home_buttom_html = f'<a href="{self.host_uri}"><button>to the main page</button></a>'
@@ -224,12 +246,14 @@ class RequestHandler(BaseHTTPRequestHandler):
         page_body = "<h1>commapp console</h1>"
         page_end =  "</body></html>"
   
-        route = self.path.split('/')[+1]
-        function = self.routes.get(route, None)
-        if function is not None:
+        route_str = self.path.split('/')[+1]
+        route = self.routes.get(route_str, None)
+        if route is not None:
+            function = route['function']
             key = self.path.split('/')[-1]
             page_body += function(key)
-            
+        else:
+            logging.error("did not find route for {route_str}")
         page_body += "<h1>bottom<h1>"
         page = page_start + css + page_body + home_buttom_html + page_end 
         self.wfile.write(bytes(page, 'UTF-8'))

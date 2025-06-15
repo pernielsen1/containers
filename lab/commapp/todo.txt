@@ -1,9 +1,19 @@
 ToDo: 
-create response worker - alters 0100 to 0110 and adds a decline or approval Filter BackendSimulator
+MAMA logic. .. kill when inactive
+DEAMON_MAMA... - application
+See at allt stopper när man dräber en...  mama borde stoppe dom andre - det gör den inte nu ? 
+
+Windows - execute the govenv when starting up
+
+One app starts more than one app ?... hmmm 
+
 clean up move console & sendmsg to config dir
-clean up get_name + set_name in thread... and others  ?
+Listen still binds ? 
 
 
+Done:
+Listen socket closed plus establish is set to done and state seen in console
+open terminals in windows.
 
 
 ./sendmsg.sh 8077 test to_middle "test_case_1" 1

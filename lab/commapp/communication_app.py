@@ -52,7 +52,6 @@ class Message:
     def get_json(self):
         return self.msg
 
-
 class Measurements():
     def __init__(self, name: str, capacity:int = 5):
         self.measurements = []
@@ -91,8 +90,6 @@ class Measurements():
         return_dict = {'name': self.name, 'first_ns' : self.first_ns, 'last_ns': self.last_ns, 'num_measurements': self.num_measurements, 
                        'top_list': self.measurements }
         return return_dict 
-    
-
     
 # CommunicationApplication class
 class CommunicationApplication:
@@ -183,7 +180,6 @@ class CommunicationApplication:
         for t in self.threads:
             return_dict[t.native_id] = {'name': t.name, 'active': t.active, 'heartbeat': t.heartbeat, 'class': type(t).__name__ , "state" : t.state}
         return return_dict 
-
  
 class Filter:
     def __init__(self, app: CommunicationApplication, name:str):
@@ -271,8 +267,12 @@ class SocketReceiverThread(CommunicationThread):
                 logging.debug(f'{self.name} sending message to queue[{self.queue.name}]: {data}')
 
                 self.queue.put(message)
-            except:
-                pass
+            except socket.timeout:
+            #    print("Didn't receive data! [Timeout 5s]")
+                continue
+            except Exception as e:
+                self.active = False
+                logging.error(f'{self.name} had an error {e}')
 
         self.socket.close()
         logging.info(f"Time to stop {self.name}")
@@ -290,20 +290,24 @@ class SocketSenderThread(CommunicationThread):
         logging.info(f'Starting {self.name} receiving from queue[{self.queue_name}] sending to socket')
 
         while self.active:
-            self.heartbeat = time.time()
-            message = self.queue.get(500)
-            if message:
-                data = message.get_data()
-                length = len(data)
-                if self.filter:
-                    message = self.filter.run(message)
-                if self.length_field_type == 'ascii_4':
-                    length_field = f"{length:04}".encode('ascii')
-                elif self.length_field_type == 'binary_4':
-                    length_field = length.to_bytes(4, 'big')
-                logging.debug(f'Sending length field: {length_field} with data: {data}')
-                self.socket.send(length_field)
-                self.socket.send(data)
+            try:
+                self.heartbeat = time.time()
+                message = self.queue.get(500)
+                if message:
+                    data = message.get_data()
+                    length = len(data)
+                    if self.filter:
+                        message = self.filter.run(message)
+                    if self.length_field_type == 'ascii_4':
+                        length_field = f"{length:04}".encode('ascii')
+                    elif self.length_field_type == 'binary_4':
+                        length_field = length.to_bytes(4, 'big')
+                    logging.debug(f'Sending length field: {length_field} with data: {data}')
+                    self.socket.send(length_field)
+                    self.socket.send(data)
+            except Exception as e:
+                self.active = False
+                logging.error(f'Sender {self.name} had an error {e}')
 
         self.socket.close()
         logging.info(f"Time to stop {self.name}")
@@ -319,11 +323,23 @@ class BigMamaThread(CommunicationThread):
         while self.active:
             self.heartbeat = time.time()
             for thread in self.app.threads:
-                if (time.time() - thread.heartbeat > 30) and thread.state != self.DONE:
-                    logging.error(f"Thread {thread.name} is inactive and all will be stopped.")
-                    self.app.stop()
-
-            command = self.queue.get(1500)   
+                if (time.time() - thread.heartbeat > 30):
+                    if thread.state != self.DONE:
+                        logging.error(f"Thread {thread.name} is inactive and all will be stopped")
+                        self.app.stop()
+                    else:
+                        if isinstance(thread, EstablishConnectionThread):
+                            logging.info("OK that establish connection is all done will join and remove")
+                            thread.join()
+                            logging.info("OK join ready - remove from list")
+                            self.app.threads.remove(thread)
+                            logging.info("All done removed from list")
+                        else:
+                            logging.error(f"Thread {thread.name} reporting done not OK stopping all")
+                            self.app.stop()
+                # ok if we have wrong thread saying DONE - then we shut down.
+            
+            command = self.queue.get(15000)   
             if (command):
                 logging.info(f"command {command} received to big_mama")
 
