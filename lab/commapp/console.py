@@ -77,13 +77,16 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.routes = {
             "index": {"text":"index", "function" :self.do_index, "menu": "index", "data_func": None}, 
             "": {"text" : "index", "function": self.do_index, "menu" : "index", "data_func": None},
+
             'processes' : {"text": "{key}", "function": self.get_process, "menu": "processes", "data_func" : self.get_link}, 
             "statistics": {"text": "show stats", "function": self.get_statistics, "menu": "processes", "data_func": self.get_link}, 
             "reset": {"text": "reset stats", "function": self.do_reset, "menu": "processes", "data_func": self.get_link}, 
             "stop": {"text": "stop", "function": self.do_stop, "menu": "processes", "data_func": self.get_link}, 
-
             'status' : {"text": "status", "function": self.get_process, "menu": "processes", "data_func" : self.get_status}, 
-            "testcases" : {"text": "test cases", "function": self.run_test, "menu" : "testcases", "data_func": self.get_link}
+
+            "testcases" : {"text": "test cases", "function": self.run_test, "menu" : "testcases", "data_func": self.get_link},
+            "testcases_multi" : {"text": "multiple tests", "function": self.run_multiple_tests, "menu" : "testcases", "data_func": self.get_link}
+
         }
 
 
@@ -176,15 +179,41 @@ class RequestHandler(BaseHTTPRequestHandler):
             text = "Failed " + heartbeat_str + str(result)
 
         return f'<p style="color:{color}">{text}</p>'
-        
-    def run_test(self, test_case):
+
+    def run_multiple_tests(self, test_case):
+        from urllib.parse import urlparse, parse_qs
+        res_dict = parse_qs(urlparse(self.path).query)
+#       print("res dict" + str(res_dict))
+        num_cases = res_dict.get("num_cases",-1)
+        print(num_cases)
+        int_val = int(num_cases[0])
+#       print(num_cases)
+        if int_val > 0:
+            print("time to execute")
+            return(self.run_test(test_case, num_cases))
+#        print("here")
+#        print(test_case)
+#        print(self.path)
+#        print("after")
+#       print(parse_qs(urlparse(self.path).query))
+
+        page = f'<br>You want to run {test_case} multiple times'
+        url = self.host_uri + "/testcases_multi/test_case"  # i.t. this URI probably possible to get easier
+        page +=f'<form action="{url}" method="get">'
+        page += '<label for="num_cases">Number of times to run</label>'
+        page +=  '<input type="text" id="num_cases" name="num_cases" placeholder="0" required />'
+        page += '<button type="submit">Submit</button>'
+        page += '</form>'
+        return page
+    
+    def run_test(self, test_case, num_messages:int= 1):
         if (test_case is None):
             return "You want to see all test cases"
 
         process_name = self.console_app.test_case_file['test_process_name']
         url = self.console_app.processes[process_name].get('url', 'What ?')
         queue_name = self.console_app.test_case_file['test_process_queue_name']
-        num_messages = 1
+#       num_messages = 1
         result = f'trying to send {test_case} to {process_name} on {url}<br>'
             # build the iso message             
         iso_message_raw, encoded = iso8583.encode(self.console_app.test_cases[test_case]['iso_message'], test_spec)
@@ -199,42 +228,34 @@ class RequestHandler(BaseHTTPRequestHandler):
         return result + self.run_command(process_name, msg)
 
     def get_link(self, process_name, key, item): 
-            line = f'<td><a href={self.host_uri}/{key}/{process_name}>{item['text']}</td>'
-            line = line.replace("{key}", process_name)
-            return line
-
+        return  f'<td><a href={self.host_uri}/{key}/{process_name}>{item['text']}</td>'.replace("{key}", process_name)
+  
     def get_status(self, process_name, key, item):
-        status = self.check_ping(process_name)
-        return f'<td>{status}</td>'
-    
-    def do_index(self,key):
+        return f'<td>{self.check_ping(process_name)}</td>'
 
-        index_page =  ""
-        # header row
-        process_table = "<h2>Processes</h2>"
-        process_table += "<table><tr>" 
+    # build a menu - table - based on routes - known    
+    def build_menu(self, menu_name, key_dict):
+        menu = f'<h2>{menu_name}</h2>'
+        menu += "<table><tr>" 
         for key, item in self.routes.items():
-                if (item['menu'] == 'processes'):
-                    process_table += f'<th>{item['text']}</th>'
-        process_table += "</tr>"
-
-        for process_name in self.console_app.processes:
-            process_table += "<tr>"
-            for key, item in self.routes.items():
-                if (item['menu'] == 'processes'):
+            if (item['menu'] == menu_name):
+                menu += f'<th>{item['text']}</th>'
+        menu += "</tr>"
+        for key in key_dict:
+            menu += "<tr>"
+            for route_key, item in self.routes.items():
+                if (item['menu'] == menu_name):
                     # run the data func for the item and get a link or status in return
-                    process_table += item['data_func'](process_name, key, item)
-            process_table += "</tr>"
-        process_table +='</table>'
-     
-        testcase_table = "<h2>test cases</h2>"        
-        testcase_table += "<table><tr><th>test cases</th></tr>" 
-        for test_case in self.console_app.test_cases:
-            testcase_table += "<tr>"
-            testcase_table +=f'<td><a href={self.host_uri}/testcases/{test_case}>{test_case}</a></td>'
-            testcase_table += "</tr>"
-        testcase_table +='</table>'
-        return index_page + process_table + testcase_table
+                    menu += item['data_func'](key, route_key, item)
+            menu += "</tr>"
+        menu += '</table>'
+        return menu
+
+    # build the main page - link of processes and test cases
+    def do_index(self,key):
+        process_table = self.build_menu("processes", self.console_app.processes)
+        testcase_table = self.build_menu("testcases", self.console_app.test_cases) 
+        return process_table + testcase_table
 #-----------------------------------
 # do_GET - the main traffic control
 #-----------------------------------
@@ -253,11 +274,17 @@ class RequestHandler(BaseHTTPRequestHandler):
             key = self.path.split('/')[-1]
             page_body += function(key)
         else:
-            logging.error("did not find route for {route_str}")
+            logging.error(f"did not find route for {route_str}")
         page_body += "<h1>bottom<h1>"
         page = page_start + css + page_body + home_buttom_html + page_end 
         self.wfile.write(bytes(page, 'UTF-8'))
 
+#-----------------------------------
+# do_POST  - just send to do_GET that should work
+#-----------------------------------
+    def do_POST(self):
+        print(self.headers)
+        self.do_GET()
 
 def do_stat(json_response):
     return_data_str = json_response['return_data']

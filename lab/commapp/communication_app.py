@@ -30,6 +30,16 @@ class QueueObject:
         except:
             return None
 
+# Filter - where the real work is done -  (app communication application not defined yet comes below) 
+class Filter:
+    def __init__(self, app: any, name:str):
+        self.app = app
+        self.name = name
+
+    def run(self, message):
+        pass
+        # This method should be overridden by subclasses
+
 # Message class
 class Message:
     def __init__(self, data):
@@ -181,15 +191,6 @@ class CommunicationApplication:
             return_dict[t.native_id] = {'name': t.name, 'active': t.active, 'heartbeat': t.heartbeat, 'class': type(t).__name__ , "state" : t.state}
         return return_dict 
  
-class Filter:
-    def __init__(self, app: CommunicationApplication, name:str):
-        self.app = app
-        self.name = name
-
-    def run(self, message):
-        pass
-        # This method should be overridden by subclasses
-        
 # CommunicationThread class
 class CommunicationThread(threading.Thread):
     INITIALIZED="Initialized"
@@ -410,6 +411,7 @@ class EstablishConnectionThread(CommunicationThread):
 class CommandThread(CommunicationThread):
     def __init__(self, app, name, queue_name, port, filter_name=None):
         super().__init__(app, name, queue_name, filter_name)
+        self.app = app
         self.port = port
     def run(self):
         self.state=self.RUNNING
@@ -418,11 +420,13 @@ class CommandThread(CommunicationThread):
         server.timeout = 20
         while self.active:
             self.heartbeat = time.time()
-            logging.debug("Command ready")
+            if self.app.config.get("command_debug", False):  # to avoid noise possible to set True if really needing in config file
+                logging.debug("Command ready")
             server.handle_request()
         logging.info(f"Time to stop guess I am last man standing {self.name}")
         self.state=self.DONE
 
+# CommandHandler - the actual implementation called when HTTP request is received
 class CommandHandler(BaseHTTPRequestHandler):
     def setup(self):
         BaseHTTPRequestHandler.setup(self)
@@ -550,7 +554,6 @@ class CommandHandler(BaseHTTPRequestHandler):
             self.send_response(500)
             self._set_headers()
             self.wfile.write(json.dumps({"error": str(e)}).encode())
-
  
 # Main function
 if __name__ == "__main__":

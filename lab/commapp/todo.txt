@@ -1,20 +1,17 @@
 ToDo: 
-MAMA logic. .. kill when inactive
 DEAMON_MAMA... - application
+Possible to enter num_messages in console app
 See at allt stopper när man dräber en...  mama borde stoppe dom andre - det gör den inte nu ? 
+In city - take govenv from xo.sh .. improved version inclusig check dir exists.
 
-Windows - execute the govenv when starting up
-
-One app starts more than one app ?... hmmm 
 
 clean up move console & sendmsg to config dir
-Listen still binds ? 
 
+Listen still binds or does it now 20250615 ? 
 
 Done:
 Listen socket closed plus establish is set to done and state seen in console
 open terminals in windows.
-
 
 ./sendmsg.sh 8077 test to_middle "test_case_1" 1
 
