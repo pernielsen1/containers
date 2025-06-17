@@ -1,19 +1,16 @@
 ToDo: 
-DEAMON_MAMA... - application
-make grand central dispatch so it sends all a "Key" from the path + the parameters as dictionary
-
-Possible to enter num_messages in console app
-See at allt stopper när man dräber en...  mama borde stoppe dom andre - det gör den inte nu ? 
-In city - take govenv from xo.sh .. improved version inclusig check dir exists.
+Clean up in console app 
+clean up comm app if possible ?
+Documentation ?
+Install SSL also... 
 
 
-clean up move console & sendmsg to config dir
 
+
+clean up move console & sendmsg to config dir - maybe not a good idea... 
 Listen still binds or does it now 20250615 ? 
 
 Done:
-Listen socket closed plus establish is set to done and state seen in console
-open terminals in windows.
 
 ./sendmsg.sh 8077 test to_middle "test_case_1" 1
 

@@ -138,23 +138,23 @@ class RequestHandler(BaseHTTPRequestHandler):
     #-----------------------------------------
     # the different routes 
     #------------------------------------------
-    def do_reset(self, process_name, parms_dict):
+    def do_reset(self, process_name):
         if process_name is None:
             return " you want to reset all processes - not implemented"
         else:
             return self.run_command(process_name,{ "command": "reset"})
     
-    def do_stop(self, process_name, parms_dict):
+    def do_stop(self, process_name):
         if process_name is None:
             return " you want to stop all processes - not implemented"
         else:
             return self.run_command(process_name,{ "command": "stop"})
 
     #
-    def get_statistics(self, process_name, parms_dict):
+    def get_statistics(self, process_name):
         return self.run_command(process_name,{ "command": "stat"})
 
-    def get_process(self, process_name, parms_dict):
+    def get_process(self, process_name):
         url = self.console_app.processes[process_name].get('url', 'What ?')
         description = self.console_app.processes[process_name].get('description', 'What ?')
         res = "you want to see " + process_name + ' ' + description + " url:" + url
@@ -168,7 +168,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         return res
 
     # do a ping and see if we get a result OK 
-    def check_ping(self, process_name, parms_dict=None):
+    def check_ping(self, process_name):
         result =  self.run_command(process_name,{ "command": "ping"})
         heartbeat= time.time()
         heartbeat_str = datetime.fromtimestamp(heartbeat/TIME_TO_SECONDS).strftime('%H:%M:%S.%f')
@@ -181,13 +181,14 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         return f'<p style="color:{color}">{text}</p>'
 
-    def run_multiple_tests(self, test_case_key, parms_dict):
+    def run_multiple_tests(self, test_case_key):
+        parms_dict = parse_qs(urlparse(self.path).query)  # the possible parms after the ? as dict
         num_cases_tuple = parms_dict.get("num_cases", None)
         if num_cases_tuple is not None:
             num_cases = int(num_cases_tuple[0])
             if num_cases > 0:
                 print("time to execute")
-                return(self.run_test(test_case_key, parms_dict, num_cases))
+                return(self.run_test(test_case_key, num_cases))
 
         page = f'<br>You want to run {test_case_key} multiple times'
         url = self.host_uri + "/testcases_multi/"  # i.t. this URI probably possible to get easier
@@ -199,7 +200,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         page += '</form>'
         return page
     
-    def run_test(self, test_case, parms_dict, num_messages:int= 1):
+    def run_test(self, test_case, num_messages:int= 1):
         if (test_case is None):
             return "You want to see all test cases"
 
@@ -244,7 +245,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         return menu
 
     # build the main page - link of processes and test cases
-    def do_index(self,key, parms_dict):
+    def do_index(self,key):
         process_table = self.build_menu("processes", self.console_app.processes)
         testcase_table = self.build_menu("testcases", self.console_app.test_cases) 
         return process_table + testcase_table
@@ -265,9 +266,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             function = route['function']
             path =  urlparse(self.path).path
             key =  path.split('/')[-1] # a potential key is the last path of the part before parms
-            parms_dict = parse_qs(urlparse(self.path).query)  # the possible parms after the ? as dict
-
-            page_body += function(key, parms_dict)
+            page_body += function(key)
         else:
             logging.error(f"did not find route for {route_str}")
         page_body += "<h1>bottom<h1>"

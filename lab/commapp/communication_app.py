@@ -348,7 +348,11 @@ class BigMamaThread(CommunicationThread):
             
             command = self.queue.get(15000)   
             if (command):
-                logging.info(f"command {command} received to big_mama")
+                text = command.get_string()
+                logging.info(f"command {text} received to big_mama")
+                if text == 'stop':
+                    logging.info(f"stop command received to big_mama")
+                    self.app.stop()
 
         logging.info(f"Time to stop {self.name}")
         self.state=self.DONE
@@ -498,8 +502,10 @@ class CommandHandler(BaseHTTPRequestHandler):
                 return
 
             if command == 'stop':
-                logging.info("Stop command received")
-                self.app.stop()
+                logging.info("Stop command received instructing mama")
+                self.app.add_queue('big_mama').put(Message("stop"))
+
+            #    self.app.stop()
 
             if command == 'debug':
                 logging.info("Debug command received")
