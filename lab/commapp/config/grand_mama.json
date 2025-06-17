@@ -1,0 +1,17 @@
+{
+    "name": "grand_mama", 
+    "description": "Starts all the test comm app backend, middle, client & crypto_server",
+    "log_level": 20,
+    "server" : "localhost",
+    "command_debug": false,
+    "command_port": 8075,
+    "child_apps"   : {
+        "config/crypto_server.json": "The crypto server working in request response HTTP mode",
+        "config/backend.json" : "The backend server",
+        "config/middle.json" : "The man in the middle server",
+        "config/client.json" : "The client server"
+    },
+    "child_apps_y"   : {
+        "config/crypto_server.json": "The crypto server working in request response HTTP mode"
+    }
+} 

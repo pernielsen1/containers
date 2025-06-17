@@ -139,6 +139,12 @@ class CommunicationApplication:
         self.threads.append(big_mama_thread)
         big_mama_thread.start()
 
+        if 'child_apps' in self.config:
+            for child_app_name in self.config['child_apps']:
+                child_app_thread = GrandMamaThread(self, 'grand_mama', 'grand_mama', child_app_name)
+                self.threads.append(child_app_thread)
+                child_app_thread.start()
+
         if 'workers' in self.config:
             for worker_name, worker in self.config['workers'].items():
                 t = WorkerThread(self, worker_name, worker['in_queue'],
@@ -406,6 +412,30 @@ class EstablishConnectionThread(CommunicationThread):
                 time.sleep(5) # tbd should it be removed - if we get connect error we might as well wait..
                 pass    
         self.active =  False
+
+
+# GrandMamaThread(CommunicationThread) starts a communication app ... 
+class GrandMamaThread(CommunicationThread):
+    def __init__(self, app, name, queue_name, child_app_name):
+        super().__init__(app, name, queue_name)
+        self.child_app = CommunicationApplication(child_app_name)
+ 
+
+    def run(self):
+        logging.info(f"Starting communication app{self.child_app.name}")
+        self.child_app.start()
+        self.state=self.RUNNING
+        while self.active:
+            self.heartbeat = time.time()    
+            command = self.queue.get(15000)   
+            if (command):
+                logging.info(f"command {command} received to grand_mama")
+
+        logging.info(f"Time to stop {self.name}")
+        self.state=self.DONE
+
+
+
 
 # CommandThread class
 class CommandThread(CommunicationThread):

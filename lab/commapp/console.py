@@ -6,7 +6,8 @@ import logging
 import time
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
-
+from urllib.parse import urlparse, parse_qs
+  
 import iso8583
 from iso_spec import test_spec
 NANO_TO_SECONDS = 1000000000
@@ -137,23 +138,23 @@ class RequestHandler(BaseHTTPRequestHandler):
     #-----------------------------------------
     # the different routes 
     #------------------------------------------
-    def do_reset(self, process_name):
+    def do_reset(self, process_name, parms_dict):
         if process_name is None:
             return " you want to reset all processes - not implemented"
         else:
             return self.run_command(process_name,{ "command": "reset"})
     
-    def do_stop(self, process_name):
+    def do_stop(self, process_name, parms_dict):
         if process_name is None:
             return " you want to stop all processes - not implemented"
         else:
             return self.run_command(process_name,{ "command": "stop"})
 
     #
-    def get_statistics(self, process_name):
+    def get_statistics(self, process_name, parms_dict):
         return self.run_command(process_name,{ "command": "stat"})
 
-    def get_process(self, process_name):
+    def get_process(self, process_name, parms_dict):
         url = self.console_app.processes[process_name].get('url', 'What ?')
         description = self.console_app.processes[process_name].get('description', 'What ?')
         res = "you want to see " + process_name + ' ' + description + " url:" + url
@@ -167,7 +168,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         return res
 
     # do a ping and see if we get a result OK 
-    def check_ping(self, process_name):
+    def check_ping(self, process_name, parms_dict=None):
         result =  self.run_command(process_name,{ "command": "ping"})
         heartbeat= time.time()
         heartbeat_str = datetime.fromtimestamp(heartbeat/TIME_TO_SECONDS).strftime('%H:%M:%S.%f')
@@ -180,25 +181,17 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         return f'<p style="color:{color}">{text}</p>'
 
-    def run_multiple_tests(self, test_case):
-        from urllib.parse import urlparse, parse_qs
-        res_dict = parse_qs(urlparse(self.path).query)
-#       print("res dict" + str(res_dict))
-        num_cases = res_dict.get("num_cases",-1)
-        print(num_cases)
-        int_val = int(num_cases[0])
-#       print(num_cases)
-        if int_val > 0:
-            print("time to execute")
-            return(self.run_test(test_case, num_cases))
-#        print("here")
-#        print(test_case)
-#        print(self.path)
-#        print("after")
-#       print(parse_qs(urlparse(self.path).query))
+    def run_multiple_tests(self, test_case_key, parms_dict):
+        num_cases_tuple = parms_dict.get("num_cases", None)
+        if num_cases_tuple is not None:
+            num_cases = int(num_cases_tuple[0])
+            if num_cases > 0:
+                print("time to execute")
+                return(self.run_test(test_case_key, parms_dict, num_cases))
 
-        page = f'<br>You want to run {test_case} multiple times'
-        url = self.host_uri + "/testcases_multi/test_case"  # i.t. this URI probably possible to get easier
+        page = f'<br>You want to run {test_case_key} multiple times'
+        url = self.host_uri + "/testcases_multi/"  # i.t. this URI probably possible to get easier
+        url = self.host_uri + self.path 
         page +=f'<form action="{url}" method="get">'
         page += '<label for="num_cases">Number of times to run</label>'
         page +=  '<input type="text" id="num_cases" name="num_cases" placeholder="0" required />'
@@ -206,16 +199,15 @@ class RequestHandler(BaseHTTPRequestHandler):
         page += '</form>'
         return page
     
-    def run_test(self, test_case, num_messages:int= 1):
+    def run_test(self, test_case, parms_dict, num_messages:int= 1):
         if (test_case is None):
             return "You want to see all test cases"
 
         process_name = self.console_app.test_case_file['test_process_name']
         url = self.console_app.processes[process_name].get('url', 'What ?')
         queue_name = self.console_app.test_case_file['test_process_queue_name']
-#       num_messages = 1
         result = f'trying to send {test_case} to {process_name} on {url}<br>'
-            # build the iso message             
+        # build the iso message             
         iso_message_raw, encoded = iso8583.encode(self.console_app.test_cases[test_case]['iso_message'], test_spec)
         text = base64.b64encode(iso_message_raw).decode("ascii")
         msg = {
@@ -252,7 +244,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         return menu
 
     # build the main page - link of processes and test cases
-    def do_index(self,key):
+    def do_index(self,key, parms_dict):
         process_table = self.build_menu("processes", self.console_app.processes)
         testcase_table = self.build_menu("testcases", self.console_app.test_cases) 
         return process_table + testcase_table
@@ -266,13 +258,16 @@ class RequestHandler(BaseHTTPRequestHandler):
         css = "<style>table, th, td {  border: 1px solid black;}</style>"
         page_body = "<h1>commapp console</h1>"
         page_end =  "</body></html>"
-  
+        # the route is the start of the path simple app only one level so far
         route_str = self.path.split('/')[+1]
         route = self.routes.get(route_str, None)
         if route is not None:
             function = route['function']
-            key = self.path.split('/')[-1]
-            page_body += function(key)
+            path =  urlparse(self.path).path
+            key =  path.split('/')[-1] # a potential key is the last path of the part before parms
+            parms_dict = parse_qs(urlparse(self.path).query)  # the possible parms after the ? as dict
+
+            page_body += function(key, parms_dict)
         else:
             logging.error(f"did not find route for {route_str}")
         page_body += "<h1>bottom<h1>"
