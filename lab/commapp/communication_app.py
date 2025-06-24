@@ -116,6 +116,7 @@ class CommunicationApplication:
         self.filters = {}
         self.queues = {}
         self.threads = []
+        self.children = []
         # load filters
         if 'filters' in self.config:
             for filter_name, filter_config in self.config['filters'].items():
@@ -195,6 +196,14 @@ class CommunicationApplication:
         return_dict = {}
         for t in self.threads:
             return_dict[t.native_id] = {'name': t.name, 'active': t.active, 'heartbeat': t.heartbeat, 'class': type(t).__name__ , "state" : t.state}
+        return return_dict 
+    
+    def get_children(self):
+        return_dict = {}
+        for c in self.children:
+            print(c)
+            return_dict[c.name] = {'name': c.name}
+        print(return_dict)
         return return_dict 
  
 # CommunicationThread class
@@ -423,7 +432,7 @@ class GrandMamaThread(CommunicationThread):
     def __init__(self, app, name, queue_name, child_app_name):
         super().__init__(app, name, queue_name)
         self.child_app = CommunicationApplication(child_app_name)
- 
+        self.app.children.append(self.child_app)
 
     def run(self):
         logging.info(f"Starting communication app{self.child_app.name}")
@@ -497,37 +506,33 @@ class CommandHandler(BaseHTTPRequestHandler):
                 self.send_error(400, {"error": "Missing 'command' field"})
                 return
             command = command.lower()
-            if command not in ['stop', 'stat', 'reset', 'send', 'work', 'debug', 'info', 'ping', 'threads']:
+            if command not in ['stop', 'stat', 'reset', 'send', 'work', 'debug', 'info', 'ping', 'threads', 'children']:
                 self.send_error(400, {"error": f"Invalid command '{command}'"})
                 return
-
+            logging.info("command {commend} received")
             if command == 'stop':
-                logging.info("Stop command received instructing mama")
                 self.app.add_queue('big_mama').put(Message("stop"))
 
             #    self.app.stop()
 
             if command == 'debug':
-                logging.info("Debug command received")
                 logging.getLogger().setLevel(10)
                 logging.debug("Logging debug after change to debug level")
 
             if command == 'info':
-                logging.info("info command received")
                 logging.getLogger().setLevel(20)
 
             if command == 'stat':
-                logging.info("stop command received")
                 return_data = json.dumps(self.app.get_measurements())
 
             if command == 'reset':
-                logging.info("reset command received")
                 self.app.reset_measurements()
 
             if command == 'threads':
-                logging.info("reset command received")
                 return_data = self.app.get_threads()
-                print(return_data)
+
+            if command == 'children':
+                return_data = self.app.get_children()
 
             if command == 'ping':
                 logging.debug("ping - do nothing")

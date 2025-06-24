@@ -4,20 +4,6 @@
     "log_level": 10,
     "server": "localhost",
     "command_port": 8077,
-    "filters"   : {
-        "web_server_answer": {
-            "module": "simple_filters",
-            "class": "FilterWebServerAnswer",
-            "description": "playing the web server adjusting string and returning"
-        },
-        "crypto_answer": {
-            "module": "crypto_filters",
-            "class": "FilterCryptoAnswer",
-            "crypto_config_file" : "config/config_crypto.json",
-            "description": "Doing the crypto stuff"
-        }
-
-    },
 
     "routers": {
         "router_1": {

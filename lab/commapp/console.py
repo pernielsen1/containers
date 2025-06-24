@@ -56,6 +56,7 @@ class ConsoleApp():
         self.port = self.config['port']
         self.active = True
         run_server = True
+
         
         if run_server:
             logging.info(f'starting console server on {self.port}')
@@ -86,10 +87,16 @@ class RequestHandler(BaseHTTPRequestHandler):
             'status' : {"text": "status", "function": self.get_process, "menu": "processes", "data_func" : self.get_status}, 
 
             "testcases" : {"text": "test cases", "function": self.run_test, "menu" : "testcases", "data_func": self.get_link},
-            "testcases_multi" : {"text": "multiple tests", "function": self.run_multiple_tests, "menu" : "testcases", "data_func": self.get_link}
+            "testcases_multi" : {"text": "multiple tests", "function": self.run_multiple_tests, "menu" : "testcases", "data_func": self.get_link},
+
+            "children" : {"text": "children", "function": self.run_child, "menu" : "children", "data_func": self.get_link},
+            "children_name" : {"text": "name", "function": None, "menu" : "children", "data_func": self.get_link}
 
         }
 
+    def run_child():
+        print("run chlld")
+        return
 
     def _set_headers(self, type:str):
         self.send_response(200)
@@ -124,7 +131,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 result += do_stat(response.json())
             if msg['command'] in ('send', 'reset'):
                 result += f"Command {msg['command']} successfull !"
-            if msg['command'] in ('threads', 'ping'):
+            if msg['command'] in ('threads', 'ping', 'children'):
                 result = response.json()
     
 
@@ -248,7 +255,16 @@ class RequestHandler(BaseHTTPRequestHandler):
     def do_index(self,key):
         process_table = self.build_menu("processes", self.console_app.processes)
         testcase_table = self.build_menu("testcases", self.console_app.test_cases) 
-        return process_table + testcase_table
+        self.console_app.children = self.get_children("grand_mama")
+
+        children_table = self.build_menu("children", self.console_app.children) 
+
+        return children_table + process_table + testcase_table 
+
+    def get_children(self, process_name):
+        return self.run_command(process_name,{ "command": "children"})
+
+
 #-----------------------------------
 # do_GET - the main traffic control
 #-----------------------------------
@@ -256,6 +272,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self._set_headers('html')  
         home_buttom_html = f'<a href="{self.host_uri}"><button>to the main page</button></a>'
         page_start ="<html><head><title>Commapp console</title></head><body>"
+    #    page_start +='<link rel="icon" type="image/x-icon" href="/images/favicon.ico">'
         css = "<style>table, th, td {  border: 1px solid black;}</style>"
         page_body = "<h1>commapp console</h1>"
         page_end =  "</body></html>"
@@ -268,7 +285,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             key =  path.split('/')[-1] # a potential key is the last path of the part before parms
             page_body += function(key)
         else:
-            logging.error(f"did not find route for {route_str}")
+            if (route_str != 'favicon.ico'):
+                logging.error(f"did not find route for {route_str}")
         page_body += "<h1>bottom<h1>"
         page = page_start + css + page_body + home_buttom_html + page_end 
         self.wfile.write(bytes(page, 'UTF-8'))

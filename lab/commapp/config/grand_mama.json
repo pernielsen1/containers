@@ -10,8 +10,5 @@
         "config/backend.json" : "The backend server",
         "config/middle.json" : "The man in the middle server",
         "config/client.json" : "The client server"
-    },
-    "child_apps_x"   : {
-        "config/crypto_server.json": "The crypto server working in request response HTTP mode"
     }
 } 

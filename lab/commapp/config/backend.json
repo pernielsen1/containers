@@ -1,6 +1,6 @@
 {
     "name": "backend", 
-    "description": "Simulates being the backend - wait for middle to connect and just echo back the received data",
+    "description": "Simulates being the backend - wait for middle to connect takes decision via filter_backend_simulator and returend",
     "log_level": 10,
     "server" : "localhost",
     "command_port": 8079,

@@ -5,19 +5,6 @@
     "server": "localhost",
     "command_port": 8078,
     "filters"   : {
-        "upper": {
-            "module": "simple_filters",
-            "class": "FilterUpper",
-            "description": "makes string upper case"
-        },
-        "web_request": {
-            "module": "simple_filters",
-            "class": "FilterWebRequest",
-            "description": "call web service on 8077 for now",
-            "url": "http://localhost:8077",
-            "method": "POST",
-            "filter_name_to_send": "web_server_answer"
-        },
        "crypto_request": {
             "module": "crypto_filters",
             "class": "FilterCryptoRequest",
@@ -34,8 +21,6 @@
             "method": "POST",
             "filter_name_to_send": "crypto_answer"
         }
-
-
     },    
 
     "routers": {

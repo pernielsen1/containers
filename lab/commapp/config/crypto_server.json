@@ -1,6 +1,6 @@
 {
     "name": "crypto_server", 
-    "description": "Simulates being the client connects on 4242 and sends in test message",
+    "description": "Gets work commands from command and applies filter returns result",
     "log_level": 10,
      "server" : "localhost",
      "command_debug": false,

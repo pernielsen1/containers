@@ -1,8 +1,12 @@
 ToDo: 
 Clean up in console app 
+time str move 0715 to 1916
+optimised debug messages.. (len) + hex
+grandmama stop start ... list the child threads.. 
+
 clean up comm app if possible ?
 Documentation ?
-Install SSL also... 
+Install SSL also... plus as a parameter on all - start with command app
 
 
 
@@ -20,9 +24,12 @@ Clean up...
 Document the whole flow it's about time again
 https://daringfireball.net/projects/markdown/syntax#header
 
+![image info](./pictures/image.png)
+
 documentation
 pandoc -i the_flow.md -o the_flow.html
 create the drawing in ppt and get to the md.. 
+https://code.visualstudio.com/docs/java/java-tutorial
 
 Next steps:
 Restart..
