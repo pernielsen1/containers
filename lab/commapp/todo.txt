@@ -1,8 +1,10 @@
 ToDo: 
 Clean up in console app 
 time str move 0715 to 1916
-optimised debug messages.. (len) + hex
-grandmama stop start ... list the child threads.. 
+allowed commands and function in a dict
+optimised debug messages.. (len) + hex 
+grandmama start commands on done statuses 
+ 
 
 clean up comm app if possible ?
 Documentation ?

@@ -89,7 +89,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             "testcases" : {"text": "test cases", "function": self.run_test, "menu" : "testcases", "data_func": self.get_link},
             "testcases_multi" : {"text": "multiple tests", "function": self.run_multiple_tests, "menu" : "testcases", "data_func": self.get_link},
 
-            "children" : {"text": "children", "function": self.run_child, "menu" : "children", "data_func": self.get_link},
+            "children" : {"text": "{key}", "function": self.run_child, "menu" : "children", "data_func": self.get_link},
             "children_name" : {"text": "name", "function": None, "menu" : "children", "data_func": self.get_link}
 
         }
@@ -255,14 +255,18 @@ class RequestHandler(BaseHTTPRequestHandler):
     def do_index(self,key):
         process_table = self.build_menu("processes", self.console_app.processes)
         testcase_table = self.build_menu("testcases", self.console_app.test_cases) 
-        self.console_app.children = self.get_children("grand_mama")
-
-        children_table = self.build_menu("children", self.console_app.children) 
+        children_table = self.get_children("grand_mama")
 
         return children_table + process_table + testcase_table 
 
     def get_children(self, process_name):
-        return self.run_command(process_name,{ "command": "children"})
+        ret_dict = self.run_command(process_name,{ "command": "children"})
+        if isinstance(ret_dict, dict):
+            ret_data = ret_dict.get('return_data', None)
+            if ret_data is not None:
+                return self.build_menu("children", ret_data)
+        #Still here = not good 
+        return "<BR>Error getting children info" + str(ret_dict)
 
 
 #-----------------------------------

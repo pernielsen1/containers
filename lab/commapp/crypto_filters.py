@@ -106,7 +106,7 @@ class FilterCryptoRequest(Filter):
 
     def run(self, message):
         data = message.get_data()
-        logging.debug(f'CryptoRequest processing {data.hex()}')
+        logging.debug(f'CryptoRequest processing {data}')
         try:
             decoded, encoded = iso8583.decode(data, test_spec)
         except Exception as e:
@@ -158,7 +158,7 @@ class FilterCryptoResponse(Filter):
 
     def run(self, message):
         data = message.get_data()
-        logging.debug(f'CryptoRequest processing {data.hex()}')
+        logging.debug(f'CryptoRequest processing {data}')
         try:
             decoded, encoded = iso8583.decode(data, test_spec)
         except Exception as e:

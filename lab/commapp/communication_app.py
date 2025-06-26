@@ -202,6 +202,7 @@ class CommunicationApplication:
         return_dict = {}
         for c in self.children:
             print(c)
+            logging.info("c.name {c.name}")
             return_dict[c.name] = {'name': c.name}
         print(return_dict)
         return return_dict 
@@ -556,9 +557,9 @@ class CommandHandler(BaseHTTPRequestHandler):
                     message = Message(base64.b64decode(text.encode("ascii")))
                 else:
                     message = Message(text)
-              
+            
                 num_messages = data.get('num_messages', 1)            
-                logging.info(f"sending {text} to {queue_name} {num_messages} times in a seperate thread")
+                logging.info(f"sending {message.get_data()} to {queue_name} {num_messages} times in a seperate thread")
                 t1 = threading.Thread(target=self.burst_messages, args=(queue_name, message, num_messages))
                 t1.start()
                 
