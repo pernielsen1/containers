@@ -35,6 +35,7 @@ class Filter:
     def __init__(self, app: any, name:str):
         self.app = app
         self.name = name
+        self.data_dict = {}
 
     def run(self, message):
         pass
@@ -427,7 +428,6 @@ class EstablishConnectionThread(CommunicationThread):
                 pass    
         self.active =  False
 
-
 # GrandMamaThread(CommunicationThread) starts a communication app ... 
 class GrandMamaThread(CommunicationThread):
     def __init__(self, app, name, queue_name, child_app_name):
@@ -447,9 +447,6 @@ class GrandMamaThread(CommunicationThread):
 
         logging.info(f"Time to stop {self.name}")
         self.state=self.DONE
-
-
-
 
 # CommandThread class
 class CommandThread(CommunicationThread):
@@ -510,7 +507,7 @@ class CommandHandler(BaseHTTPRequestHandler):
             if command not in ['stop', 'stat', 'reset', 'send', 'work', 'debug', 'info', 'ping', 'threads', 'children']:
                 self.send_error(400, {"error": f"Invalid command '{command}'"})
                 return
-            logging.info("command {commend} received")
+            logging.info(f"command {command} received")
             if command == 'stop':
                 self.app.add_queue('big_mama').put(Message("stop"))
 

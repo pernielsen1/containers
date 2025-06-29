@@ -1,6 +1,8 @@
 import os
 import logging
 import json
+# from json.decoder import JSONDecodeError
+
 import base64
 import requests
 import iso8583
@@ -20,6 +22,20 @@ class utils:
     @staticmethod
     def str_to_base64(s:str, encoding = 'ascii'):
         return base64.b64encode(s.encode(encoding)).decode('ascii')
+
+    @staticmethod
+    def add_item_create_dict(json_maybe:str, item_name:str, item_value:any):
+        try: 
+            return_dict = json.loads(json_maybe)
+            return_dict[item_name] = item_value
+            return return_dict
+        except json.decoder.JSONDecodeError as e:
+            return_dict={}
+            if json_maybe is None:
+                return return_dict
+            else:
+                return_dict['orig'] = json_maybe
+                return return_dict
 
 #-------------------------------------------------------------------------------
 # filter_backend_simulator.  simulate being the backend i.e. 
@@ -134,7 +150,9 @@ class FilterCryptoRequest(Filter):
                 return
             # stilll here place the response (return_data. data_base64 in field 47
             json_response = response.json()
-            decoded['47'] = utils.base64_to_str(json_response['return_data']['data_base64'])
+            f47_dict = utils.add_item_create_dict(decoded['47'], 'return_data', json_response)
+            decoded['47'] = json.dumps(f47_dict)
+#            decoded['47'] = utils.base64_to_str(json_response['return_data']['data_base64'])
             new_iso_raw, encoded =  iso8583.encode(decoded, test_spec)
             return Message(new_iso_raw)
                         

@@ -4,6 +4,18 @@
     "log_level": 10,
     "server": "localhost",
     "command_port": 8077,
+    "filters"   : {
+       "simulator_test_request": {
+            "module": "simulator_filters",
+            "class": "SimulatorTestRequest",
+            "description": "Used as work - Setup a wait for response and send in test iso message"
+        },
+        "simulator_test_answer": {
+            "module": "simulator_filters",
+            "class": "SimulatorTestAnswer",
+            "description": "When reply is received the 0110 then fire event for the one who sent in the 0100"
+        }
+    },    
 
     "routers": {
         "router_1": {
@@ -16,6 +28,7 @@
     },
     "workers": {
         "log_result": {
+            "filter_name": "simulator_test_answer",
             "description": "basically logs the result to the client after received on socket - currently in general logging",
             "in_queue": "from_middle"
         }

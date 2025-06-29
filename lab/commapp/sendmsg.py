@@ -45,12 +45,14 @@ def send_request(port, command, queue_name:str=None, data:any =None, num_message
     else:  # text is already string   
         text = data
 
-    if (command == 'send'):
+    if (command == 'send' or command == 'work'):
         msg = {
             "command": command,
             "queue_name": queue_name,
             "is_base64": is_base64,
             "text": text,
+            "data_base64": text,
+            "filter_name": "simulator_test_request",
             "num_messages": num_messages    
         }
     else: 
@@ -120,7 +122,8 @@ if __name__ == '__main__':
         send_request(port, command, queue_name, text, num_messages)
     if command == 'test':
         iso_msg_raw = build_iso_message(test_case_name='test_case_1')
-        send_request(port, "send", queue_name, iso_msg_raw, num_messages)
+#        send_request(port, "send", queue_name, iso_msg_raw, num_messages)
+        send_request(port, "work", queue_name, iso_msg_raw, num_messages)
 
 # curl http://localhost:8009
 #{"received": "ok", "hello": "world"}

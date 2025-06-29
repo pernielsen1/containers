@@ -1,4 +1,22 @@
 ToDo: 
+Integrate the work command in client - it is now testable as filters in simulator_filters.
+./sendmsg.sh 8077 test to_middle "test_case_1" 1
+
+
+
+I command skal vi have allowed commands and functions in dict-
+
+https://rahulsreedharan.medium.com/seamless-multithreading-with-python-events-a-complete-guide-a1c5a3457e26
+
+So it is:
+Send work - wait for response in Filter... 
+work will do the run of the filter... 
+Then response is coming into the client and handled in log result work - which applies the response filter... 
+
+
+Sen kommer svaret of ett filter samlar upp waiy wakey
+
+
 Clean up in console app 
 time str move 0715 to 1916
 allowed commands and function in a dict
