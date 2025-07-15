@@ -24,9 +24,15 @@ class utils:
         return base64.b64encode(s.encode(encoding)).decode('ascii')
 
     @staticmethod
+    def base64_to_data(base64_str:str):
+        return base64.b64decode(base64_str)
+
+    @staticmethod
     def add_item_create_dict(json_maybe:str, item_name:str, item_value:any):
         try: 
+            logging.debug(f"A {json_maybe} {item_name} {item_value}")
             return_dict = json.loads(json_maybe)
+            logging.debug(f"B {json_maybe} {item_name} {item_value} {return_dict}")
             return_dict[item_name] = item_value
             return return_dict
         except json.decoder.JSONDecodeError as e:
@@ -35,6 +41,7 @@ class utils:
                 return return_dict
             else:
                 return_dict['orig'] = json_maybe
+                return_dict[item_name] = item_value
                 return return_dict
 
 #-------------------------------------------------------------------------------
@@ -149,11 +156,27 @@ class FilterCryptoRequest(Filter):
                 logging.error("Error: " + str(response.status_code) + " " + response.text)
                 return
             # stilll here place the response (return_data. data_base64 in field 47
-            json_response = response.json()
-            f47_dict = utils.add_item_create_dict(decoded['47'], 'return_data', json_response)
+            resp_dict = response.json()
+            
+#            logging.debug(f"AA JSON_RESPONSE {json_response}" )
+#            resp_dict = json.loads(json_response)
+            logging.debug(f"A: resp_dict {resp_dict}")
+            data_base64 = resp_dict['return_data']['data_base64']
+            data = utils.base64_to_data(data_base64)
+            logging.debug(f"B: resp_dict {data}")
+            json_str = utils.base64_to_str(data_base64)
+            logging.debug(f"C: json_str {json_str}")
+            d = json.loads(json_str) 
+            logging.debug(f"d: d {d}")
+            arqc = d['arqc']   
+
+            f47_dict = utils.add_item_create_dict(decoded['47'], 'arqc', arqc)
+            logging.debug(f"X CryptoRequest {f47_dict}")
             decoded['47'] = json.dumps(f47_dict)
 #            decoded['47'] = utils.base64_to_str(json_response['return_data']['data_base64'])
             new_iso_raw, encoded =  iso8583.encode(decoded, test_spec)
+            logging.debug(f"Y new_iso_raw {new_iso_raw}")
+
             return Message(new_iso_raw)
                         
         except requests.exceptions.ConnectionError as errc:
@@ -191,11 +214,12 @@ class FilterCryptoResponse(Filter):
         input_dict['csu'] = "00" # TBD on basis of 39
         field_47_json = decoded['47']
         field_47_dict = json.loads(field_47_json)
+        logging.debug(f"D: field_f47_dict {field_47_dict}") 
         input_dict['arqc'] = field_47_dict['arqc']
         input_dict['text'] = decoded['47']
 
         data_base64 = utils.str_to_base64(json.dumps(input_dict))
-        logging.debug(f'data {data_base64} filter: {self.filter_name_to_send}')
+        logging.debug(f'database64 in crypto request - remomve later {data_base64} filter: {self.filter_name_to_send}')
         msg = {
             "command": "work",
             "data_base64": data_base64,
@@ -210,7 +234,7 @@ class FilterCryptoResponse(Filter):
             # stilll here
             json_response = response.json()
             decoded['47'] = utils.base64_to_str(json_response['return_data']['data_base64'])
-
+            logging.debug("decoded[47] {decoded['47']}")
             new_iso_raw, encoded =  iso8583.encode(decoded, test_spec)
             return Message(new_iso_raw)
 

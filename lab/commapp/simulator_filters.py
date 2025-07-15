@@ -48,7 +48,6 @@ class SimulatorTestRequest(Filter):
         self.app.add_queue('to_middle').put(message)
         return_event.wait()  # wait for response coming back (will be in filter below)
         logging.debug("after wait")
-
         return_data = self.data_dict[message_id]['return_data']
         if  return_data == None:
             out_message = Message("Did not get reply")

@@ -1,5 +1,9 @@
 ToDo: 
-Integrate the work command in client - it is now testable as filters in simulator_filters.
+now test goest through... from console.. 
+but does it wake up anything ? to be continued... good place
+console seconds does not count up... 
+
+
 ./sendmsg.sh 8077 test to_middle "test_case_1" 1
 
 
