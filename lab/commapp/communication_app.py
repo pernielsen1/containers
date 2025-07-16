@@ -49,7 +49,6 @@ class Message:
         elif not (isinstance(data, bytes) or isinstance(data, bytearray)):
             raise TypeError("Data must be a string or bytes")
         self.msg = {
-
             "data_base64": base64.b64encode(data).decode('utf-8'),
             "time_created_ns": time.time_ns()
         }

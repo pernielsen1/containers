@@ -33,7 +33,8 @@ class SimulatorTestRequest(Filter):
         self.message_id_counter += 1       
         message_id = str(self.message_id_counter) 
         f47_dict = utils.add_item_create_dict(decoded['47'],'message_id', message_id)
-        print(f47_dict)
+        logging.debug(f"A: simulator test request + {f47_dict}")
+        # print(f47_dict)
 #        f47_dict = {}
 #        f47_dict['orig'] = decoded['47']
 #        f47_dict['message_id'] = message_id
@@ -45,7 +46,7 @@ class SimulatorTestRequest(Filter):
         return_event = threading.Event()
         self.data_dict[message_id]={'return_message': None, 'return_event': return_event}
         # send the request message to the queue (we are in client so it is to_middle" 
-        self.app.add_queue('to_middle').put(message)
+        self.app.add_queue('to_middle').put(out_message)
         return_event.wait()  # wait for response coming back (will be in filter below)
         logging.debug("after wait")
         return_data = self.data_dict[message_id]['return_data']
@@ -80,15 +81,21 @@ class SimulatorTestAnswer(Filter):
         field_47_json = decoded['47']
         logging.debug(f"should we wake up some event {field_47_json}")
         field_47_dict = json.loads(field_47_json)
-        message_id=field_47_dict.get('message_id', None)
-        if (message_id != None):
-            send_filter = self.app.filters['simulator_test_request']
-            event = send_filter.data_dict[message_id]['return_event']
-            send_filter.data_dict[message_id]['return_data'] = data
-            logging.debug("setting the event")
-            event.set()
+        field_47_text = field_47_dict.get('text', None)
+        logging.debug(f'XX: field_f47_text {field_47_text}')
+        if (field_47_text != None):
+            field_47_text_dict = json.loads(field_47_text)
+            message_id=field_47_text_dict.get('message_id', None)
+            if (message_id != None):
+                send_filter = self.app.filters['simulator_test_request']
+                event = send_filter.data_dict[message_id]['return_event']
+                send_filter.data_dict[message_id]['return_data'] = data
+                logging.debug("setting the event")
+                event.set()
+            else:
+                logging.debug("No message_id found i.e. no event to wake")
         else:
-            logging.debug("No message_id found i.e. no event to wake")
+            logging.debug("No Text found i.e. no event to wake")
         
         return message # just continue without altering the message
 

@@ -106,13 +106,13 @@ class FilterCryptoAnswer(Filter):
         if what == 'arqc': 
             data = "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000"
             resp['arqc'] = self.pn_crypto.do_arqc(imk, pan, psn, atc, data, True)
-            resp['text'] = json_dict['text'] + " arqc with a lot of crypto" 
+            resp['text'] = json_dict['text'] # + " arqc with a lot of crypto" 
 
         if what == 'arpc':
             arqc = json_dict['arqc']
             csu = json_dict['csu']
             resp['arpc'] = self.pn_crypto.do_arqc(imk, pan, psn, atc, arqc, csu)
-            resp['text'] = json_dict['text'] + " arpc with a reponse a lot of crypto" 
+            resp['text'] = json_dict['text'] # + " arpc with a reponse a lot of crypto" 
             
         return Message(json.dumps(resp))
 
