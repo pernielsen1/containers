@@ -106,14 +106,15 @@ class FilterCryptoAnswer(Filter):
         if what == 'arqc': 
             data = "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000"
             resp['arqc'] = self.pn_crypto.do_arqc(imk, pan, psn, atc, data, True)
-            resp['text'] = json_dict['text'] # + " arqc with a lot of crypto" 
 
         if what == 'arpc':
             arqc = json_dict['arqc']
             csu = json_dict['csu']
-            resp['arpc'] = self.pn_crypto.do_arqc(imk, pan, psn, atc, arqc, csu)
-            resp['text'] = json_dict['text'] # + " arpc with a reponse a lot of crypto" 
-            
+            logging.debug(f"XYZ imk:{imk} pan:{pan} psn:{psn} atc:{atc} arqc:{arqc} csu:{csu}")
+            resp['arpc'] = self.pn_crypto.do_arpc(imk, pan, psn, atc, arqc, csu)
+
+
+        # OBS does not work    resp['arpc'] = self.pn_crypto.do_arpc(imk, pan, psn, atc, arqc, csu)
         return Message(json.dumps(resp))
 
 #---------------------------------------------------------
@@ -141,7 +142,10 @@ class FilterCryptoRequest(Filter):
                       "data" : "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000"}
         input_dict['what'] = 'arqc'
         input_dict['pan'] = decoded['2']
-        input_dict['text'] = decoded['47']
+        logging.debug(f"arsing to f47_dict {decoded['47']}")
+        f47_dict = json.loads(decoded['47'])
+        for key, value in f47_dict.items():
+            input_dict[key]= value
         data_base64 = utils.str_to_base64(json.dumps(input_dict))
         logging.debug(f'data {data_base64} filter: {self.filter_name_to_send}')
         msg = {
@@ -158,22 +162,15 @@ class FilterCryptoRequest(Filter):
             # stilll here place the response (return_data. data_base64 in field 47
             resp_dict = response.json()
             
-#            logging.debug(f"AA JSON_RESPONSE {json_response}" )
-#            resp_dict = json.loads(json_response)
-            logging.debug(f"A: resp_dict {resp_dict}")
             data_base64 = resp_dict['return_data']['data_base64']
             data = utils.base64_to_data(data_base64)
-            logging.debug(f"B: resp_dict {data}")
             json_str = utils.base64_to_str(data_base64)
-            logging.debug(f"C: json_str {json_str}")
             d = json.loads(json_str) 
-            logging.debug(f"d: d {d}")
             arqc = d['arqc']   
 
             f47_dict = utils.add_item_create_dict(decoded['47'], 'arqc', arqc)
             logging.debug(f"X CryptoRequest {f47_dict}")
             decoded['47'] = json.dumps(f47_dict)
-#            decoded['47'] = utils.base64_to_str(json_response['return_data']['data_base64'])
             new_iso_raw, encoded =  iso8583.encode(decoded, test_spec)
             logging.debug(f"Y new_iso_raw {new_iso_raw}")
 
@@ -211,13 +208,12 @@ class FilterCryptoResponse(Filter):
                       "data" : "00000000510000000000000007920000208000094917041900B49762F2390000010105A0400000200000000000000000"}
         input_dict['what'] = 'arpc'
         input_dict['pan'] = decoded['2']
-        input_dict['csu'] = "00" # TBD on basis of 39
+        input_dict['csu'] = "0012" # TBD on basis of 39
         field_47_json = decoded['47']
         field_47_dict = json.loads(field_47_json)
-        logging.debug(f"D: field_f47_dict {field_47_dict}") 
         input_dict['arqc'] = field_47_dict['arqc']
-        input_dict['text'] = decoded['47']
-
+        logging.debug(f"D: field_f47_dict {field_47_dict}") 
+ 
         data_base64 = utils.str_to_base64(json.dumps(input_dict))
         logging.debug(f'database64 in crypto request - remomve later {data_base64} filter: {self.filter_name_to_send}')
         msg = {
@@ -231,14 +227,19 @@ class FilterCryptoResponse(Filter):
             if (response.status_code != 200):
                 logging.error("Error: " + str(response.status_code) + " " + response.text)
                 return
-            # stilll here
-            json_response = response.json()
-            decoded['47'] = utils.base64_to_str(json_response['return_data']['data_base64'])
-            logging.debug("decoded[47] {decoded['47']}")
+            # still here
+            resp_dict = response.json()        
+            data_base64 = resp_dict['return_data']['data_base64']
+            data = utils.base64_to_data(data_base64)
+            json_str = utils.base64_to_str(data_base64)
+            d = json.loads(json_str) 
+            arpc = d['arpc']   
+
+            f47_dict = utils.add_item_create_dict(decoded['47'], 'arpc', arpc)
+            decoded['47'] = json.dumps(f47_dict) 
+            logging.debug(f"Cryptoresponse decoded[47] {decoded['47']}")
             new_iso_raw, encoded =  iso8583.encode(decoded, test_spec)
             return Message(new_iso_raw)
-
-
 
         except requests.exceptions.ConnectionError as errc:
             logging.error(f'So there was no luck with {self.url} gracefully exiting')
@@ -253,28 +254,26 @@ class FilterCryptoResponse(Filter):
 # Main function
 if __name__ == "__main__":
     print("current dir" + os.getcwd())
-    client_app = CommunicationApplication("config/client.json")
     middle_app = CommunicationApplication("config/middle.json")
-
     logging.getLogger().setLevel(logging.DEBUG)
-
-    filter_crypto_answer = FilterCryptoAnswer(client_app, "crypto_answer")
     filter_crypto_request = FilterCryptoRequest(middle_app, "crypto_request")
     filter_crypto_response = FilterCryptoResponse(middle_app, "crypto_response")
 
     test_iso_message = Message(build_iso_message(test_case_name='test_case_1'))
+    msg_data = test_iso_message.get_data()
+    decoded, encoded = iso8583.decode(msg_data, test_spec)
+    f47_dict = utils.add_item_create_dict(decoded['47'],'message_id', 123)
+    decoded['47'] = json.dumps(f47_dict)
+    iso_test_raw, encoded = iso8583.encode(decoded, test_spec)
+    test_iso_message = Message(iso_test_raw)        
     result = filter_crypto_request.run(test_iso_message)
     # make a reply
     decoded, encoded = iso8583.decode(result.get_data(), test_spec)
     decoded['39'] = '00'  # approved
     test_iso_reply_raw, encoded = iso8583.encode(decoded, test_spec)
     test_iso_reply = Message(test_iso_reply_raw)
-    result = filter_crypto_response.run(test_iso_reply)
-    print("result of request")
-    print(result.get_data())
     print("running another test case via request to crypto server")
-    test_iso_message_2 = Message(build_iso_message(test_case_name='test_case_2'))
-    result = filter_crypto_request.run(test_iso_message_2)
-    print("result of response")
-    print(result.get_data())
+    result = filter_crypto_response.run(test_iso_reply)
+    print(f"result of responset {result.get_data()}")
+
     

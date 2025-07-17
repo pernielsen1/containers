@@ -1,12 +1,19 @@
 ToDo: 
-now test goest through... from console.. 
-but does it wake up anything ? to be continued... good place
-console seconds does not count up... 
+Create the tests (or test directory ?)
 
+the work command should have a "wait for response and then time out " - 
+can we wait in another thread and keep it alive command alive still ?  multiple sockets ? hmm 
+rename 47 to private field.
 
+console to send waiting test case - currently send as work by command below ? 
 ./sendmsg.sh 8077 test to_middle "test_case_1" 1
 
 
+Debatable: the text carries the inbound field 47 ... should it do this ?
+
+
+
+console seconds does not count up... 
 
 I command skal vi have allowed commands and functions in dict-
 

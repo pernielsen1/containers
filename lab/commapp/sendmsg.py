@@ -95,6 +95,7 @@ def build_iso_message(test_case_name:str):
     iso_message =tc['iso_message']
     try:
         iso_message_raw, encoded = iso8583.encode(iso_message, test_spec)
+
         print(iso_message_raw)
         return iso_message_raw  # bytes
     except Exception as e:

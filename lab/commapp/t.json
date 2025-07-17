@@ -1,0 +1,9 @@
+{
+    "status": "OK", 
+    "from:": "crypto_server", 
+    "command": "work", 
+    "return_data": {
+        "data_base64": "eyJhcnFjIjogImY1ZWI3MmVkNGY1MWI5ZGUiLCAidGV4dCI6ICJTZWNyZXQgc2F1Y2UgYXJxYyB3aXRoIGEgbG90IG9mIGNyeXB0byJ9", 
+        "time_created_ns": 1752557362614211910
+    }
+}
