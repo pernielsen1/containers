@@ -463,8 +463,10 @@ class CommandThread(CommunicationThread):
             if self.app.config.get("command_debug", False):  # to avoid noise possible to set True if really needing in config file
                 logging.debug("Command ready")
             server.handle_request()
-        logging.info(f"Time to stop guess I am last man standing {self.name}")
+        logging.info(f"Time to stop guess I am last man standing {self.name} and will close the http server")
+        server.server_close()
         self.state=self.DONE
+
 
 # CommandHandler - the actual implementation called when HTTP request is received
 class CommandHandler(BaseHTTPRequestHandler):
