@@ -1,5 +1,7 @@
 ToDo: 
-Create the tests (or test directory ?)
+Finalize tests with assert in test_crypto_filters plus create a script
+cleanup in Crypto Filters.
+Make sure grandmama still works... 
 
 the work command should have a "wait for response and then time out " - 
 can we wait in another thread and keep it alive command alive still ?  multiple sockets ? hmm 
@@ -8,9 +10,11 @@ rename 47 to private field.
 console to send waiting test case - currently send as work by command below ? 
 ./sendmsg.sh 8077 test to_middle "test_case_1" 1
 
+move utils to own ? - or keep it ... 
 
 Debatable: the text carries the inbound field 47 ... should it do this ?
 
+OBS : unclosed socket warning .. command server... !
 
 
 console seconds does not count up... 

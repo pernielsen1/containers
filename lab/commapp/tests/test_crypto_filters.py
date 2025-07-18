@@ -11,82 +11,70 @@ up_one_level = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 print("appending " + up_one_level + " to sys path")
 sys.path.append(up_one_level)
 from communication_app import Message, Filter, CommunicationApplication   
-
-
-def build_iso_message(test_case_name:str):
-    test_case_file = "sendmsg.json"
-    if not os.path.isabs(test_case_file):
-            test_case_file = os.path.join(os.getcwd(), test_case_file)
-    with open(test_case_file, 'r') as f:
-            test_cases = json.load(f)
-    tc = test_cases['tests'].get(test_case_name, None)
-    if (tc == None):
-        raise ValueError(f'testcase {test_case_name} not found in {test_case_file}')
-    # still here good to go
-    iso_message =tc['iso_message']
-    try:
-        iso_message_raw, encoded = iso8583.encode(iso_message, test_spec)
-
-        print(iso_message_raw)
-        return iso_message_raw  # bytes
-    except Exception as e:
-        raise Exception(e)
-
+from iso_spec import test_spec
+from crypto_filters import utils, FilterCryptoRequest, FilterCryptoResponse
 
 #-------------------------------------------------------------------
 # 
 #-------------------------------------------------------------------
 class TestCryptoFilters(unittest.TestCase):
   @classmethod
-  def run_crypto_server_app(cls)
+  def run_crypto_server_app(cls):
     cls.crypto_server_app.start()
   @classmethod
   def setUpClass(cls):
+    cls.middle_app = CommunicationApplication("config/middle.json")
+    logging.getLogger().setLevel(logging.DEBUG)
+    cls.filter_crypto_request = FilterCryptoRequest(cls.middle_app, "crypto_request")
+    cls.filter_crypto_response = FilterCryptoResponse(cls.middle_app, "crypto_response")
+
     logging.info("setup Starting the crypto server in seperate thread")
     # TBD - move these cases to tests also for sendmsg .. utility
-    test_case_file = up_one_level + "/sendmsgjson"
+    test_case_file = up_one_level + "/sendmsg.json"
     with open(test_case_file, 'r') as f:
       cls.test_cases = json.load(f)
  
     config_file = up_one_level + '/config/crypto_server.json'
     cls.crypto_server_app = CommunicationApplication(config_file)
-    cls.server_thread = threading.Thread(target=cls.run_crypto_server_app)
-    cls.server_thread.daemon = True
-    cls.server_thread.start()
+    cls.crypto_server_thread = threading.Thread(target=cls.run_crypto_server_app)
+    cls.crypto_server_thread.daemon = True
+    cls.crypto_server_thread.start()
     logging.info("end of setup let the games begin")
 
   def build_iso_msg(self, test_case_name):
     tc = self.test_cases['tests'].get(test_case_name, None)
     if (tc == None):
-        raise ValueError(f'testcase {test_case_name} not found in {test_case_file}')
+        raise ValueError(f'testcase {test_case_name} not found')
     # still here good to go
     iso_message =tc['iso_message']
+    f47_dict = utils.add_item_create_dict(iso_message['47'],'message_id', 123)
+    iso_message['47'] = json.dumps(f47_dict)
     iso_message_raw, encoded = iso8583.encode(iso_message, test_spec)
-    print(iso_message_raw)
     return iso_message_raw  # bytes
 
-
-    test_iso_message = Message(build_iso_message(test_case_name='test_case_1'))
-    msg_data = test_iso_message.get_data()
-    decoded, encoded = iso8583.decode(msg_data, test_spec)
-    f47_dict = utils.add_item_create_dict(decoded['47'],'message_id', 123)
-    decoded['47'] = json.dumps(f47_dict)
-    iso_test_raw, encoded = iso8583.encode(decoded, test_spec)
-    test_iso_message = Message(iso_test_raw)        
-    result = filter_crypto_request.run(test_iso_message)
-    # make a reply
-    decoded, encoded = iso8583.decode(result.get_data(), test_spec)
-    decoded['39'] = '00'  # approved
-    test_iso_reply_raw, encoded = iso8583.encode(decoded, test_spec)
-    test_iso_reply = Message(test_iso_reply_raw)
-    print("running another test case via request to crypto server")
-    result = filter_crypto_response.run(test_iso_reply)
-    print(f"result of responset {result.get_data()}")
+  def test_arpc(self):
+    #  self.assertTrue('FOO'.isupper())
+    #  self.assertFalse('Foo'.isupper())
+      test_iso_message = Message(self.build_iso_msg(test_case_name='test_case_1'))
+      result = self.filter_crypto_request.run(test_iso_message)
+      print(f'result {result}')
+    # # make a reply
+      decoded, encoded = iso8583.decode(result.get_data(), test_spec)
+      decoded['39'] = '00'  # approved
+      test_iso_reply_raw, encoded = iso8583.encode(decoded, test_spec)
+      test_iso_reply = Message(test_iso_reply_raw)
+      print("running another test case via request to crypto server")
+      result = self.filter_crypto_response.run(test_iso_reply)
+      print(f"result of responset {result.get_data()}")
 
 
   @classmethod
   def tearDownClass(cls):
-      cls.log.info("in tear down")
+      logging.info("tearing down stopping crypto server thread")
+      cls.crypto_server_app.stop()
+      logging.info("Joining crypto_server_thread")
+      cls.crypto_server_thread.join()
+      logging.info("All done")
 
 
 #-------------------------------
