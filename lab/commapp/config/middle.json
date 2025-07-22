@@ -5,7 +5,7 @@
     "server": "localhost",
     "command_port": 8078,
     "filters"   : {
-       "crypto_request": {
+       "FilterCryptoRequest": {
             "module": "crypto_filters",
             "class": "FilterCryptoRequest",
             "description": "call crypto server on 8076 for now",
@@ -13,7 +13,7 @@
             "method": "POST",
             "filter_name_to_send": "crypto_answer"
         },
-        "crypto_response": {
+        "FilterCryptoResponse": {
             "module": "crypto_filters",
             "class": "FilterCryptoResponse",
             "description": "call crypto server on 8076 for now",
@@ -42,12 +42,12 @@
     "workers": {
         "worker_to_backend": {
             "in_queue": "worker_to_backend",
-            "filter_name": "crypto_request",
+            "filter_name": "FilterCryptoRequest",
             "to_queue": "to_backend"
         },
         "worker_to_client": {
             "in_queue": "worker_to_client",
-            "filter_name": "crypto_response",
+            "filter_name": "FilterCryptoResponse",
             "to_queue": "to_client"
         }
     },

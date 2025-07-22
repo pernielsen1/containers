@@ -7,6 +7,7 @@
     "tests"   : {
         "test_case_1": {
             "description": "First iso 0100 test",
+            "message_id": "123",
             "iso_message": {
                 "t" : "0100",
                 "2": "5656781234567891",
@@ -16,6 +17,7 @@
             }
         },
         "test_case_2": {
+            "message_id": "234",
             "description": "Second iso 0100 test",
             "iso_message": {
                 "t" : "0100",

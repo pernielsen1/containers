@@ -13,6 +13,9 @@ sys.path.append(up_one_level)
 from communication_app import Message, Filter, CommunicationApplication   
 from iso_spec import test_spec
 from crypto_filters import utils, FilterCryptoRequest, FilterCryptoResponse
+from simulator_filters import FilterSimulatorTestAnswer, FilterSimulatorTestRequest, FilterSimulatorBackendResponse
+
+
 
 #-------------------------------------------------------------------
 # 
@@ -23,11 +26,16 @@ class TestCryptoFilters(unittest.TestCase):
     cls.crypto_server_app.start()
   @classmethod
   def setUpClass(cls):
-    cls.middle_app = CommunicationApplication("config/middle.json")
     logging.getLogger().setLevel(logging.DEBUG)
-    cls.filter_crypto_request = FilterCryptoRequest(cls.middle_app, "crypto_request")
-    cls.filter_crypto_response = FilterCryptoResponse(cls.middle_app, "crypto_response")
-
+    cls.client_app = CommunicationApplication("config/client.json")
+    cls.middle_app = CommunicationApplication("config/middle.json")
+    cls.backend_app = CommunicationApplication("config/backend.json")
+    cls.filter_crypto_request = FilterCryptoRequest(cls.middle_app, "FilterCryptoRequest")
+    cls.filter_crypto_response = FilterCryptoResponse(cls.middle_app, "FilterCryptoResponse")
+    cls.filter_simulator_backend_response = FilterSimulatorBackendResponse(cls.backend_app, "FilterSimulatorBackendResponse")
+    cls.filter_simulator_request = cls.client_app.filters["FilterSimulatorTestRequest"]
+    cls.filter_simulator_answer =  cls.client_app.filters["FilterSimulatorTestAnswer"]
+                                                              
     logging.info("setup Starting the crypto server in seperate thread")
     # TBD - move these cases to tests also for sendmsg .. utility
     test_case_file = up_one_level + "/sendmsg.json"
@@ -47,25 +55,57 @@ class TestCryptoFilters(unittest.TestCase):
         raise ValueError(f'testcase {test_case_name} not found')
     # still here good to go
     iso_message =tc['iso_message']
-    f47_dict = utils.add_item_create_dict(iso_message['47'],'message_id', 123)
+    message_id = tc['message_id']
+    f47_dict = utils.add_item_create_dict(iso_message['47'],'message_id', message_id)
     iso_message['47'] = json.dumps(f47_dict)
     iso_message_raw, encoded = iso8583.encode(iso_message, test_spec)
     return iso_message_raw  # bytes
-
-  def test_arpc(self):
+      
+  #---------------------------------------
+  # test_arqc_arpc ... the test arpc and arqc calcualtions
+  #------------------------------
+  def Xest_arqc_arpc(self):
     #  self.assertTrue('FOO'.isupper())
     #  self.assertFalse('Foo'.isupper())
       test_iso_message = Message(self.build_iso_msg(test_case_name='test_case_1'))
-      result = self.filter_crypto_request.run(test_iso_message)
-      print(f'result {result}')
-    # # make a reply
-      decoded, encoded = iso8583.decode(result.get_data(), test_spec)
-      decoded['39'] = '00'  # approved
-      test_iso_reply_raw, encoded = iso8583.encode(decoded, test_spec)
-      test_iso_reply = Message(test_iso_reply_raw)
-      print("running another test case via request to crypto server")
-      result = self.filter_crypto_response.run(test_iso_reply)
-      print(f"result of responset {result.get_data()}")
+      result1 = self.filter_crypto_request.run(test_iso_message)
+      print(f'result1 {result1.get_data()}')
+
+      result2 = self.filter_crypto_response.run(result1)
+      print(f'result2 {result2.get_data()}')
+  
+  #----------------------------------------------------------
+  #  test_simulator:
+  #-----------------------------------------------------------
+  def wait_response_thread(self, test_iso_request):
+     print("running and waiting")
+     logging.debug(f"1: test_iso_request {test_iso_request}")
+     self.filter_simulator_request.run(test_iso_request)
+     print("4: after wait")
+     return
+
+  def test_simulator_arpc(self):
+      test_iso_request = Message(self.build_iso_msg(test_case_name='test_case_1'))
+      wait_thread = threading.Thread(target = self.wait_response_thread, args = (test_iso_request, ))
+      wait_thread.start()
+      logging.debug("receiving dummy message")
+      # wait for the thread which will send the message to the to_middle queue when everything is ready
+      request_message = self.client_app.queues['to_middle'].get(timeout=30)
+      test_iso_answer = self.filter_simulator_backend_response.run(request_message)
+      logging.debug(f"2: test_iso_answer {test_iso_answer}")
+      # process the backend response will wake up the waiting thread
+      test_iso_reply = self.filter_simulator_answer.run(test_iso_answer)
+      logging.debug(f"3: test_iso_replyr {test_iso_reply}")
+      logging.debug("joinng wait thread")
+      wait_thread.join()
+
+
+      # now create one who does not get a response 
+#      wait_thread_no_reply  = threading.Thread(target = self.wait_response_thread, args = (test_iso_request, ))
+#      wait_thread_no_reply.start()
+#      logging.debug("joinng wait thread")
+#      wait_thread_no_reply.join()
+      
 
 
   @classmethod

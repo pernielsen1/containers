@@ -117,6 +117,12 @@ class CommunicationApplication:
         self.queues = {}
         self.threads = []
         self.children = []
+        
+        # load predefined queues if configured
+        if 'queue_details' in self.config:
+            for queue_name in self.config['queue_details']:
+                self.add_queue(queue_name)
+        
         # load filters
         if 'filters' in self.config:
             for filter_name, filter_config in self.config['filters'].items():
@@ -511,16 +517,11 @@ class CommandHandler(BaseHTTPRequestHandler):
             logging.info(f"command {command} received")
             if command == 'stop':
                 self.app.add_queue('big_mama').put(Message("stop"))
-
-            #    self.app.stop()
-
             if command == 'debug':
                 logging.getLogger().setLevel(10)
                 logging.debug("Logging debug after change to debug level")
-
             if command == 'info':
                 logging.getLogger().setLevel(20)
-
             if command == 'stat':
                 return_data = json.dumps(self.app.get_measurements())
 
@@ -568,13 +569,13 @@ class CommandHandler(BaseHTTPRequestHandler):
                     return
                 # decode the base64 data, create Message and run the filter
                 message = Message(base64.b64decode(data_base64))
-
                 filter_name = data.get('filter_name', None)
                 if filter_name is not None:
                     filter_obj = self.app.get_filter(filter_name)
                     if filter_obj is not None:
                         logging.info(f"Applying filter {filter_name} to message {message.get_data()}")
                         message = filter_obj.run(message)
+                        # the result may be binary so we marshall in base64 to the requestor
                         return_data = message.get_json()
                             
             self._set_headers()
@@ -585,10 +586,11 @@ class CommandHandler(BaseHTTPRequestHandler):
                 "return_data": return_data 
             }).encode())
 
-        except json.JSONDecodeError:
-            self.send_response(400)
-            self._set_headers()
-            self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+# 20250718 Except json.JSONDecodeError:
+#           self.send_response(400)
+#            self._set_headers()
+#            self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+
         except Exception as e:
             logging.exception("Error handling POST request")
             self.send_response(500)
@@ -598,7 +600,6 @@ class CommandHandler(BaseHTTPRequestHandler):
 # Main function
 if __name__ == "__main__":
     config_file = sys.argv[1] if len(sys.argv) > 1 else 'config.json'
-    
     app = CommunicationApplication(config_file)
     app.start()
 

@@ -5,17 +5,18 @@
     "server" : "localhost",
     "command_port": 8079,
     "filters"   : {
-        "filter_backend_simulator": {
-            "module": "crypto_filters",
-            "class": "FilterBackendSimulator",
+        "FilterSimulatorBackendResponse": {
+            "module": "simulator_filters",
+            "class": "FilterSimulatorBackendResponse",
             "description": "simulate backend 0100 becomes 0110"
         }
+
     },
     "workers": {
         "backend_simulator": {
             "description": "simulating backend 0100 becomes 0110",
             "in_queue": "backend_simulator_in",
-            "filter_name": "filter_backend_simulator",
+            "filter_name": "FilterSimulatorBackendResponse",
             "to_queue": "to_middle"
         }
     },

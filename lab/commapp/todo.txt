@@ -1,11 +1,18 @@
 ToDo: 
-Finalize tests with assert in test_crypto_filters plus create a script
+test cases: 
+Let the alert time out...
+
+Finalize tests with assert in test_crypto_filters
+
+
 cleanup in Crypto Filters.
 Make sure grandmama still works... 
 
 the work command should have a "wait for response and then time out " - 
 can we wait in another thread and keep it alive command alive still ?  multiple sockets ? hmm 
 rename 47 to private field.
+rename to FilterSim.... 
+SimulatorTestAnswer, SimulatorTestRequest
 
 console to send waiting test case - currently send as work by command below ? 
 ./sendmsg.sh 8077 test to_middle "test_case_1" 1

@@ -28,12 +28,13 @@ class utils:
         return base64.b64decode(base64_str)
 
     @staticmethod
-    def add_item_create_dict(json_maybe:str, item_name:str, item_value:any):
+    def add_item_create_dict(json_maybe:str, item_name:str, item_value:any, override:bool = True):
         try: 
             logging.debug(f"A {json_maybe} {item_name} {item_value}")
             return_dict = json.loads(json_maybe)
             logging.debug(f"B {json_maybe} {item_name} {item_value} {return_dict}")
-            return_dict[item_name] = item_value
+            if (override):   # some time you do not want to override - like an external message id
+               return_dict[item_name] = item_value
             return return_dict
         except json.decoder.JSONDecodeError as e:
             return_dict={}
