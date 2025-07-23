@@ -19,7 +19,7 @@ class FilterSimulatorTestRequest(Filter):
     def __init__(self, app:CommunicationApplication , name:str):
         super().__init__(app, name)
         self.message_id_counter = 0        
-    #    self.ok_to_answer_event = threading.Event()
+
     def run(self, message):
         data = message.get_data()
         logging.debug(f"simulator_test_request received message: {data}")
@@ -40,22 +40,24 @@ class FilterSimulatorTestRequest(Filter):
         out_message = Message(new_iso_raw)
         # setup an event waiting for a response.. 
         return_event = threading.Event()
-        self.data_dict[message_id]={'return_message': None, 'return_event': return_event}
+        self.data_dict[message_id]={'return_data': None, 'return_event': return_event}
         self.app.queues['to_middle'].put(out_message)
         # TBD set the wait seconds to external config value
         wait_result = return_event.wait(4)  # wait for response coming back (will be in filter below)
         logging.debug(f"after wait wait_result={wait_result} - data_dict: {self.data_dict}")
         return_data = self.data_dict[message_id]['return_data']
-        if  return_data == None:
-            out_message = Message("Did not get reply")
+        if return_data == None:
+            reply_data = None
         else:
-            return_dict = {
+            reply_data = return_data.hex()
+
+        return_dict = {
                 'message_id': message_id,
                 'in_message': new_iso_raw.hex(),
-                'out_message': return_data.hex()
-            }
-            logging.debug(f"returning the return_dict {return_dict}")
-            out_message = Message(json.dumps(return_dict))
+                'out_message': reply_data
+        }
+        logging.debug(f"returning the return_dict {return_dict}")
+        out_message = Message(json.dumps(return_dict))
         
         return out_message
 #-------------------------------------------------------------------------------------------------------------
