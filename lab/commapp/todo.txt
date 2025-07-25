@@ -1,52 +1,31 @@
-ToDo: 
-test cases: 
-Let the alert time out...
+console seconds does not count up... 
+I command skal vi have allowed commands and functions in dict-
 
-Finalize tests with assert in test_crypto_filters
+
+Refactor: 
+send_request(port, "work", queue_name, iso_msg_raw, num_messages)
+remove add_item_create dict from crypto_filters - now found in isu8583_utils - should be encapsulated there
+OBS is used for ARQC and ARPC... 
+utils as own or keep it ?
 
 
 cleanup in Crypto Filters.
-Make sure grandmama still works... 
-
-the work command should have a "wait for response and then time out " - 
-can we wait in another thread and keep it alive command alive still ?  multiple sockets ? hmm 
 rename 47 to private field.
 rename to FilterSim.... 
-SimulatorTestAnswer, SimulatorTestRequest
 
 console to send waiting test case - currently send as work by command below ? 
 ./sendmsg.sh 8077 test to_middle "test_case_1" 1
 
-move utils to own ? - or keep it ... 
-
-Debatable: the text carries the inbound field 47 ... should it do this ?
-
-OBS : unclosed socket warning .. command server... !
 
 
-console seconds does not count up... 
-
-I command skal vi have allowed commands and functions in dict-
-
-https://rahulsreedharan.medium.com/seamless-multithreading-with-python-events-a-complete-guide-a1c5a3457e26
-
-So it is:
-Send work - wait for response in Filter... 
-work will do the run of the filter... 
-Then response is coming into the client and handled in log result work - which applies the response filter... 
 
 
-Sen kommer svaret of ett filter samlar upp waiy wakey
 
 
 Clean up in console app 
 time str move 0715 to 1916
-allowed commands and function in a dict
 optimised debug messages.. (len) + hex 
 grandmama start commands on done statuses 
- 
-
-clean up comm app if possible ?
 Documentation ?
 Install SSL also... plus as a parameter on all - start with command app
 
@@ -54,15 +33,6 @@ Install SSL also... plus as a parameter on all - start with command app
 
 
 clean up move console & sendmsg to config dir - maybe not a good idea... 
-Listen still binds or does it now 20250615 ? 
-
-Done:
-
-./sendmsg.sh 8077 test to_middle "test_case_1" 1
-
-https://realpython.com/html-css-python/
-
-Clean up...
 Document the whole flow it's about time again
 https://daringfireball.net/projects/markdown/syntax#header
 
@@ -73,71 +43,18 @@ pandoc -i the_flow.md -o the_flow.html
 create the drawing in ppt and get to the md.. 
 https://code.visualstudio.com/docs/java/java-tutorial
 
-Next steps:
-Restart..
-mama_stats... 
-the web admin page.. manamgement console = own application. console.py
-
-Ideas laterr... 
-"convert dict to able html - shoud be possible... 
-labe dict to table... html.. 
-
 
 for i in *.md ; do echo "$i" && pandoc -s $i -o $i.html ; done
 
-small things:
-timeout på en put... ? - det var det som gick galt någing "consumed from_middle"
-Error handling... refused connection .. what to do.. not fail on none..
 
 https://github.blog/developer-skills/github/a-beginners-guide-to-ci-cd-and-automation-on-github/
 
-Next bit thing: 
-lad data som sendes indeholde en json struktur... og om den gör så lägger vi 
-"producer_ns"
-"echo_ns ind". 
-" nu har vi en loop situation som vi kan provocera - bara change "echo_in" to "no_echo_in" i worker så timer den ud... 
-
-Men hvorfor for Mama inte stoppet den tråd ?  eller skal man bara lave timeout på put and then die ? 
 
 
-Lav en variation som ere en "web server" - så vi kan köre helt isoleret uden fastapi.. 
 
-
-A msg_id and notification so "send" can throttle..
-can we even emulate the crypto backend here ?? .. why not.
-
-Data and message... 
-Json (msg_id + data) and waitfilter.... hmm 
-Command object gets "send message 100000 times"... 
-Starts new thread with this task (not under mama ? well not initially)
-SEt max size on queue instead... 
-
-Constructor for a FIFO queue. maxsize is an integer that sets the upperbound limit on the number of items that can be placed in the queue. Insertion will block once this size has been reached, until queue items are consumed. If maxsize is less than or equal to zero, the queue size is infinite.
-https://www.geeksforgeeks.org/multithreading-in-python-set-2-synchronization/
-
-(Message id not nescessary to control speed... 
-
-Long term:
-Big Mama decision to stopp - if no activity..
-
-
-Nice to have:
-cast a message to messagestring perhaps inside the worker to write  received result maybe with isinstance ? 
-Not sure this would work... current thread does.
-command handler could be class in command_thread ?
-
-clean debug log - and try it again.
-get different times from config dict-
 
 logger thread became variation of worker... document in client.json
 
 Instructions:
 ./stopall.sh
-./sendmsg.sh 8077 send to_middle "Merry go round" 5
-./sendmsg.sh 8078 stat 
-./sendmsg.sh 8078 reset 
 
-error handling iso decode.. 
-Done:
-Echo filter in backend - add " and return" to the message
-upper filter applied before sending to backend

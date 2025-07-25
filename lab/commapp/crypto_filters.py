@@ -8,8 +8,8 @@ import requests
 import iso8583
 from iso_spec import test_spec
 
-from sendmsg import build_iso_message
-from communication_app import Message, Filter, CommunicationApplication, QueueObject   
+# from sendmsg import build_iso_message
+from communication_app import Message, Filter, CommunicationApplication
 
 import pn_utilities.crypto.PnCrypto as PnCrypto
 
@@ -254,27 +254,4 @@ class FilterCryptoResponse(Filter):
 
 # Main function
 if __name__ == "__main__":
-    print("current dir" + os.getcwd())
-    middle_app = CommunicationApplication("config/middle.json")
-    logging.getLogger().setLevel(logging.DEBUG)
-    filter_crypto_request = FilterCryptoRequest(middle_app, "crypto_request")
-    filter_crypto_response = FilterCryptoResponse(middle_app, "crypto_response")
-
-    test_iso_message = Message(build_iso_message(test_case_name='test_case_1'))
-    msg_data = test_iso_message.get_data()
-    decoded, encoded = iso8583.decode(msg_data, test_spec)
-    f47_dict = utils.add_item_create_dict(decoded['47'],'message_id', 123)
-    decoded['47'] = json.dumps(f47_dict)
-    iso_test_raw, encoded = iso8583.encode(decoded, test_spec)
-    test_iso_message = Message(iso_test_raw)        
-    result = filter_crypto_request.run(test_iso_message)
-    # make a reply
-    decoded, encoded = iso8583.decode(result.get_data(), test_spec)
-    decoded['39'] = '00'  # approved
-    test_iso_reply_raw, encoded = iso8583.encode(decoded, test_spec)
-    test_iso_reply = Message(test_iso_reply_raw)
-    print("running another test case via request to crypto server")
-    result = filter_crypto_response.run(test_iso_reply)
-    print(f"result of responset {result.get_data()}")
-
-    
+    print("no main use the test cases in tests directory")

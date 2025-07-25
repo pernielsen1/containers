@@ -8,8 +8,10 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
   
-import iso8583
-from iso_spec import test_spec
+# import iso8583
+# from iso_spec import test_spec
+from iso8583_utils import Iso8583Utils
+
 NANO_TO_SECONDS = 1000000000
 TIME_TO_SECONDS = 1000
 
@@ -18,8 +20,8 @@ TIME_TO_SECONDS = 1000
 class ConsoleHTTPServer(HTTPServer):
     def __init__(self, console_app, server, port, command_handler):
         super().__init__((server, port), command_handler)
-        self.console_app = console_app    
-       
+        self.console_app = console_app
+
 class ConsoleApp():
     def __init__(self, config_file="console.json"):
         super().__init__()
@@ -33,6 +35,7 @@ class ConsoleApp():
         self.test_cases = self.test_case_file['tests']
 
         self.name = self.config['name']
+        self.iso8583_utils = Iso8583Utils("iso8583_utils.json")
  
         # list all config files in config dir
         self.processes={}
@@ -215,8 +218,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         url = self.console_app.processes[process_name].get('url', 'What ?')
         queue_name = self.console_app.test_case_file['test_process_queue_name']
         result = f'trying to send {test_case} to {process_name} on {url}<br>'
-        # build the iso message             
-        iso_message_raw, encoded = iso8583.encode(self.console_app.test_cases[test_case]['iso_message'], test_spec)
+        # build the iso message   
+        iso_message_raw = self.console_app.iso8583_utils.build_iso_msg(test_case)                  
+#        iso_message_raw, encoded = iso8583.encode(self.console_app.test_cases[test_case]['iso_message'], test_spec)
         text = base64.b64encode(iso_message_raw).decode("ascii")
         msg = {
                 "command": "send",

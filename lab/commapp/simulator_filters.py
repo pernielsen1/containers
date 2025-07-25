@@ -7,7 +7,6 @@ import iso8583
 import threading
 from iso_spec import test_spec
 
-from sendmsg import build_iso_message
 from communication_app import Message, Filter, CommunicationApplication   
 
 from crypto_filters import utils
@@ -116,31 +115,3 @@ class FilterSimulatorBackendResponse(Filter):
             return message
         
    
-# Main function
-if __name__ == "__main__":
-    print("current dir" + os.getcwd())
-    client_app = CommunicationApplication("config/client.json")
-
-    logging.getLogger().setLevel(logging.DEBUG)
-
-#    simulator_test_request = SimulatorTestRequest(client_app, 'simulator_test_request')
-    simulator_test_request = client_app.filters['simulator_test_request']
-    simulator_backend_answer  = FilterSimulatorBackendAnswer(client_app, 'simulator_test_request')
-
-    test_iso_message = Message(build_iso_message(test_case_name='test_case_1'))
-    t1 = threading.Thread(target=simulator_test_request.run, args=(test_iso_message,))
-    t1.start()
-    print("and now we answer")
-    decoded, encoded = iso8583.decode(test_iso_message.get_data(), test_spec)
-    decoded['39'] = '00'  # approved
-    decoded['t'] = '0110'
-    # pretend we actually got the manipulated message from simulator_test_request
-    f47_dict = {}
-    f47_dict['orig'] = decoded['47']
-    message_id = str(simulator_test_request.message_id_counter)
-    f47_dict['message_id'] = message_id
-    decoded['47'] = json.dumps(f47_dict)
-    test_iso_reply_raw, encoded = iso8583.encode(decoded, test_spec)
-    test_iso_reply = Message(test_iso_reply_raw)
-    result = simulator_test_answer.run(test_iso_reply)
-    print("End of run")

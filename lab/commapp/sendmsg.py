@@ -4,8 +4,7 @@ import requests
 import sys
 import base64
 from datetime import datetime
-import iso8583
-from iso_spec import test_spec
+from iso8583_utils import Iso8583Utils
 
 server_url = 'localhost'
 
@@ -52,7 +51,7 @@ def send_request(port, command, queue_name:str=None, data:any =None, num_message
             "is_base64": is_base64,
             "text": text,
             "data_base64": text,
-            "filter_name": "simulator_test_request",
+            "filter_name": "FilterSimulatorTestRequest",
             "num_messages": num_messages    
         }
     else: 
@@ -61,6 +60,7 @@ def send_request(port, command, queue_name:str=None, data:any =None, num_message
         }
     
     json_msg = json.dumps(msg)
+    print(json_msg)
     try:
         response = requests.post(post_url, json=json_msg)
     
@@ -82,24 +82,7 @@ def send_request(port, command, queue_name:str=None, data:any =None, num_message
         print("will that didn't work out exiting")
         raise Exception(e)
 
-def build_iso_message(test_case_name:str):
-    test_case_file = "sendmsg.json"
-    if not os.path.isabs(test_case_file):
-            test_case_file = os.path.join(os.getcwd(), test_case_file)
-    with open(test_case_file, 'r') as f:
-            test_cases = json.load(f)
-    tc = test_cases['tests'].get(test_case_name, None)
-    if (tc == None):
-        raise ValueError(f'testcase {test_case_name} not found in {test_case_file}')
-    # still here good to go
-    iso_message =tc['iso_message']
-    try:
-        iso_message_raw, encoded = iso8583.encode(iso_message, test_spec)
 
-        print(iso_message_raw)
-        return iso_message_raw  # bytes
-    except Exception as e:
-        raise Exception(e)
  
 #-------------------------------
 # local tests
@@ -113,17 +96,20 @@ if __name__ == '__main__':
     if (len(sys.argv) > 1):
         port = int(sys.argv[1])
         command = sys.argv[2]
-        
+
+    print(command)    
     if (command == 'send' or command == 'test'):
         queue_name = sys.argv[3]
         text = sys.argv[4]
         if len(sys.argv) > 5: 
             num_messages = int(sys.argv[5])
-    if command != 'test':
-        send_request(port, command, queue_name, text, num_messages)
+    else:
+        send_request(port, command)
+
+
     if command == 'test':
-        iso_msg_raw = build_iso_message(test_case_name='test_case_1')
-#        send_request(port, "send", queue_name, iso_msg_raw, num_messages)
+        iso8583_utils = Iso8583Utils("iso8583_utils.json")
+        iso_msg_raw = iso8583_utils.build_iso_msg(test_case_name='test_case_1')
         send_request(port, "work", queue_name, iso_msg_raw, num_messages)
 
 # curl http://localhost:8009
