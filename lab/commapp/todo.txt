@@ -1,5 +1,9 @@
-console seconds does not count up... 
-I command skal vi have allowed commands and functions in dict-
+Extend the work function - remove the send. / test
+
+
+https://realpython.com/documenting-python-code/
+
+https://code.visualstudio.com/docs/java/java-tutorial
 
 
 Refactor: 

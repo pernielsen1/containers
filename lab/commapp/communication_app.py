@@ -193,6 +193,18 @@ class CommunicationApplication:
  
         return json.dumps(all_measurements)
 
+    def is_ready(self):
+        """ check if all threads are ready to begin processing """
+        for thread in self.threads:
+            if isinstance(thread, GrandMamaThread):
+                if GrandMamaThread.app != self.app:
+                    if thread.app.is_ready() == False:
+                        return False
+            if not ( thread.state == thread.RUNNING or 
+                thread.state == thread.DONE and isinstance(thread, EstablishConnectionThread)):
+                return False
+        # still here means all clear
+        return True
     def reset_measurements(self):
         for thread in self.threads:
             if thread.measurements:
@@ -473,13 +485,29 @@ class CommandThread(CommunicationThread):
         server.server_close()
         self.state=self.DONE
 
-
 # CommandHandler - the actual implementation called when HTTP request is received
 class CommandHandler(BaseHTTPRequestHandler):
     def setup(self):
         BaseHTTPRequestHandler.setup(self)
         self.request.settimeout(10)
         self.app = threading.current_thread().app   # ensure we have a link to the communication app easily available.
+        self.data = {}
+        self.command_and_function = {
+            'stop': self.do_stop,
+            'debug': self.do_debug,
+            'info': self.do_info,
+            'stat': self.do_stat, 
+            'reset': self.do_reset, 
+            'threads': self.do_threads,
+            'children': self.do_children,
+#            'send': self.do_send, 
+            'work': self.do_work, 
+            'debug': self.do_debug,
+            'ready': self.do_ready,
+            'ping': self.do_ping
+
+        }
+
 
     def _set_headers(self):
         self.send_response(200)
@@ -490,8 +518,7 @@ class CommandHandler(BaseHTTPRequestHandler):
         self._set_headers()
 
     def burst_messages(self, queue_name:str, message:Message, num_messages: int):
-        # a thread started when sending messages will put the messages to the queue.
-        # the queue has a max_size so when filled it will go slower.
+        # a thread started when sending messages will put the messages to the queue. the queue has a max_size so when filled it will go slower.
         for i in range  (num_messages):
             self.app.add_queue(queue_name).put(message)
 
@@ -499,91 +526,93 @@ class CommandHandler(BaseHTTPRequestHandler):
         self.send_response(error_code)
         self._set_headers()
         self.wfile.write(json.dumps(error_text).encode())
+    
+    def do_stop(self):
+        self.app.add_queue('big_mama').put(Message("stop"))
+    def do_debug(self):
+        logging.getLogger().setLevel(10)
+        logging.debug("Logging debug after change to debug level")
+    def do_info(self):
+        logging.getLogger().setLevel(20)
+    def do_stat(self):
+        self.return_data = json.dumps(self.app.get_measurements())
+    def do_reset(self):
+        self.app.reset_measurements()
+    def do_threads(self): 
+        self.return_data = self.app.get_threads()
+    def do_children(self):
+        self.return_data = self.app.get_children()    
+    def do_ping(self):
+        logging.debug("ping - do nothing")
+   
+    def do_ready(self):
+        logging.debug("Are we ready ?")
+        self.return_data = json.dumps({"ready": self.app.is_ready()})
+                   
+    def do_work(self):
+        data_base64 = self.data.get('data_base64', None)
+        if (data_base64 is None):
+            self.send_error(400, {"error": "Missing 'data_base64' field for 'work' command"})
+            return
+        # decode the base64 data, create Message and run the filter
+        message = Message(base64.b64decode(data_base64))
+        filter_name = self.data.get('filter_name', None)
+        if filter_name is not None:
+            filter_obj = self.app.get_filter(filter_name)
+            if filter_obj is not None:
+                logging.info(f"Applying filter {filter_name} to message {message.get_data()}")
+                message = filter_obj.run(message)
+                # the result may be binary so we marshall in base64 to the requestor
+                self.return_data = message.get_json()
+
+ #   def do_send(self):
+ #       queue_name = self.data.get('queue_name', None)
+ #       if (queue_name is None):
+ #           self.send_error(400, {"error": "Missing 'queue_name' field for 'send' command"})
+ #           return
+ #       # Check if the queue exists
+ #       if queue_name not in self.app.queues:
+ #           self.send_error(400, {"error": f"Queue '{queue_name}' does not exist"})
+ #           return
+        # check text is in command 
+ #       text = self.data.get('text', None)
+ #       if (text is None):
+ #           self.send_error(400, {"error": "Missing 'text' field for 'send' command"})
+ #           return
+ #       is_base64 = self.data.get("is_base64", False)
+ #       if (is_base64):
+ #           message = Message(base64.b64decode(text.encode("ascii")))
+ #       else:
+ #           message = Message(text)
+ #           num_messages = self.data.get('num_messages', 1)            
+ #           logging.info(f"sending {message.get_data()} to {queue_name} {num_messages} times in a seperate thread")
+ #           t1 = threading.Thread(target=self.burst_messages, args=(queue_name, message, num_messages))
+ #           t1.start()
+    
 
     def do_POST(self):
         try:
             content_length = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_length)
-            data = json.loads(json.loads(body))  # we need to decode the json string twice... why 
-            command = data.get('command', None)
-            return_data = None
+            self.data = json.loads(json.loads(body))  # we need to decode the json string twice... why 
+            command = self.data.get('command', None)
+            self.return_data = None
             if command is None:
                 self.send_error(400, {"error": "Missing 'command' field"})
                 return
             command = command.lower()
-            if command not in ['stop', 'stat', 'reset', 'send', 'work', 'debug', 'info', 'ping', 'threads', 'children']:
+            logging.debug(f"command {command} received")
+            command_function = self.command_and_function.get(command, None)
+            if command_function is None:
                 self.send_error(400, {"error": f"Invalid command '{command}'"})
                 return
-            logging.info(f"command {command} received")
-            if command == 'stop':
-                self.app.add_queue('big_mama').put(Message("stop"))
-            if command == 'debug':
-                logging.getLogger().setLevel(10)
-                logging.debug("Logging debug after change to debug level")
-            if command == 'info':
-                logging.getLogger().setLevel(20)
-            if command == 'stat':
-                return_data = json.dumps(self.app.get_measurements())
-
-            if command == 'reset':
-                self.app.reset_measurements()
-
-            if command == 'threads':
-                return_data = self.app.get_threads()
-
-            if command == 'children':
-                return_data = self.app.get_children()
-
-            if command == 'ping':
-                logging.debug("ping - do nothing")
-
-            if command == 'send':
-                queue_name = data.get('queue_name', None)
-                if (queue_name is None):
-                    self.send_error(400, {"error": "Missing 'queue_name' field for 'send' command"})
-                    return
-                # Check if the queue exists
-                if queue_name not in self.app.queues:
-                    self.send_error(400, {"error": f"Queue '{queue_name}' does not exist"})
-                    return
-                # check text is in command 
-                text = data.get('text', None)
-                if (text is None):
-                    self.send_error(400, {"error": "Missing 'text' field for 'send' command"})
-                    return
-                is_base64 = data.get("is_base64", False)
-                if (is_base64):
-                    message = Message(base64.b64decode(text.encode("ascii")))
-                else:
-                    message = Message(text)
-            
-                num_messages = data.get('num_messages', 1)            
-                logging.info(f"sending {message.get_data()} to {queue_name} {num_messages} times in a seperate thread")
-                t1 = threading.Thread(target=self.burst_messages, args=(queue_name, message, num_messages))
-                t1.start()
-                
-            if (command == 'work'):
-                data_base64 = data.get('data_base64', None)
-                if (data_base64 is None):
-                    self.send_error(400, {"error": "Missing 'data_base64' field for 'work' command"})
-                    return
-                # decode the base64 data, create Message and run the filter
-                message = Message(base64.b64decode(data_base64))
-                filter_name = data.get('filter_name', None)
-                if filter_name is not None:
-                    filter_obj = self.app.get_filter(filter_name)
-                    if filter_obj is not None:
-                        logging.info(f"Applying filter {filter_name} to message {message.get_data()}")
-                        message = filter_obj.run(message)
-                        # the result may be binary so we marshall in base64 to the requestor
-                        return_data = message.get_json()
-                            
+            command_function()                            
             self._set_headers()
             self.wfile.write(json.dumps({
                 "status": "OK",
                 "from:" : self.app.name,
                 "command": command, 
-                "return_data": return_data 
+                "return_data": self.return_data 
             }).encode())
 
 # 20250718 Except json.JSONDecodeError:
@@ -602,5 +631,3 @@ if __name__ == "__main__":
     config_file = sys.argv[1] if len(sys.argv) > 1 else 'config.json'
     app = CommunicationApplication(config_file)
     app.start()
-
- 

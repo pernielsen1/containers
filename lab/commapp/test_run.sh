@@ -1,2 +1,2 @@
 #!/bin/bash
-python -m unittest tests/test_crypto_filters.py
+python3 -m unittest tests/test_crypto_filters.py

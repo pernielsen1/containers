@@ -3,17 +3,17 @@
 import unittest
 import sys, os
 import logging
+import requests
 import threading
 import json
-import iso8583
+import time
 
 up_one_level = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 print("appending " + up_one_level + " to sys path")
 sys.path.append(up_one_level)
 
-from communication_app import Message, Filter, CommunicationApplication   
-from iso_spec import test_spec
-from crypto_filters import utils, FilterCryptoRequest, FilterCryptoResponse
+from communication_app import Message, CommunicationApplication   
+from crypto_filters import FilterCryptoRequest, FilterCryptoResponse
 from simulator_filters import FilterSimulatorBackendResponse
 from iso8583_utils import Iso8583Utils
 #-------------------------------------------------------------------
@@ -21,8 +21,46 @@ from iso8583_utils import Iso8583Utils
 #-------------------------------------------------------------------
 class TestCryptoFilters(unittest.TestCase):
   @classmethod
+  def run_command(cls, command_dict):
+    command_port = cls.crypto_server_app.config['command_port']
+    server = cls.crypto_server_app.config['server']
+    url = 'http://' + server + ':' + str(command_port) 
+    json_msg = json.dumps(command_dict)
+    try:
+      response = requests.post(url, json=json_msg)
+      if (response.status_code != 200):
+          return {"OK": False, "Connected:": True, "Error": str(response.status_code) + " " + response.text}
+      else: 
+          return {"OK": True, "Connected:": True, "result": response.json()}
+         
+    except requests.exceptions.ConnectionError as errc:
+        return {"OK": False, "Connected": False, "Error:": "So there was no luck with {url} gracefully exiting"}
+    except requests.exceptions.RequestException as e:
+        logging.debug("Well that didn't work" + str(e))  
+        raise
+    
+  @classmethod
   def run_crypto_server_app(cls):
     cls.crypto_server_app.start()
+ 
+  @classmethod
+  def wait_crypto_server_ready(cls):
+    logging.debug("waiting for crypto server to be ready")
+    num_attempts  = 10
+    attempt_no = 0
+    ready = False
+    while not ready and attempt_no < num_attempts:
+      ping_res = cls.run_command({"command": "ping"})   
+      if ping_res['OK']:
+        logging.debug("OK ping is now reponding see if all are ready")
+        ready_res = cls.run_command({"command": "ready"})   
+        if ready_res['OK']:
+          logging.debug(str(ready_res))
+          return_dict = json.loads(ready_res['result']['return_data'])
+          print(return_dict)
+          ready = return_dict['ready']      
+      time.sleep(1)
+
   @classmethod
   def setUpClass(cls):
     logging.getLogger().setLevel(logging.DEBUG)
@@ -43,14 +81,16 @@ class TestCryptoFilters(unittest.TestCase):
     cls.crypto_server_thread = threading.Thread(target=cls.run_crypto_server_app)
     cls.crypto_server_thread.daemon = True
     cls.crypto_server_thread.start()
+    # wait to ensure the crypto server is ready
+    cls.wait_crypto_server_ready()
     logging.info("end of setup let the games begin")
 
       
   #---------------------------------------
   # test_arqc_arpc ... the test arpc and arqc calcualtions
   #------------------------------
-  def Xest_arqc_arpc(self):
-      test_iso_message = Message(self.iso8583.build_iso_msg(test_case_name='test_case_1'))
+  def test_arqc_arpc(self):
+      test_iso_message = Message(self.iso8583_utils.build_iso_msg('test_case_1', True))
       result1 = self.filter_crypto_request.run(test_iso_message)
       print(f'result1 {result1.get_data()}')
 
@@ -101,7 +141,6 @@ class TestCryptoFilters(unittest.TestCase):
       logging.info("Joining crypto_server_thread")
       cls.crypto_server_thread.join()
       logging.info("All done")
-
 
 #-------------------------------
 # local tests

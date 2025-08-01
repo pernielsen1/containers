@@ -13,7 +13,6 @@ from urllib.parse import urlparse, parse_qs
 from iso8583_utils import Iso8583Utils
 
 NANO_TO_SECONDS = 1000000000
-TIME_TO_SECONDS = 1000
 
 
 # inheritance from HTTP-server let's us store an object where we have the data - the console_app
@@ -171,7 +170,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         threads = self.run_command(process_name,{ "command": "threads"})
         res += "<table><tr><th>name</th><th>heartbeat</th><th>active</th><th>class</th><th>native_id</th><th>state</th></tr>"
         for key, t in threads['return_data'].items():
-            heartbeat_str = datetime.fromtimestamp(t['heartbeat']/TIME_TO_SECONDS).strftime('%H:%M:%S.%f')
+            heartbeat_str = datetime.fromtimestamp(t['heartbeat']).strftime('%H:%M:%S.%f')
             res += f'<tr><td>{t['name']}</td><td>{heartbeat_str}</td><td>{t['active']}</td><td>{t['class']}</td><td>{key}</td><td>{t['state']}</td></tr>' 
 
         res += "</table>"
@@ -180,8 +179,8 @@ class RequestHandler(BaseHTTPRequestHandler):
     # do a ping and see if we get a result OK 
     def check_ping(self, process_name):
         result =  self.run_command(process_name,{ "command": "ping"})
-        heartbeat= time.time()
-        heartbeat_str = datetime.fromtimestamp(heartbeat/TIME_TO_SECONDS).strftime('%H:%M:%S.%f')
+        heartbeat= time.time()  
+        heartbeat_str = datetime.fromtimestamp(heartbeat).strftime('%H:%M:%S.%f')
         if isinstance(result, dict):
             color="green"
             text="OK " + heartbeat_str 
@@ -223,7 +222,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 #        iso_message_raw, encoded = iso8583.encode(self.console_app.test_cases[test_case]['iso_message'], test_spec)
         text = base64.b64encode(iso_message_raw).decode("ascii")
         msg = {
-                "command": "send",
+                "command": "work",
                 "queue_name": queue_name,
                 "is_base64": True,
                 "text": text,
