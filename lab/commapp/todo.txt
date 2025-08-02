@@ -1,8 +1,29 @@
+ingen timeout command men config parmen plus use everyvere
+Implement the timeout command... needed in config files plus a command to change it.
+Make a test script setting upp all 
+make retry i "grand mama"... 
+Try except in the run commands... 
+if except then set the "stop" and exit.. will kill all others in the stream..  - then app can be restarted.
+
+
+Ideas
+make command that changes the timeout.. good in testing and ensures we take the timeout from the same place .. 
+should work has dict a return data ? for the test case ?... hmmm 
+
+
+create test runner for whole stream... start up all wait for "all ready"
+
+# ./sendmsg.sh 8076 stop
+# ./sendmsg.sh 8076 ready
 Extend the work function - remove the send. / test
 
+Documentation ?
+grandmama start commands on done statuses 
 
+SSL - not a lot needed ... Install SSL also... plus as a parameter on all - start with command app
+
+https://realpython.com/python-project-documentation-with-mkdocs/
 https://realpython.com/documenting-python-code/
-
 https://code.visualstudio.com/docs/java/java-tutorial
 
 
@@ -21,18 +42,8 @@ console to send waiting test case - currently send as work by command below ?
 ./sendmsg.sh 8077 test to_middle "test_case_1" 1
 
 
-
-
-
-
-
 Clean up in console app 
-time str move 0715 to 1916
 optimised debug messages.. (len) + hex 
-grandmama start commands on done statuses 
-Documentation ?
-Install SSL also... plus as a parameter on all - start with command app
-
 
 
 

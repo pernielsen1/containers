@@ -112,6 +112,8 @@ class CommunicationApplication:
         with open(config_file_path, 'r') as f:
             self.config = json.load(f)
         logging.getLogger().setLevel(self.config['log_level'])
+        self.time_out = self.config.get("timeout", 10)
+
         self.name=self.config['name']
         self.filters = {}
         self.queues = {}
@@ -374,7 +376,7 @@ class BigMamaThread(CommunicationThread):
                             self.app.stop()
                 # ok if we have wrong thread saying DONE - then we shut down.
             
-            command = self.queue.get(15000)   
+            command = self.queue.get(self.app.time_out * 1000)   
             if (command):
                 text = command.get_string()
                 logging.info(f"command {text} received to big_mama")
@@ -403,7 +405,7 @@ class EstablishConnectionThread(CommunicationThread):
         # first part = establish connection outbound or accept client inbound
         if self.type == 'listen':
             self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.listen_socket.settimeout(10)  # necessary here or only below ?
+            self.listen_socket.settimeout(self.app.time_out)  # necessary here or only below ?
             self.listen_socket.bind((self.host, self.port))
 
         logging.info(f'{self.name} waiting for Establish {self.port} type:{self.type}')
@@ -475,8 +477,8 @@ class CommandThread(CommunicationThread):
         self.state=self.RUNNING
         logging.info(f'command server for {self.name} started on {self.port}')
         server = HTTPServer(('localhost', self.port), CommandHandler)
-        server.timeout = 20
         while self.active:
+            server.timeout = self.app.time_out  # set if every time - app.time_out may be chaned
             self.heartbeat = time.time()
             if self.app.config.get("command_debug", False):  # to avoid noise possible to set True if really needing in config file
                 logging.debug("Command ready")
@@ -489,8 +491,9 @@ class CommandThread(CommunicationThread):
 class CommandHandler(BaseHTTPRequestHandler):
     def setup(self):
         BaseHTTPRequestHandler.setup(self)
-        self.request.settimeout(10)
         self.app = threading.current_thread().app   # ensure we have a link to the communication app easily available.
+        self.request.settimeout(self.app.time_out)
+
         self.data = {}
         self.command_and_function = {
             'stop': self.do_stop,
@@ -544,10 +547,10 @@ class CommandHandler(BaseHTTPRequestHandler):
         self.return_data = self.app.get_children()    
     def do_ping(self):
         logging.debug("ping - do nothing")
-   
+
     def do_ready(self):
         logging.debug("Are we ready ?")
-        self.return_data = json.dumps({"ready": self.app.is_ready()})
+        self.return_data = {"ready": self.app.is_ready()}
                    
     def do_work(self):
         data_base64 = self.data.get('data_base64', None)
@@ -565,31 +568,6 @@ class CommandHandler(BaseHTTPRequestHandler):
                 # the result may be binary so we marshall in base64 to the requestor
                 self.return_data = message.get_json()
 
- #   def do_send(self):
- #       queue_name = self.data.get('queue_name', None)
- #       if (queue_name is None):
- #           self.send_error(400, {"error": "Missing 'queue_name' field for 'send' command"})
- #           return
- #       # Check if the queue exists
- #       if queue_name not in self.app.queues:
- #           self.send_error(400, {"error": f"Queue '{queue_name}' does not exist"})
- #           return
-        # check text is in command 
- #       text = self.data.get('text', None)
- #       if (text is None):
- #           self.send_error(400, {"error": "Missing 'text' field for 'send' command"})
- #           return
- #       is_base64 = self.data.get("is_base64", False)
- #       if (is_base64):
- #           message = Message(base64.b64decode(text.encode("ascii")))
- #       else:
- #           message = Message(text)
- #           num_messages = self.data.get('num_messages', 1)            
- #           logging.info(f"sending {message.get_data()} to {queue_name} {num_messages} times in a seperate thread")
- #           t1 = threading.Thread(target=self.burst_messages, args=(queue_name, message, num_messages))
- #           t1.start()
-    
-
     def do_POST(self):
         try:
             content_length = int(self.headers.get('Content-Length', 0))
@@ -598,7 +576,7 @@ class CommandHandler(BaseHTTPRequestHandler):
             command = self.data.get('command', None)
             self.return_data = None
             if command is None:
-                self.send_error(400, {"error": "Missing 'command' field"})
+                self.send_error(400, {"error": "Missing command field"})
                 return
             command = command.lower()
             logging.debug(f"command {command} received")

@@ -16,28 +16,11 @@ from communication_app import Message, CommunicationApplication
 from crypto_filters import FilterCryptoRequest, FilterCryptoResponse
 from simulator_filters import FilterSimulatorBackendResponse
 from iso8583_utils import Iso8583Utils
+from sendmsg import CommAppCommand
 #-------------------------------------------------------------------
 # 
 #-------------------------------------------------------------------
 class TestCryptoFilters(unittest.TestCase):
-  @classmethod
-  def run_command(cls, command_dict):
-    command_port = cls.crypto_server_app.config['command_port']
-    server = cls.crypto_server_app.config['server']
-    url = 'http://' + server + ':' + str(command_port) 
-    json_msg = json.dumps(command_dict)
-    try:
-      response = requests.post(url, json=json_msg)
-      if (response.status_code != 200):
-          return {"OK": False, "Connected:": True, "Error": str(response.status_code) + " " + response.text}
-      else: 
-          return {"OK": True, "Connected:": True, "result": response.json()}
-         
-    except requests.exceptions.ConnectionError as errc:
-        return {"OK": False, "Connected": False, "Error:": "So there was no luck with {url} gracefully exiting"}
-    except requests.exceptions.RequestException as e:
-        logging.debug("Well that didn't work" + str(e))  
-        raise
     
   @classmethod
   def run_crypto_server_app(cls):
@@ -50,15 +33,13 @@ class TestCryptoFilters(unittest.TestCase):
     attempt_no = 0
     ready = False
     while not ready and attempt_no < num_attempts:
-      ping_res = cls.run_command({"command": "ping"})   
+      ping_res = cls.crypto_command.run_command(command="ping")
       if ping_res['OK']:
         logging.debug("OK ping is now reponding see if all are ready")
-        ready_res = cls.run_command({"command": "ready"})   
+        ready_res = cls.crypto_command.run_command(command="ready")   
         if ready_res['OK']:
           logging.debug(str(ready_res))
-          return_dict = json.loads(ready_res['result']['return_data'])
-          print(return_dict)
-          ready = return_dict['ready']      
+          ready = ready_res['result']['return_data']['ready']      
       time.sleep(1)
 
   @classmethod
@@ -77,7 +58,10 @@ class TestCryptoFilters(unittest.TestCase):
     config_file = up_one_level + '/config/crypto_server.json'
                                                               
     logging.info("setup Starting the crypto server in seperate thread")
+    cls.crypto_command = CommAppCommand(config_file=config_file)
     cls.crypto_server_app = CommunicationApplication(config_file)
+    # reduce the time_out before starting
+    cls.crypto_server_app.time_out = 3
     cls.crypto_server_thread = threading.Thread(target=cls.run_crypto_server_app)
     cls.crypto_server_thread.daemon = True
     cls.crypto_server_thread.start()
