@@ -28,19 +28,10 @@ class TestCryptoFilters(unittest.TestCase):
  
   @classmethod
   def wait_crypto_server_ready(cls):
-    logging.debug("waiting for crypto server to be ready")
-    num_attempts  = 10
-    attempt_no = 0
-    ready = False
-    while not ready and attempt_no < num_attempts:
-      ping_res = cls.crypto_command.run_command(command="ping")
-      if ping_res['OK']:
-        logging.debug("OK ping is now reponding see if all are ready")
-        ready_res = cls.crypto_command.run_command(command="ready")   
-        if ready_res['OK']:
-          logging.debug(str(ready_res))
-          ready = ready_res['result']['return_data']['ready']      
-      time.sleep(1)
+     if not cls.crypto_command.wait_connected(is_connected=True, max_secs=10):
+        raise ValueError("The Crypto server did not reply to ping in time")
+     if not cls.crypto_command.wait_ready(max_secs=10):
+        raise ValueError("The Crypto server did not become ready in time")
 
   @classmethod
   def setUpClass(cls):

@@ -4,6 +4,7 @@ import requests
 import sys
 import base64
 import logging
+import time
 from iso8583_utils import Iso8583Utils
 
 server_url = 'localhost'
@@ -48,17 +49,41 @@ class CommAppCommand():
         try:
             response = requests.post(self.post_url, json=json_msg)
             if (response.status_code != 200):
-                return {"OK": False, "Connected:": True, "Error": str(response.status_code) + " " + response.text}
+                return {"OK": False, "connected": True, "error": str(response.status_code) + " " + response.text}
             else: 
-                return {"OK": True, "Connected:": True, "result": response.json()}
+                return {"OK": True, "connected": True, "result": response.json()}
                 
         except requests.exceptions.ConnectionError as errc:
-            return {"OK": False, "Connected": False, "Error:": f"So there was no luck with {self.post_url} gracefully exiting"}
+            return {"OK": False, "connected": False, "error:": f"So there was no luck with {self.post_url} gracefully exiting"}
         except requests.exceptions.RequestException as e:
             logging.debug("Well that didn't work" + str(e))  
             raise
 
- 
+    def wait_connected(self, is_connected:bool, max_secs:int):
+        num_secs = 0
+        while num_secs <= max_secs:   # at least one attempt
+            result = self.run_command(command='ping')
+            if is_connected and result['connected'] == True:
+                return True
+            if not is_connected and result['connected'] == False:
+                return True
+            time.sleep(1)
+            num_secs = num_secs + 1
+        
+        return False # still here means we did not receive expected result in time
+
+    def wait_ready(self, max_secs:int):
+        num_secs = 0
+        while num_secs <= max_secs:   # at least one attempt
+            result = self.run_command(command='ready')
+            print(result)
+            if result['OK']:
+                if result['result']['return_data']['ready']:
+                    return True
+            time.sleep(1)
+            num_secs = num_secs + 1
+      
+        return False  # still here means we have not gotten a ready signal
 #-------------------------------
 # local tests
 #--------------------------------
