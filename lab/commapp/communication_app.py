@@ -26,7 +26,7 @@ class QueueObject:
 
     def get(self, timeout):
         try:
-            return self.queue.get(timeout=timeout / 1000)
+            return self.queue.get(timeout=timeout) 
         except:
             return None
 
@@ -112,7 +112,7 @@ class CommunicationApplication:
         with open(config_file_path, 'r') as f:
             self.config = json.load(f)
         logging.getLogger().setLevel(self.config['log_level'])
-        self.time_out = self.config.get("timeout", 10)
+        self.time_out = self.config.get("time_out", 10) # in millisecs
 
         self.name=self.config['name']
         self.filters = {}
@@ -248,7 +248,9 @@ class CommunicationThread(threading.Thread):
         logging.info(f'App:{self.app.name} initializing {self.name} with queue[{self.queue_name}], filter={self.filter_name}')
         self.state = self.INITIALIZED
     def run(self):
-        pass
+        # we are here means a run has not been implemented locally then the run thread should be implemented.
+        logging.debug("Inside the Communication Thread run will use the run_thread")
+        self.run_thread()
      
 # WorkerThread class
 class WorkerThread(CommunicationThread):
@@ -264,7 +266,7 @@ class WorkerThread(CommunicationThread):
         self.state=self.RUNNING
         while self.active:
             self.heartbeat = time.time()
-            message = self.queue.get(500)
+            message = self.queue.get(self.app.time_out)
             if message:
                 start_ns = time.time_ns()
                 logging.debug(f"Worker {self.name} received message {message.get_data()} to queue {self.to_queue_name}")
@@ -305,7 +307,7 @@ class SocketReceiverThread(CommunicationThread):
 
                 self.queue.put(message)
             except socket.timeout:
-            #    print("Didn't receive data! [Timeout 5s]")
+            #  nothing received quite Ok - just timeout so we can report a heartbeat
                 continue
             except Exception as e:
                 self.active = False
@@ -329,7 +331,7 @@ class SocketSenderThread(CommunicationThread):
         while self.active:
             try:
                 self.heartbeat = time.time()
-                message = self.queue.get(500)
+                message = self.queue.get(self.app.time_out)
                 if message:
                     data = message.get_data()
                     length = len(data)
@@ -376,7 +378,7 @@ class BigMamaThread(CommunicationThread):
                             self.app.stop()
                 # ok if we have wrong thread saying DONE - then we shut down.
             
-            command = self.queue.get(self.app.time_out * 1000)   
+            command = self.queue.get(self.app.time_out)   
             if (command):
                 text = command.get_string()
                 logging.info(f"command {text} received to big_mama")
@@ -416,14 +418,14 @@ class EstablishConnectionThread(CommunicationThread):
 
             try:
                 if self.type == 'connect':
-                    self.socket.settimeout(10)
+                    self.socket.settimeout(self.app.time_out)
                     self.socket.connect((self.host, self.port))
                     logging.info(f'Connected to server {self.name} on port {self.port}')
                     self.state=self.DONE
                 elif self.type == 'listen':
                     self.listen_socket.listen(5)  # listen for incoming connections 
                     self.socket, addr  = self.listen_socket.accept()
-                    self.socket.settimeout(10)  # still here set socket = client timeout
+                    self.socket.settimeout(self.app.time_out)  # still here set socket = client timeout
                     logging.info(f'Client accepted by {self.name} from {addr}')
                     self.listen_socket.close()
                     self.state = self.DONE
@@ -460,7 +462,7 @@ class GrandMamaThread(CommunicationThread):
         self.state=self.RUNNING
         while self.active:
             self.heartbeat = time.time()    
-            command = self.queue.get(15000)   
+            command = self.queue.get(self.app.time_out)   
             if (command):
                 logging.info(f"command {command} received to grand_mama")
 
@@ -473,7 +475,8 @@ class CommandThread(CommunicationThread):
         super().__init__(app, name, queue_name, filter_name)
         self.app = app
         self.port = port
-    def run(self):
+    # run not implemented locally the communication thread will call the run_thread 
+    def run_thread(self):
         self.state=self.RUNNING
         logging.info(f'command server for {self.name} started on {self.port}')
         server = HTTPServer(('localhost', self.port), CommandHandler)

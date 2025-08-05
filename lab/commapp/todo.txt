@@ -1,4 +1,8 @@
-ingen timeout command men config parmen plus use everyvere
+run test from console does not work
+could run be in threading and then calling run_thread which is in the inherited ... works - run is the general one - replace the run thread
+ingen timeout command men config parmen plus use everyvere ... go through the worker stuff
+--- check wait's 
+
 Implement the timeout command... needed in config files plus a command to change it.
 Make a test script setting upp all 
 make retry i "grand mama"... 
