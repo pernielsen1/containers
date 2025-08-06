@@ -247,10 +247,20 @@ class CommunicationThread(threading.Thread):
         self.measurements = None # will be overridden in worker thread..
         logging.info(f'App:{self.app.name} initializing {self.name} with queue[{self.queue_name}], filter={self.filter_name}')
         self.state = self.INITIALIZED
+   
     def run(self):
         # we are here means a run has not been implemented locally then the run thread should be implemented.
         logging.debug("Inside the Communication Thread run will use the run_thread")
-        self.run_thread()
+        self.state=self.RUNNING
+        try:
+            self.run_thread()
+        except Exception as e:
+            logging.error(f'{self.name} had an error {e} stopping the process')
+            self.app.stop()
+        
+        self.active = False
+        logging.info(f"Time to stop {self.name}")
+        self.state=self.DONE
      
 # WorkerThread class
 class WorkerThread(CommunicationThread):
@@ -262,8 +272,7 @@ class WorkerThread(CommunicationThread):
         if self.to_queue_name is not None:
             self.to_queue = app.add_queue(to_queue_name)
 
-    def run(self):
-        self.state=self.RUNNING
+    def run_thread(self):
         while self.active:
             self.heartbeat = time.time()
             message = self.queue.get(self.app.time_out)
@@ -278,7 +287,6 @@ class WorkerThread(CommunicationThread):
                     self.to_queue.put(message)
                     logging.debug(f"Worker {self.name} put message {message.get_data()} to queue {self.to_queue.name}")
                 self.measurements.add_measurement(start_ns)
-        self.state=self.DONE
 
 # SocketReceiverThread class
 class SocketReceiverThread(CommunicationThread):
@@ -287,8 +295,7 @@ class SocketReceiverThread(CommunicationThread):
         self.socket = socket
         self.length_field_type = length_field_type
 
-    def run(self):
-        self.state=self.RUNNING
+    def run_thread(self):
         logging.info(f'Starting {self.name} receiving from socket sending to queue[{self.queue_name}]')
         while self.active:
             self.heartbeat = time.time()
@@ -310,12 +317,11 @@ class SocketReceiverThread(CommunicationThread):
             #  nothing received quite Ok - just timeout so we can report a heartbeat
                 continue
             except Exception as e:
+                raise
                 self.active = False
                 logging.error(f'{self.name} had an error {e}')
 
         self.socket.close()
-        logging.info(f"Time to stop {self.name}")
-        self.state=self.DONE
 
 # SocketSenderThread class
 class SocketSenderThread(CommunicationThread):
@@ -324,8 +330,7 @@ class SocketSenderThread(CommunicationThread):
         self.socket = socket
         self.length_field_type = length_field_type
 
-    def run(self):
-        self.state=self.RUNNING
+    def run_thread(self):
         logging.info(f'Starting {self.name} receiving from queue[{self.queue_name}] sending to socket')
 
         while self.active:
@@ -349,16 +354,13 @@ class SocketSenderThread(CommunicationThread):
                 logging.error(f'Sender {self.name} had an error {e}')
 
         self.socket.close()
-        logging.info(f"Time to stop {self.name}")
-        self.state=self.DONE
 
 # BigMamaThread class
 class BigMamaThread(CommunicationThread):
     def __init__(self, app, name, queue_name,  filter_name=None):
         super().__init__(app, name, queue_name, filter_name)
 
-    def run(self):
-        self.state=self.RUNNING
+    def run_thread(self):
         while self.active:
             self.heartbeat = time.time()
             for thread in self.app.threads:
@@ -386,8 +388,6 @@ class BigMamaThread(CommunicationThread):
                     logging.info(f"stop command received to big_mama")
                     self.app.stop()
 
-        logging.info(f"Time to stop {self.name}")
-        self.state=self.DONE
 
 # ConnectThread class
 class EstablishConnectionThread(CommunicationThread):
@@ -402,8 +402,7 @@ class EstablishConnectionThread(CommunicationThread):
         self.length_field_type = 'ascii_4'
         self.received_filter_name = filter_name
 
-    def run(self):
-        self.state=self.RUNNING
+    def run_thread(self):
         # first part = establish connection outbound or accept client inbound
         if self.type == 'listen':
             self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -456,18 +455,15 @@ class GrandMamaThread(CommunicationThread):
         self.child_app = CommunicationApplication(child_app_name)
         self.app.children.append(self.child_app)
 
-    def run(self):
+    def run_thread(self):
         logging.info(f"Starting communication app{self.child_app.name}")
         self.child_app.start()
-        self.state=self.RUNNING
         while self.active:
             self.heartbeat = time.time()    
             command = self.queue.get(self.app.time_out)   
             if (command):
                 logging.info(f"command {command} received to grand_mama")
 
-        logging.info(f"Time to stop {self.name}")
-        self.state=self.DONE
 
 # CommandThread class
 class CommandThread(CommunicationThread):
@@ -488,7 +484,6 @@ class CommandThread(CommunicationThread):
             server.handle_request()
         logging.info(f"Time to stop guess I am last man standing {self.name} and will close the http server")
         server.server_close()
-        self.state=self.DONE
 
 # CommandHandler - the actual implementation called when HTTP request is received
 class CommandHandler(BaseHTTPRequestHandler):

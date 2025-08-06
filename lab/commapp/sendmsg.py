@@ -89,10 +89,10 @@ class CommAppCommand():
 #--------------------------------
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
-
-    num_messages  = None
+    port = 8077
+    num_messages  = 1
     data = None
-    queue_name = None
+    queue_name = 'to_middle'
     server = 'localhost'
     command = 'test'
     if (len(sys.argv) > 1):
@@ -101,15 +101,17 @@ if __name__ == '__main__':
     command_server = CommAppCommand(server=server, port=port)
 
     if (command == 'send' or command == 'test'):
-        queue_name = sys.argv[3]
-        data = sys.argv[4]
-        if len(sys.argv) > 5: 
-            num_messages = int(sys.argv[5])
+        if (len(sys.argv) > 3):
+            queue_name = sys.argv[3]
+            data = sys.argv[4]
+            if len(sys.argv) > 5: 
+                num_messages = int(sys.argv[5])
 
     if command == 'test':
+        command = 'work'
         iso8583_utils = Iso8583Utils("iso8583_utils.json")
-        iso_msg_raw = iso8583_utils.build_iso_msg(test_case_name='test_case_1')
-        result= command_server.run_command(command=command, queue_name=queue_name, data=iso_msg_raw, num_messages=num_messages)
+        data = iso8583_utils.build_iso_msg(test_case_name='test_case_1')
+        result= command_server.run_command(command=command, queue_name=queue_name, data=data, num_messages=num_messages)
     logging.debug(f"running command{command}, queue_name:{queue_name} data:{data} num_message:{num_messages}")
     result=command_server.run_command(command=command, queue_name=queue_name, data=data, num_messages=num_messages)
     logging.debug(f"result was {result}")
