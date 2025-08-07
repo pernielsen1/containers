@@ -248,6 +248,22 @@ class CommunicationThread(threading.Thread):
         logging.info(f'App:{self.app.name} initializing {self.name} with queue[{self.queue_name}], filter={self.filter_name}')
         self.state = self.INITIALIZED
    
+    def close_socket(self):
+        if (    isinstance(self, SocketReceiverThread) or isinstance(self, SocketSenderThread) or
+                isinstance(self, EstablishConnectionThread) 
+            ):
+            logging.debug(f"closing socket for {self.name}")
+            try:
+                self.socket.close()
+            except Exception as e:
+                logging.error(f"Failed to close socket for {self.name}")
+        if isinstance(self, EstablishConnectionThread):
+            if self.type == 'listen':
+                try:
+                    self.listen_socket.close()
+                except Exception as e:
+                    logging.error(f"Failed to close listen_socket for {self.name}")
+
     def run(self):
         # we are here means a run has not been implemented locally then the run thread should be implemented.
         logging.debug("Inside the Communication Thread run will use the run_thread")
@@ -256,6 +272,7 @@ class CommunicationThread(threading.Thread):
             self.run_thread()
         except Exception as e:
             logging.error(f'{self.name} had an error {e} stopping the process')
+            self.close_socket()
             self.app.stop()
         
         self.active = False
@@ -318,10 +335,9 @@ class SocketReceiverThread(CommunicationThread):
                 continue
             except Exception as e:
                 raise
-                self.active = False
-                logging.error(f'{self.name} had an error {e}')
 
-        self.socket.close()
+        self.close_socket()
+
 
 # SocketSenderThread class
 class SocketSenderThread(CommunicationThread):
@@ -350,10 +366,8 @@ class SocketSenderThread(CommunicationThread):
                     self.socket.send(length_field)
                     self.socket.send(data)
             except Exception as e:
-                self.active = False
-                logging.error(f'Sender {self.name} had an error {e}')
-
-        self.socket.close()
+                raise
+        self.close_socket()
 
 # BigMamaThread class
 class BigMamaThread(CommunicationThread):
@@ -447,6 +461,7 @@ class EstablishConnectionThread(CommunicationThread):
                 time.sleep(5) # tbd should it be removed - if we get connect error we might as well wait..
                 pass    
         self.active =  False
+        
 
 # GrandMamaThread(CommunicationThread) starts a communication app ... 
 class GrandMamaThread(CommunicationThread):

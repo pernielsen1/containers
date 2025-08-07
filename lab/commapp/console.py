@@ -119,6 +119,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(error_text).encode())
 
     def run_command(self, process_name, msg):
+        print(f"running {process_name} {msg}")
         url = self.console_app.processes[process_name].get('url', 'What ?')
         description = self.console_app.processes[process_name].get('description', 'What ?')
         result = ""
@@ -131,7 +132,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             if msg['command'] == 'stat':
                 result = f'stats: retrieved from {url} for {description}'
                 result += do_stat(response.json())
-            if msg['command'] in ('send', 'reset'):
+            if msg['command'] in ('send', 'reset', 'work'):
                 result += f"Command {msg['command']} successfull !"
             if msg['command'] in ('threads', 'ping', 'children'):
                 result = response.json()
@@ -226,6 +227,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "queue_name": queue_name,
                 "is_base64": True,
                 "text": text,
+                "data_base64": text,
                 "num_messages": num_messages    
         }
         return result + self.run_command(process_name, msg)

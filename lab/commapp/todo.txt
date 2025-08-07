@@ -1,4 +1,5 @@
 run test from console does not work
+grand_mama doesn't stop well now... - somethings hanging
 could run be in threading and then calling run_thread which is in the inherited ... works - run is the general one - replace the run thread
 ingen timeout command men config parmen plus use everyvere ... go through the worker stuff
 --- check wait's 
@@ -23,6 +24,7 @@ Extend the work function - remove the send. / test
 
 Documentation ?
 grandmama start commands on done statuses 
+should we move use the runcommand from sendmsg in console ??? 
 
 SSL - not a lot needed ... Install SSL also... plus as a parameter on all - start with command app
 
