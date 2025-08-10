@@ -22,7 +22,7 @@ class CommAppCommand():
                 port = config['command_port']
         self.post_url = (f"http://{server}:{port}")
 
-    def run_command(self, command, queue_name:str=None, data:any =None, num_messages:int = 1):
+    def send_command(self, command, queue_name:str=None, data:any =None, num_messages:int = 1):
         if isinstance(data, bytes) or isinstance(data, bytearray):
             is_base64 = True
             text = base64.b64encode(data).decode("ascii")
@@ -44,13 +44,16 @@ class CommAppCommand():
             msg = {
                 "command": command,
             }
-        
+                
         json_msg = json.dumps(msg)
+        print(json_msg)
         try:
             response = requests.post(self.post_url, json=json_msg)
             if (response.status_code != 200):
                 return {"OK": False, "connected": True, "error": str(response.status_code) + " " + response.text}
             else: 
+                res  =response.json()
+                print(res)
                 return {"OK": True, "connected": True, "result": response.json()}
                 
         except requests.exceptions.ConnectionError as errc:
@@ -89,12 +92,17 @@ class CommAppCommand():
 #--------------------------------
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
-    port = 8077
+    client_port = 8077
+    middle_port = 8078
+    port = client_port
     num_messages  = 1
     data = None
     queue_name = 'to_middle'
     server = 'localhost'
     command = 'test'
+    # do stat instead
+    command = 'stat'
+    port = middle_port
     if (len(sys.argv) > 1):
         port = int(sys.argv[1])
         command = sys.argv[2]
@@ -111,9 +119,9 @@ if __name__ == '__main__':
         command = 'work'
         iso8583_utils = Iso8583Utils("iso8583_utils.json")
         data = iso8583_utils.build_iso_msg(test_case_name='test_case_1')
-        result= command_server.run_command(command=command, queue_name=queue_name, data=data, num_messages=num_messages)
+#        result= command_server.sednd_command(command=command, queue_name=queue_name, data=data, num_messages=num_messages)
     logging.debug(f"running command{command}, queue_name:{queue_name} data:{data} num_message:{num_messages}")
-    result=command_server.run_command(command=command, queue_name=queue_name, data=data, num_messages=num_messages)
+    result=command_server.send_command(command=command, queue_name=queue_name, data=data, num_messages=num_messages)
     logging.debug(f"result was {result}")
 
 # curl http://localhost:8009

@@ -11,6 +11,8 @@ from urllib.parse import urlparse, parse_qs
 # import iso8583
 # from iso_spec import test_spec
 from iso8583_utils import Iso8583Utils
+from sendmsg import CommAppCommand  
+  
 
 NANO_TO_SECONDS = 1000000000
 
@@ -117,29 +119,21 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_response(error_code)
         self._set_headers()
         self.wfile.write(json.dumps(error_text).encode())
-
+ 
+                                  
     def run_command(self, process_name, msg):
         print(f"running {process_name} {msg}")
         url = self.console_app.processes[process_name].get('url', 'What ?')
         description = self.console_app.processes[process_name].get('description', 'What ?')
         result = ""
-        json_msg = json.dumps(msg)
+        commapp_command = CommAppCommand(
+            self.console_app.processes[process_name]['server'],
+            self.console_app.processes[process_name]['command_port']
+        )
+     
         try:
-            response = requests.post(url, json=json_msg)
-            if (response.status_code != 200):
-                return "Error: " + str(response.status_code) + " " + response.text
-            # still here all good
-            if msg['command'] == 'stat':
-                result = f'stats: retrieved from {url} for {description}'
-                result += do_stat(response.json())
-            if msg['command'] in ('send', 'reset', 'work'):
-                result += f"Command {msg['command']} successfull !"
-            if msg['command'] in ('threads', 'ping', 'children'):
-                result = response.json()
-    
-
-            return result
-
+            return commapp_command.send_command(msg['command'], msg.get('queue_name'), msg.get('data'),
+                                            msg.get('num_messages')) 
         except requests.exceptions.ConnectionError as errc:
             return f'So there was no luck with {url} gracefully exiting'
         # Maybe set up for a retry, or continue in a retry loop
@@ -162,15 +156,16 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     #
     def get_statistics(self, process_name):
-        return self.run_command(process_name,{ "command": "stat"})
-
+        result = self.run_command(process_name,{ "command": "stat"})
+        return self.do_stat(result)
+    
     def get_process(self, process_name):
         url = self.console_app.processes[process_name].get('url', 'What ?')
         description = self.console_app.processes[process_name].get('description', 'What ?')
         res = "you want to see " + process_name + ' ' + description + " url:" + url
         threads = self.run_command(process_name,{ "command": "threads"})
         res += "<table><tr><th>name</th><th>heartbeat</th><th>active</th><th>class</th><th>native_id</th><th>state</th></tr>"
-        for key, t in threads['return_data'].items():
+        for key, t in threads['result']['return_data'].items():
             heartbeat_str = datetime.fromtimestamp(t['heartbeat']).strftime('%H:%M:%S.%f')
             res += f'<tr><td>{t['name']}</td><td>{heartbeat_str}</td><td>{t['active']}</td><td>{t['class']}</td><td>{key}</td><td>{t['state']}</td></tr>' 
 
@@ -220,17 +215,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         result = f'trying to send {test_case} to {process_name} on {url}<br>'
         # build the iso message   
         iso_message_raw = self.console_app.iso8583_utils.build_iso_msg(test_case)                  
-#        iso_message_raw, encoded = iso8583.encode(self.console_app.test_cases[test_case]['iso_message'], test_spec)
-        text = base64.b64encode(iso_message_raw).decode("ascii")
         msg = {
                 "command": "work",
                 "queue_name": queue_name,
-                "is_base64": True,
-                "text": text,
-                "data_base64": text,
+                "data": iso_message_raw,
                 "num_messages": num_messages    
         }
-        return result + self.run_command(process_name, msg)
+        return result + json.dumps(self.run_command(process_name, msg))
 
     def get_link(self, process_name, key, item): 
         return  f'<td><a href={self.host_uri}/{key}/{process_name}>{item['text']}</td>'.replace("{key}", process_name)
@@ -267,7 +258,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     def get_children(self, process_name):
         ret_dict = self.run_command(process_name,{ "command": "children"})
         if isinstance(ret_dict, dict):
-            ret_data = ret_dict.get('return_data', None)
+            ret_data = ret_dict['result'].get('return_data', None)
             if ret_data is not None:
                 return self.build_menu("children", ret_data)
         #Still here = not good 
@@ -292,7 +283,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             function = route['function']
             path =  urlparse(self.path).path
             key =  path.split('/')[-1] # a potential key is the last path of the part before parms
-            page_body += function(key)
+            page_body += json.dumps(function(key))
         else:
             if (route_str != 'favicon.ico'):
                 logging.error(f"did not find route for {route_str}")
@@ -307,26 +298,27 @@ class RequestHandler(BaseHTTPRequestHandler):
         print(self.headers)
         self.do_GET()
 
-def do_stat(json_response):
-    return_data_str = json_response['return_data']
-    return_data_threads = json.loads(json.loads(return_data_str))
-    res = "<table><tr><th>process</th><th>start</th><th>end</th><th>num msg</th><th>elapsed</th><th>avg pr sec</th></tr>"
-    for thread_stat in return_data_threads:
-        first_ns  = thread_stat['first_ns']
-        last_ns  = thread_stat['last_ns']
-        elapsed = last_ns - first_ns 
-        num_measurements = thread_stat['num_measurements']
-        if num_measurements == 0:
-            average_sec = 0 
-        else:
-            average_sec = (elapsed / num_measurements)/ NANO_TO_SECONDS
-          
-        name  = thread_stat['name']
-        first_ns_str = datetime.fromtimestamp(first_ns/NANO_TO_SECONDS).strftime('%H:%M:%S.%f')
-        last_ns_str = datetime.fromtimestamp(last_ns/NANO_TO_SECONDS).strftime('%H:%M:%S.%f')
-        res += f'<tr><td>{name}</td><td>{first_ns_str}</td><td>{last_ns_str}</td><td>{num_measurements}</td><td>{elapsed/NANO_TO_SECONDS:.2f}</td><td>{average_sec:.4f}</td></tr>' 
-    res += "</table>"
-    return res
+    def do_stat(self,dict_response):
+        res = "<table><tr><th>process</th><th>start</th><th>end</th><th>num msg</th><th>elapsed</th><th>avg pr sec</th></tr>"
+        print(dict_response)
+        return_data_threads = dict_response['result']['return_data']
+        print(return_data_threads)
+        for thread_stat in return_data_threads:
+            first_ns  = thread_stat['first_ns']
+            last_ns  = thread_stat['last_ns']
+            elapsed = last_ns - first_ns 
+            num_measurements = thread_stat['num_measurements']
+            if num_measurements == 0:
+                average_sec = 0 
+            else:
+                average_sec = (elapsed / num_measurements)/ NANO_TO_SECONDS
+            
+            name  = thread_stat['name']
+            first_ns_str = datetime.fromtimestamp(first_ns/NANO_TO_SECONDS).strftime('%H:%M:%S.%f')
+            last_ns_str = datetime.fromtimestamp(last_ns/NANO_TO_SECONDS).strftime('%H:%M:%S.%f')
+            res += f'<tr><td>{name}</td><td>{first_ns_str}</td><td>{last_ns_str}</td><td>{num_measurements}</td><td>{elapsed/NANO_TO_SECONDS:.2f}</td><td>{average_sec:.4f}</td></tr>' 
+        res += "</table>"
+        return res
 
 
 #-------------------------------

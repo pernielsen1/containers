@@ -193,7 +193,7 @@ class CommunicationApplication:
             if thread.measurements: 
                 all_measurements.append(thread.measurements.get_measurements())
  
-        return json.dumps(all_measurements)
+        return all_measurements
 
     def is_ready(self):
         """ check if all threads are ready to begin processing """
@@ -266,7 +266,6 @@ class CommunicationThread(threading.Thread):
 
     def run(self):
         # we are here means a run has not been implemented locally then the run thread should be implemented.
-        logging.debug("Inside the Communication Thread run will use the run_thread")
         self.state=self.RUNNING
         try:
             self.run_thread()
@@ -551,7 +550,7 @@ class CommandHandler(BaseHTTPRequestHandler):
     def do_info(self):
         logging.getLogger().setLevel(20)
     def do_stat(self):
-        self.return_data = json.dumps(self.app.get_measurements())
+        self.return_data = self.app.get_measurements()
     def do_reset(self):
         self.app.reset_measurements()
     def do_threads(self): 
@@ -573,13 +572,20 @@ class CommandHandler(BaseHTTPRequestHandler):
         # decode the base64 data, create Message and run the filter
         message = Message(base64.b64decode(data_base64))
         filter_name = self.data.get('filter_name', None)
+        logging.debug(f"Work filter:{filter_name} data:{message.get_data()} end of data")
         if filter_name is not None:
+            print("filters:")
+            print(self.app.filters)
             filter_obj = self.app.get_filter(filter_name)
             if filter_obj is not None:
                 logging.info(f"Applying filter {filter_name} to message {message.get_data()}")
                 message = filter_obj.run(message)
                 # the result may be binary so we marshall in base64 to the requestor
                 self.return_data = message.get_json()
+            else:
+                logging.error(f"illegal filter {filter_name} received")
+        else:
+            logging.error(f"filter_name not found {filter_name} received")
 
     def do_POST(self):
         try:
