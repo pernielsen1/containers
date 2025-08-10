@@ -221,10 +221,7 @@ class CommunicationApplication:
     def get_children(self):
         return_dict = {}
         for c in self.children:
-            print(c)
-            logging.info("c.name {c.name}")
             return_dict[c.name] = {'name': c.name}
-        print(return_dict)
         return return_dict 
  
 # CommunicationThread class
