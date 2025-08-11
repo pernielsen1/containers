@@ -92,6 +92,7 @@ class CommAppCommand():
 #--------------------------------
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
+    # ./sendmsg.sh 8078 test to_middle 1
     client_port = 8077
     middle_port = 8078
     port = client_port

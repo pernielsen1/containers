@@ -170,15 +170,49 @@ class CommunicationApplication:
                 self.threads.append(t)
                 t.start()
 
-    def stop(self):
-        logging.info("Stopping all threads")
+    def stop_old(self):
+        logging.info(f"{self.name} Stopping all threads")
+        this_thread_name=""
         for thread in self.threads:
             thread.active = False
         for thread in self.threads:
             if thread.ident != threading.current_thread().ident:
-               thread.join()
-        logging.info("All threads stopped")
+                thread.join()
+            else:
+                this_thread_name=thread.name
+                logging.info(f"{self.name}:not joining{thread.name} since that is me")
+        logging.info(f"{self.name}:{this_thread_name} all threads are stopped")
 
+    def stop(self):
+        logging.info(f"{self.name} Stopping all threads")
+        this_thread = None
+        for thread in self.threads:
+            if thread.ident != threading.current_thread().ident:
+                thread.active = False
+            else:
+                this_thread = thread
+                logging.info(f"{self.name}:not setting {this_thread.name} inactive since that is me")
+        while this_thread.active:
+            time.sleep(5)
+            active_threads = []
+            done_threads = []
+            for thread in self.threads:
+                if thread.state == thread.DONE:
+                    done_threads.append(thread.name)
+                else:
+                    active_threads.append(thread.name)
+            if len(active_threads) == 1:
+                this_thread.active = False
+            else:
+                logging.info(f"{self.name} still have active: {active_threads}")
+
+        logging.info(f"{self.name} finally we are done - let's join the threads")
+        for thread in self.threads:
+            if thread != this_thread:
+                thread.join()
+
+        logging.info(f"{self.name} and we are done")
+    
     def get_filter(self, name):
         return self.filters.get(name, None)
 
@@ -207,6 +241,15 @@ class CommunicationApplication:
                 return False
         # still here means all clear
         return True
+    
+    def is_done(self):
+        """ check if all threads are done to begin processing """
+        for thread in self.threads:
+            if thread.state != thread.DONE:
+                return False  # at least one is not done
+        # still here means all clear
+        return True
+    
     def reset_measurements(self):
         for thread in self.threads:
             if thread.measurements:
@@ -272,7 +315,7 @@ class CommunicationThread(threading.Thread):
             self.app.stop()
         
         self.active = False
-        logging.info(f"Time to stop {self.name}")
+        logging.info(f"{self.app.name}:{self.name}: here means exception was caught {self.name}")
         self.state=self.DONE
      
 # WorkerThread class
@@ -386,7 +429,7 @@ class BigMamaThread(CommunicationThread):
                             self.app.threads.remove(thread)
                             logging.info("All done removed from list")
                         else:
-                            logging.error(f"Thread {thread.name} reporting done not OK stopping all")
+                            logging.error(f"{self.app.name} Thread {thread.name} reporting done not OK stopping all")
                             self.app.stop()
                 # ok if we have wrong thread saying DONE - then we shut down.
             
@@ -474,6 +517,10 @@ class GrandMamaThread(CommunicationThread):
             command = self.queue.get(self.app.time_out)   
             if (command):
                 logging.info(f"command {command} received to grand_mama")
+            # check if child has active threads
+            if self.child_app.is_done():
+                logging.debug(f"{self.app.name} child {self.child_app.name} is done ending this thread")
+                self.active = False
 
 
 # CommandThread class
