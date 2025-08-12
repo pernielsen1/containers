@@ -170,18 +170,6 @@ class CommunicationApplication:
                 self.threads.append(t)
                 t.start()
 
-    def stop_old(self):
-        logging.info(f"{self.name} Stopping all threads")
-        this_thread_name=""
-        for thread in self.threads:
-            thread.active = False
-        for thread in self.threads:
-            if thread.ident != threading.current_thread().ident:
-                thread.join()
-            else:
-                this_thread_name=thread.name
-                logging.info(f"{self.name}:not joining{thread.name} since that is me")
-        logging.info(f"{self.name}:{this_thread_name} all threads are stopped")
 
     def stop(self):
         logging.info(f"{self.name} Stopping all threads")
@@ -285,24 +273,24 @@ class CommunicationThread(threading.Thread):
         self.queue = app.add_queue(self.queue_name)
         self.filter = app.get_filter(self.filter_name)
         self.measurements = None # will be overridden in worker thread..
-        logging.info(f'App:{self.app.name} initializing {self.name} with queue[{self.queue_name}], filter={self.filter_name}')
+        logging.info(f'[{self.app.name}t:{self.name}] init queue[{self.queue_name}], filter=[{self.filter_name}]')
         self.state = self.INITIALIZED
    
     def close_socket(self):
         if (    isinstance(self, SocketReceiverThread) or isinstance(self, SocketSenderThread) or
                 isinstance(self, EstablishConnectionThread) 
             ):
-            logging.debug(f"closing socket for {self.name}")
+            logging.debug(f"[{self.app.name}t:{self.name}] closing socket")
             try:
                 self.socket.close()
             except Exception as e:
-                logging.error(f"Failed to close socket for {self.name}")
+                logging.error(f"[{self.app.name}t:{self.name}] failed to close socket")
         if isinstance(self, EstablishConnectionThread):
             if self.type == 'listen':
                 try:
                     self.listen_socket.close()
                 except Exception as e:
-                    logging.error(f"Failed to close listen_socket for {self.name}")
+                    logging.error(f"[{self.app.name}t:{self.name}] Failed to close listen_socket")
 
     def run(self):
         # we are here means a run has not been implemented locally then the run thread should be implemented.
@@ -310,13 +298,13 @@ class CommunicationThread(threading.Thread):
         try:
             self.run_thread()
         except Exception as e:
-            logging.error(f'{self.name} had an error {e} stopping the process')
+            logging.error(f'[{self.app.name}t:{self.name}] had an error {e} stopping the process')
             self.close_socket()
             self.app.stop()
         
         self.active = False
-        logging.info(f"{self.app.name}:{self.name}: here means exception was caught {self.name}")
         self.state=self.DONE
+        logging.info(f"[{self.app.name}t:{self.name}] run_thread completed")
      
 # WorkerThread class
 class WorkerThread(CommunicationThread):
@@ -419,7 +407,7 @@ class BigMamaThread(CommunicationThread):
             for thread in self.app.threads:
                 if (time.time() - thread.heartbeat > 30):
                     if thread.state != self.DONE:
-                        logging.error(f"Thread {thread.name} is inactive and all will be stopped")
+                        logging.error(f"[{self.app.name}t:{self.name}] Thread {thread.name} is inactive and all will be stopped")
                         self.app.stop()
                     else:
                         if isinstance(thread, EstablishConnectionThread):
@@ -429,7 +417,7 @@ class BigMamaThread(CommunicationThread):
                             self.app.threads.remove(thread)
                             logging.info("All done removed from list")
                         else:
-                            logging.error(f"{self.app.name} Thread {thread.name} reporting done not OK stopping all")
+                            logging.error(f"[{self.app.name}t:{self.name}] Thread {thread.name} reporting done not OK stopping all")
                             self.app.stop()
                 # ok if we have wrong thread saying DONE - then we shut down.
             
@@ -438,7 +426,7 @@ class BigMamaThread(CommunicationThread):
                 text = command.get_string()
                 logging.info(f"command {text} received to big_mama")
                 if text == 'stop':
-                    logging.info(f"stop command received to big_mama")
+                    logging.info(f"[{self.app.name}t:{self.name}]stop command received to big_mama")
                     self.app.stop()
 
 
