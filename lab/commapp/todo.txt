@@ -17,6 +17,8 @@ should work has dict a return data ? for the test case ?... hmmm
 create test runner for whole stream... start up all wait for "all ready"
 
 # ./sendmsg.sh 8077 test to_middle 1
+Stop middle (8078)
+# ./sendmsg.sh 8078 stop
 
 # ./sendmsg.sh 8076 stop
 # ./sendmsg.sh 8076 ready

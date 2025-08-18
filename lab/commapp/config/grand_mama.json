@@ -5,6 +5,7 @@
     "server" : "localhost",
     "command_debug": false,
     "command_port": 8075,
+    "process_grand_mama_log_level": 10,
     "child_apps"   : {
         "config/crypto_server.json": "The crypto server working in request response HTTP mode",
         "config/backend.json" : "The backend server",

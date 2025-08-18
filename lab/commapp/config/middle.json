@@ -2,6 +2,7 @@
     "name": "middle", 
     "description": "The actual application connecting client and backend",
     "log_level": 10,
+    "time_out" : 3,
     "server": "localhost",
     "command_port": 8078,
     "filters"   : {

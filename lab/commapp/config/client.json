@@ -2,6 +2,7 @@
     "name": "client", 
     "description": "Simulates being the client connects on 4242 and sends in test message",
     "log_level": 10,
+    "time_out" : 3,
     "server": "localhost",
     "command_port": 8077,
     "filters"   : {

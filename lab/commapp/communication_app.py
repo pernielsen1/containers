@@ -10,7 +10,7 @@ from queue import Queue
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s - %(funcName)s() %(message)s') 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s - %(message)s %(funcName)s()') 
 
 # QueueObject class
 class QueueObject:
@@ -112,7 +112,7 @@ class CommunicationApplication:
         with open(config_file_path, 'r') as f:
             self.config = json.load(f)
         logging.getLogger().setLevel(self.config['log_level'])
-        self.time_out = self.config.get("time_out", 10) # in millisecs
+        self.time_out = self.config.get("time_out", 10) # in secs
 
         self.name=self.config['name']
         self.filters = {}
@@ -135,9 +135,9 @@ class CommunicationApplication:
                     filter_class = getattr(module, class_name)
                     filter_obj = filter_class(self, filter_name)
                     self.filters[filter_obj.name] = filter_obj
-                    logging.info(f"Filter {filter_name} loaded from {module_name}.{class_name}")
+                    logging.info(f"[self.name] Filter {filter_name} loaded from {module_name}.{class_name}")
                 except Exception as e:
-                    logging.error(f"Error loading filter {filter_name}: {e}")
+                    logging.error(f"[self.name] Error loading filter {filter_name}: {e}")
 
     def start(self):
         command_thread = CommandThread(self, 'command_thread', 'command', self.config['command_port'])
@@ -153,7 +153,13 @@ class CommunicationApplication:
                 child_app_thread = GrandMamaThread(self, 'grand_mama', 'grand_mama', child_app_name)
                 self.threads.append(child_app_thread)
                 child_app_thread.start()
-
+            # join the big-mama_thread.
+            big_mama_thread.join()
+            logging.info(f"[{self.name}] so big_mama_has completed listing thread status")
+            self.list_threads()
+            for thread in self.threads:
+                if isinstance(thread, GrandMamaThread):
+                    thread.child_app.list_threads()                
         if 'workers' in self.config:
             for worker_name, worker in self.config['workers'].items():
                 t = WorkerThread(self, worker_name, worker['in_queue'],
@@ -169,17 +175,19 @@ class CommunicationApplication:
                                             router['port'], router.get('filter_name', None))
                 self.threads.append(t)
                 t.start()
-
-
+ 
     def stop(self):
-        logging.info(f"{self.name} Stopping all threads")
+        self.add_queue('big_mama').put(Message("stop"))  # always let big_mama thread do the stop.
+
+    def stop_threads(self, cur_thread):
+        logging.info(f"[{cur_thread.app.name}][{cur_thread.name}] Stopping all threads")
         this_thread = None
         for thread in self.threads:
             if thread.ident != threading.current_thread().ident:
                 thread.active = False
             else:
                 this_thread = thread
-                logging.info(f"{self.name}:not setting {this_thread.name} inactive since that is me")
+                logging.info(f"[{cur_thread.app.name}][{cur_thread.name}] setting {this_thread.name} inactive since that is me")
         while this_thread.active:
             time.sleep(5)
             active_threads = []
@@ -192,14 +200,14 @@ class CommunicationApplication:
             if len(active_threads) == 1:
                 this_thread.active = False
             else:
-                logging.info(f"{self.name} still have active: {active_threads}")
+                logging.info(f"[{cur_thread.app.name}][{cur_thread.name}] still have active: {active_threads}")
 
-        logging.info(f"{self.name} finally we are done - let's join the threads")
+        logging.info(f"[{cur_thread.app.name}][{cur_thread.name}] finally we are done - let's join the threads")
         for thread in self.threads:
             if thread != this_thread:
                 thread.join()
 
-        logging.info(f"{self.name} and we are done")
+        logging.info(f"[{cur_thread.app.name}][{cur_thread.name}] and we are done")
     
     def get_filter(self, name):
         return self.filters.get(name, None)
@@ -246,9 +254,15 @@ class CommunicationApplication:
     def get_threads(self):
         return_dict = {}
         for t in self.threads:
-            return_dict[t.native_id] = {'name': t.name, 'active': t.active, 'heartbeat': t.heartbeat, 'class': type(t).__name__ , "state" : t.state}
+            return_dict[t.native_id] = {'name': t.name, 'active': t.active, 'heartbeat': t.heartbeat, 'class': type(t).__name__ , "state" : t.state, 
+                                        "is_alive": t.is_alive()}
         return return_dict 
     
+    def list_threads(self, only_alive:bool =True):
+        for t in self.threads:
+            if only_alive and t.is_alive() or only_alive == False:
+                logging.debug(f"[{self.name}] [native_id:{t.native_id}] [active:{t.active}] [is_alive:{t.is_alive()}] [name:{t.name}] ")
+
     def get_children(self):
         return_dict = {}
         for c in self.children:
@@ -273,44 +287,48 @@ class CommunicationThread(threading.Thread):
         self.queue = app.add_queue(self.queue_name)
         self.filter = app.get_filter(self.filter_name)
         self.measurements = None # will be overridden in worker thread..
-        logging.info(f'[{self.app.name}t:{self.name}] init queue[{self.queue_name}], filter=[{self.filter_name}]')
+        logging.info(f'[{self.app.name}][{self.name}] init queue[{self.queue_name}], filter=[{self.filter_name}]')
         self.state = self.INITIALIZED
    
     def close_socket(self):
         if (    isinstance(self, SocketReceiverThread) or isinstance(self, SocketSenderThread) or
                 isinstance(self, EstablishConnectionThread) 
             ):
-            logging.debug(f"[{self.app.name}t:{self.name}] closing socket")
+            logging.debug(f"[{self.app.name}][{self.name}] closing socket")
             try:
                 self.socket.close()
             except Exception as e:
-                logging.error(f"[{self.app.name}t:{self.name}] failed to close socket")
+                logging.error(f"[{self.app.name}][{self.name}] failed to close socket")
         if isinstance(self, EstablishConnectionThread):
             if self.type == 'listen':
                 try:
                     self.listen_socket.close()
                 except Exception as e:
-                    logging.error(f"[{self.app.name}t:{self.name}] Failed to close listen_socket")
+                    logging.error(f"[{self.app.name}][{self.name}] Failed to close listen_socket")
 
     def run(self):
+        abnormal_end = False
         # we are here means a run has not been implemented locally then the run thread should be implemented.
         self.state=self.RUNNING
         try:
             self.run_thread()
         except Exception as e:
-            logging.error(f'[{self.app.name}t:{self.name}] had an error {e} stopping the process')
-            self.close_socket()
-            self.app.stop()
+            abnormal_end = True
+            logging.error(f'[{self.app.name}][{self.name}] had an error {e} stopping the process')
         
         self.active = False
         self.state=self.DONE
-        logging.info(f"[{self.app.name}t:{self.name}] run_thread completed")
+
+        if abnormal_end:
+            logging.info(f"[{self.app.name}][{self.name}] run_thread abnormal completed going into stop mode")
+            self.close_socket()
+            self.app.stop()  # tell big mama to stop
      
 # WorkerThread class
 class WorkerThread(CommunicationThread):
     def __init__(self, app, name, queue_name, to_queue_name=None,  filter_name=None):
         super().__init__(app, name, queue_name, filter_name)
-        logging.info(f"Adding worker queue[{to_queue_name}]")
+        logging.info(f"[{self.app.name}][{self.name}] Adding worker queue[{to_queue_name}]")
         self.to_queue_name = to_queue_name
         self.measurements = Measurements(name, 4)
         if self.to_queue_name is not None:
@@ -322,14 +340,14 @@ class WorkerThread(CommunicationThread):
             message = self.queue.get(self.app.time_out)
             if message:
                 start_ns = time.time_ns()
-                logging.debug(f"Worker {self.name} received message {message.get_data()} to queue {self.to_queue_name}")
+                logging.debug(f"[{self.app.name}][{self.name}] Worker received message {message.get_data()} to queue {self.to_queue_name}")
                 # the work =  apply the filter.
                 if self.filter is not None:
                     message = self.filter.run(message)
                 # and send the message to the to_queue
                 if self.to_queue_name is not None:
                     self.to_queue.put(message)
-                    logging.debug(f"Worker {self.name} put message {message.get_data()} to queue {self.to_queue.name}")
+                    logging.debug(f"[{self.app.name}][{self.name}] Worker put message {message.get_data()} to queue {self.to_queue.name}")
                 self.measurements.add_measurement(start_ns)
 
 # SocketReceiverThread class
@@ -340,7 +358,7 @@ class SocketReceiverThread(CommunicationThread):
         self.length_field_type = length_field_type
 
     def run_thread(self):
-        logging.info(f'Starting {self.name} receiving from socket sending to queue[{self.queue_name}]')
+        logging.info(f'[{self.app.name}][{self.name}] receiving from socket sending to queue[{self.queue_name}] time_out:{self.app.time_out}')
         while self.active:
             self.heartbeat = time.time()
             try:
@@ -359,8 +377,10 @@ class SocketReceiverThread(CommunicationThread):
                 self.queue.put(message)
             except socket.timeout:
             #  nothing received quite Ok - just timeout so we can report a heartbeat
+            #    print(f"{self.name}timeout alive:{self.is_alive()} active:{self.active}")
                 continue
             except Exception as e:
+                print(f"EXCEPTION {self.name}" )
                 raise
 
         self.close_socket()
@@ -374,7 +394,7 @@ class SocketSenderThread(CommunicationThread):
         self.length_field_type = length_field_type
 
     def run_thread(self):
-        logging.info(f'Starting {self.name} receiving from queue[{self.queue_name}] sending to socket')
+        logging.info(f'[{self.app.name}][{self.name}] receiving from queue[{self.queue_name}] sending to socket')
 
         while self.active:
             try:
@@ -389,7 +409,7 @@ class SocketSenderThread(CommunicationThread):
                         length_field = f"{length:04}".encode('ascii')
                     elif self.length_field_type == 'binary_4':
                         length_field = length.to_bytes(4, 'big')
-                    logging.debug(f'Sending length field: {length_field} with data: {data}')
+                    logging.debug(f'[{self.app.name}][{self.name}] Sending length field: {length_field} with data: {data}')
                     self.socket.send(length_field)
                     self.socket.send(data)
             except Exception as e:
@@ -407,27 +427,25 @@ class BigMamaThread(CommunicationThread):
             for thread in self.app.threads:
                 if (time.time() - thread.heartbeat > 30):
                     if thread.state != self.DONE:
-                        logging.error(f"[{self.app.name}t:{self.name}] Thread {thread.name} is inactive and all will be stopped")
-                        self.app.stop()
+                        logging.error(f"[{self.app.name}][{self.name}] is inactive and all will be stopped")
+                        self.app.stop_threads(self)
                     else:
                         if isinstance(thread, EstablishConnectionThread):
-                            logging.info("OK that establish connection is all done will join and remove")
+                            logging.info(f"[{self.app.name}][{self.name}] OK that establish connection is all done will join and remove")
                             thread.join()
-                            logging.info("OK join ready - remove from list")
+                            logging.info(f"[{self.app.name}][{self.name}] OK join ready - remove from list")
                             self.app.threads.remove(thread)
-                            logging.info("All done removed from list")
                         else:
-                            logging.error(f"[{self.app.name}t:{self.name}] Thread {thread.name} reporting done not OK stopping all")
-                            self.app.stop()
-                # ok if we have wrong thread saying DONE - then we shut down.
-            
+                            logging.error(f"[{self.app.name}][{self.name}] Thread {thread.name} reporting done not OK stopping all")
+                            self.app.stop_threads(self)
+               
             command = self.queue.get(self.app.time_out)   
             if (command):
                 text = command.get_string()
-                logging.info(f"command {text} received to big_mama")
+                logging.info(f"[{self.app.name}][{self.name}] command {text} received to big_mama")
                 if text == 'stop':
-                    logging.info(f"[{self.app.name}t:{self.name}]stop command received to big_mama")
-                    self.app.stop()
+                    logging.info(f"[{self.app.name}][{self.name}] stop command received to big_mama")
+                    self.app.stop_threads(self)
 
 
 # ConnectThread class
@@ -453,20 +471,20 @@ class EstablishConnectionThread(CommunicationThread):
         logging.info(f'{self.name} waiting for Establish {self.port} type:{self.type}')
         # waiting to connect to host of for client to connect
         while self.active and self.state == self.RUNNING:
-            logging.debug(f'{self.name} waiting for Establish {self.port} type:{self.type}')
+            logging.debug(f'[{self.app.name}][{self.name}] waiting for Establish {self.port} type:{self.type}')
             self.heartbeat = time.time()
 
             try:
                 if self.type == 'connect':
                     self.socket.settimeout(self.app.time_out)
                     self.socket.connect((self.host, self.port))
-                    logging.info(f'Connected to server {self.name} on port {self.port}')
+                    logging.info(f'[{self.app.name}][{self.name} Connected to server {self.host}:{self.port}')
                     self.state=self.DONE
                 elif self.type == 'listen':
                     self.listen_socket.listen(5)  # listen for incoming connections 
                     self.socket, addr  = self.listen_socket.accept()
                     self.socket.settimeout(self.app.time_out)  # still here set socket = client timeout
-                    logging.info(f'Client accepted by {self.name} from {addr}')
+                    logging.info(f'[{self.app.name}][{self.name}] Client accepted from {addr} timeout:{self.app.time_out}')
                     self.listen_socket.close()
                     self.state = self.DONE
                 # still here we have a connection
@@ -484,7 +502,7 @@ class EstablishConnectionThread(CommunicationThread):
                 pass
 
             except Exception as e:  
-                logging.error(f"Error in {self.name} connection: {e}")
+                logging.error(f"[{self.app.name}][{self.name}] Error in {self.name} connection: {e}")
                 time.sleep(5) # tbd should it be removed - if we get connect error we might as well wait..
                 pass    
         self.active =  False
@@ -496,18 +514,24 @@ class GrandMamaThread(CommunicationThread):
         super().__init__(app, name, queue_name)
         self.child_app = CommunicationApplication(child_app_name)
         self.app.children.append(self.child_app)
+        self.process_log_level = self.app.config['process_grand_mama_log_level']
+
+    def stop_all_children(self):
+        for child in self.app.children:
+            logging.info(f"[self.app.name][self.name] sending stop to [{child.name}]")
+            child.stop()
 
     def run_thread(self):
-        logging.info(f"Starting communication app{self.child_app.name}")
+        logging.info(f"[{self.app.name}][{self.name}]Starting communication app{self.child_app.name}")
         self.child_app.start()
         while self.active:
             self.heartbeat = time.time()    
             command = self.queue.get(self.app.time_out)   
             if (command):
-                logging.info(f"command {command} received to grand_mama")
+                logging.info(f"[{self.app.name}][{self.name}] command {command} received to grand_mama")
             # check if child has active threads
             if self.child_app.is_done():
-                logging.debug(f"{self.app.name} child {self.child_app.name} is done ending this thread")
+                logging.debug(f"[{self.app.name}][{self.name}]child {self.child_app.name} done sending stop to all child apps")
                 self.active = False
 
 
@@ -520,7 +544,7 @@ class CommandThread(CommunicationThread):
     # run not implemented locally the communication thread will call the run_thread 
     def run_thread(self):
         self.state=self.RUNNING
-        logging.info(f'command server for {self.name} started on {self.port}')
+        logging.info(f'[{self.app.name}][{self.name}] command server for started on {self.port}')
         server = HTTPServer(('localhost', self.port), CommandHandler)
         while self.active:
             server.timeout = self.app.time_out  # set if every time - app.time_out may be chaned
@@ -528,7 +552,7 @@ class CommandThread(CommunicationThread):
             if self.app.config.get("command_debug", False):  # to avoid noise possible to set True if really needing in config file
                 logging.debug("Command ready")
             server.handle_request()
-        logging.info(f"Time to stop guess I am last man standing {self.name} and will close the http server")
+        logging.info(f"[{self.app.name}][{self.name}] Time to stop guess I am last man standing will close the http server")
         server.server_close()
 
 # CommandHandler - the actual implementation called when HTTP request is received
