@@ -7,9 +7,25 @@
     "command_port": 8075,
     "process_grand_mama_log_level": 10,
     "child_apps"   : {
-        "config/crypto_server.json": "The crypto server working in request response HTTP mode",
-        "config/backend.json" : "The backend server",
-        "config/middle.json" : "The man in the middle server",
-        "config/client.json" : "The client server"
+        "crypto_server": {
+            "config_file":"config/crypto_server.json",
+            "description":"The crypto server working in request response HTTP mode",
+            "restart_option":"kill_all"
+        }, 
+        "backend": {
+            "config_file":"config/backend.json",
+            "description":"The backend server",
+            "restart_option":"kill_all"
+        }, 
+        "middle": {
+            "config_file":"config/middle.json",
+            "description":"The man in the middle server",
+            "restart_option":"kill_all"
+        }, 
+        "client": {
+            "config_file":"config/client.json",
+            "description":"The client simulator",
+            "restart_option":"kill_all"
+        }
     }
 } 

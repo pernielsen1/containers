@@ -149,8 +149,8 @@ class CommunicationApplication:
         big_mama_thread.start()
 
         if 'child_apps' in self.config:
-            for child_app_name in self.config['child_apps']:
-                child_app_thread = GrandMamaThread(self, 'grand_mama', 'grand_mama', child_app_name)
+            for child_app in self.config['child_apps']:
+                child_app_thread = GrandMamaThread(self, child_app)
                 self.threads.append(child_app_thread)
                 child_app_thread.start()
             # join the big-mama_thread.
@@ -510,9 +510,10 @@ class EstablishConnectionThread(CommunicationThread):
 
 # GrandMamaThread(CommunicationThread) starts a communication app ... 
 class GrandMamaThread(CommunicationThread):
-    def __init__(self, app, name, queue_name, child_app_name):
-        super().__init__(app, name, queue_name)
-        self.child_app = CommunicationApplication(child_app_name)
+    def __init__(self, app, child_app):
+        super().__init__(app, 'grand_mama_' + child_app, 'grand_mama_' + child_app)
+        self.child_app = CommunicationApplication(app.config['child_apps'][child_app]['config_file'])
+        self.restart_option = app.config['child_apps'][child_app]['restart_option']
         self.app.children.append(self.child_app)
         self.process_log_level = self.app.config['process_grand_mama_log_level']
 
