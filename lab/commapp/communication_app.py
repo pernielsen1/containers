@@ -519,7 +519,7 @@ class GrandMamaThread(CommunicationThread):
 
     def stop_all_children(self):
         for child in self.app.children:
-            logging.info(f"[self.app.name][self.name] sending stop to [{child.name}]")
+            logging.info(f"[{self.app.name}][{self.name}] sending stop to [{child.name}]")
             child.stop()
 
     def run_thread(self):
@@ -533,6 +533,7 @@ class GrandMamaThread(CommunicationThread):
             # check if child has active threads
             if self.child_app.is_done():
                 logging.debug(f"[{self.app.name}][{self.name}]child {self.child_app.name} done sending stop to all child apps")
+                self.stop_all_children()
                 self.active = False
 
 

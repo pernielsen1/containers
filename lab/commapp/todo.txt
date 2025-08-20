@@ -1,12 +1,6 @@
-
-grand_mama doesn't stop well now... - somethings hanging
-could run be in threading and then calling run_thread which is in the inherited ... works - run is the general one - replace the run thread
-time_out parm obligatory + en "inactive timer" ... dom 30 sekunder.
-ingen timeout command men config parmen plus use everyvere ... go through the worker stuff
---- check wait's 
-
-Make a test script setting upp all 
-make retry i "grand mama"... 
+All children stops now !! 
+make retry i "grand mama" if option is retry... - and a retry count..... 
+create test runner for whole stream... start up all wait for "all ready"
 
 
 Ideas
@@ -14,13 +8,15 @@ make command that changes the timeout.. good in testing and ensures we take the 
 should work has dict a return data ? for the test case ?... hmmm 
 
 
-create test runner for whole stream... start up all wait for "all ready"
 
 # ./sendmsg.sh 8077 test to_middle 1
 Stop middle (8078)
 # ./sendmsg.sh 8078 stop
+Stop client (8077)
+# ./sendmsg.sh 8077 stop
 
-# ./sendmsg.sh 8076 stop
+
+
 # ./sendmsg.sh 8076 ready
 Extend the work function - remove the send. / test
 
