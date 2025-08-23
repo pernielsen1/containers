@@ -385,7 +385,6 @@ class SocketReceiverThread(CommunicationThread):
 
         self.close_socket()
 
-
 # SocketSenderThread class
 class SocketSenderThread(CommunicationThread):
     def __init__(self, app, name, socket, length_field_type, queue_name, exit_if_inactive, filter_name=None):
@@ -447,7 +446,6 @@ class BigMamaThread(CommunicationThread):
                     logging.info(f"[{self.app.name}][{self.name}] stop command received to big_mama")
                     self.app.stop_threads(self)
 
-
 # ConnectThread class
 class EstablishConnectionThread(CommunicationThread):
     def __init__(self, app, name, type:str, socket_to_queue, queue_to_socket, host, port, filter_name=None,):
@@ -507,7 +505,6 @@ class EstablishConnectionThread(CommunicationThread):
                 pass    
         self.active =  False
         
-
 # GrandMamaThread(CommunicationThread) starts a communication app ... 
 class GrandMamaThread(CommunicationThread):
     def __init__(self, app, child_app):
@@ -535,7 +532,6 @@ class GrandMamaThread(CommunicationThread):
                 logging.debug(f"[{self.app.name}][{self.name}]child {self.child_app.name} done sending stop to all child apps")
                 self.stop_all_children()
                 self.active = False
-
 
 # CommandThread class
 class CommandThread(CommunicationThread):
