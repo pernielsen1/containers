@@ -5,6 +5,7 @@ import sys
 import base64
 import logging
 import time
+import argparse
 from iso8583_utils import Iso8583Utils
 
 server_url = 'localhost'
@@ -65,7 +66,7 @@ class CommAppCommand():
     def wait_connected(self, is_connected:bool, max_secs:int):
         num_secs = 0
         while num_secs <= max_secs:   # at least one attempt
-            result = self.run_command(command='ping')
+            result = self.send_command(command='ping')
             if is_connected and result['connected'] == True:
                 return True
             if not is_connected and result['connected'] == False:
@@ -78,7 +79,7 @@ class CommAppCommand():
     def wait_ready(self, max_secs:int):
         num_secs = 0
         while num_secs <= max_secs:   # at least one attempt
-            result = self.run_command(command='ready')
+            result = self.send_command(command='ready')
             print(result)
             if result['OK']:
                 if result['result']['return_data']['ready']:
@@ -91,41 +92,37 @@ class CommAppCommand():
 # local tests
 #--------------------------------
 if __name__ == '__main__':
+   
     logging.getLogger().setLevel(logging.DEBUG)
-    # ./sendmsg.sh 8078 test to_middle 1
-    client_port = 8077
-    middle_port = 8078
-    port = client_port
-    num_messages  = 1
+    parser=argparse.ArgumentParser(description="add numbers")
+    parser.add_argument('-s', '--server', type=str, default='localhost')
+    parser.add_argument('-p', '--port', type=int, default=8078)
+    parser.add_argument('-c', '--command', type=str, default='ping')
+    parser.add_argument('-t', '--testcase', type=str, default='test1')
+    parser.add_argument('-n', '--num_messages', type=int, default=1)
+    parser.add_argument('-q', '--queue', type=str, default='to_middle')
+    args=parser.parse_args()
+
     data = None
-    queue_name = 'to_middle'
-    server = 'localhost'
-    command = 'test'
-    # do stat instead
-    command = 'stat'
-    port = middle_port
-    if (len(sys.argv) > 1):
-        port = int(sys.argv[1])
-        command = sys.argv[2]
-    command_server = CommAppCommand(server=server, port=port)
-
-    if (command == 'send' or command == 'test'):
-        if (len(sys.argv) > 3):
-            queue_name = sys.argv[3]
-            data = sys.argv[4]
-            if len(sys.argv) > 5: 
-                num_messages = int(sys.argv[5])
-
-    if command == 'test':
-        command = 'work'
+    if args.command == 'test':
+        args.command = 'work'
         iso8583_utils = Iso8583Utils("iso8583_utils.json")
         data = iso8583_utils.build_iso_msg(test_case_name='test_case_1')
-#        result= command_server.sednd_command(command=command, queue_name=queue_name, data=data, num_messages=num_messages)
-    logging.debug(f"running command{command}, queue_name:{queue_name} data:{data} num_message:{num_messages}")
-    result=command_server.send_command(command=command, queue_name=queue_name, data=data, num_messages=num_messages)
+
+
+    logging.debug(  f"sendmsg server:{args.server} command:{args.command} port:{args.port} "
+                    f"testcase:{args.testcase} num_messages:{args.num_messages} queue:{args.queue} "
+                    f"data:{data}"
+    )
+
+    command_server = CommAppCommand(server=args.server, port=args.port)
+    result=command_server.send_command(command=args.command, queue_name=args.queue, data=data, num_messages=args.num_messages)
     logging.debug(f"result was {result}")
 
 # curl http://localhost:8009
 #{"received": "ok", "hello": "world"}
 #curl --data "{\"this\":\"is a test\"}" --header "Content-Type: application/json" http://localhost:8009
 # {"this": "is a test", "received": "ok"}
+# ./sendmsg.sh 8078 test to_middle 1
+# client_port = 8077
+# middle_port = 8078

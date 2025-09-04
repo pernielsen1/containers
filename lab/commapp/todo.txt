@@ -1,6 +1,10 @@
-All children stops now !! 
+test script med grand_mama finns nu i test_commapp.. 
+
+
+
 make retry i "grand mama" if option is retry... - and a retry count..... 
 create test runner for whole stream... start up all wait for "all ready"
+send message - all up and running.
 
 
 Ideas
@@ -8,12 +12,12 @@ make command that changes the timeout.. good in testing and ensures we take the 
 should work has dict a return data ? for the test case ?... hmmm 
 
 
-
-# ./sendmsg.sh 8077 test to_middle 1
-Stop middle (8078)
-# ./sendmsg.sh 8078 stop
-Stop client (8077)
-# ./sendmsg.sh 8077 stop
+# run one test
+./sendmsg.sh -p 8077 -c test -q to_middle -n 1
+# Stop middle (8078)
+./sendmsg.sh -p 8078 -c stop
+# Stop client (8077)
+./sendmsg.sh -p 8077 -c stop
 
 
 
