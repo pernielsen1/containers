@@ -1,4 +1,7 @@
 {
     "dir_windows" : "/mnt/c/users/perni/OneDrive/Documents/Häggeboda/gl",
-    "dir" : "work"  
+    "dir_local": "work",
+    "in_dir" : "/mnt/c/users/perni/OneDrive/Documents/Häggeboda/gl",
+    "out_dir": "/mnt/c/users/perni/OneDrive/Documents/Häggeboda/gl/output"
+  
 }
