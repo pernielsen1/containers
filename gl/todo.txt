@@ -1,0 +1,7 @@
+1: Kopier verifikationer...
+3: Skap "bokför föregående års resultat.til balanseret resultat.
+1: create result posting 
+
+2: get name of company in header
+3: Set heading print area
+4: Create outgoing "init balance posting for next year"
