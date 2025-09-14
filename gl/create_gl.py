@@ -37,12 +37,12 @@ class accounting():
        
         accounts = accounts.merge(self.reports, how='inner', 
                     left_on='rapport_id', right_on='rapport_id', indicator=False)
-        verifications = pd.read_excel(self.file_name, sheet_name='verifikationer')       
-        verifications = verifications[['ver_nr', 'dato', 'beskrivning']]
-        postings_all =  pd.read_excel(self.file_name, sheet_name="posteringer")
-        postings_all = postings_all[['ver_nr', 'lin', 'konto', 'belopp']] 
-        postings_open = postings_all.query('ver_nr == 0') # opening balances
-        postings = postings_all.query('ver_nr != 0')  # this year
+        self.verifications = pd.read_excel(self.file_name, sheet_name='verifikationer')       
+        self.verifications = self.verifications[['ver_nr', 'dato', 'beskrivning']]
+        self.postings_all =  pd.read_excel(self.file_name, sheet_name="posteringer")
+        self.postings_all = self.postings_all[['ver_nr', 'lin', 'konto', 'belopp']] 
+        postings_open = self.postings_all.query('ver_nr == 0') # opening balances
+        postings = self.postings_all.query('ver_nr != 0')  # this year
         # create opening balance per account    
         account_open_balance = postings_open.groupby(by=['konto']).agg(
             opening_balance = ('belopp', 'sum'),
@@ -72,14 +72,19 @@ class accounting():
                                        'konto_typ', 'konto_typ_beskrivning',
                                        'konto', 'konto_beskrivning',
                                        'opening_balance', 'movement', 'closing_balance']]
-        self.transfer_last_year(verifications, postings_all, balances)
-        self.df_to_excel(verifications, 'verifications')   
-        self.df_to_excel(postings_all, 'postings_all')   
-      
-        # self.add_verification(verifications, '2024-12-31', 'transfer last year')
-        result = self.calculate_result(balances)
+        # TBD calculate end of year
+        self.end_of_year = '2024-12-31'
+    
+        self.transfer_last_year(balances)
+        self.book_result(balances)
+        self.df_to_excel(self.verifications, 'verifications')   
+        self.df_to_excel(self.postings_all, 'postings_all')   
+ 
+        postings = self.postings_all.query('ver_nr != 0')  # this year
+ 
+#        result = self.calculate_result(balances)
         # add data like text and date from verifications
-        postings = postings.merge(verifications,  how="left", 
+        postings = postings.merge(self.verifications,  how="left", 
                                             left_on='ver_nr', right_on='ver_nr', 
                                             indicator = False) 
         postings = postings.merge(accounts, how="left",
@@ -95,21 +100,32 @@ class accounting():
         self.wb.save(self.output_file)
         print("all done - workbook ready")
 
-    def transfer_last_year(self, verifications, postings_all, balances):
-        # find balance for last years result
-        last_year_result = balances.query('konto == 2098').iloc[0]['closing_balance']
+    def book_result(self, balances):
+        result_df = balances.query('rapport_id=="RS"').agg({'movement' : ['sum']})
+        result = result_df.iloc[0]['movement']
+        new_ver_nr  = self.add_verification(self.end_of_year, 'Result')
 
-        new_ver_nr, verifications = self.add_verification(verifications, '2024-12-31', 'transfer')
-        postings_all.loc[len(postings_all)] = [new_ver_nr, 1, 2099, -last_year_result]
-        postings_all.loc[len(postings_all)] = [new_ver_nr, 1, 2098, +last_year_result]
-        return verifications, postings_all
+        self.postings_all.loc[len(self.postings_all)] = [new_ver_nr, 1, 2099, -result]
+        self.postings_all.loc[len(self.postings_all)] = [new_ver_nr, 1, 8999, result]
+
+
+    def transfer_last_year(self, balances):
+        # find balance for last years result
+        last_year_result_1 = balances.query('konto == 2098').iloc[0]['closing_balance']
+        last_year_result_2 = balances.query('konto == 2099').iloc[0]['closing_balance']
+
+        new_ver_nr  = self.add_verification(self.end_of_year, 'transfer')
+
+        self.postings_all.loc[len(self.postings_all)] = [new_ver_nr, 1, 2098, -last_year_result_1]
+        self.postings_all.loc[len(self.postings_all)] = [new_ver_nr, 2, 2091, +last_year_result_1]
+        self.postings_all.loc[len(self.postings_all)] = [new_ver_nr, 3, 2099, -last_year_result_2]
+        self.postings_all.loc[len(self.postings_all)] = [new_ver_nr, 4, 2098, +last_year_result_2]
     
-    def add_verification(self, verifications, date_str, text:str):
-        new_ver_nr = 1 + verifications.agg({'ver_nr' : ['max']}).iloc[0]['ver_nr']
+    def add_verification(self, date_str, text:str):
+        new_ver_nr = 1 + self.verifications.agg({'ver_nr' : ['max']}).iloc[0]['ver_nr']
         ver_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-        verifications.loc[len(verifications)] = [new_ver_nr, ver_date, text]
-        print(verifications)
-        return new_ver_nr, verifications
+        self.verifications.loc[len(self.verifications)] = [new_ver_nr, ver_date, text]
+        return new_ver_nr 
 
     def df_to_excel(self, df, sheet_name):
         ws = self.add_or_get_ws(sheet_name)
@@ -185,12 +201,7 @@ class accounting():
 
 #                r=self.write_line(ws, r, row['konto_beskrivning'], row['konto'], row['opening_balance'], row['movement'])
             
-    def calculate_result(self, df_balances):
-        result_df = df_balances.query('rapport_id=="RS"').agg({'movement' : ['sum']})
-        result = result_df.iloc[0]['movement']
-
-        return result
-
+ 
     def balance_report_to_excel(self, in_df, report_id):
         str_query = f'(rapport_id=="{report_id}")'
         this_report = self.reports.query(str_query).iloc[0]
