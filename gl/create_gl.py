@@ -13,11 +13,6 @@ class accounting():
     def __init__(self, config_file="config.json"):
         with open(config_file, 'r') as f:
             self.config = json.load(f)
-        self.output_file = self.config['out_dir'] + "/" + "gl_output.xlsx"
-
-        self.wb = load_workbook(filename=self.output_file)
-        self.wb_next_year = Workbook()
-        self.next_year_file = self.config['out_dir'] + "/" + "gl_next_year.xlsx"
 
 
         self.file_name = self.config['in_dir'] + "/" + "gl.xlsx"
@@ -25,8 +20,43 @@ class accounting():
         self.reports = self.reports.rename(columns={'beskrivning':'rapport_beskrivning'})
         self.company_excel = pd.read_excel(self.file_name, sheet_name=self.COMPANY_SHEET)           
         self.company_row= self.company_excel.iloc[0]
-        # name	bank-.account	org_no
 
+        self.accounts =  pd.read_excel(self.file_name, sheet_name="konti")
+        self.accounts =  self.accounts[['konto', 'beskrivning', 'konto_typ']]  # don't take the formula fields 
+        self.accounts_raw = self.accounts.copy(deep = True)
+        self.accounts =  self.accounts.rename(columns={'beskrivning':'konto_beskrivning'})
+
+        self.account_types =  pd.read_excel(self.file_name, sheet_name="konto_typer")
+        self.account_types = self.account_types[['konto_typ', 'beskrivning', 'klass']] # don't take the formula fields
+        self.account_types_raw  = self.account_types.copy(deep = True)
+        self.account_types = self.account_types.rename(columns={'beskrivning':'konto_typ_beskrivning'})
+        # add account types to accounts 
+        self.accounts = self.accounts.merge(self.account_types, how='inner', 
+                    left_on='konto_typ', right_on='konto_typ', indicator=False)
+        self.classes = pd.read_excel(self.file_name, sheet_name="klasser")
+        self.classes = self.classes[['klass', 'beskrivning', 'rapport_id']]
+        self.classes_raw = self.classes.copy(deep=True)
+        self.classes = self.classes.rename(columns={'beskrivning':'klass_beskrivning'})
+        # add classes to accounts       
+        self.accounts = self.accounts.merge(self.classes, how='inner', 
+                    left_on='klass', right_on='klass', indicator=False)
+        # add report id to accounts      
+        self.accounts = self.accounts.merge(self.reports, how='inner', 
+                    left_on='rapport_id', right_on='rapport_id', indicator=False)
+        self.verifications = pd.read_excel(self.file_name, sheet_name='verifikationer')       
+        self.verifications = self.verifications[['ver_nr', 'dato', 'beskrivning']]
+        # read the first posting and calculate end of year
+        year = str(self.verifications.iloc[0]['dato'])[0:4] 
+        self.end_of_year = str(year) + '-12-31'
+    
+        self.postings_all =  pd.read_excel(self.file_name, sheet_name="posteringer")
+        self.postings_all = self.postings_all[['ver_nr', 'lin', 'konto', 'belopp']] 
+        # output files
+        self.output_file = self.config['out_dir'] + "/" + "gl_output_" + str(year) + ".xlsx"
+        self.wb = Workbook()
+        self.wb_next_year = Workbook()
+        self.next_year_file = self.config['out_dir'] + "/" + "gl_next_year.xlsx"
+    
     def build_balances(self):
         postings_open = self.postings_all.query('ver_nr == 0') # opening balances
         postings = self.postings_all.query('ver_nr != 0')  # this year
@@ -59,37 +89,6 @@ class accounting():
         return balances
     
     def run(self):
-        self.accounts =  pd.read_excel(self.file_name, sheet_name="konti")
-        self.accounts =  self.accounts[['konto', 'beskrivning', 'konto_typ']]  # don't take the formula fields 
-        self.accounts_raw = self.accounts.copy(deep = True)
-        self.accounts =  self.accounts.rename(columns={'beskrivning':'konto_beskrivning'})
-
-        self.account_types =  pd.read_excel(self.file_name, sheet_name="konto_typer")
-        self.account_types = self.account_types[['konto_typ', 'beskrivning', 'klass']] # don't take the formula fields
-        self.account_types_raw  = self.account_types.copy(deep = True)
-
-        self.account_types = self.account_types.rename(columns={'beskrivning':'konto_typ_beskrivning'})
-
-        self.accounts = self.accounts.merge(self.account_types, how='inner', 
-                    left_on='konto_typ', right_on='konto_typ', indicator=False)
-        self.classes = pd.read_excel(self.file_name, sheet_name="klasser")
-        self.classes = self.classes[['klass', 'beskrivning', 'rapport_id']]
-        self.classes_raw = self.classes.copy(deep=True)
-        self.classes = self.classes.rename(columns={'beskrivning':'klass_beskrivning'})
-       
-        self.accounts = self.accounts.merge(self.classes, how='inner', 
-                    left_on='klass', right_on='klass', indicator=False)
-       
-        self.accounts = self.accounts.merge(self.reports, how='inner', 
-                    left_on='rapport_id', right_on='rapport_id', indicator=False)
-        self.verifications = pd.read_excel(self.file_name, sheet_name='verifikationer')       
-        self.verifications = self.verifications[['ver_nr', 'dato', 'beskrivning']]
-        # read the first posting and calculate end of year
-        year = str(self.verifications.iloc[0]['dato'])[0:4] 
-        self.end_of_year = str(year) + '-12-31'
-    
-        self.postings_all =  pd.read_excel(self.file_name, sheet_name="posteringer")
-        self.postings_all = self.postings_all[['ver_nr', 'lin', 'konto', 'belopp']] 
     
         balances  = self.build_balances()
         self.transfer_last_year(balances)
@@ -113,7 +112,7 @@ class accounting():
         
         self.verifikation_to_excel(postings)
         self.init_next_year(balances)
-        self.wb.save(self.output_file)
+        self.wb.save(filename = self.output_file)
         self.wb_next_year.save(filename = self.next_year_file)
         print("all done - workbook ready")
 
@@ -248,6 +247,9 @@ class accounting():
 
 
     def write_heading(self, ws, headings, report_name):
+        ws.oddHeader.left.text = self.company_row['name']
+        ws.oddHeader.center.text = report_name
+        ws.oddHeader.right.text = "Sida &[Page]"
         ws.cell(row=1, column=1).value = self.company_row['name']
         ws.cell(row=1, column=3).value = report_name
         ws.cell(row=1, column=5).value = self.company_row['name']
