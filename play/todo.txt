@@ -1,0 +1,10 @@
+from:
+https://medium.com/data-science/duplicate-detection-with-genai-ba2b4f7845e7
+pip install -U sentence-transformers
+When running first code - it takes time and a lot of downloads....
+from sentence_transformers import SentenceTransformer
+sentences = ["This is an example sentence", "Each sentence is converted"]
+
+model = SentenceTransformer('sentence-transformers/all-mpnet-base-v2')
+embeddings = model.encode(sentences)
+print(embeddings)

@@ -1,6 +1,2 @@
-1: calulcate end of year date
-2: date format in the excel... for created posstings.
-2: Create outgoing "init balance posting for next year
-3: get name of company in header
-4: Set heading print area
-test 2023 -> 2024
+1: test 2023 -> 2024 - plus the balance prints..
+2: compare heading print with printed output 
