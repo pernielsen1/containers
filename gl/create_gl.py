@@ -170,8 +170,8 @@ class accounting():
             ws.cell(row=r, column = 4).value = f'=_xlfn.XLOOKUP(C{r},rapporter!A:A,rapporter!B:B)'
         
         self.df_to_excel(self.wb_next_year, self.reports, 'rapporter')
-        
-        next_year = balances[['konto', 'closing_balance']].copy(deep=True)
+        next_year_bal =  balances.query('(rapport_id == "BS") & (closing_balance != 0) ')
+        next_year = next_year_bal[['konto', 'closing_balance']].copy(deep=True)
         next_year = next_year.rename(columns={'closing_balance':'belopp'})
         next_year['ver_nr'] = 0
         next_year['lin'] = next_year.index
@@ -191,8 +191,8 @@ class accounting():
         result_df = balances.query('rapport_id=="RS"').agg({'movement' : ['sum']})
         result = result_df.iloc[0]['movement']
         new_ver_nr  = self.add_verification(self.end_of_year, 'Result')
-        self.postings_all.loc[len(self.postings_all)] = [new_ver_nr, 1, 2099, -result]
-        self.postings_all.loc[len(self.postings_all)] = [new_ver_nr, 1, 8999, result]
+        self.postings_all.loc[len(self.postings_all)] = [new_ver_nr, 1, 2099, result]
+        self.postings_all.loc[len(self.postings_all)] = [new_ver_nr, 1, 8999, -result]
         
     def transfer_last_year(self, balances):
         # find balance for last years result
