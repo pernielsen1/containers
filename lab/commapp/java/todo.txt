@@ -1,3 +1,0 @@
-https://www.geeksforgeeks.org/linux-unix/how-to-install-junit-5-on-ubuntu/
-https://www.tutorialspoint.com/junit/junit_environment_setup.htm
-https://stackoverflow.com/questions/69637768/whats-the-point-of-a-deep-folder-structure-in-java-maven

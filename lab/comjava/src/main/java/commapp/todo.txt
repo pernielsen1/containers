@@ -1,0 +1,11 @@
+https://www.geeksforgeeks.org/linux-unix/how-to-install-junit-5-on-ubuntu/
+https://www.tutorialspoint.com/junit/junit_environment_setup.htm
+https://stackoverflow.com/questions/69637768/whats-the-point-of-a-deep-folder-structure-in-java-maven
+
+CLASS_PATH=$JUNIT_HOME/junit-jupiter-api.jar:$COMMAPP_TEST_HOME:$COMMAPP_HOME:.
+export COMMAPP_HOME=~/containers/lab/comjava/src/main/java/commapp
+export COMMAPP_TEST_HOME=~/containers/lab/comjava/src/test/java
+
+export CLASS_PATH=$JUNIT_HOME/junit4.jar:$COMMAPP_HOME
+export $JUNIT_HOME=/usr/share/java
+(lab) perni@LAPTOP-P5P268SM:~/containers/lab/comjava/src$ echo $CLASS_PATH
