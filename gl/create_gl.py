@@ -6,7 +6,10 @@ from openpyxl import load_workbook
 from openpyxl import Workbook
 from openpyxl.styles import numbers
 from openpyxl.styles import Alignment
-
+from openpyxl.utils import get_column_letter
+import logging
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s - %(message)s %(funcName)s()') 
 
 class accounting():
     COMPANY_SHEET = "firma"
@@ -114,7 +117,7 @@ class accounting():
         self.init_next_year(balances)
         self.wb.save(filename = self.output_file)
         self.wb_next_year.save(filename = self.next_year_file)
-        print("all done - workbook ready")
+        logging.info("all done - workbook ready")
 
     def set_numeric_cell(self, ws, row, column, value):
         ws.cell(row=row, column=column).value = value
@@ -239,14 +242,17 @@ class accounting():
             self.set_numeric_cell(ws=ws, row=r, column=5, value=opening + movement)
         return r+1
 
-    def write_dashes(self, ws, r, num_cols, dash_char):
-        for col in range(num_cols): 
-            f = "=REPT(" + '"' + dash_char + '"' + ',' + '10' + ')'
-            ws.cell(row=r, column=col+1).value = f
+    def write_dashes(self, ws, r, column_defs, dash_char):
+        col = 1
+        for item in column_defs['headings']:
+            width = column_defs['widths'][col-1]
+            f = "=REPT(" + '"' + dash_char + '"' + ',' + str(width) + ')'
+            ws.cell(row=r, column=col).value = f
+            col+=1
         return r + 1
 
 
-    def write_heading(self, ws, headings, report_name):
+    def write_heading(self, ws, column_defs, report_name):
         ws.oddHeader.left.text = self.company_row['name']
         ws.oddHeader.center.text = report_name
         ws.oddHeader.right.text = "Sida &[Page]"
@@ -262,10 +268,11 @@ class accounting():
         ws.print_title_rows='1:3'
         r=2
         col = 1
-        for item in headings:
+        for item in column_defs['headings']:
             ws.cell(row=r, column=col).value=item
+            ws.column_dimensions[get_column_letter(col)].width =  column_defs['widths'][col-1]
             col += 1
-        return self.write_dashes(ws, r+1, len(headings), '=')
+        return self.write_dashes(ws, r+1, column_defs, '=')
     
     def add_or_get_ws(self, wb, sheet_name, clear=True):
         if sheet_name in wb.sheetnames: 
@@ -279,8 +286,11 @@ class accounting():
     def gl_report_to_excel(self, balances, verifications, report_id):
         this_report = self.reports.query(f'(rapport_id=="{report_id}")').iloc[0]
         ws = self.add_or_get_ws(self.wb, this_report['sheet_name'])
-        headings = ["konto", "Text", "Ing balans", "Perioden", "Utg Balans" ]
-        cur_row = self.write_heading(ws,headings, this_report['rapport_beskrivning'])
+        column_defs = {"headings": ["konto", "Text", "Ing balans", "Perioden", "Utg Balans" ], 
+               "widths":[10, 20, 20, 10, 10] }
+
+        cur_row = self.write_heading(ws,column_defs, this_report['rapport_beskrivning'])
+
         for index, row in balances.iterrows():
             ws.cell(row=cur_row, column=1).value = 'Ing Balance'
             ws.cell(row=cur_row, column=2).value = row['konto']
@@ -300,7 +310,7 @@ class accounting():
             self.set_numeric_cell(ws=ws, row=cur_row, column=4, value=row['closing_balance'])
             
             cur_row += 1
-            cur_row = self.write_dashes(ws, cur_row, len(headings),'-')
+            cur_row = self.write_dashes(ws, cur_row, column_defs,'-')
  
     def balance_report_to_excel(self, in_df, report_id):
         str_query = f'(rapport_id=="{report_id}")'
@@ -312,8 +322,10 @@ class accounting():
         else:
             df = in_df.query(str_query).copy(deep=True)
 
-        headings = ["konto", "Text", "Ing balans", "Perioden", "Utg Balans" ]
-        r = self.write_heading(ws,headings, this_report['rapport_beskrivning'])
+        column_defs = {"headings": ["konto", "Text", "Ing balans", "Perioden", "Utg Balans" ], 
+               "widths":[10, 20, 10, 10, 10] }
+        
+        r = self.write_heading(ws, column_defs, this_report['rapport_beskrivning'])
 
         prv_klass = 0     
         cur_klass_beskrivning = ''
@@ -377,15 +389,16 @@ class accounting():
         report_id = 'VER'
         this_report = self.reports.query(f'(rapport_id=="{report_id}")').iloc[0]
         ws = self.add_or_get_ws(self.wb, 'verifikationslista', clear=True)
-        headings = ["ver", "konto ks", "Text", "Debet", "Kredit" ]
+        column_defs = {"headings":["ver", "konto ks", "Text", "Debet", "Kredit" ],
+                       "widths": [10, 10, 20, 10, 10] }
         col = 0
-        r = self.write_heading(ws,headings, this_report['rapport_beskrivning'])
+        r = self.write_heading(ws,column_defs, this_report['rapport_beskrivning'])
 
         cur_ver_nr = 0
         for index, row in df.iterrows():
             if cur_ver_nr != row['ver_nr']:
                 if cur_ver_nr != 0:
-                    r = self.write_dashes(ws, r, len(headings), '-')
+                    r = self.write_dashes(ws, r, column_defs, '-')
                 cur_ver_nr = row['ver_nr']
                 ws.cell(row=r, column=1).value = row['ver_nr']
                 posting_date = row['dato']
@@ -402,7 +415,7 @@ class accounting():
                 self.set_numeric_cell(ws=ws, row=r, column=4, value=row['belopp'])
             r += 1
 
-        r = self.write_dashes(ws, r, len(headings), '-')
+        r = self.write_dashes(ws, r, column_defs, '-')
 
                 
 if __name__ == '__main__':
