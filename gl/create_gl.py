@@ -17,7 +17,6 @@ class accounting():
         with open(config_file, 'r') as f:
             self.config = json.load(f)
 
-
         self.file_name = self.config['in_dir'] + "/" + "gl.xlsx"
         self.reports = pd.read_excel(self.file_name, sheet_name="rapporter")
         self.reports = self.reports.rename(columns={'beskrivning':'rapport_beskrivning'})
