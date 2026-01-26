@@ -44,10 +44,10 @@ class test_moudulus(unittest.TestCase):
   def test_kvn(self):
       print("xyz")
       self.log.info("testing kvn")
-      self.assertEqual(self.m_obj.validate_modulus11('68750110', 'kvn'), True)
-      self.assertEqual(self.m_obj.validate_modulus11('68750119', 'kvn'), False)
-      self.assertEqual(self.m_obj.validate_modulus11('6875011', 'kvn'), False)
-      self.assertEqual(self.m_obj.validate_modulus11('687A0110', 'kvn'), False)
+      self.assertEqual(self.m_obj.validate('68750110', 'kvn'), True)
+      self.assertEqual(self.m_obj.validate('68750119', 'kvn'), False)
+      self.assertEqual(self.m_obj.validate('6875011', 'kvn'), False)
+      self.assertEqual(self.m_obj.validate('687A0110', 'kvn'), False)
  
   def test_cvr(self):
       print("xyz")
@@ -56,12 +56,16 @@ class test_moudulus(unittest.TestCase):
       # E.g. 35408002, 30715063.
 
       self.log.info("testing kvn")
-      self.assertEqual(self.m_obj.validate_modulus11('35408002', 'cvr'), True)
-      self.assertEqual(self.m_obj.validate_modulus11('35408009', 'cvr'), False)
-      self.assertEqual(self.m_obj.validate_modulus11('3540800', 'cvr'), False)
-      self.assertEqual(self.m_obj.validate_modulus11('354A8009', 'cvr'), False)
+      self.assertEqual(self.m_obj.validate('35408002', 'cvr'), True)
+      self.assertEqual(self.m_obj.validate('35408009', 'cvr'), False)
+      self.assertEqual(self.m_obj.validate('3540800', 'cvr'), False)
+      self.assertEqual(self.m_obj.validate('354A8009', 'cvr'), False)
  
-
+  def test_sweorg(self):
+        print("org")
+        self.log.info("testing org")
+        self.assertEqual(self.m_obj.validate('5590002742', 'sweorg'), True)
+        
   @classmethod
   def tearDownClass(cls):
       cls.log.info("in tear down")

@@ -2,10 +2,11 @@ import argparse
 
 class modulus:
     definitions = {
-        "standard":{"weights": [7, 6, 5, 4, 3, 2, 1], "len":0},
-        "cpr": {"weights": [ 4,3,2,7,6,5,4,3,2,1 ], "len":10}     ,
-        "cvr": {"weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},   
-        "kvn": {"weights": [8, 7, 6, 5, 4, 3, 2, 1], "len":8}
+        "standard":{"algorithm":"mod11", "weights": [7, 6, 5, 4, 3, 2, 1], "len":0},
+        "cpr": {"algorithm":"mod11","weights": [ 4,3,2,7,6,5,4,3,2,1 ], "len":10}     ,
+        "cvr": {"algorithm":"mod11","weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},
+        "sweorg": {"algorithm":"mod10","weights": None, "len":10},
+        "kvn": {"algorithm":"mod11","weights": [8, 7, 6, 5, 4, 3, 2, 1], "len":8}
     }
     def __init__(self):
         # TBD
@@ -49,11 +50,41 @@ class modulus:
         print(f"var:{variant} weights:{weights} input:{s} res:{res}")
         return res  % 11 == 0
 
-def calc_chk_digit(self, s, variant):
-    return self.calc_modulus11_chkdigit(s, variant)
+    def validate_modulus10(self, s:str, variant) -> int:
+        print("modulu10")
+        exp_len = self.definitions[variant]["len"]
+        if not isinstance(s, str) or not s.isdigit():
+            return False
+        if exp_len > 0: 
+            if len(s) != exp_len:
+                return False
+        res = 0
+        reverse_digits = s[::-1]
+        for i, d in enumerate(reverse_digits):
+            n = int(d)
+            if i % 2 == 1:  # every second digit from the right (original number)
+                n *= 2
+                if n > 9:
+                    n -= 9
+            res += n
+        print(f"mod10 var:{variant} input:{s} res:{res}")
 
-def validate(self, s, variant):
-    return validate_modulus11(s, variant)
+        return res % 10 == 0
+
+
+
+    def calc_chk_digit(self, s, variant):
+        return self.calc_modulus11_chkdigit(s, variant)
+
+    def validate(self, s, variant):
+        algo = self.definitions[variant]["algorithm"]
+        if algo == 'mod11':
+            return self.validate_modulus11(s, variant)
+        if algo == 'mod10':
+            return self.validate_modulus10(s, variant)
+        print("wrong algo")
+        return False          
+        
 
 
 if __name__=="__main__":
@@ -68,6 +99,6 @@ if __name__=="__main__":
     if args.command == 'calculate':
         r=m_obj.calc_chk_digit(args.input, args.variant)
     if args.command == 'validate':
-        r=m_obj.validate_modulus11(args.input, args.variant)
+        r=m_obj.validate(args.input, args.variant)
 
     print(r)
