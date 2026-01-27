@@ -64,8 +64,29 @@ class test_moudulus(unittest.TestCase):
   def test_sweorg(self):
         print("org")
         self.log.info("testing org")
-        self.assertEqual(self.m_obj.validate('5590002742', 'sweorg'), True)
+        self.assertEqual(self.m_obj.validate('2021005489', 'sweorg'), True) # skatteverket
+        self.assertEqual(self.m_obj.validate('202100548', 'sweorg'), False)
+        self.assertEqual(self.m_obj.validate('2021005487', 'sweorg'), False)
+        self.assertEqual(self.m_obj.validate('2021A05489', 'sweorg'), False)
+        self.assertEqual(self.m_obj.validate('9912346', 'swebg7'), True) # from bg https://www.bankgirot.se/globalassets/dokument/anvandarmanualer/10-modul.pdf
+        self.assertEqual(self.m_obj.validate('55555551', 'swebg8'), True) # from bg example
+
+  def test_fn(self):
+        print("fn")
+        self.log.info("testing fn - firmen buch number")
+   #     self.assertEqual(self.m_obj.validate('72544g', 'fn'), True) # red bull
+        self.assertEqual(self.m_obj.validate('33282b', 'fn'), True) # 
+        self.assertEqual(self.m_obj.validate('56247k', 'fn'), True) # 
         
+        self.assertEqual(self.m_obj.validate('250328t', 'fn'), True) # 
+
+# Österreichische Post AG	250328t	High digit count
+# Red Bull GmbH	56247k	Five-digit number
+# Erste Group Bank AG	33209m	Common retail bank FN
+# OMV AG	93308v	Short digit sequence
+# Raiffeisen Bank International	121075t	Six-digit number
+ 
+
   @classmethod
   def tearDownClass(cls):
       cls.log.info("in tear down")
