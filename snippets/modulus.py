@@ -41,7 +41,7 @@ class modulus:
         
         # Weights applied from right to left: 2, 3, 4, 5, 6, 7
         weights = [7, 6, 5, 4, 3, 2]
-#        weights = [6, 4, 14, 15, 10, 1]
+        weights = [6, 4, 14, 15, 10, 1]
         total_sum = 0
         for i in range(6):
             total_sum += int(fn_padded[i]) * weights[i]
@@ -152,9 +152,9 @@ if __name__=="__main__":
     r='validate'
     m_obj = modulus()
 #    r = m_obj.validate('33282b', 'fn') # FN 72544g (Red Bull GmbH) FN 33282b (OMV Aktiengesellschaft)
-    r = m_obj.validate('123456k', 'fn')
-    r = m_obj.validate('56247t', 'fn') # 
-    r = m_obj.validate('180219d', 'fn') # 
+    r = m_obj.validate('123456k', 'fn') # example
+    r = m_obj.validate('56247t', 'fn') #  verfied red bull
+    r = m_obj.validate('180219d', 'fn') # verified ostrischer post
 
 #    r = m_obj.validate('2021005489', 'sweorg')
 #    r = m_obj.validate('9912346', 'swebg7')
