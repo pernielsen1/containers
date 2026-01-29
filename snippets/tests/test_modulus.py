@@ -76,9 +76,8 @@ class test_moudulus(unittest.TestCase):
         self.log.info("testing fn - firmen buch number")
    #     self.assertEqual(self.m_obj.validate('72544g', 'fn'), True) # red bull
         self.assertEqual(self.m_obj.validate('33282b', 'fn'), True) # 
-        self.assertEqual(self.m_obj.validate('56247k', 'fn'), True) # 
-        
-        self.assertEqual(self.m_obj.validate('250328t', 'fn'), True) # 
+        self.assertEqual(self.m_obj.validate('56247t', 'fn'), True) # 
+        self.assertEqual(self.m_obj.validate('80219d', 'fn'), True) # 
 
 # Österreichische Post AG	250328t	High digit count
 # Red Bull GmbH	56247k	Five-digit number

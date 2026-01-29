@@ -16,7 +16,7 @@ class modulus:
     def __init__(self):
         # TBD
         return
-    def calculate_fn_check_char(self, digits:str):
+    def calculate_fn_check_char(self, digits:str, expected_debug=""):
         """
         Calculates the check letter for an Austrian Firmenbuchnummer (FN).
         :param digits: The numeric part of the FN (up to 6 digits) as an integer or string.
@@ -30,6 +30,8 @@ class modulus:
         ALPHABET = "abcdeflghikmnpqrstvwxyz"
         ALPHABET = 'abcdefghijkmpqrst'
         ALPHABET = 'abcdefghijkmnpqrst'
+        ALPHABET = "abcdfghizkmpsstvw"
+        ALPHABET = "abcdfghizkmpstvwy"
         #           01234567890123456
         if not digits.isdigit() or len(digits) > 6:
             raise ValueError("FN digits must be a numeric string of up to 6 characters.")
@@ -45,16 +47,19 @@ class modulus:
             total_sum += int(fn_padded[i]) * weights[i]
         
         # Calculate remainder Modulo 17
+        # Prüfzeichen
         remainder = total_sum % 17
-        return ALPHABET[remainder]
-
+        check_char = ALPHABET[remainder]
+        print(f"calculating {digits} total_sum:{total_sum} remainder:{remainder} check_char:{check_char} exp:{expected_debug}")
+        return check_char
+    
     def validate_fn(self, s:str, variant) -> int:
         max_len = self.definitions[variant]["len"]
         if not isinstance(s, str) or len(s) > max_len:
             return False
         chk_char=s[len(s)-1:len(s)]
         excl_chk_char= s[0:len(s) - 1] 
-        res = self.calculate_fn_check_char(excl_chk_char)
+        res = self.calculate_fn_check_char(excl_chk_char, chk_char)
         return chk_char == res
 
     def calc_modulus11_chkdigit(self, s:str, variant) -> int:
@@ -147,7 +152,9 @@ if __name__=="__main__":
     r='validate'
     m_obj = modulus()
 #    r = m_obj.validate('33282b', 'fn') # FN 72544g (Red Bull GmbH) FN 33282b (OMV Aktiengesellschaft)
-    r = m_obj.validate('72544g', 'fn') # FN 72544g (Red Bull GmbH) FN 33282b (OMV Aktiengesellschaft)
+    r = m_obj.validate('123456k', 'fn')
+    r = m_obj.validate('56247t', 'fn') # 
+    r = m_obj.validate('180219d', 'fn') # 
 
 #    r = m_obj.validate('2021005489', 'sweorg')
 #    r = m_obj.validate('9912346', 'swebg7')
