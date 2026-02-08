@@ -6,9 +6,6 @@ class modulus:
         "cpr": {"algorithm":"mod11","weights": [ 4,3,2,7,6,5,4,3,2,1 ], "len":10}     ,
         "cvr": {"algorithm":"mod11","weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},
         "sweorg": {"algorithm":"mod10","weights": None, "len":10},
-        "siren": {"algorithm":"mod10","weights": None, "len":9},
-        "che": {"algorithm":"che","weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ], "len":9},
-
         "fn": {"algorithm":"fn","weights": None, "len":7},
 
         "swebg7": {"algorithm":"mod10","weights": None, "len":7},    
@@ -19,6 +16,51 @@ class modulus:
     def __init__(self):
         # TBD
         return
+    def calculate_fn_check_char(self, digits:str, expected_debug=""):
+        """
+        Calculates the check letter for an Austrian Firmenbuchnummer (FN).
+        :param digits: The numeric part of the FN (up to 6 digits) as an integer or string.
+        :return: The correct check letter (lowercase).
+        """
+        # Mapping for Modulus 17 (reminders 0 through 16)
+        # Note: Letters C, E, J, N, O, Q, R, U, Z are excluded to avoid confusion.
+#        ALPHABET = "abdfghiklmpstvwxy"
+        ALPHABET = "abd fghiklmpstvwxy".replace(" ", "")
+        ALPHABET = 'abdfghikmpstvwxyz'
+        ALPHABET = "abcdeflghikmnpqrstvwxyz"
+        ALPHABET = 'abcdefghijkmpqrst'
+        ALPHABET = 'abcdefghijkmnpqrst'
+        ALPHABET = "abcdfghizkmpsstvw"
+        ALPHABET = "abcdfghizkmpstvwy"
+        #           01234567890123456
+        if not digits.isdigit() or len(digits) > 6:
+            raise ValueError("FN digits must be a numeric string of up to 6 characters.")
+
+        # Pad with leading zeros to ensure 6 digits for consistent weighting
+        fn_padded = digits.zfill(6)
+        
+        # Weights applied from right to left: 2, 3, 4, 5, 6, 7
+        weights = [7, 6, 5, 4, 3, 2]
+        weights = [6, 4, 14, 15, 10, 1]
+        total_sum = 0
+        for i in range(6):
+            total_sum += int(fn_padded[i]) * weights[i]
+        
+        # Calculate remainder Modulo 17
+        # Prüfzeichen
+        remainder = total_sum % 17
+        check_char = ALPHABET[remainder]
+        print(f"calculating {digits} total_sum:{total_sum} remainder:{remainder} check_char:{check_char} exp:{expected_debug}")
+        return check_char
+    
+    def validate_fn(self, s:str, variant) -> int:
+        max_len = self.definitions[variant]["len"]
+        if not isinstance(s, str) or len(s) > max_len:
+            return False
+        chk_char=s[len(s)-1:len(s)]
+        excl_chk_char= s[0:len(s) - 1] 
+        res = self.calculate_fn_check_char(excl_chk_char, chk_char)
+        return chk_char == res
 
     def calc_modulus11_chkdigit(self, s:str, variant) -> int:
         weights = self.definitions[variant]["weights"]
@@ -89,30 +131,10 @@ class modulus:
         return res == int(chk_dig)
 
 
-    def validate_fn(self, s, variant):
-        # simplified validation of austrian number 1..6 digits followed by a character (lowercase)
-        max_len = self.definitions[variant]["len"]
-        if not isinstance(s, str) or len(s) > max_len:
-            return False
-        chk_char=s[len(s)-1:len(s)]
-        digits= s[0:len(s) - 1] 
-        if not digits.isdigit() or len(digits) > 6:
-            return False
-        if chk_char < 'a' or chk_char > 'z':
-            return False
-        return True        
-  
+
     def calc_chk_digit(self, s, variant):
         return self.calc_modulus11_chkdigit(s, variant)
 
-    def validate_che(self, s, variant):
-        s=s.replace('.','') # ignore dot's ...
-        che = s[0:4]
-        if che !=  'CHE-':  # must start with CHE-
-            return False
-        digits = s[4:len(s)] # take position after CHE- and to end of string and do a modulus 11
-        return self.validate_modulus11(digits, variant)
-        
     def validate(self, s, variant):
         algo = self.definitions[variant]["algorithm"]
         if algo == 'mod11':
@@ -121,9 +143,6 @@ class modulus:
             return self.validate_modulus10(s, variant)
         if algo == 'fn':
             return self.validate_fn(s, variant)
-        if algo == 'che':
-            return self.validate_che(s, variant)
-        
         print("wrong algo")
         return False          
         
@@ -132,17 +151,10 @@ class modulus:
 if __name__=="__main__":
     r='validate'
     m_obj = modulus()
-    r = m_obj.validate('CHE-123.456.788', 'che') # Unicef 
-
-
-#    r = m_obj.validate('784671695', 'siren') # Unicef 
-#    r = m_obj.validate('005520135', 'siren') # starts with zero 
-    
-
 #    r = m_obj.validate('33282b', 'fn') # FN 72544g (Red Bull GmbH) FN 33282b (OMV Aktiengesellschaft)
-#    r = m_obj.validate('123456k', 'fn') # example
-#    r = m_obj.validate('56247t', 'fn') #  verfied red bull
-#    r = m_obj.validate('180219d', 'fn') # verified ostrischer post
+    r = m_obj.validate('123456k', 'fn') # example
+    r = m_obj.validate('56247t', 'fn') #  verfied red bull
+    r = m_obj.validate('180219d', 'fn') # verified ostrischer post
 
 #    r = m_obj.validate('2021005489', 'sweorg')
 #    r = m_obj.validate('9912346', 'swebg7')

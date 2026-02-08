@@ -74,10 +74,26 @@ class test_moudulus(unittest.TestCase):
   def test_fn(self):
         print("fn")
         self.log.info("testing fn - firmen buch number")
-   #     self.assertEqual(self.m_obj.validate('72544g', 'fn'), True) # red bull
         self.assertEqual(self.m_obj.validate('33282b', 'fn'), True) # 
         self.assertEqual(self.m_obj.validate('56247t', 'fn'), True) # 
         self.assertEqual(self.m_obj.validate('80219d', 'fn'), True) # 
+
+  def test_siren(self):  # France
+        self.assertEqual(self.m_obj.validate('784671695', 'siren'), True) # Unicef 
+        self.assertEqual(self.m_obj.validate('005520135', 'siren'), True) # starts with zero 
+        self.assertEqual(self.m_obj.validate('78467169', 'siren'), False) # to short
+        self.assertEqual(self.m_obj.validate('78A467169', 'siren'), False) # letter 
+        self.assertEqual(self.m_obj.validate('', 'siren'), False) # Empty 
+        
+  def test_che(self):  # France
+        self.assertEqual(self.m_obj.validate('CHE-123.456.788', 'che'), True) # OK 
+        self.assertEqual(self.m_obj.validate('CHe-123.456.788', 'che'), False) # Is case sensitive 
+        self.assertEqual(self.m_obj.validate('CHX-123.456.788', 'che'), False) # CHE not CHX 
+        self.assertEqual(self.m_obj.validate('CHE-123456788', 'che'), True) # ok with no dots  
+        self.assertEqual(self.m_obj.validate('CHE-123456A88', 'che'), False) # not numeric
+        self.assertEqual(self.m_obj.validate('CHE-12345688', 'che'), False) # Wromg len        
+        self.assertEqual(self.m_obj.validate('CHE-123456789', 'che'), False) # Wromg chk didit not 9 but 8 is the result       
+        
 
 # Österreichische Post AG	250328t	High digit count
 # Red Bull GmbH	56247k	Five-digit number
