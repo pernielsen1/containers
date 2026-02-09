@@ -6,6 +6,7 @@ class modulus:
         "cpr": {"algorithm":"mod11","weights": [ 4,3,2,7,6,5,4,3,2,1 ], "len":10}     ,
         "cvr": {"algorithm":"mod11","weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},
         "sweorg": {"algorithm":"mod10","weights": None, "len":10},
+        "nororg": {"algorithm":"mod11","weights": [ 3, 2, 7, 6, 5, 4, 3, 2, 1 ], "len":9},
         "siren": {"algorithm":"mod10","weights": None, "len":9},
         "che": {"algorithm":"che","weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ], "len":9},
         "ly" : {"algorithm":"ly","weights": [  7, 9, 10, 5, 8, 4, 2, 1 ], "len":8},
@@ -152,10 +153,13 @@ class modulus:
 if __name__=="__main__":
     r='validate'
     m_obj = modulus()
-    r = m_obj.validate('2070742-1', 'ly') # Wärtsila 
+    r = m_obj.validate('123456785', 'nororg') # Offical example
+    r = m_obj.validate('974760673', 'nororg') # Brönnoy sund 
     
-    r = m_obj.validate('1572860-0', 'ly') # test case from google ai. 
-    r = m_obj.validate('112038-9', 'ly')  # Nokia with a missing zero first
+#    r = m_obj.validate('2070742-1', 'ly') # Wärtsila  does not work 
+    
+#    r = m_obj.validate('1572860-0', 'ly') # test case from google ai. 
+#    r = m_obj.validate('112038-9', 'ly')  # Nokia with a missing zero first
 
 #    r = m_obj.validate('CHE-123.456.788', 'che') # Unicef 
 

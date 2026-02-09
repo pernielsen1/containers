@@ -101,7 +101,13 @@ class test_moudulus(unittest.TestCase):
         self.assertEqual(self.m_obj.validate('12038-9', 'ly'), False)    # Wrong len
         self.assertEqual(self.m_obj.validate('1A1138-9', 'ly'), False)    # Alfa in 
 
-  
+  def test_nororg(self): # Norway
+        self.assertEqual(self.m_obj.validate('123456785', 'nororg'), True)   # Offical example
+        self.assertEqual(self.m_obj.validate('974760673', 'nororg'), True)   # Brönnoysund
+        self.assertEqual(self.m_obj.validate('12345678', 'nororg'), False)   # Wrong len
+        self.assertEqual(self.m_obj.validate('1A2345678', 'nororg'), False)   # not digits
+      
+
 # Österreichische Post AG	250328t	High digit count
 # Red Bull GmbH	56247k	Five-digit number
 # Erste Group Bank AG	33209m	Common retail bank FN
