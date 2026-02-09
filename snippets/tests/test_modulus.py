@@ -94,7 +94,14 @@ class test_moudulus(unittest.TestCase):
         self.assertEqual(self.m_obj.validate('CHE-12345688', 'che'), False) # Wromg len        
         self.assertEqual(self.m_obj.validate('CHE-123456789', 'che'), False) # Wromg chk didit not 9 but 8 is the result       
         
+  def test_ly(self): # finland
+        self.assertEqual(self.m_obj.validate('1572860-0', 'ly'), True)   # Nokia with a missing zero first
+        self.assertEqual(self.m_obj.validate('15728600', 'ly'), True)   # OK without the hyphen 
+        self.assertEqual(self.m_obj.validate('112038-9', 'ly'), True)   # Nokia with a missing zero first
+        self.assertEqual(self.m_obj.validate('12038-9', 'ly'), False)    # Wrong len
+        self.assertEqual(self.m_obj.validate('1A1138-9', 'ly'), False)    # Alfa in 
 
+  
 # Österreichische Post AG	250328t	High digit count
 # Red Bull GmbH	56247k	Five-digit number
 # Erste Group Bank AG	33209m	Common retail bank FN

@@ -8,7 +8,7 @@ class modulus:
         "sweorg": {"algorithm":"mod10","weights": None, "len":10},
         "siren": {"algorithm":"mod10","weights": None, "len":9},
         "che": {"algorithm":"che","weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ], "len":9},
-
+        "ly" : {"algorithm":"ly","weights": [  7, 9, 10, 5, 8, 4, 2, 1 ], "len":8},
         "fn": {"algorithm":"fn","weights": None, "len":7},
 
         "swebg7": {"algorithm":"mod10","weights": None, "len":7},    
@@ -58,6 +58,18 @@ class modulus:
         print(f"var:{variant} weights:{weights} input:{s} res:{res}")
         return res  % 11 == 0
 
+    def validate_modulus11_new(self, s:str, variant) -> int:
+        exp_len = self.definitions[variant]["len"]
+        if not isinstance(s, str) or not s.isdigit():
+            return False
+        if exp_len > 0: 
+            if len(s) != exp_len:
+                return False
+        excl_chk_dig = s[0:exp_len - 1]
+        exp_chk_dig = int(s[exp_len-1:exp_len])
+        chk_dig = self.calc_modulus11_chkdigit(excl_chk_dig, variant)
+        return chk_dig == exp_chk_dig
+    
     def calc_modulus10(self, s:str):
         
         res = 0
@@ -112,6 +124,12 @@ class modulus:
             return False
         digits = s[4:len(s)] # take position after CHE- and to end of string and do a modulus 11
         return self.validate_modulus11(digits, variant)
+
+    def validate_ly(self, s, variant):    # Finnish Ly-number can be missing a leading 0 and we ignore hyphens
+        digits=s.replace('-','') # ignore hyphens ...
+        if len(digits) == 7:     # don't think it can be shorter than 7 digits who should have one zero added first
+            digits = digits.zfill(8)
+        return self.validate_modulus11_new(digits, variant)
         
     def validate(self, s, variant):
         algo = self.definitions[variant]["algorithm"]
@@ -123,6 +141,8 @@ class modulus:
             return self.validate_fn(s, variant)
         if algo == 'che':
             return self.validate_che(s, variant)
+        if algo == 'ly':
+            return self.validate_ly(s, variant)
         
         print("wrong algo")
         return False          
@@ -132,7 +152,12 @@ class modulus:
 if __name__=="__main__":
     r='validate'
     m_obj = modulus()
-    r = m_obj.validate('CHE-123.456.788', 'che') # Unicef 
+    r = m_obj.validate('2070742-1', 'ly') # Wärtsila 
+    
+    r = m_obj.validate('1572860-0', 'ly') # test case from google ai. 
+    r = m_obj.validate('112038-9', 'ly')  # Nokia with a missing zero first
+
+#    r = m_obj.validate('CHE-123.456.788', 'che') # Unicef 
 
 
 #    r = m_obj.validate('784671695', 'siren') # Unicef 
