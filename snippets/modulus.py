@@ -191,8 +191,9 @@ class modulus:
 if __name__=="__main__":
     r='validate'
     m_obj = modulus()
-    r = m_obj.validate_legal('HRB-1234 Aachen', 'DE') # Offical example
-    r = m_obj.validate_legal('123456785', 'NO') # Offical example
+    r = m_obj.validate_germany(m_obj.clean_str('HRB-1234 Aachen'), 'DE_LEGAL') # Offical example
+    print(r)
+#    r = m_obj.validate_legal('123456785', 'NO') # Offical example
 #    r = m_obj.validate('974760673', 'NO_LEGAL') # Brönnoy sund 
     
 #    r = m_obj.validate('2070742-1', 'ly') # Wärtsila  does not work 
