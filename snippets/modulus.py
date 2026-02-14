@@ -1,12 +1,15 @@
 import argparse
+import os
 # https://github.com/hubipe/company-identifiers/tree/master/src/CountryValidators
 import pandas as pd
 class modulus:
     def __init__(self):
-        df =  pd.read_excel('XJustiz.xlsx')
-        dict_xjustiz = pd.Series(df.value.values,index=df.key).to_dict()
-        print(dict_xjustiz['Aachen'])
         self.clean_table = str.maketrans('.-',"  ")
+        module_path = os.path.dirname(os.path.abspath(__file__))
+        df =  pd.read_excel(module_path + '/' + 'XJustiz.xlsx')
+        df['key'] = df.apply(self.clean_key, axis=1)  # remove the ( and . etc)
+        dict_xjustiz = pd.Series(df.value.values,index=df.key).to_dict()
+#        print(dict_xjustiz['Aachen'])
         self.definitions = {
             "DK_NATURAL": {"algorithm":self.validate_modulus11, "name":"CPR",
                         "weights": [ 4,3,2,7,6,5,4,3,2,1 ], "len":10}     ,
@@ -33,8 +36,13 @@ class modulus:
             "standard":{"algorithm":self.validate_modulus11, "name":"standard",
                         "weights": [7, 6, 5, 4, 3, 2, 1], "len":0}
         }
-        # TBD
         return
+    def clean_key(self, row) -> str:
+        return self.clean_str(row['key'])
+    
+    def clean_str(self,s:str) -> str:
+        s = s.translate(self.clean_table)
+        return  s.replace(' ','')
 
     def calc_modulus11_chkdigit(self, s:str, variant) -> int:
         weights = self.definitions[variant]["weights"]
@@ -54,17 +62,23 @@ class modulus:
         else: 
             return 11 - rest
 
-
-    def validate_modulus11(self, s:str, variant) -> int:
+    def validate_modulus11(self, s:str, variant):
+        result = {}
         exp_len = self.definitions[variant]["len"]
         if not isinstance(s, str) or not s.isdigit():
-            return False
+            return {'validation_result':False, 'error':'not string or digits'}
         if exp_len > 0 and len(s) != exp_len:
-            return False
-        excl_chk_dig = s[0:exp_len - 1]
-        exp_chk_dig = int(s[exp_len-1:exp_len])
-        chk_dig = self.calc_modulus11_chkdigit(excl_chk_dig, variant)
-        return chk_dig == exp_chk_dig
+            return {'validation_result':False, 'error':'wrong length'}
+        result['excl_chk_dig'] = s[0:exp_len - 1]
+        result['expected'] = int(s[exp_len-1:exp_len])
+        result['check_digit'] = self.calc_modulus11_chkdigit(result['excl_chk_dig'], variant)
+        if (result['check_digit'] == result['expected']):
+            result['validation_result'] = True
+        else:
+            result['validation_result'] = False
+            result['error'] = 'Wrong modulus 11 check digit'
+   
+        return result 
     
     def calc_modulus10(self, s:str) -> int:
         res = 0
@@ -83,37 +97,47 @@ class modulus:
         else:
             return chk_dig
     
-    def validate_modulus10(self, s:str, variant) -> int:
+    def validate_modulus10(self, s:str, variant):
         exp_len = self.definitions[variant]["len"]
         if not isinstance(s, str) or not s.isdigit():
-            return False
+            return {'validation_result':False, 'error':'not string or digits'}
         if exp_len > 0 and len(s) != exp_len:
-                return False
-        chk_dig=int(s[exp_len-1:exp_len])
-        excl_chk_dig= s[0:exp_len - 1] 
-        res = self.calc_modulus10(excl_chk_dig)
-        return res == chk_dig
+            return {'validation_result':False, 'error':'wrong length'}
+        result = {}
+        result['excl_chk_dig']= s[0:exp_len - 1] 
+        result['expected'] = int(s[exp_len-1:exp_len])
+#        res = self.calc_modulus10(result['excl_chk_dig'])
+        result['check_digit'] = self.calc_modulus10(result['excl_chk_dig'])
+        if (result['check_digit'] == result['expected']):
+            result['validation_result'] = True
+        else:
+            result['validation_result'] = False
+            result['error'] = 'Wrong modulus 11 check digit'
 
+        return result
 
     def validate_fn(self, s, variant):
         # simplified validation of austrian number 1..6 digits followed by a character (lowercase)
         max_len = self.definitions[variant]["len"]
         if not isinstance(s, str) or len(s) > max_len:
-            return False
+            return {'validation_result':False, 'error':'wrong len'}
         chk_char=s[len(s)-1:len(s)]
         digits= s[0:len(s) - 1] 
         if not digits.isdigit() or len(digits) > 6:
-            return False
+            return {'validation_result':False, 'error':'not string or digits'}
         if chk_char < 'a' or chk_char > 'z':
-            return False
-        return True        
+            return {'validation_result':False, 'error':'check char not between a and z'}
+        
+        return {'validation_result':True}
+        
   
     def calc_chk_digit(self, s, variant):
         return self.calc_modulus11_chkdigit(s, variant)
 
     def validate_che(self, s, variant):  # dot's and hyphens removed before call
         if s[0:3] !=  'CHE':  # must start with CHE
-            return False
+            return {'validation_result':False, 'error':'Does not start with CHE'}
+
         digits = s[3:len(s)] # take position after CHE and to end of string and do a modulus 11
         return self.validate_modulus11(digits, variant)
 
@@ -123,16 +147,15 @@ class modulus:
         return self.validate_modulus11(s, variant)
         
     def validate(self, s, variant):
-        # clean up the string
-        s = s.translate(self.clean_table)
-        s = s.replace(' ','')
+        s = self.clean_str(s)         # clean up the string
+        if  self.definitions.get(variant, None) == None:
+            return {'validation_result':False, 'error':'Algorithm not found'}
         algo = self.definitions[variant]["algorithm"]
-        return algo(s, variant)
+        res = algo(s, variant)
+        return res['validation_result']
 
     def validate_legal(self, s, country_code):
         return self.validate(s, country_code + '_' + 'LEGAL')
-
-
 
 if __name__=="__main__":
     r='validate'
