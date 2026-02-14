@@ -1,12 +1,7 @@
 import argparse
 # https://github.com/hubipe/company-identifiers/tree/master/src/CountryValidators
-import pandas as pd
 class modulus:
     def __init__(self):
-        df =  pd.read_excel('XJustiz.xlsx')
-        dict_xjustiz = pd.Series(df.value.values,index=df.key).to_dict()
-        print(dict_xjustiz['Aachen'])
-        self.clean_table = str.maketrans('.-',"  ")
         self.definitions = {
             "DK_NATURAL": {"algorithm":self.validate_modulus11, "name":"CPR",
                         "weights": [ 4,3,2,7,6,5,4,3,2,1 ], "len":10}     ,
@@ -54,19 +49,40 @@ class modulus:
         else: 
             return 11 - rest
 
+    def validate_modulus11_old(self, s:str, variant) -> int:
+        weights = self.definitions[variant]["weights"]
+        exp_len = self.definitions[variant]["len"]
+
+        if not isinstance(s, str) or not s.isdigit():
+            return False
+        if exp_len > 0: 
+            if len(s) != exp_len:
+                return False
+        # still here let's see if mod 11 compliant
+        i = 0
+        res = 0
+        for c in s:
+            if (i==len(weights)):  # when all weights used start from left again
+                i=0
+            res += int(c) * weights[i]
+            i += 1
+        print(f"var:{variant} weights:{weights} input:{s} res:{res}")
+        return res  % 11 == 0
 
     def validate_modulus11(self, s:str, variant) -> int:
         exp_len = self.definitions[variant]["len"]
         if not isinstance(s, str) or not s.isdigit():
             return False
-        if exp_len > 0 and len(s) != exp_len:
-            return False
+        if exp_len > 0: 
+            if len(s) != exp_len:
+                return False
         excl_chk_dig = s[0:exp_len - 1]
         exp_chk_dig = int(s[exp_len-1:exp_len])
         chk_dig = self.calc_modulus11_chkdigit(excl_chk_dig, variant)
         return chk_dig == exp_chk_dig
     
-    def calc_modulus10(self, s:str) -> int:
+    def calc_modulus10(self, s:str):
+        
         res = 0
         reverse_digits = s[::-1]
         for i, d in enumerate(reverse_digits):
@@ -87,12 +103,13 @@ class modulus:
         exp_len = self.definitions[variant]["len"]
         if not isinstance(s, str) or not s.isdigit():
             return False
-        if exp_len > 0 and len(s) != exp_len:
+        if exp_len > 0: 
+            if len(s) != exp_len:
                 return False
-        chk_dig=int(s[exp_len-1:exp_len])
+        chk_dig=s[exp_len-1:exp_len]
         excl_chk_dig= s[0:exp_len - 1] 
         res = self.calc_modulus10(excl_chk_dig)
-        return res == chk_dig
+        return res == int(chk_dig)
 
 
     def validate_fn(self, s, variant):
@@ -111,27 +128,40 @@ class modulus:
     def calc_chk_digit(self, s, variant):
         return self.calc_modulus11_chkdigit(s, variant)
 
-    def validate_che(self, s, variant):  # dot's and hyphens removed before call
-        if s[0:3] !=  'CHE':  # must start with CHE
+    def validate_che(self, s, variant):
+        s=s.replace('.','') # ignore dot's ...
+        che = s[0:4]
+        if che !=  'CHE-':  # must start with CHE-
             return False
-        digits = s[3:len(s)] # take position after CHE and to end of string and do a modulus 11
+        digits = s[4:len(s)] # take position after CHE- and to end of string and do a modulus 11
         return self.validate_modulus11(digits, variant)
 
     def validate_ly(self, s, variant):    # Finnish Ly-number can be missing a leading 0 and we ignore hyphens
-        if len(s) == 7:     # don't think it can be shorter than 7 digits who should have one zero added first
-            s = s.zfill(8)
-        return self.validate_modulus11(s, variant)
+        digits=s.replace('-','') # ignore hyphens ...
+        if len(digits) == 7:     # don't think it can be shorter than 7 digits who should have one zero added first
+            digits = digits.zfill(8)
+        return self.validate_modulus11(digits, variant)
         
     def validate(self, s, variant):
-        # clean up the string
-        s = s.translate(self.clean_table)
-        s = s.replace(' ','')
         algo = self.definitions[variant]["algorithm"]
         return algo(s, variant)
-
     def validate_legal(self, s, country_code):
         return self.validate(s, country_code + '_' + 'LEGAL')
 
+#        if algo == 'mod11':
+#            return self.validate_modulus11(s, variant)
+#        if algo == 'mod10':
+#            return self.validate_modulus10(s, variant)
+#        if algo == 'fn':
+#            return self.validate_fn(s, variant)
+#        if algo == 'che':
+#            return self.validate_che(s, variant)
+#        if algo == 'ly':
+#            return self.validate_ly(s, variant)
+#        
+#        print("wrong algo")
+#        return False          
+        
 
 
 if __name__=="__main__":
@@ -141,15 +171,22 @@ if __name__=="__main__":
     r = m_obj.validate('974760673', 'NO_LEGAL') # Brönnoy sund 
     
 #    r = m_obj.validate('2070742-1', 'ly') # Wärtsila  does not work 
+    
 #    r = m_obj.validate('1572860-0', 'ly') # test case from google ai. 
 #    r = m_obj.validate('112038-9', 'ly')  # Nokia with a missing zero first
+
 #    r = m_obj.validate('CHE-123.456.788', 'che') # Unicef 
+
+
 #    r = m_obj.validate('784671695', 'siren') # Unicef 
 #    r = m_obj.validate('005520135', 'siren') # starts with zero 
+    
+
 #    r = m_obj.validate('33282b', 'fn') # FN 72544g (Red Bull GmbH) FN 33282b (OMV Aktiengesellschaft)
 #    r = m_obj.validate('123456k', 'fn') # example
 #    r = m_obj.validate('56247t', 'fn') #  verfied red bull
 #    r = m_obj.validate('180219d', 'fn') # verified ostrischer post
+
 #    r = m_obj.validate('2021005489', 'sweorg')
 #    r = m_obj.validate('9912346', 'swebg7')
 #    r = m_obj.validate('55555551', 'swebg8')

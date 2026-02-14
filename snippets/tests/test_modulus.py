@@ -44,10 +44,10 @@ class test_moudulus(unittest.TestCase):
   def test_kvn(self):
       print("xyz")
       self.log.info("testing kvn")
-      self.assertEqual(self.m_obj.validate('68750110', 'kvn'), True)
-      self.assertEqual(self.m_obj.validate('68750119', 'kvn'), False)
-      self.assertEqual(self.m_obj.validate('6875011', 'kvn'), False)
-      self.assertEqual(self.m_obj.validate('687A0110', 'kvn'), False)
+      self.assertEqual(self.m_obj.validate_legal('68750110', 'NL'), True)
+      self.assertEqual(self.m_obj.validate_legal('68750119', 'NL'), False)
+      self.assertEqual(self.m_obj.validate_legal('6875011', 'NL'), False)
+      self.assertEqual(self.m_obj.validate_legal('687A0110', 'NL'), False)
  
   def test_cvr(self):
       print("xyz")
@@ -55,57 +55,57 @@ class test_moudulus(unittest.TestCase):
       # Search for real CVRs, to see examples: https://datacvr.virk.dk/data/
       # E.g. 35408002, 30715063.
 
-      self.log.info("testing kvn")
-      self.assertEqual(self.m_obj.validate('35408002', 'cvr'), True)
-      self.assertEqual(self.m_obj.validate('35408009', 'cvr'), False)
-      self.assertEqual(self.m_obj.validate('3540800', 'cvr'), False)
-      self.assertEqual(self.m_obj.validate('354A8009', 'cvr'), False)
+      self.log.info("testing cvr")
+      self.assertEqual(self.m_obj.validate_legal('35408002', 'DK'), True)
+      self.assertEqual(self.m_obj.validate_legal('35408009', 'DK'), False)
+      self.assertEqual(self.m_obj.validate_legal('3540800', 'DK'), False)
+      self.assertEqual(self.m_obj.validate_legal('354A8009', 'DK'), False)
  
   def test_sweorg(self):
         print("org")
         self.log.info("testing org")
-        self.assertEqual(self.m_obj.validate('2021005489', 'sweorg'), True) # skatteverket
-        self.assertEqual(self.m_obj.validate('202100548', 'sweorg'), False)
-        self.assertEqual(self.m_obj.validate('2021005487', 'sweorg'), False)
-        self.assertEqual(self.m_obj.validate('2021A05489', 'sweorg'), False)
-        self.assertEqual(self.m_obj.validate('9912346', 'swebg7'), True) # from bg https://www.bankgirot.se/globalassets/dokument/anvandarmanualer/10-modul.pdf
-        self.assertEqual(self.m_obj.validate('55555551', 'swebg8'), True) # from bg example
+        self.assertEqual(self.m_obj.validate_legal('2021005489', 'SE'), True) # skatteverket
+        self.assertEqual(self.m_obj.validate_legal('202100548', 'SE'), False)
+        self.assertEqual(self.m_obj.validate_legal('2021005487', 'SE'), False)
+        self.assertEqual(self.m_obj.validate_legal('2021A05489', 'SE'), False)
+        self.assertEqual(self.m_obj.validate('9912346', 'SE_BG7'), True) # from bg https://www.bankgirot.se/globalassets/dokument/anvandarmanualer/10-modul.pdf
+        self.assertEqual(self.m_obj.validate('55555551', 'SE_BG8'), True) # from bg example
 
   def test_fn(self):
         print("fn")
         self.log.info("testing fn - firmen buch number")
-        self.assertEqual(self.m_obj.validate('33282b', 'fn'), True) # 
-        self.assertEqual(self.m_obj.validate('56247t', 'fn'), True) # 
-        self.assertEqual(self.m_obj.validate('80219d', 'fn'), True) # 
+        self.assertEqual(self.m_obj.validate_legal('33282b', 'AT'), True) # 
+        self.assertEqual(self.m_obj.validate_legal('56247t', 'AT'), True) # 
+        self.assertEqual(self.m_obj.validate_legal('80219d', 'AT'), True) # 
 
   def test_siren(self):  # France
-        self.assertEqual(self.m_obj.validate('784671695', 'siren'), True) # Unicef 
-        self.assertEqual(self.m_obj.validate('005520135', 'siren'), True) # starts with zero 
-        self.assertEqual(self.m_obj.validate('78467169', 'siren'), False) # to short
-        self.assertEqual(self.m_obj.validate('78A467169', 'siren'), False) # letter 
-        self.assertEqual(self.m_obj.validate('', 'siren'), False) # Empty 
+        self.assertEqual(self.m_obj.validate_legal('784671695', 'FR'), True) # Unicef 
+        self.assertEqual(self.m_obj.validate_legal('005520135', 'FR'), True) # starts with zero 
+        self.assertEqual(self.m_obj.validate_legal('78467169', 'FR'), False) # to short
+        self.assertEqual(self.m_obj.validate_legal('78A467169', 'FR'), False) # letter 
+        self.assertEqual(self.m_obj.validate_legal('', 'FR'), False) # Empty 
         
   def test_che(self):  # France
-        self.assertEqual(self.m_obj.validate('CHE-123.456.788', 'che'), True) # OK 
-        self.assertEqual(self.m_obj.validate('CHe-123.456.788', 'che'), False) # Is case sensitive 
-        self.assertEqual(self.m_obj.validate('CHX-123.456.788', 'che'), False) # CHE not CHX 
-        self.assertEqual(self.m_obj.validate('CHE-123456788', 'che'), True) # ok with no dots  
-        self.assertEqual(self.m_obj.validate('CHE-123456A88', 'che'), False) # not numeric
-        self.assertEqual(self.m_obj.validate('CHE-12345688', 'che'), False) # Wromg len        
-        self.assertEqual(self.m_obj.validate('CHE-123456789', 'che'), False) # Wromg chk didit not 9 but 8 is the result       
+        self.assertEqual(self.m_obj.validate_legal('CHE-123.456.788', 'CH'), True) # OK 
+        self.assertEqual(self.m_obj.validate_legal('CHe-123.456.788', 'CH'), False) # Is case sensitive 
+        self.assertEqual(self.m_obj.validate_legal('CHX-123.456.788', 'CH'), False) # CHE not CHX 
+        self.assertEqual(self.m_obj.validate_legal('CHE-123456788', 'CH'), True) # ok with no dots  
+        self.assertEqual(self.m_obj.validate_legal('CHE-123456A88', 'CH'), False) # not numeric
+        self.assertEqual(self.m_obj.validate_legal('CHE-12345688', 'CH'), False) # Wromg len        
+        self.assertEqual(self.m_obj.validate_legal('CHE-123456789', 'CH'), False) # Wromg chk didit not 9 but 8 is the result       
         
   def test_ly(self): # finland
-        self.assertEqual(self.m_obj.validate('1572860-0', 'ly'), True)   # Nokia with a missing zero first
-        self.assertEqual(self.m_obj.validate('15728600', 'ly'), True)   # OK without the hyphen 
-        self.assertEqual(self.m_obj.validate('112038-9', 'ly'), True)   # Nokia with a missing zero first
-        self.assertEqual(self.m_obj.validate('12038-9', 'ly'), False)    # Wrong len
-        self.assertEqual(self.m_obj.validate('1A1138-9', 'ly'), False)    # Alfa in 
+        self.assertEqual(self.m_obj.validate_legal('1572860-0', 'FI'), True)   # Nokia with a missing zero first
+        self.assertEqual(self.m_obj.validate_legal('15728600', 'FI'), True)   # OK without the hyphen 
+        self.assertEqual(self.m_obj.validate_legal('112038-9', 'FI'), True)   # Nokia with a missing zero first
+        self.assertEqual(self.m_obj.validate_legal('12038-9', 'FI'), False)    # Wrong len
+        self.assertEqual(self.m_obj.validate_legal('1A1138-9', 'FI'), False)    # Alfa in 
 
   def test_nororg(self): # Norway
-        self.assertEqual(self.m_obj.validate('123456785', 'nororg'), True)   # Offical example
-        self.assertEqual(self.m_obj.validate('974760673', 'nororg'), True)   # Brönnoysund
-        self.assertEqual(self.m_obj.validate('12345678', 'nororg'), False)   # Wrong len
-        self.assertEqual(self.m_obj.validate('1A2345678', 'nororg'), False)   # not digits
+        self.assertEqual(self.m_obj.validate_legal('123456785', 'NO'), True)   # Offical example
+        self.assertEqual(self.m_obj.validate_legal('974760673', 'NO'), True)   # Brönnoysund
+        self.assertEqual(self.m_obj.validate_legal('12345678', 'NO'), False)   # Wrong len
+        self.assertEqual(self.m_obj.validate_legal('1A2345678', 'NO'), False)   # not digits
       
 
 # Österreichische Post AG	250328t	High digit count
