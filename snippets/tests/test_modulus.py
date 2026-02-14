@@ -106,8 +106,11 @@ class test_moudulus(unittest.TestCase):
         self.assertEqual(self.m_obj.validate_legal('974760673', 'NO'), True)   # Brönnoysund
         self.assertEqual(self.m_obj.validate_legal('12345678', 'NO'), False)   # Wrong len
         self.assertEqual(self.m_obj.validate_legal('1A2345678', 'NO'), False)   # not digits
-      
 
+  def test_germany(self): # Germany
+        self.assertEqual(self.m_obj.validate_legal('HRB-1234 Aachen', 'DE') , True)   # Offical example
+   
+  
 # Österreichische Post AG	250328t	High digit count
 # Red Bull GmbH	56247k	Five-digit number
 # Erste Group Bank AG	33209m	Common retail bank FN

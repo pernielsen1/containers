@@ -8,7 +8,7 @@ class modulus:
         module_path = os.path.dirname(os.path.abspath(__file__))
         df =  pd.read_excel(module_path + '/' + 'XJustiz.xlsx')
         df['key'] = df.apply(self.clean_key, axis=1)  # remove the ( and . etc)
-        dict_xjustiz = pd.Series(df.value.values,index=df.key).to_dict()
+        self.dict_xjustiz = pd.Series(df.value.values,index=df.key).to_dict()
 #        print(dict_xjustiz['Aachen'])
         self.definitions = {
             "DK_NATURAL": {"algorithm":self.validate_modulus11, "name":"CPR",
@@ -27,6 +27,8 @@ class modulus:
                 "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ], "len":8},
             "AT_LEGAL": {"algorithm":self.validate_fn,"name":"FN",
                 "weights": None, "len":7},
+            "DE_LEGAL": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc",
+               "weights": None, "len":0},
             "NL_LEGAL": {"algorithm":self.validate_modulus11, "name":"KVN",
                     "weights": [8, 7, 6, 5, 4, 3, 2, 1], "len":8},
             "SE_BG7": {"algorithm":self.validate_modulus10,"name":"Bankgiro 7 digits",
@@ -141,6 +143,35 @@ class modulus:
         digits = s[3:len(s)] # take position after CHE and to end of string and do a modulus 11
         return self.validate_modulus11(digits, variant)
 
+    def validate_germany(self, s, variant):
+        result = {}
+        result['type'] = s[0:3]
+        if result['type'] not in ['HRB', 'HRA']:
+            return {'validation_result':False, 'error':'Does not start with HRB, HRA'}
+        result['number'] =  ""
+        i = 3
+        while s[i].isdigit():
+            result['number'] += s[i]
+            i += 1  
+        result['court_name'] = ""
+        while i<len(s):
+            result['court_name'] += s[i]
+            i += 1
+        # find the XJustis if it is there
+        result['XJustiz_code'] = self.dict_xjustiz.get(result['court_name'], None)
+        # optimistic
+        if not result['number'].isdigit():
+            return {'validation_result':False, 'error':'The number is not digits'}
+        if len(result['number']) < 1 or len(result['number']) > 5:
+            return {'validation_result':False, 'error':'The number is not digits'}
+        if result['XJustiz_code'] == None:
+            result['validation_result'] = False
+            result['error']  = "Invalid XJustis code"
+        
+        # still here all good 
+        result['validation_result'] = True
+        return result
+
     def validate_ly(self, s, variant):    # Finnish Ly-number can be missing a leading 0 and we ignore hyphens
         if len(s) == 7:     # don't think it can be shorter than 7 digits who should have one zero added first
             s = s.zfill(8)
@@ -160,8 +191,9 @@ class modulus:
 if __name__=="__main__":
     r='validate'
     m_obj = modulus()
+    r = m_obj.validate_legal('HRB-1234 Aachen', 'DE') # Offical example
     r = m_obj.validate_legal('123456785', 'NO') # Offical example
-    r = m_obj.validate('974760673', 'NO_LEGAL') # Brönnoy sund 
+#    r = m_obj.validate('974760673', 'NO_LEGAL') # Brönnoy sund 
     
 #    r = m_obj.validate('2070742-1', 'ly') # Wärtsila  does not work 
 #    r = m_obj.validate('1572860-0', 'ly') # test case from google ai. 
