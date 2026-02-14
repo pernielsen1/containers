@@ -39,6 +39,7 @@ class modulus:
                         "weights": [7, 6, 5, 4, 3, 2, 1], "len":0}
         }
         return
+
     def clean_key(self, row) -> str:
         return self.clean_str(row['key'])
     
@@ -79,7 +80,6 @@ class modulus:
         else:
             result['validation_result'] = False
             result['error'] = 'Wrong modulus 11 check digit'
-   
         return result 
     
     def calc_modulus10(self, s:str) -> int:
@@ -92,7 +92,6 @@ class modulus:
                 if n > 9:
                     n -= 9
             res += n
-
         chk_dig = 10 - (res % 10)
         if chk_dig == 10:
             return 0
@@ -108,69 +107,59 @@ class modulus:
         result = {}
         result['excl_chk_dig']= s[0:exp_len - 1] 
         result['expected'] = int(s[exp_len-1:exp_len])
-#        res = self.calc_modulus10(result['excl_chk_dig'])
         result['check_digit'] = self.calc_modulus10(result['excl_chk_dig'])
         if (result['check_digit'] == result['expected']):
             result['validation_result'] = True
         else:
             result['validation_result'] = False
             result['error'] = 'Wrong modulus 11 check digit'
-
         return result
 
     def validate_fn(self, s, variant):
         # simplified validation of austrian number 1..6 digits followed by a character (lowercase)
-        max_len = self.definitions[variant]["len"]
-        if not isinstance(s, str) or len(s) > max_len:
-            return {'validation_result':False, 'error':'wrong len'}
-        chk_char=s[len(s)-1:len(s)]
-        digits= s[0:len(s) - 1] 
-        if not digits.isdigit() or len(digits) > 6:
-            return {'validation_result':False, 'error':'not string or digits'}
-        if chk_char < 'a' or chk_char > 'z':
+        result = self.get_before_number_after(s)
+        if len(result['number']) == 0 or  len(result['number']) > 6:  
+            return {'validate_fn - validation_result':False, 'error':'wrong len'}
+        if not result['number'].isdigit():
+            return {'validation_result':False, 'error':'not digits'}
+        if len(result['after']) != 1 or result['after'] < 'a' or result['after'] > 'z':
             return {'validation_result':False, 'error':'check char not between a and z'}
-        
         return {'validation_result':True}
-        
-  
-    def calc_chk_digit(self, s, variant):
-        return self.calc_modulus11_chkdigit(s, variant)
 
     def validate_che(self, s, variant):  # dot's and hyphens removed before call
-        if s[0:3] !=  'CHE':  # must start with CHE
+        result = self.get_before_number_after(s)
+        if result['before'] not in ['CHE']:
             return {'validation_result':False, 'error':'Does not start with CHE'}
+        return self.validate_modulus11(result['number'], variant)
 
-        digits = s[3:len(s)] # take position after CHE and to end of string and do a modulus 11
-        return self.validate_modulus11(digits, variant)
+    def get_before_number_after(self, s):
+        result={'before':'', 'number':'', 'after':''}
+        i=0
+        while i<len(s) and s[i].isdigit() == False:
+            result['before'] += s[i]
+            i += 1
+        while i<len(s) and s[i].isdigit() == True:
+            result['number'] += s[i]
+            i += 1
+        while i<len(s):
+            result['after'] += s[i]
+            i += 1
+        return result
 
     def validate_germany(self, s, variant):
-        result = {}
-        result['type'] = s[0:3]
-        if result['type'] not in ['HRB', 'HRA']:
+        result = self.get_before_number_after(s)
+        if result['before'] not in ['HRB', 'HRA']:
             return {'validation_result':False, 'error':'Does not start with HRB, HRA'}
-        result['number'] =  ""
-        i = 3
-        while s[i].isdigit():
-            result['number'] += s[i]
-            i += 1  
-        result['court_name'] = ""
-        while i<len(s):
-            result['court_name'] += s[i]
-            i += 1
-        # find the XJustis if it is there
-        result['XJustiz_code'] = self.dict_xjustiz.get(result['court_name'], None)
-        # optimistic
         if not result['number'].isdigit():
             return {'validation_result':False, 'error':'The number is not digits'}
-        if len(result['number']) < 1 or len(result['number']) > 5:
-            return {'validation_result':False, 'error':'The number is not digits'}
+        result['XJustiz_code'] = self.dict_xjustiz.get(result['after'], None)
         if result['XJustiz_code'] == None:
             result['validation_result'] = False
             result['error']  = "Invalid XJustis code"
-        
         # still here all good 
         result['validation_result'] = True
         return result
+        
 
     def validate_ly(self, s, variant):    # Finnish Ly-number can be missing a leading 0 and we ignore hyphens
         if len(s) == 7:     # don't think it can be shorter than 7 digits who should have one zero added first
@@ -192,6 +181,7 @@ if __name__=="__main__":
     r='validate'
     m_obj = modulus()
     r = m_obj.validate_germany(m_obj.clean_str('HRB-1234 Aachen'), 'DE_LEGAL') # Offical example
+    print("Here we go")
     print(r)
 #    r = m_obj.validate_legal('123456785', 'NO') # Offical example
 #    r = m_obj.validate('974760673', 'NO_LEGAL') # Brönnoy sund 
