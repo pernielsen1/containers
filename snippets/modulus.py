@@ -1,15 +1,19 @@
 import argparse
 import os
+import json
 # https://github.com/hubipe/company-identifiers/tree/master/src/CountryValidators
-import pandas as pd
 class modulus:
     def __init__(self):
         self.clean_table = str.maketrans('.-',"  ")
+        # load the Xjustiz - json and clean the keys
         module_path = os.path.dirname(os.path.abspath(__file__))
-        df =  pd.read_excel(module_path + '/' + 'XJustiz.xlsx')
-        df['key'] = df.apply(self.clean_key, axis=1)  # remove the ( and . etc)
-        self.dict_xjustiz = pd.Series(df.value.values,index=df.key).to_dict()
-#        print(dict_xjustiz['Aachen'])
+        with open(module_path + '/' + 'XJustiz.json') as json_file:
+            temp = json.load(json_file)
+        self.dict_xjustiz={}
+        for key, item in temp.items():
+            clean_key = self.clean_str(key)
+            self.dict_xjustiz[clean_key] = item
+        # the variants of calculations input dictionary
         self.definitions = {
             "DK_NATURAL": {"algorithm":self.validate_modulus11, "name":"CPR",
                         "weights": [ 4,3,2,7,6,5,4,3,2,1 ], "len":10}     ,
@@ -40,9 +44,6 @@ class modulus:
         }
         return
 
-    def clean_key(self, row) -> str:
-        return self.clean_str(row['key'])
-    
     def clean_str(self,s:str) -> str:
         s = s.translate(self.clean_table)
         return  s.replace(' ','')
@@ -177,10 +178,12 @@ class modulus:
         return self.validate(s, country_code + '_' + 'COMPANY_ID')
 
 if __name__=="__main__":
-    r='validate'
     m_obj = modulus()
     r = m_obj.validate_germany(m_obj.clean_str('HRB-1234 Aachen'), 'DE_COMPANY_ID') # Offical example
-    print("Here we go")
+    x = m_obj.clean_str('Bad Homburg v.d.H.')
+    print(x)
+    print(m_obj.dict_xjustiz[x])
+    print(m_obj.dict_xjustiz['Aachen'])
     print(r)
 #    r = m_obj.validate_COMPANY_ID('123456785', 'NO') # Offical example
 #    r = m_obj.validate('974760673', 'NO_COMPANY_ID') # Brönnoy sund 
