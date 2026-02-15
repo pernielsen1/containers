@@ -110,6 +110,25 @@ class test_moudulus(unittest.TestCase):
   def test_germany(self): # Germany
         self.assertEqual(self.m_obj.validate_COMPANY_ID('HRB-1234 Aachen', 'DE') , True)   # Offical example
         self.assertEqual(self.m_obj.validate_COMPANY_ID('HRx-1234 Aachen', 'DE') , False)   # Not HRB, HRA
+
+  def test_poland(self): # Poland
+        self.assertEqual(self.m_obj.validate_COMPANY_ID('1234567890', 'PL') , True)   # Offical example
+        self.assertEqual(self.m_obj.validate_COMPANY_ID('123', 'PL') , False)   # Not HRB, HRA
+
+  def test_portugal(self): # Portucal
+        self.assertEqual(self.m_obj.validate_COMPANY_ID('510 123 457', 'PT') , True)   # Offical example
+        self.assertEqual(self.m_obj.validate_COMPANY_ID('500 000 000', 'PT') , True)   # Offical example
+        self.assertEqual(self.m_obj.validate_COMPANY_ID('123', 'PT') , False)   # Not HRB, HRA
+
+  def test_ireland(self): # Ireland
+        self.assertEqual(self.m_obj.validate_COMPANY_ID('123260', 'IE') , True)   # Offical example
+        self.assertEqual(self.m_obj.validate_COMPANY_ID('83424', 'IE') , True)   # Offical example
+        self.assertEqual(self.m_obj.validate_COMPANY_ID('1234567', 'IE') , False)   # To Long
+        self.assertEqual(self.m_obj.validate_COMPANY_ID('12', 'IE') , False)   # To short
+
+  def test_spain(self): # Ireland
+        self.assertEqual(self.m_obj.validate_COMPANY_ID('A28123453', 'ES') , True)   # Offical example
+        self.assertEqual(self.m_obj.validate_COMPANY_ID('A123456789', 'IE') , False)   # To Long
    
   
 # Österreichische Post AG	250328t	High digit count

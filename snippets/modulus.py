@@ -35,6 +35,18 @@ class modulus:
                "weights": None, "min_len":3, "len":6, "before_list": ['HRA', 'HRB'], 'after_allowed':True},
             "NL_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"KVN",
                     "weights": [8, 7, 6, 5, 4, 3, 2, 1], "len":8},
+            "PL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "name":"KRS",
+                     "len":10},
+            "IE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "name":"CRO",
+                     "min_len": 3, "len":6 },
+
+            "ES_COMPANY_ID": {"algorithm":self.validate_modulus10,"name":"Spanish NIF",
+               "weights": None, "len":8, "before_list": ['A', 'B', 'C', 'F', 'G', 'N', 'W']},
+
+
+            "PT_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"NIPC",
+                    "weights": [ 9, 8, 7, 6, 5, 4, 3, 2], "len":9},
+      
             "SE_BG7": {"algorithm":self.validate_modulus10,"name":"Bankgiro 7 digits",
                     "weights": None, "len":7},    
             "SE_BG8": {"algorithm":self.validate_modulus10, "name":"Bankgiro 8 digits",
@@ -70,8 +82,8 @@ class modulus:
             i += 1
 
         rest = res % 11 
-        if (rest == 0):
-            return rest
+        if rest == 0 or rest == 1:
+            return 0
         else: 
             return 11 - rest
     
@@ -106,6 +118,10 @@ class modulus:
     
     def validate_modulus10(self, s:str, variant):
         return self.validate_modulus(s, variant, self.calc_modulus10_check_digit)
+
+    def validate_just_numeric(self, s:str, variant):
+        return self.get_before_number_after(s, variant)
+
 
     def validate_fn(self, s, variant):
         # simplified validation of austrian number 1..6 digits followed by a character (lowercase)
@@ -179,6 +195,10 @@ class modulus:
 
 if __name__=="__main__":
     m_obj = modulus()
+    r = m_obj.validate_COMPANY_ID('A28123453', 'ES') # Offical example
+
+#    r = m_obj.validate_COMPANY_ID('1234567890', 'PL') # Offical example
+    print(r)
     r = m_obj.validate_germany(m_obj.clean_str('HRB-1234 Aachen'), 'DE_COMPANY_ID') # Offical example
     x = m_obj.clean_str('Bad Homburg v.d.H.')
     print(x)
