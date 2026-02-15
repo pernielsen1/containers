@@ -109,6 +109,7 @@ class test_moudulus(unittest.TestCase):
 
   def test_germany(self): # Germany
         self.assertEqual(self.m_obj.validate_legal('HRB-1234 Aachen', 'DE') , True)   # Offical example
+        self.assertEqual(self.m_obj.validate_legal('HRx-1234 Aachen', 'DE') , False)   # Not HRB, HRA
    
   
 # Österreichische Post AG	250328t	High digit count

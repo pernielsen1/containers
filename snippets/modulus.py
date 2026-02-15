@@ -22,13 +22,13 @@ class modulus:
             "FR_LEGAL": {"algorithm":self.validate_modulus10,"name":"Siren", 
                     "weights": None, "len":9},
             "CH_LEGAL": {"algorithm":self.validate_che,"name":"Che",
-                    "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ], "len":9},
+                    "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ],  "len":9, "before_list": ['CHE']},
             "FI_LEGAL" : {"algorithm":self.validate_ly,"name":"LY - business ID",
                 "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ], "len":8},
             "AT_LEGAL": {"algorithm":self.validate_fn,"name":"FN",
-                "weights": None, "len":7},
+                "weights": None, "min_len":1, "len":7},
             "DE_LEGAL": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc",
-               "weights": None, "len":0},
+               "weights": None, "min_len":3, "len":6, "before_list": ['HRA', 'HRB']},
             "NL_LEGAL": {"algorithm":self.validate_modulus11, "name":"KVN",
                     "weights": [8, 7, 6, 5, 4, 3, 2, 1], "len":8},
             "SE_BG7": {"algorithm":self.validate_modulus10,"name":"Bankgiro 7 digits",
@@ -117,22 +117,23 @@ class modulus:
 
     def validate_fn(self, s, variant):
         # simplified validation of austrian number 1..6 digits followed by a character (lowercase)
-        result = self.get_before_number_after(s)
-        if len(result['number']) == 0 or  len(result['number']) > 6:  
-            return {'validate_fn - validation_result':False, 'error':'wrong len'}
-        if not result['number'].isdigit():
-            return {'validation_result':False, 'error':'not digits'}
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] == False:
+            return result
         if len(result['after']) != 1 or result['after'] < 'a' or result['after'] > 'z':
             return {'validation_result':False, 'error':'check char not between a and z'}
         return {'validation_result':True}
 
     def validate_che(self, s, variant):  # dot's and hyphens removed before call
-        result = self.get_before_number_after(s)
-        if result['before'] not in ['CHE']:
-            return {'validation_result':False, 'error':'Does not start with CHE'}
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] == False:
+            return result
         return self.validate_modulus11(result['number'], variant)
+# TBD: create create_error_result(message, result=None)
+# Add a validation if string before number and no allowed list exists - return error.
+# add a validation if string allowed after number - keyword after_allowed=True.
 
-    def get_before_number_after(self, s):
+    def get_before_number_after(self, s, variant):
         result={'before':'', 'number':'', 'after':''}
         i=0
         while i<len(s) and s[i].isdigit() == False:
@@ -144,14 +145,29 @@ class modulus:
         while i<len(s):
             result['after'] += s[i]
             i += 1
+        # Validations - initially set to all good
+        result['validation_result'] = True
+        before_list = self.definitions[variant].get('before_list', None)
+        max_len = self.definitions[variant].get('len', 0)  
+        min_len = self.definitions[variant].get('min_len', -1)
+        if len(result['number']) != max_len and  min_len == -1:
+            result['validation_result'] = False
+            result['error'] = 'Length of number does not match fixed number'
+        else:
+            if len(result['number']) > max_len or len(result['number']) < min_len:
+                result['validation_result'] = False
+                result['error'] = 'Length of number not between min and max'
+            else:
+                if before_list != None:
+                    if result['before'] not in before_list:
+                        result['validation_result'] = False
+                        result['error'] = 'The before string is not in allowed before_list'
         return result
 
     def validate_germany(self, s, variant):
-        result = self.get_before_number_after(s)
-        if result['before'] not in ['HRB', 'HRA']:
-            return {'validation_result':False, 'error':'Does not start with HRB, HRA'}
-        if not result['number'].isdigit():
-            return {'validation_result':False, 'error':'The number is not digits'}
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] == False:
+            return result
         result['XJustiz_code'] = self.dict_xjustiz.get(result['after'], None)
         if result['XJustiz_code'] == None:
             result['validation_result'] = False
