@@ -13,23 +13,23 @@ class modulus:
         self.definitions = {
             "DK_NATURAL": {"algorithm":self.validate_modulus11, "name":"CPR",
                         "weights": [ 4,3,2,7,6,5,4,3,2,1 ], "len":10}     ,
-            "DK_LEGAL": {"algorithm":self.validate_modulus11, "name":"CVR",
+            "DK_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"CVR",
                         "weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},
-            "SE_LEGAL": {"algorithm":self.validate_modulus10, "name":"Organisationsnummer",
+            "SE_COMPANY_ID": {"algorithm":self.validate_modulus10, "name":"Organisationsnummer",
                         "weights": None, "len":10},
-            "NO_LEGAL": {"algorithm":self.validate_modulus11,"name":"Organisationsnummer",
+            "NO_COMPANY_ID": {"algorithm":self.validate_modulus11,"name":"Organisationsnummer",
                         "weights": [ 3, 2, 7, 6, 5, 4, 3, 2, 1 ], "len":9},
-            "FR_LEGAL": {"algorithm":self.validate_modulus10,"name":"Siren", 
+            "FR_COMPANY_ID": {"algorithm":self.validate_modulus10,"name":"Siren", 
                     "weights": None, "len":9},
-            "CH_LEGAL": {"algorithm":self.validate_che,"name":"Che",
+            "CH_COMPANY_ID": {"algorithm":self.validate_che,"name":"Che",
                     "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ], "len":9},
-            "FI_LEGAL" : {"algorithm":self.validate_ly,"name":"LY - business ID",
+            "FI_COMPANY_ID" : {"algorithm":self.validate_ly,"name":"LY - business ID",
                 "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ], "len":8},
-            "AT_LEGAL": {"algorithm":self.validate_fn,"name":"FN",
+            "AT_COMPANY_ID": {"algorithm":self.validate_fn,"name":"FN",
                 "weights": None, "len":7},
-            "DE_LEGAL": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc",
+            "DE_COMPANY_ID": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc",
                "weights": None, "len":0},
-            "NL_LEGAL": {"algorithm":self.validate_modulus11, "name":"KVN",
+            "NL_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"KVN",
                     "weights": [8, 7, 6, 5, 4, 3, 2, 1], "len":8},
             "SE_BG7": {"algorithm":self.validate_modulus10,"name":"Bankgiro 7 digits",
                     "weights": None, "len":7},    
@@ -213,17 +213,17 @@ class modulus:
         res = algo(s, variant)
         return res['validation_result']
 
-    def validate_legal(self, s, country_code):
+    def validate_COMPANY_ID(self, s, country_code):
         return self.validate(s, country_code + '_' + 'LEGAL')
 
 if __name__=="__main__":
     r='validate'
     m_obj = modulus()
-    r = m_obj.validate_germany(m_obj.clean_str('HRB-1234 Aachen'), 'DE_LEGAL') # Offical example
+    r = m_obj.validate_germany(m_obj.clean_str('HRB-1234 Aachen'), 'DE_COMPANY_ID') # Offical example
     print("Here we go")
     print(r)
-#    r = m_obj.validate_legal('123456785', 'NO') # Offical example
-#    r = m_obj.validate('974760673', 'NO_LEGAL') # Brönnoy sund 
+#    r = m_obj.validate_COMPANY_ID('123456785', 'NO') # Offical example
+#    r = m_obj.validate('974760673', 'NO_COMPANY_ID') # Brönnoy sund 
     
 #    r = m_obj.validate('2070742-1', 'ly') # Wärtsila  does not work 
 #    r = m_obj.validate('1572860-0', 'ly') # test case from google ai. 

@@ -13,23 +13,23 @@ class modulus:
         self.definitions = {
             "DK_NATURAL": {"algorithm":self.validate_modulus11, "name":"CPR",
                         "weights": [ 4,3,2,7,6,5,4,3,2,1 ], "len":10}     ,
-            "DK_LEGAL": {"algorithm":self.validate_modulus11, "name":"CVR",
+            "DK_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"CVR",
                         "weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},
-            "SE_LEGAL": {"algorithm":self.validate_modulus10, "name":"Organisationsnummer",
+            "SE_COMPANY_ID": {"algorithm":self.validate_modulus10, "name":"Organisationsnummer",
                         "weights": None, "len":10},
-            "NO_LEGAL": {"algorithm":self.validate_modulus11,"name":"Organisationsnummer",
+            "NO_COMPANY_ID": {"algorithm":self.validate_modulus11,"name":"Organisationsnummer",
                         "weights": [ 3, 2, 7, 6, 5, 4, 3, 2, 1 ], "len":9},
-            "FR_LEGAL": {"algorithm":self.validate_modulus10,"name":"Siren", 
+            "FR_COMPANY_ID": {"algorithm":self.validate_modulus10,"name":"Siren", 
                     "weights": None, "len":9},
-            "CH_LEGAL": {"algorithm":self.validate_che,"name":"Che",
+            "CH_COMPANY_ID": {"algorithm":self.validate_modulus11,"name":"Che",
                     "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ],  "len":9, "before_list": ['CHE']},
-            "FI_LEGAL" : {"algorithm":self.validate_ly,"name":"LY - business ID",
+            "FI_COMPANY_ID" : {"algorithm":self.validate_ly,"name":"LY - business ID",
                 "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ], "len":8},
-            "AT_LEGAL": {"algorithm":self.validate_fn,"name":"FN",
-                "weights": None, "min_len":1, "len":7},
-            "DE_LEGAL": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc",
-               "weights": None, "min_len":3, "len":6, "before_list": ['HRA', 'HRB']},
-            "NL_LEGAL": {"algorithm":self.validate_modulus11, "name":"KVN",
+            "AT_COMPANY_ID": {"algorithm":self.validate_fn,"name":"FN",
+                "weights": None, "min_len":1, "len":7, 'after_allowed':True},
+            "DE_COMPANY_ID": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc",
+               "weights": None, "min_len":3, "len":6, "before_list": ['HRA', 'HRB'], 'after_allowed':True},
+            "NL_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"KVN",
                     "weights": [8, 7, 6, 5, 4, 3, 2, 1], "len":8},
             "SE_BG7": {"algorithm":self.validate_modulus10,"name":"Bankgiro 7 digits",
                     "weights": None, "len":7},    
@@ -47,7 +47,16 @@ class modulus:
         s = s.translate(self.clean_table)
         return  s.replace(' ','')
 
-    def calc_modulus11_chkdigit(self, s:str, variant) -> int:
+    def create_result_error(self, error:str, result={}):
+        result['validation_result'] = False
+        result['error'] = error
+        return result
+
+    def create_result_ok(self, result={}):
+        result['validation_result'] = True
+        return result
+
+    def calc_modulus11_check_digit(self, s:str, variant) -> int:
         weights = self.definitions[variant]["weights"]
         if not isinstance(s, str) or not s.isdigit():
             return -1
@@ -64,25 +73,8 @@ class modulus:
             return rest
         else: 
             return 11 - rest
-
-    def validate_modulus11(self, s:str, variant):
-        result = {}
-        exp_len = self.definitions[variant]["len"]
-        if not isinstance(s, str) or not s.isdigit():
-            return {'validation_result':False, 'error':'not string or digits'}
-        if exp_len > 0 and len(s) != exp_len:
-            return {'validation_result':False, 'error':'wrong length'}
-        result['excl_chk_dig'] = s[0:exp_len - 1]
-        result['expected'] = int(s[exp_len-1:exp_len])
-        result['check_digit'] = self.calc_modulus11_chkdigit(result['excl_chk_dig'], variant)
-        if (result['check_digit'] == result['expected']):
-            result['validation_result'] = True
-        else:
-            result['validation_result'] = False
-            result['error'] = 'Wrong modulus 11 check digit'
-        return result 
     
-    def calc_modulus10(self, s:str) -> int:
+    def calc_modulus10_check_digit(self, s:str, variant=None) -> int:
         res = 0
         reverse_digits = s[::-1]
         for i, d in enumerate(reverse_digits):
@@ -97,23 +89,22 @@ class modulus:
             return 0
         else:
             return chk_dig
+
+    def validate_modulus(self, s:str, variant, calc_function):
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] == False:
+            return result
+        result['check_digit'] = calc_function(result['excl_chk_dig'], variant)
+        if (result['check_digit'] == result['expected']):
+            return self.create_result_ok(result)
+        else:
+            return self.create_result_error('Wrong modulus 11 check digit', result)
+         
+    def validate_modulus11(self, s:str, variant):
+        return self.validate_modulus(s, variant, self.calc_modulus11_check_digit)
     
     def validate_modulus10(self, s:str, variant):
-        exp_len = self.definitions[variant]["len"]
-        if not isinstance(s, str) or not s.isdigit():
-            return {'validation_result':False, 'error':'not string or digits'}
-        if exp_len > 0 and len(s) != exp_len:
-            return {'validation_result':False, 'error':'wrong length'}
-        result = {}
-        result['excl_chk_dig']= s[0:exp_len - 1] 
-        result['expected'] = int(s[exp_len-1:exp_len])
-        result['check_digit'] = self.calc_modulus10(result['excl_chk_dig'])
-        if (result['check_digit'] == result['expected']):
-            result['validation_result'] = True
-        else:
-            result['validation_result'] = False
-            result['error'] = 'Wrong modulus 11 check digit'
-        return result
+        return self.validate_modulus(s, variant, self.calc_modulus10_check_digit)
 
     def validate_fn(self, s, variant):
         # simplified validation of austrian number 1..6 digits followed by a character (lowercase)
@@ -121,18 +112,10 @@ class modulus:
         if result['validation_result'] == False:
             return result
         if len(result['after']) != 1 or result['after'] < 'a' or result['after'] > 'z':
-            return {'validation_result':False, 'error':'check char not between a and z'}
-        return {'validation_result':True}
-
-    def validate_che(self, s, variant):  # dot's and hyphens removed before call
-        result = self.get_before_number_after(s, variant)
-        if result['validation_result'] == False:
-            return result
-        return self.validate_modulus11(result['number'], variant)
-# TBD: create create_error_result(message, result=None)
-# Add a validation if string before number and no allowed list exists - return error.
-# add a validation if string allowed after number - keyword after_allowed=True.
-
+            return self.create_result_error('check char not between a and z', result)
+        # still her all good
+        return self.create_result_ok(result)
+    
     def get_before_number_after(self, s, variant):
         result={'before':'', 'number':'', 'after':''}
         i=0
@@ -146,23 +129,25 @@ class modulus:
             result['after'] += s[i]
             i += 1
         # Validations - initially set to all good
-        result['validation_result'] = True
+        after_allowed = self.definitions[variant].get('after_allowed', False)
         before_list = self.definitions[variant].get('before_list', None)
         max_len = self.definitions[variant].get('len', 0)  
         min_len = self.definitions[variant].get('min_len', -1)
         if len(result['number']) != max_len and  min_len == -1:
-            result['validation_result'] = False
-            result['error'] = 'Length of number does not match fixed number'
-        else:
-            if len(result['number']) > max_len or len(result['number']) < min_len:
-                result['validation_result'] = False
-                result['error'] = 'Length of number not between min and max'
-            else:
-                if before_list != None:
-                    if result['before'] not in before_list:
-                        result['validation_result'] = False
-                        result['error'] = 'The before string is not in allowed before_list'
-        return result
+            return self.create_result_error('Length of number does not match fixed number', result)
+        if len(result['number']) > max_len or len(result['number']) < min_len:
+            return self.create_result_error('Length of number not between min and max', result)
+        if before_list == None and len(result['before']) > 0:
+            return self.create_result_error('Length of before > 0 and empty before_list', result)
+        if before_list != None and result['before'] not in before_list:
+            return self.create_result_error('The before string is not in allowed before_list', result)
+        if len(result['after']) > 0 and after_allowed == False:
+            return self.create_result_error('The after string is not empty', result)
+        # still ehre all good
+        num_len = len(result['number'])
+        result['excl_chk_dig']= result['number'][0:num_len  - 1] 
+        result['expected'] = int(result['number'][num_len-1:num_len])
+        return self.create_result_ok(result)
 
     def validate_germany(self, s, variant):
         result = self.get_before_number_after(s, variant)
@@ -170,11 +155,9 @@ class modulus:
             return result
         result['XJustiz_code'] = self.dict_xjustiz.get(result['after'], None)
         if result['XJustiz_code'] == None:
-            result['validation_result'] = False
-            result['error']  = "Invalid XJustis code"
+            return self.create_result_error("Invalid XJustis code", result)
         # still here all good 
-        result['validation_result'] = True
-        return result
+        return self.create_result_ok(result)
         
 
     def validate_ly(self, s, variant):    # Finnish Ly-number can be missing a leading 0 and we ignore hyphens
@@ -190,17 +173,17 @@ class modulus:
         res = algo(s, variant)
         return res['validation_result']
 
-    def validate_legal(self, s, country_code):
-        return self.validate(s, country_code + '_' + 'LEGAL')
+    def validate_COMPANY_ID(self, s, country_code):
+        return self.validate(s, country_code + '_' + 'COMPANY_ID')
 
 if __name__=="__main__":
     r='validate'
     m_obj = modulus()
-    r = m_obj.validate_germany(m_obj.clean_str('HRB-1234 Aachen'), 'DE_LEGAL') # Offical example
+    r = m_obj.validate_germany(m_obj.clean_str('HRB-1234 Aachen'), 'DE_COMPANY_ID') # Offical example
     print("Here we go")
     print(r)
-#    r = m_obj.validate_legal('123456785', 'NO') # Offical example
-#    r = m_obj.validate('974760673', 'NO_LEGAL') # Brönnoy sund 
+#    r = m_obj.validate_COMPANY_ID('123456785', 'NO') # Offical example
+#    r = m_obj.validate('974760673', 'NO_COMPANY_ID') # Brönnoy sund 
     
 #    r = m_obj.validate('2070742-1', 'ly') # Wärtsila  does not work 
 #    r = m_obj.validate('1572860-0', 'ly') # test case from google ai. 
@@ -218,8 +201,7 @@ if __name__=="__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--command", choices=['calculate', 'validate' ])
-    parser.add_argument("-v", "--variant", choices=['standard', 'kvn',
-                                                    'cpr', 'cvr' ])
+    parser.add_argument("-v", "--variant", choices=['standard', 'kvn',                                                    'cpr', 'cvr' ])
     parser.add_argument("-i", "--input")
     args=parser.parse_args()
     r=-1
@@ -228,5 +210,3 @@ if __name__=="__main__":
         r=m_obj.calc_chk_digit(args.input, args.variant)
     if args.command == 'validate':
         r=m_obj.validate(args.input, args.variant)
-
-    print(r)
