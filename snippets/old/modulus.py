@@ -213,7 +213,7 @@ class modulus:
         res = algo(s, variant)
         return res['validation_result']
 
-    def validate_COMPANY_ID(self, s, country_code):
+    def validate_COMPANY_ID_bool(self, s, country_code):
         return self.validate(s, country_code + '_' + 'LEGAL')
 
 if __name__=="__main__":
@@ -222,7 +222,7 @@ if __name__=="__main__":
     r = m_obj.validate_germany(m_obj.clean_str('HRB-1234 Aachen'), 'DE_COMPANY_ID') # Offical example
     print("Here we go")
     print(r)
-#    r = m_obj.validate_COMPANY_ID('123456785', 'NO') # Offical example
+#    r = m_obj.validate_COMPANY_ID_bool('123456785', 'NO') # Offical example
 #    r = m_obj.validate('974760673', 'NO_COMPANY_ID') # Brönnoy sund 
     
 #    r = m_obj.validate('2070742-1', 'ly') # Wärtsila  does not work 

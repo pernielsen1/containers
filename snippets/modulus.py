@@ -14,6 +14,8 @@ class modulus:
             clean_key = self.clean_str(key)
             self.dict_xjustiz[clean_key] = item
         # the variants of calculations input dictionary
+        # TBD - comment in start 
+        # TBD BE, LU, IT, CZ
         self.definitions = {
             "DK_NATURAL": {"algorithm":self.validate_modulus11, "name":"CPR",
                         "weights": [ 4,3,2,7,6,5,4,3,2,1 ], "len":10}     ,
@@ -183,21 +185,26 @@ class modulus:
         return self.validate_modulus11(s, variant)
         
     def validate(self, s, variant):
-        s = self.clean_str(s)         # clean up the string
         if  self.definitions.get(variant, None) == None:
             return {'validation_result':False, 'error':'Algorithm not found'}
         algo = self.definitions[variant]["algorithm"]
-        res = algo(s, variant)
+        return algo(self.clean_str(s), variant)
+   
+    def validate_bool(self, s, variant) -> bool:
+        res = self.validate(s, variant)
         return res['validation_result']
 
     def validate_COMPANY_ID(self, s, country_code):
         return self.validate(s, country_code + '_' + 'COMPANY_ID')
 
+    def validate_COMPANY_ID_bool(self, s, country_code):
+        return self.validate_bool(s, country_code + '_' + 'COMPANY_ID')
+
 if __name__=="__main__":
     m_obj = modulus()
-    r = m_obj.validate_COMPANY_ID('A28123453', 'ES') # Offical example
+    r = m_obj.validate_COMPANY_ID_bool('A28123453', 'ES') # Offical example
 
-#    r = m_obj.validate_COMPANY_ID('1234567890', 'PL') # Offical example
+#    r = m_obj.validate_COMPANY_ID_bool('1234567890', 'PL') # Offical example
     print(r)
     r = m_obj.validate_germany(m_obj.clean_str('HRB-1234 Aachen'), 'DE_COMPANY_ID') # Offical example
     x = m_obj.clean_str('Bad Homburg v.d.H.')
@@ -205,7 +212,7 @@ if __name__=="__main__":
     print(m_obj.dict_xjustiz[x])
     print(m_obj.dict_xjustiz['Aachen'])
     print(r)
-#    r = m_obj.validate_COMPANY_ID('123456785', 'NO') # Offical example
+#    r = m_obj.validate_COMPANY_ID_bool('123456785', 'NO') # Offical example
 #    r = m_obj.validate('974760673', 'NO_COMPANY_ID') # Brönnoy sund 
     
 #    r = m_obj.validate('2070742-1', 'ly') # Wärtsila  does not work 
