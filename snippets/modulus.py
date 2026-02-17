@@ -2,6 +2,8 @@ import argparse
 import os
 import json
 # https://github.com/hubipe/company-identifiers/tree/master/src/CountryValidators
+# search belgian company indentifier check digit validation
+
 class modulus:
     def __init__(self):
         self.clean_table = str.maketrans('.-',"  ")
@@ -47,6 +49,9 @@ class modulus:
 
 
             "PT_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"NIPC",
+                    "weights": [ 9, 8, 7, 6, 5, 4, 3, 2], "len":9},
+
+            "BE_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"Ondernemingsnummer",
                     "weights": [ 9, 8, 7, 6, 5, 4, 3, 2], "len":9},
       
             "SE_BG7": {"algorithm":self.validate_modulus10,"name":"Bankgiro 7 digits",
