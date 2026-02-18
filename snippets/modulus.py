@@ -2,7 +2,6 @@ import argparse
 import os
 import json
 # https://github.com/hubipe/company-identifiers/tree/master/src/CountryValidators
-# search belgian company indentifier check digit validation
 
 class modulus:
     def __init__(self):
@@ -17,49 +16,36 @@ class modulus:
             self.dict_xjustiz[clean_key] = item
         # the variants of calculations input dictionary
         # TBD - comment in start 
-        # TBD BE, LU, IT, CZ
+        # TBD LU, IT, CZ
         self.definitions = {
-            "DK_NATURAL": {"algorithm":self.validate_modulus11, "name":"CPR",
-                        "weights": [ 4,3,2,7,6,5,4,3,2,1 ], "len":10}     ,
             "DK_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"CVR",
                         "weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},
-            "SE_COMPANY_ID": {"algorithm":self.validate_modulus10, "name":"Organisationsnummer",
-                        "weights": None, "len":10},
-            "NO_COMPANY_ID": {"algorithm":self.validate_modulus11,"name":"Organisationsnummer",
-                        "weights": [ 3, 2, 7, 6, 5, 4, 3, 2, 1 ], "len":9},
-            "FR_COMPANY_ID": {"algorithm":self.validate_modulus10,"name":"Siren", 
-                    "weights": None, "len":9},
-            "CH_COMPANY_ID": {"algorithm":self.validate_modulus11,"name":"Che",
-                    "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ],  "len":9, "before_list": ['CHE']},
-            "FI_COMPANY_ID" : {"algorithm":self.validate_ly,"name":"LY - business ID",
-                "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ], "len":8},
-            "AT_COMPANY_ID": {"algorithm":self.validate_fn,"name":"FN",
-                "weights": None, "min_len":1, "len":7, 'after_allowed':True},
-            "DE_COMPANY_ID": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc",
-               "weights": None, "min_len":3, "len":6, "before_list": ['HRA', 'HRB'], 'after_allowed':True},
-            "NL_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"KVN",
-                    "weights": [8, 7, 6, 5, 4, 3, 2, 1], "len":8},
-            "PL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "name":"KRS",
-                     "len":10},
-            "IE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "name":"CRO",
-                     "min_len": 3, "len":6 },
-
-            "ES_COMPANY_ID": {"algorithm":self.validate_modulus10,"name":"Spanish NIF",
-               "weights": None, "len":8, "before_list": ['A', 'B', 'C', 'F', 'G', 'N', 'W']},
-
-
-            "PT_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"NIPC",
-                    "weights": [ 9, 8, 7, 6, 5, 4, 3, 2], "len":9},
-
-            "BE_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"Ondernemingsnummer",
-                    "weights": [ 9, 8, 7, 6, 5, 4, 3, 2], "len":9},
-      
-            "SE_BG7": {"algorithm":self.validate_modulus10,"name":"Bankgiro 7 digits",
-                    "weights": None, "len":7},    
-            "SE_BG8": {"algorithm":self.validate_modulus10, "name":"Bankgiro 8 digits",
-                    "weights": None, "len":8},
-            "standard":{"algorithm":self.validate_modulus11, "name":"standard",
-                        "weights": [7, 6, 5, 4, 3, 2, 1], "len":0}
+            "NO_COMPANY_ID": {"algorithm":self.validate_modulus11,"name":"Organisationsnummer", "len":9, 
+                        "weights": [ 3, 2, 7, 6, 5, 4, 3, 2, 1 ]},
+            "CH_COMPANY_ID": {"algorithm":self.validate_modulus11,"name":"Che", "len":9,
+                        "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ],   "before_list": ['CHE']},
+            "FI_COMPANY_ID" : {"algorithm":self.validate_ly,"name":"LY - business ID", "len":8,
+                        "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ]},
+            "DE_COMPANY_ID": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc", 
+                              "min_len":3, "len":6, "before_list": ['HRA', 'HRB'], 'after_allowed':True},
+            "NL_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"KVN",  "len":8,
+                        "weights": [8, 7, 6, 5, 4, 3, 2, 1]},
+            "ES_COMPANY_ID": {"algorithm":self.validate_modulus10,"name":"Spanish NIF", "len":8, 
+                        "before_list": ['A', 'B', 'C', 'F', 'G', 'N', 'W']},
+            "PT_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"NIPC", "len":9, 
+                        "weights": [ 9, 8, 7, 6, 5, 4, 3, 2]},
+            "BE_COMPANY_ID": {"algorithm":self.validate_modulus97, "name":"Ondernemingsnummer", "len":10},
+            "SE_COMPANY_ID": {"algorithm":self.validate_modulus10, "name":"Organisationsnummer", "len":10},
+            "FR_COMPANY_ID": {"algorithm":self.validate_modulus10,"name":"Siren", "len":9},
+            "PL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "name":"KRS", "len":10},
+            "IE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "name":"CRO", "min_len": 3, "len":6 },
+            "AT_COMPANY_ID": {"algorithm":self.validate_fn,"name":"FN",  "min_len":1, "len":7, 'after_allowed':True},
+            
+            "SE_BG": {"algorithm":self.validate_modulus10,"name":"Bankgiro", "min_len":7, "len":8},    
+            "DK_NATURAL": {"algorithm":self.validate_modulus11, "name":"CPR",
+                        "weights": [ 4,3,2,7,6,5,4,3,2,1 ], "len":10}, 
+            "standard":{"algorithm":self.validate_modulus11, "name":"standard", "len":0,
+                        "weights": [7, 6, 5, 4, 3, 2, 1] }
         }
         return
 
@@ -126,6 +112,17 @@ class modulus:
     def validate_modulus10(self, s:str, variant):
         return self.validate_modulus(s, variant, self.calc_modulus10_check_digit)
 
+    def validate_modulus97(self, s:str, variant):
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] == False:
+            return result
+        result['first8'] = int(result['number'][0:8])  # first 8 digits - already validated a numeric string
+        result['last2'] = int(result['number'][8:10])
+        result['remainder'] = result['first8'] % 97
+        result['mod97'] = 97 - result['remainder']
+        result['validation_result'] = result['last2'] == result['mod97']
+        return result
+    
     def validate_just_numeric(self, s:str, variant):
         return self.get_before_number_after(s, variant)
 
@@ -207,7 +204,8 @@ class modulus:
 
 if __name__=="__main__":
     m_obj = modulus()
-    r = m_obj.validate_COMPANY_ID_bool('A28123453', 'ES') # Offical example
+    r = m_obj.validate_COMPANY_ID('0403.019.261', 'BE')
+#    r = m_obj.validate_COMPANY_ID_bool('A28123453', 'ES') # Offical example
 
 #    r = m_obj.validate_COMPANY_ID_bool('1234567890', 'PL') # Offical example
     print(r)

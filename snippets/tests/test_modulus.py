@@ -68,8 +68,8 @@ class test_moudulus(unittest.TestCase):
         self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('202100548', 'SE'), False)
         self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('2021005487', 'SE'), False)
         self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('2021A05489', 'SE'), False)
-        self.assertEqual(self.m_obj.validate_bool('9912346', 'SE_BG7'), True) # from bg https://www.bankgirot.se/globalassets/dokument/anvandarmanualer/10-modul.pdf
-        self.assertEqual(self.m_obj.validate_bool('55555551', 'SE_BG8'), True) # from bg example
+        self.assertEqual(self.m_obj.validate_bool('9912346', 'SE_BG'), True) # from bg https://www.bankgirot.se/globalassets/dokument/anvandarmanualer/10-modul.pdf
+        self.assertEqual(self.m_obj.validate_bool('55555551', 'SE_BG'), True) # from bg example
 
   def test_fn(self):
         print("fn")
@@ -129,6 +129,10 @@ class test_moudulus(unittest.TestCase):
   def test_spain(self): # Ireland
         self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('A28123453', 'ES') , True)   # Offical example
         self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('A123456789', 'IE') , False)   # To Long
+  
+  def test_belgium(self): # Belgium
+        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0403.019.261', 'BE') , True)   # AI google example
+        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0403.019.262', 'BE') , False)   # Wrong digit
    
   
 # Österreichische Post AG	250328t	High digit count
