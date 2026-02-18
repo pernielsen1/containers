@@ -134,7 +134,21 @@ class test_moudulus(unittest.TestCase):
         self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0403.019.261', 'BE') , True)   # AI google example
         self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0403.019.262', 'BE') , False)   # Wrong digit
    
-  
+  def test_czech(self): # Czechia  TBD more edge cases in test for 1 in rest
+        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('25596641', 'CZ') , True)   # AI google example
+        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('25596640', 'CZ') , False)   # Wrong digit
+
+  def test_luxembourg(self): # Luxembourg  TBD more edge cases in test for 1 in rest
+        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('19871234569', 'LU') , True)   # AI google example
+#        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('92345678902', 'LU') , True)   # OECD example
+        # Result: Remainder 0 results in check digit 0 or 2 depending on specific tax office rounding, but commonly matches 2 in practice for certain registry series.      
+        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('19871234568', 'LU') , False)   # Wrong digit
+
+  def test_italy(self): # Italy a variant of luhn 
+        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('01533030480', 'IT') , True)   # AI google example
+        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('01533030484', 'IT') , False)   # Wrong digit
+
+
 # Österreichische Post AG	250328t	High digit count
 # Red Bull GmbH	56247k	Five-digit number
 # Erste Group Bank AG	33209m	Common retail bank FN

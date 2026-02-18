@@ -16,7 +16,7 @@ class modulus:
             self.dict_xjustiz[clean_key] = item
         # the variants of calculations input dictionary
         # TBD - comment in start 
-        # TBD LU, IT, CZ
+        # TBD IT which code ? ,
         self.definitions = {
             "DK_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"CVR",
                         "weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},
@@ -34,6 +34,12 @@ class modulus:
                         "before_list": ['A', 'B', 'C', 'F', 'G', 'N', 'W']},
             "PT_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"NIPC", "len":9, 
                         "weights": [ 9, 8, 7, 6, 5, 4, 3, 2]},
+            "CZ_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"ICO", "len":8, 
+                        "weights": [ 8, 7, 6, 5, 4, 3, 2], "check_digit_for_0":1},
+            "LU_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"LU RCS", "len":11, 
+                        "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 3, 2]},
+            "IT_COMPANY_ID": {"algorithm":self.validate_italy, "name":"Partita IVA", "len":11} ,
+
             "BE_COMPANY_ID": {"algorithm":self.validate_modulus97, "name":"Ondernemingsnummer", "len":10},
             "SE_COMPANY_ID": {"algorithm":self.validate_modulus10, "name":"Organisationsnummer", "len":10},
             "FR_COMPANY_ID": {"algorithm":self.validate_modulus10,"name":"Siren", "len":9},
@@ -75,8 +81,11 @@ class modulus:
             i += 1
 
         rest = res % 11 
-        if rest == 0 or rest == 1:
-            return 0
+        # some variations on what to return when rest is 0 and 1
+        if rest == 0: 
+            return self.definitions[variant].get('check_digit_for_0', 0)
+        if rest == 1:
+            return self.definitions[variant].get('check_digit_for_1', 0)
         else: 
             return 11 - rest
     
@@ -112,6 +121,29 @@ class modulus:
     def validate_modulus10(self, s:str, variant):
         return self.validate_modulus(s, variant, self.calc_modulus10_check_digit)
 
+    def validate_italy(self, s:str, variant):
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] == False:
+            return result
+        i=1
+        res = 0
+        for c in result['excl_chk_dig']:
+            if i % 2 == 0:  # even
+                x = int(c) * 2
+                if x > 9:
+                    x = x - 9
+                res += x
+            else:
+                res += int(c)
+            i += 1
+        result['res'] = res
+        result['check_digit'] = (10 - (res % 10)) % 10
+        if (result['check_digit'] == result['expected']):
+            return self.create_result_ok(result)
+        else:
+            return self.create_result_error('Wrong modulus 11 check digit', result)
+        
+                
     def validate_modulus97(self, s:str, variant):
         result = self.get_before_number_after(s, variant)
         if result['validation_result'] == False:
@@ -204,9 +236,13 @@ class modulus:
 
 if __name__=="__main__":
     m_obj = modulus()
-    r = m_obj.validate_COMPANY_ID('0403.019.261', 'BE')
-#    r = m_obj.validate_COMPANY_ID_bool('A28123453', 'ES') # Offical example
 
+    r = m_obj.validate_COMPANY_ID('01533030480', 'IT')
+    
+#    r = m_obj.validate_COMPANY_ID('19871234569', 'LU') 
+#    r = m_obj.validate_COMPANY_ID('25596641', 'CZ')
+#    r = m_obj.validate_COMPANY_ID('0403.019.261', 'BE')
+#    r = m_obj.validate_COMPANY_ID_bool('A28123453', 'ES') # Offical example
 #    r = m_obj.validate_COMPANY_ID_bool('1234567890', 'PL') # Offical example
     print(r)
     r = m_obj.validate_germany(m_obj.clean_str('HRB-1234 Aachen'), 'DE_COMPANY_ID') # Offical example
