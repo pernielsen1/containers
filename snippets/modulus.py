@@ -120,10 +120,7 @@ class modulus:
         result['validation_result'] = True
         return result
 
-    def calc_modulus11_check_digit(self, s:str, variant) -> int:
-        weights = self.definitions[variant]["weights"]
-        if not isinstance(s, str) or not s.isdigit():
-            return -1
+    def calc_modulus11_remainder(self, s, weights):
         i = 0
         res = 0
         for c in s:
@@ -132,7 +129,10 @@ class modulus:
             res += int(c) * weights[i]
             i += 1
 
-        rest = res % 11 
+        return  res % 11 
+
+    def calc_modulus11_check_digit(self, s:str, variant) -> int:
+        rest = self.calc_modulus11_remainder(s, weights = self.definitions[variant]["weights"])
         # some variations on what to return when rest is 0 and 1
         if rest == 0: 
             return self.definitions[variant].get('check_digit_for_0', 0)
