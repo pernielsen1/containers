@@ -35,6 +35,9 @@ class modulus:
                         
             "FI_COMPANY_ID" : {"algorithm":self.validate_ly,"name":"LY - business ID", "len":8,
                         "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ]},
+            "FI_VAT_ID" : {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11,"name":"LY - business ID", "len":8,
+                        "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ]},
+
 
             "DE_COMPANY_ID": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc", 
                               "min_len":3, "len":6, "before_list": ['HRA', 'HRB'], 'after_allowed':True},
@@ -65,7 +68,12 @@ class modulus:
                         "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 3, 2]},
             "LU_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11, "name":"LU RCS", "len":11, 
                         "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 3, 2]},
-           
+
+            "LV_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"", "len":11, 
+                        "weights": [ 1, 3, 9, 10, 5, 8, 4, 2, 1, 6], 'check_digit_for_1':1},
+            "LV_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, "name":"", "len":11, 
+                        "weights": [ 1, 3, 9, 10, 5, 8, 4, 2, 1, 6], 'check_digit_for_1':1},
+
             "IT_COMPANY_ID": {"algorithm":self.validate_italy, "name":"Partita IVA", "len":11} ,
             "IT_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_italy, "name":"VAT IT", "len":11},
 
@@ -86,6 +94,8 @@ class modulus:
 
             "US_COMPANY_ID": {"algorithm":self.validate_just_numeric, "name":"EIN",  "len":9 },
             "US_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "name":"EIN",  "len":9 },
+
+
 
             "AT_COMPANY_ID": {"algorithm":self.validate_fn,"name":"FN",  "min_len":1, "len":7, 'after_allowed':True},
             
@@ -296,9 +306,12 @@ class modulus:
 
 if __name__=="__main__":
     m_obj = modulus()
+    r = m_obj.validate_COMPANY_ID('40003032949', 'LV') # Offical example
+    print(r)
+
 #    r = m_obj.validate_VAT_ID('BE0403.019.261', 'BE')
 #    r = m_obj.validate_VAT_ID('IT01533030480', 'IT')
-    r = m_obj.validate_VAT_ID('ESA28123453', 'ES') # Offical example
+#    r = m_obj.validate_VAT_ID('ESA28123453', 'ES') # Offical example
 
 #    r = m_obj.validate_COMPANY_ID('01533030480', 'IT')
     
@@ -307,7 +320,6 @@ if __name__=="__main__":
 #    r = m_obj.validate_COMPANY_ID('0403.019.261', 'BE')
 #    r = m_obj.validate_COMPANY_ID_bool('A28123453', 'ES') # Offical example
 #    r = m_obj.validate_COMPANY_ID_bool('1234567890', 'PL') # Offical example
-    print(r)
     r = m_obj.validate_germany(m_obj.clean_str('HRB-1234 Aachen'), 'DE_COMPANY_ID') # Offical example
     x = m_obj.clean_str('Bad Homburg v.d.H.')
     print(x)

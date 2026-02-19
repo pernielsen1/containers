@@ -95,12 +95,13 @@ class test_moudulus(unittest.TestCase):
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-123456789', 'CH'), False) # Wromg chk didit not 9 but 8 is the result       
       self.assertEqual(self.m_obj.validate_VAT_ID_bool('CH123.456.788', 'CH'), True) # OK 
         
-  def test_ly(self): # finland
+  def test_finland(self): # finland
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('1572860-0', 'FI'), True)   # Nokia with a missing zero first
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('15728600', 'FI'), True)   # OK without the hyphen 
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('112038-9', 'FI'), True)   # Nokia with a missing zero first
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12038-9', 'FI'), False)    # Wrong len
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('1A1138-9', 'FI'), False)    # Alfa in 
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('FI15728600', 'FI'), True)   # Nokia with a missing zero first
 
   def test_norway(self): # Norway
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('123456785', 'NO'), True)   # Offical example
@@ -165,8 +166,45 @@ class test_moudulus(unittest.TestCase):
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('01-1234567', 'US') , True)   
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('01-123456', 'US') , False)   
       self.assertEqual(self.m_obj.validate_VAT_ID_bool('US01-1234567', 'US') , True)   
-       
 
+  def test_latvia(self): #  Latvia
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('40003032949', 'LV') , True)   
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('40003032944', 'LV') , False)   
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('LV40003032949', 'LV') , True)   
+
+#    Tier 1 Calculation:
+#        Multiply the first 7 digits by weights 1, 2, 3, 4, 5, 6, 7 respectively.
+#        Sum the products and calculate the remainder of the sum divided by 11 (Sum % 11).
+#        If the remainder is less than 10, it is the check digit.
+#    Tier 2 Calculation (if Tier 1 remainder is 10):
+#        If the first calculation yields a remainder of 10, repeat the process with new weights: 3, 4, 5, 6, 7, 8, 9.
+#        Sum these products and calculate the remainder divided by 11.
+#        If this second remainder is less than 10, it is the check digit.
+#        If the second remainder is still 10, the check digit is 0. 
+
+#Structure and Official Verification
+#
+#    Length: Exactly 8 digits.
+#    First Digit: Indicates the entity type (e.g., 1 for companies, 8 for non-profits, 7 for government agencies).
+#    Official Search: You can verify if a specific code is currently active and assigned to a legal entity via the Estonian e-Business Register (Äriregister).
+#    VAT Numbers: If checking a VAT ID (format EE + 9 digits), the first 8 digits are usually the registry code, and the 9th is a separate checksum verifiable via the European VIES system. 
+# Lithuania
+# Check Digit Calculation Rules
+# The check digit is calculated based on the first 8 digits of the company code: 
+#
+#    Weights: Each of the first 8 digits is multiplied by a weight ranging from 1 to 8, respectively.
+#        Digit 1 × 1
+#        Digit 2 × 2
+#        Digit 3 × 3
+#        Digit 4 × 4
+#        Digit 5 × 5
+#        Digit 6 × 6
+#        Digit 7 × 7
+#        Digit 8 × 8
+#    Summation: The results of these multiplications are summed together.
+#    Modulo 11: The sum is divided by 11 to find the remainder.
+#    Result: The remainder is the 9th check digit.
+#    Exception: If the remainder is 10, a new, unused 8-digit code must be used, or a different weight set (3, 4, 5, 6, 7, 8, 9, 1) is applied in some legacy systems to ensure the check digit is less than 10. 
 # Österreichische Post AG	250328t	High digit count
 # Red Bull GmbH	56247k	Five-digit number
 # Erste Group Bank AG	33209m	Common retail bank FN
