@@ -128,6 +128,7 @@ class modulus:
                 i=0
             res += int(c) * weights[i]
             i += 1
+        # some variations on what to return when rest is 0 and 1
 
         return  res % 11 
 
