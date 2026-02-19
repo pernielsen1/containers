@@ -41,15 +41,16 @@ class test_moudulus(unittest.TestCase):
       cls.m_obj = modulus()
       cls.log.info("setUp completed starting tests")    
 
-  def test_kvn(self):
+  def test_nl(self): # netherlands
       print("xyz")
       self.log.info("testing kvn")
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('68750110', 'NL'), True)
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('68750119', 'NL'), False)
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('6875011', 'NL'), False)
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('687A0110', 'NL'), False)
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('NL68750110', 'NL'), True)
  
-  def test_cvr(self):
+  def test_denmark(self):
       print("xyz")
       # https://gist.github.com/henrik/daf364fb7e22b3b10cad
       # Search for real CVRs, to see examples: https://datacvr.virk.dk/data/
@@ -60,94 +61,111 @@ class test_moudulus(unittest.TestCase):
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('35408009', 'DK'), False)
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('3540800', 'DK'), False)
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('354A8009', 'DK'), False)
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('DK354A8009', 'DK'), False)
  
-  def test_sweorg(self):
-        print("org")
-        self.log.info("testing org")
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('2021005489', 'SE'), True) # skatteverket
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('202100548', 'SE'), False)
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('2021005487', 'SE'), False)
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('2021A05489', 'SE'), False)
-        self.assertEqual(self.m_obj.validate_bool('9912346', 'SE_BG'), True) # from bg https://www.bankgirot.se/globalassets/dokument/anvandarmanualer/10-modul.pdf
-        self.assertEqual(self.m_obj.validate_bool('55555551', 'SE_BG'), True) # from bg example
+  def test_sweden(self):
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('2021005489', 'SE'), True) # skatteverket
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('202100548', 'SE'), False)
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('2021005487', 'SE'), False)
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('2021A05489', 'SE'), False)
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('SE2021005489', 'SE'), True) # skatteverket
+      self.assertEqual(self.m_obj.validate_bool('9912346', 'SE_BG'), True) # from bg https://www.bankgirot.se/globalassets/dokument/anvandarmanualer/10-modul.pdf
+      self.assertEqual(self.m_obj.validate_bool('55555551', 'SE_BG'), True) # from bg example
 
   def test_fn(self):
-        print("fn")
-        self.log.info("testing fn - firmen buch number")
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('33282b', 'AT'), True) # 
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('56247t', 'AT'), True) # 
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('80219d', 'AT'), True) # 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('33282b', 'AT'), True) # 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('56247t', 'AT'), True) # 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('80219d', 'AT'), True) # 
 
-  def test_siren(self):  # France
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('784671695', 'FR'), True) # Unicef 
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('005520135', 'FR'), True) # starts with zero 
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('78467169', 'FR'), False) # to short
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('78A467169', 'FR'), False) # letter 
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('', 'FR'), False) # Empty 
+  def test_france(self):  # France
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('784671695', 'FR'), True) # Unicef 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('005520135', 'FR'), True) # starts with zero 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('78467169', 'FR'), False) # to short
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('78A467169', 'FR'), False) # letter 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('', 'FR'), False) # Empty 
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('FR784671695', 'FR'), True) # Unicef 
         
   def test_che(self):  # France
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-123.456.788', 'CH'), True) # OK 
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHe-123.456.788', 'CH'), False) # Is case sensitive 
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHX-123.456.788', 'CH'), False) # CHE not CHX 
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-123456788', 'CH'), True) # ok with no dots  
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-123456A88', 'CH'), False) # not numeric
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-12345688', 'CH'), False) # Wromg len        
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-123456789', 'CH'), False) # Wromg chk didit not 9 but 8 is the result       
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-123.456.788', 'CH'), True) # OK 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHe-123.456.788', 'CH'), False) # Is case sensitive 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHX-123.456.788', 'CH'), False) # CHE not CHX 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-123456788', 'CH'), True) # ok with no dots  
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-123456A88', 'CH'), False) # not numeric
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-12345688', 'CH'), False) # Wromg len        
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-123456789', 'CH'), False) # Wromg chk didit not 9 but 8 is the result       
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('CH123.456.788', 'CH'), True) # OK 
         
   def test_ly(self): # finland
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('1572860-0', 'FI'), True)   # Nokia with a missing zero first
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('15728600', 'FI'), True)   # OK without the hyphen 
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('112038-9', 'FI'), True)   # Nokia with a missing zero first
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12038-9', 'FI'), False)    # Wrong len
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('1A1138-9', 'FI'), False)    # Alfa in 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('1572860-0', 'FI'), True)   # Nokia with a missing zero first
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('15728600', 'FI'), True)   # OK without the hyphen 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('112038-9', 'FI'), True)   # Nokia with a missing zero first
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12038-9', 'FI'), False)    # Wrong len
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('1A1138-9', 'FI'), False)    # Alfa in 
 
-  def test_nororg(self): # Norway
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('123456785', 'NO'), True)   # Offical example
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('974760673', 'NO'), True)   # Brönnoysund
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12345678', 'NO'), False)   # Wrong len
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('1A2345678', 'NO'), False)   # not digits
+  def test_norway(self): # Norway
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('123456785', 'NO'), True)   # Offical example
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('974760673', 'NO'), True)   # Brönnoysund
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12345678', 'NO'), False)   # Wrong len
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('1A2345678', 'NO'), False)   # not digits
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('NO123456785', 'NO'), True)   # Offical example
 
   def test_germany(self): # Germany
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('HRB-1234 Aachen', 'DE') , True)   # Offical example
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('HRx-1234 Aachen', 'DE') , False)   # Not HRB, HRA
-
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('HRB-1234 Aachen', 'DE') , True)   # Offical example
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('HRx-1234 Aachen', 'DE') , False)   # Not HRB, HRA
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('DE123456789', 'DE') , True)   # Offical example
+ 
   def test_poland(self): # Poland
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('1234567890', 'PL') , True)   # Offical example
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('123', 'PL') , False)   # Not HRB, HRA
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('1234567890', 'PL') , True)   # Offical example
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('123', 'PL') , False)   # Not HRB, HRA
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('PL1234567890', 'PL') , True)   # Offical example
 
   def test_portugal(self): # Portucal
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('510 123 457', 'PT') , True)   # Offical example
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('500 000 000', 'PT') , True)   # Offical example
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('123', 'PT') , False)   # Not HRB, HRA
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('510 123 457', 'PT') , True)   # Offical example
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('500 000 000', 'PT') , True)   # Offical example
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('PT510 123 457', 'PT') , True)   # Offical example
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('123', 'PT') , False)   # Not HRB, HRA
 
   def test_ireland(self): # Ireland
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('123260', 'IE') , True)   # Offical example
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('83424', 'IE') , True)   # Offical example
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('1234567', 'IE') , False)   # To Long
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12', 'IE') , False)   # To short
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('123260', 'IE') , True)   # Offical example
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('83424', 'IE') , True)   # Offical example
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('1234567', 'IE') , False)   # To Long
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12', 'IE') , False)   # To short
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('IE123260', 'IE') , True)   # Offical example
 
   def test_spain(self): # Ireland
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('A28123453', 'ES') , True)   # Offical example
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('A123456789', 'IE') , False)   # To Long
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('A28123453', 'ES') , True)   # Offical example
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('ESA28123453', 'ES') , True)   # Offical example
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('A123456789', 'IE') , False)   # To Long
   
   def test_belgium(self): # Belgium
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0403.019.261', 'BE') , True)   # AI google example
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0403.019.262', 'BE') , False)   # Wrong digit
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0403.019.261', 'BE') , True)   # AI google example
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0403.019.262', 'BE') , False)   # Wrong digit
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('BE0403.019.261', 'BE') , True)   # AI google example
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('BA0403.019.261', 'BE') , False)   # AI google example
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('BE0403.019.262', 'BE') , False)   # AI google example
    
   def test_czech(self): # Czechia  TBD more edge cases in test for 1 in rest
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('25596641', 'CZ') , True)   # AI google example
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('25596640', 'CZ') , False)   # Wrong digit
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('25596641', 'CZ') , True)   # AI google example
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('25596640', 'CZ') , False)   # Wrong digit
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('CZ25596641', 'CZ') , True)   # AI google example
 
   def test_luxembourg(self): # Luxembourg  TBD more edge cases in test for 1 in rest
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('19871234569', 'LU') , True)   # AI google example
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('19871234569', 'LU') , True)   # AI google example
 #        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('92345678902', 'LU') , True)   # OECD example
         # Result: Remainder 0 results in check digit 0 or 2 depending on specific tax office rounding, but commonly matches 2 in practice for certain registry series.      
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('19871234568', 'LU') , False)   # Wrong digit
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('19871234568', 'LU') , False)   # Wrong digit
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('LU19871234569', 'LU') , True)   # AI google example
 
   def test_italy(self): # Italy a variant of luhn 
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('01533030480', 'IT') , True)   # AI google example
-        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('01533030484', 'IT') , False)   # Wrong digit
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('01533030480', 'IT') , True)   # AI google example
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('01533030484', 'IT') , False)   # Wrong digit
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('IT01533030480', 'IT') , True)   # AI google example
 
+  def test_us(self): # us just number 01-1234567 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('01-1234567', 'US') , True)   
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('01-123456', 'US') , False)   
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('US01-1234567', 'US') , True)   
+       
 
 # Österreichische Post AG	250328t	High digit count
 # Red Bull GmbH	56247k	Five-digit number
