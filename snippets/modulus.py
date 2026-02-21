@@ -18,123 +18,137 @@ class modulus:
         # TBD - comment in start 
         # TBD IT which code ? ,
         self.definitions = {
-            "DK_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"CVR",
+            "DK_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"DK", "name":"CVR" ,
                         "weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},
-            "DK_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11, "name":"CVR",
+            "DK_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11, "country":"DK", "name":"CVR",
                         "weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},
 
-            "NO_COMPANY_ID": {"algorithm":self.validate_modulus11,"name":"Organisationsnummer", "len":9, 
+            "NO_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"NO", "name":"Organisationsnummer", "len":9, 
                         "weights": [ 3, 2, 7, 6, 5, 4, 3, 2, 1 ]},
-            "NO_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11,"name":"Organisationsnummer", "len":9, 
+            "NO_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11,
+                       "country":"NO","name":"Organisationsnummer", "len":9, 
                         "weights": [ 3, 2, 7, 6, 5, 4, 3, 2, 1 ]},
 
-            "CH_COMPANY_ID": {"algorithm":self.validate_modulus11,"name":"Che", "len":9,
+            "CH_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"CH", "name":"Che", "len":9,
                         "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ],   "before_list": ['CHE']},
-            "CH_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11,"name":"Che", "len":9,
+            "CH_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11,
+                          "country":"CH","name":"Che", "len":9,
                         "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ]},
                         
-            "FI_COMPANY_ID" : {"algorithm":self.validate_ly,"name":"LY - business ID", "len":8,
+            "FI_COMPANY_ID" : {"algorithm":self.validate_ly,"country":"FI", "name":"LY - business ID", "len":8,
                         "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ]},
-            "FI_VAT_ID" : {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11,"name":"LY - business ID", "len":8,
+            "FI_VAT_ID" : {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11,
+                           "country":"FI","name":"LY - business ID", "len":8,
                         "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ]},
 
 
             "DE_COMPANY_ID": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc", 
+                              "country":"DE",
                               "min_len":3, "len":6, "before_list": ['HRA', 'HRB'], 'after_allowed':True},
             # TBD add modulus 89 ? 
-            "DE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "name":"Germany VAT", "len":9},
+            "DE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"DE", "name":"Germany VAT", "len":9},
            
-            "NL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "name":"KVN",  "len":8},
-            "NL_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "name":"KVN", "len":8},  
+            "NL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"NL", "name":"KVN",  "len":8},
+            "NL_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"NL",
+                          "name":"KVN", "len":8},  
       
-            "ES_COMPANY_ID": {"algorithm":self.validate_modulus10,"name":"Spanish NIF", "len":8, 
+            "ES_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"ES", "name":"Spanish NIF", "len":8, 
                         "before_list": ['A', 'B', 'C', 'F', 'G', 'N', 'W']},
-            "ES_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus10,"name":"Spanish NIF", "len":8,
+            "ES_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus10,
+                          "country":"ES","name":"Spanish NIF", "len":8,
                         "before_list_TBD": ['ESA', 'ESB', 'ESC', 'ESF', 'ESG', 'ESN', 'ESW']}, 
       
-            "PT_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"NIPC", "len":9, 
+            "PT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"PT","name":"NIPC", "len":9, 
                         "weights": [ 9, 8, 7, 6, 5, 4, 3, 2]},
-            "PT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, "name":"NIPC", "len":9, 
+            "PT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
+                          "country":"PT", "name":"NIPC", "len":9, 
                         "weights": [ 9, 8, 7, 6, 5, 4, 3, 2]},
                         
-            "CZ_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"ICO", "len":8, 
+            "CZ_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"CZ", "name":"ICO", "len":8, 
                         "weights": [ 8, 7, 6, 5, 4, 3, 2], "check_digit_for_0":1},
-            "CZ_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, "name":"ICO", "len":8, 
+            "CZ_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
+                          "country":"CZ","name":"ICO", "len":8, 
                         "weights": [ 8, 7, 6, 5, 4, 3, 2], "check_digit_for_0":1},
          
-            "LU_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"LU RCS", "len":11, 
+            "LU_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LU", "name":"LU RCS", "len":11, 
                         "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 3, 2]},
-            "LU_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11, "name":"LU RCS", "len":11, 
+            "LU_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
+                          "country":"LU", "name":"LU RCS", "len":11, 
                         "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 3, 2]},
 
-            "LV_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"", "len":11, 
+            "LV_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LV", "name":"", "len":11, 
                         "weights": [ 1, 3, 9, 10, 5, 8, 4, 2, 1, 6], 'check_digit_for_1':1},
-            "LV_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, "name":"", "len":11, 
+            "LV_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
+                          "country":"LV","name":"", "len":11, 
                         "weights": [ 1, 3, 9, 10, 5, 8, 4, 2, 1, 6], 'check_digit_for_1':1},
  
-            "LT_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"Legal identity code", "len":9, 
+            "LT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LT", "name":"Legal identity code", "len":9, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 1 ], 
                          "return_rest": True },
             "LT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
-                          "name":"Legal identity code", "len":9, 
+                         "country":"LT", "name":"Legal identity code", "len":9, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 1 ], 
                          "return_rest": True },
 
-            "EE_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"Legal identity code", "len":8, 
+            "EE_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"EE", "name":"Legal identity code", "len":8, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9 ], 
                          "return_rest": True },
 
             "EE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
-                          "name":"Legal identity code", "len":8, 
+                         "country":"EE", "name":"Legal identity code", "len":8, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9 ], 
                          "return_rest": True },
 
-            "BG_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"UIC", "len":9, 
+            "BG_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"BG","name":"UIC", "len":9, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 10 ], 
                          "return_rest": True },
 
-            "BG_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, "name":"UIC", "len":9, 
+            "BG_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
+                          "country":"BG","name":"UIC", "len":9, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 10 ], 
                          "return_rest": True },
 
-            "IT_COMPANY_ID": {"algorithm":self.validate_italy, "name":"Partita IVA", "len":11} ,
-            "IT_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_italy, "name":"VAT IT", "len":11},
+            "IT_COMPANY_ID": {"algorithm":self.validate_italy, "country":"IT","name":"Partita IVA", "len":11} ,
+            "IT_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_italy, 
+                          "country":"IT","name":"VAT IT", "len":11},
 
-            "BE_COMPANY_ID": {"algorithm":self.validate_modulus97, "name":"Ondernemingsnummer", "len":10},
-            "BE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus97, "name":"Ondernemingsnummer", "len":10},
+            "BE_COMPANY_ID": {"algorithm":self.validate_modulus97, "country":"BE","name":"Ondernemingsnummer", "len":10},
+            "BE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus97, 
+                          "country":"BE", "name":"Ondernemingsnummer", "len":10},
 
-            "SE_COMPANY_ID": {"algorithm":self.validate_modulus10, "name":"Organisationsnummer", "len":10},
-            "SE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus10, "name":"Organisationsnummer", "len":10},
+            "SE_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"SE","name":"Organisationsnummer", "len":10},
+            "SE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus10, 
+                          "country":"SE","name":"Organisationsnummer", "len":10},
             
-            "FR_COMPANY_ID": {"algorithm":self.validate_modulus10,"name":"Siren", "len":9},
-            "FR_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus10,"name":"Siren", "len":9},
+            "FR_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"FR","name":"Siren", "len":9},
+            "FR_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus10,"country":"FR","name":"Siren", "len":9},
 
-            "PL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "name":"KRS", "len":10},
-            "PL_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "name":"KRS", "len":10},
+            "PL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"PL","name":"KRS", "len":10},
+            "PL_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"PL","name":"KRS", "len":10},
 
-            "HU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "name":"Adoszam", "len":11},
-            "HU_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "name":"KRS", "len":11},
+            "HU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"HU","name":"Adoszam", "len":11},
+            "HU_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"HU","name":"KRS", "len":11},
 
-            "IE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "name":"CRO", "min_len": 3, "len":6 },
-            "IE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "name":"CRO", "min_len": 3, "len":6 },
+            "IE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"IE", "name":"CRO", "min_len": 3, "len":6 },
+            "IE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"IE","name":"CRO", "min_len": 3, "len":6 },
 
-            "US_COMPANY_ID": {"algorithm":self.validate_just_numeric, "name":"EIN",  "len":9 },
-            "US_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "name":"EIN",  "len":9 },
+            "US_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"UA","name":"EIN",  "len":9 },
+            "US_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"US","name":"EIN",  "len":9 },
 
-            "MX_COMPANY_ID": {"algorithm":self.validate_mx,"name":"RFC",  "len":12},
-            "MX_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_mx,"name":"RFC",  "len":12},
+            "MX_COMPANY_ID": {"algorithm":self.validate_mx, "country":"MX","name":"RFC",  "len":12},
+            "MX_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_mx,"country":"MX","name":"RFC",  "len":12},
           
 
-            "AT_COMPANY_ID": {"algorithm":self.validate_fn,"name":"FN",  "min_len":1, "len":7,
+            "AT_COMPANY_ID": {"algorithm":self.validate_fn,"country":"AT","name":"FN",  "min_len":1, "len":7,
                               "before_list":["FB", "FN", "ZVR", ""], 
                               'after_allowed':True},
-            "AT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "name":"ATU",  
+            "AT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"AT","name":"ATU",  
                           "len":8, "before_list":["ATU", ""]},
 
-            "SE_BG": {"algorithm":self.validate_modulus10,"name":"Bankgiro", "min_len":7, "len":8},    
-            "DK_NATURAL": {"algorithm":self.validate_modulus11, "name":"CPR",
+            "SE_BG": {"algorithm":self.validate_modulus10, "country":"SE","name":"Bankgiro", "min_len":7, "len":8},    
+            "DK_NATURAL": {"algorithm":self.validate_modulus11, "country":"DK","name":"CPR",
                         "weights": [ 4,3,2,7,6,5,4,3,2,1 ], "len":10}, 
-            "standard":{"algorithm":self.validate_modulus11, "name":"standard", "len":0,
+            "standard":{"algorithm":self.validate_modulus11, "country":"","name":"standard", "len":0,
                         "weights": [7, 6, 5, 4, 3, 2, 1] }
         }
         return
@@ -165,11 +179,11 @@ class modulus:
         return  res % 11 
 
     def calc_modulus11_check_digit(self, s:str, variant) -> int:
-        return_rest = self.definitions[variant].get('return_rest', False)
-        rest = self.calc_modulus11_remainder(s, weights = self.definitions[variant]["weights"])
+        return_rest = variant.get('return_rest', False)
+        rest = self.calc_modulus11_remainder(s, weights = variant["weights"])
         # special for the Latvia and estonian do two rounds... 
         if rest == 10:
-            round2 = self.definitions[variant].get("weights_round2", None)
+            round2 = variant.get("weights_round2", None)
             if round != None:
                 rest = self.calc_modulus11_remainder(s, weights = round2)
                 if rest == 10:
@@ -178,9 +192,9 @@ class modulus:
             return rest
         # some variations on what to return when rest is 0 and 1
         if rest == 0: 
-            return self.definitions[variant].get('check_digit_for_0', 0)
+            return variant.get('check_digit_for_0', 0)
         if rest == 1:
-            return self.definitions[variant].get('check_digit_for_1', 0)
+            return variant.get('check_digit_for_1', 0)
         else: 
             return 11 - rest
     
@@ -277,10 +291,10 @@ class modulus:
             result['after'] += s[i]
             i += 1
         # Validations - initially set to all good
-        after_allowed = self.definitions[variant].get('after_allowed', False)
-        before_list = self.definitions[variant].get('before_list', None)
-        max_len = self.definitions[variant].get('len', 0)  
-        min_len = self.definitions[variant].get('min_len', -1)
+        after_allowed = variant.get('after_allowed', False)
+        before_list = variant.get('before_list', None)
+        max_len = variant.get('len', 0)  
+        min_len = variant.get('min_len', -1)
         if len(result['number']) != max_len and  min_len == -1:
             return self.create_result_error('Length of number does not match fixed number', result)
         if len(result['number']) > max_len or len(result['number']) < min_len:
@@ -315,15 +329,16 @@ class modulus:
         
     def validate_vat_std(self, s, variant):
         result = self.get_before_number_after(s, variant)
-        result['var_cntry'] = variant[0:2]
+        result['var_cntry'] = variant['country']
         if (result['before'][0:2] != result['var_cntry']):
             return self.create_result_error('country code not valid', result)
         # now validate the number with company id variant
-        number_algo = self.definitions[variant].get('number_algorithm', None)
+        number_algo = variant.get('number_algorithm', None)
         if number_algo == None:  # no further validation just the number in correct lenght from above
             return self.create_result_ok(result)
         else:
             return number_algo(result['number'], variant)        
+
     def validate_mx(self, s, variant):
         result={}
         if len(s) != 12:
@@ -334,14 +349,15 @@ class modulus:
         result['HOMOCLAVE'] = s[9:11]
         return self.create_result_ok(result)
 
-    def validate(self, s, variant):
-        if  self.definitions.get(variant, None) == None:
+    def validate(self, s, variant_name):
+        variant = self.definitions.get(variant_name, None)
+        if  variant == None:
             return {'validation_result':False, 'error':'Algorithm not found'}
-        algo = self.definitions[variant]["algorithm"]
+        algo = variant["algorithm"]
         return algo(self.clean_str(s), variant)
    
-    def validate_bool(self, s, variant) -> bool:
-        res = self.validate(s, variant)
+    def validate_bool(self, s, variant_name) -> bool:
+        res = self.validate(s, variant_name)
         return res['validation_result']
 
     def validate_COMPANY_ID(self, s, country_code):
@@ -358,8 +374,10 @@ class modulus:
 
 if __name__=="__main__":
     m_obj = modulus()
-#    r = m_obj.validate_COMPANY_ID('12870491-2-41', 'HU')  
-    r = m_obj.validate_COMPANY_ID('ABC680524P76', 'MX')
+    r = m_obj.validate_COMPANY_ID('12870491-2-41', 'HU')  
+    r = m_obj.validate_VAT_ID('BG12870491-2-41', 'HU')  
+
+#    r = m_obj.validate_COMPANY_ID('ABC680524P76', 'MX')
 #    r = m_obj.validate_COMPANY_ID('131468980', 'BG') # 
 
 #    r = m_obj.validate_COMPANY_ID('111111118', 'LT') # 
