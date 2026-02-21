@@ -71,6 +71,24 @@ class modulus:
                         "weights": [ 1, 3, 9, 10, 5, 8, 4, 2, 1, 6], 'check_digit_for_1':1},
             "LV_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, "name":"", "len":11, 
                         "weights": [ 1, 3, 9, 10, 5, 8, 4, 2, 1, 6], 'check_digit_for_1':1},
+ 
+            "LT_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"Legal identity code", "len":9, 
+                        "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 1 ], 
+                         "return_rest": True },
+            "LT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
+                          "name":"Legal identity code", "len":9, 
+                        "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 1 ], 
+                         "return_rest": True },
+
+            "EE_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"Legal identity code", "len":8, 
+                        "weights": [  1, 2, 3, 4, 5, 6, 7 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9 ], 
+                         "return_rest": True },
+
+            "EE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
+                          "name":"Legal identity code", "len":8, 
+                        "weights": [  1, 2, 3, 4, 5, 6, 7 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9 ], 
+                         "return_rest": True },
+
 
             "IT_COMPANY_ID": {"algorithm":self.validate_italy, "name":"Partita IVA", "len":11} ,
             "IT_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_italy, "name":"VAT IT", "len":11},
@@ -98,7 +116,9 @@ class modulus:
             "AT_COMPANY_ID": {"algorithm":self.validate_fn,"name":"FN",  "min_len":1, "len":7,
                               "before_list":["FB", "FN", "ZVR", ""], 
                               'after_allowed':True},
-            
+            "AT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "name":"ATU",  
+                          "len":8, "before_list":["ATU", ""]},
+
             "SE_BG": {"algorithm":self.validate_modulus10,"name":"Bankgiro", "min_len":7, "len":8},    
             "DK_NATURAL": {"algorithm":self.validate_modulus11, "name":"CPR",
                         "weights": [ 4,3,2,7,6,5,4,3,2,1 ], "len":10}, 
@@ -133,7 +153,17 @@ class modulus:
         return  res % 11 
 
     def calc_modulus11_check_digit(self, s:str, variant) -> int:
+        return_rest = self.definitions[variant].get('return_rest', False)
         rest = self.calc_modulus11_remainder(s, weights = self.definitions[variant]["weights"])
+        # special for the Latvia and estonian do two rounds... 
+        if rest == 10:
+            round2 = self.definitions[variant].get("weights_round2", None)
+            if round != None:
+                rest = self.calc_modulus11_remainder(s, weights = round2)
+                if rest == 10:
+                    return 0
+        if return_rest:
+            return rest
         # some variations on what to return when rest is 0 and 1
         if rest == 0: 
             return self.definitions[variant].get('check_digit_for_0', 0)
@@ -307,9 +337,21 @@ class modulus:
 
 if __name__=="__main__":
     m_obj = modulus()
-    r = m_obj.validate_COMPANY_ID('40003032949', 'LV') # Offical example
+#    r = m_obj.validate_COMPANY_ID('111111118', 'LT') # 
+    
+    r = m_obj.validate_COMPANY_ID('10345833', 'EE') # 
+#    r = m_obj.validate_COMPANY_ID('200000017', 'LT') # 
+
     print(r)
 
+#    r = m_obj.validate_COMPANY_ID('20000001', 'LT') # 
+#    r = m_obj.validate_COMPANY_ID('188659752', 'LT') # 
+#    r = m_obj.validate_COMPANY_ID('300060819', 'LT') # 
+# 188659752
+# 300060819
+    print(r)
+#   r = m_obj.validate_VAT_ID('ATU12345678', 'AT') # 
+#    r = m_obj.validate_COMPANY_ID('40003032949', 'LV') # Offical example
 #    r = m_obj.validate_VAT_ID('BE0403.019.261', 'BE')
 #    r = m_obj.validate_VAT_ID('IT01533030480', 'IT')
 #    r = m_obj.validate_VAT_ID('ESA28123453', 'ES') # Offical example
@@ -321,12 +363,12 @@ if __name__=="__main__":
 #    r = m_obj.validate_COMPANY_ID('0403.019.261', 'BE')
 #    r = m_obj.validate_COMPANY_ID_bool('A28123453', 'ES') # Offical example
 #    r = m_obj.validate_COMPANY_ID_bool('1234567890', 'PL') # Offical example
-    r = m_obj.validate_germany(m_obj.clean_str('HRB-1234 Aachen'), 'DE_COMPANY_ID') # Offical example
-    x = m_obj.clean_str('Bad Homburg v.d.H.')
-    print(x)
-    print(m_obj.dict_xjustiz[x])
-    print(m_obj.dict_xjustiz['Aachen'])
-    print(r)
+#    r = m_obj.validate_germany(m_obj.clean_str('HRB-1234 Aachen'), 'DE_COMPANY_ID') # Offical example
+#    x = m_obj.clean_str('Bad Homburg v.d.H.')
+#    print(x)
+#    print(m_obj.dict_xjustiz[x])
+#    print(m_obj.dict_xjustiz['Aachen'])
+#    print(r)
 #    r = m_obj.validate_COMPANY_ID_bool('123456785', 'NO') # Offical example
 #    r = m_obj.validate('974760673', 'NO_COMPANY_ID') # Brönnoy sund 
     
