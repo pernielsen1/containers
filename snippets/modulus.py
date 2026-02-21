@@ -5,7 +5,7 @@ import json
 
 class modulus:
     def __init__(self):
-        self.clean_table = str.maketrans('.-',"  ")
+        self.clean_table = str.maketrans('.-()',"    ")
         # load the Xjustiz - json and clean the keys
         module_path = os.path.dirname(os.path.abspath(__file__))
         with open(module_path + '/' + 'XJustiz.json') as json_file:
@@ -44,10 +44,8 @@ class modulus:
             # TBD add modulus 89 ? 
             "DE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "name":"Germany VAT", "len":9},
            
-            "NL_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"KVN",  "len":8,
-                        "weights": [8, 7, 6, 5, 4, 3, 2, 1]},
-            "NL_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, "name":"KVN",  
-                          "len":8, "weights": [8, 7, 6, 5, 4, 3, 2, 1]},
+            "NL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "name":"KVN",  "len":8},
+            "NL_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "name":"KVN", "len":8},  
       
             "ES_COMPANY_ID": {"algorithm":self.validate_modulus10,"name":"Spanish NIF", "len":8, 
                         "before_list": ['A', 'B', 'C', 'F', 'G', 'N', 'W']},
@@ -97,7 +95,9 @@ class modulus:
 
 
 
-            "AT_COMPANY_ID": {"algorithm":self.validate_fn,"name":"FN",  "min_len":1, "len":7, 'after_allowed':True},
+            "AT_COMPANY_ID": {"algorithm":self.validate_fn,"name":"FN",  "min_len":1, "len":7,
+                              "before_list":["FB", "FN", "ZVR", ""], 
+                              'after_allowed':True},
             
             "SE_BG": {"algorithm":self.validate_modulus10,"name":"Bankgiro", "min_len":7, "len":8},    
             "DK_NATURAL": {"algorithm":self.validate_modulus11, "name":"CPR",

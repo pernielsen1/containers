@@ -45,7 +45,7 @@ class test_moudulus(unittest.TestCase):
       print("xyz")
       self.log.info("testing kvn")
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('68750110', 'NL'), True)
-      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('68750119', 'NL'), False)
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('6875011', 'NL'), False)
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('6875011', 'NL'), False)
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('687A0110', 'NL'), False)
       self.assertEqual(self.m_obj.validate_VAT_ID_bool('NL68750110', 'NL'), True)
@@ -72,10 +72,14 @@ class test_moudulus(unittest.TestCase):
       self.assertEqual(self.m_obj.validate_bool('9912346', 'SE_BG'), True) # from bg https://www.bankgirot.se/globalassets/dokument/anvandarmanualer/10-modul.pdf
       self.assertEqual(self.m_obj.validate_bool('55555551', 'SE_BG'), True) # from bg example
 
-  def test_fn(self):
-      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('33282b', 'AT'), True) # 
-      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('56247t', 'AT'), True) # 
-      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('80219d', 'AT'), True) # 
+  def test_austria(self):
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('33282b', 'AT'), True) # 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('56247t', 'AT'), True) # 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('80219d', 'AT'), True) # 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FN 80219d', 'AT'), True) # 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FN 80219d', 'AT'), True) # 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FB 80219d', 'AT'), True) # 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ZVR80219d', 'AT'), True) # 
 
   def test_france(self):  # France
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('784671695', 'FR'), True) # Unicef 
