@@ -188,6 +188,19 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('80352598', 'EE'), True)  
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('EE80352598', 'EE'), True)  
 
+  def test_bulgaria(self): #  Bulgaria
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('131468980', 'BG'), True)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('131468981', 'BG'), False)  
+    self.assertEqual(self.m_obj.validate_VAT_ID_bool('BG131468980', 'BG'), True)  
+
+  def test_hungary(self): 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12870491-2-41', 'HU'), True)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12870491-2-4', 'HU'), False)  
+# TBD - is there actually a check digit on the first 8 for Hungary ?
+# TBD - validate is date for the mexican
+  def test_hungary(self): 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ABC680524P76', 'MX'), True)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ABCD80524P76', 'MX'), False)  
 
 
 

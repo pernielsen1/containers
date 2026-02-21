@@ -89,6 +89,13 @@ class modulus:
                         "weights": [  1, 2, 3, 4, 5, 6, 7 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9 ], 
                          "return_rest": True },
 
+            "BG_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"UIC", "len":9, 
+                        "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 10 ], 
+                         "return_rest": True },
+
+            "BG_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, "name":"UIC", "len":9, 
+                        "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 10 ], 
+                         "return_rest": True },
 
             "IT_COMPANY_ID": {"algorithm":self.validate_italy, "name":"Partita IVA", "len":11} ,
             "IT_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_italy, "name":"VAT IT", "len":11},
@@ -105,13 +112,17 @@ class modulus:
             "PL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "name":"KRS", "len":10},
             "PL_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "name":"KRS", "len":10},
 
+            "HU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "name":"Adoszam", "len":11},
+            "HU_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "name":"KRS", "len":11},
+
             "IE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "name":"CRO", "min_len": 3, "len":6 },
             "IE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "name":"CRO", "min_len": 3, "len":6 },
 
             "US_COMPANY_ID": {"algorithm":self.validate_just_numeric, "name":"EIN",  "len":9 },
             "US_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "name":"EIN",  "len":9 },
 
-
+            "MX_COMPANY_ID": {"algorithm":self.validate_mx,"name":"RFC",  "len":12},
+          
 
             "AT_COMPANY_ID": {"algorithm":self.validate_fn,"name":"FN",  "min_len":1, "len":7,
                               "before_list":["FB", "FN", "ZVR", ""], 
@@ -312,7 +323,16 @@ class modulus:
             return self.create_result_ok(result)
         else:
             return number_algo(result['number'], variant)        
-        
+    def validate_mx(self, s, variant):
+        result={}
+        if len(s) != 12:
+            return self.create_result_error("wrong len must be 12")
+        result['YYMMDD'] = s[3:9]    
+        if result['YYMMDD'].isdigit() == False:
+            return self.create_result_error("not numeric YYMMDD")   
+        result['HOMOCLAVE'] = s[9:11]
+        return self.create_result_ok(result)
+
     def validate(self, s, variant):
         if  self.definitions.get(variant, None) == None:
             return {'validation_result':False, 'error':'Algorithm not found'}
@@ -337,9 +357,13 @@ class modulus:
 
 if __name__=="__main__":
     m_obj = modulus()
+#    r = m_obj.validate_COMPANY_ID('12870491-2-41', 'HU')  
+    r = m_obj.validate_COMPANY_ID('ABC680524P76', 'MX')
+#    r = m_obj.validate_COMPANY_ID('131468980', 'BG') # 
+
 #    r = m_obj.validate_COMPANY_ID('111111118', 'LT') # 
     
-    r = m_obj.validate_COMPANY_ID('10345833', 'EE') # 
+#    r = m_obj.validate_COMPANY_ID('10345833', 'EE') # 
 #    r = m_obj.validate_COMPANY_ID('200000017', 'LT') # 
 
     print(r)
