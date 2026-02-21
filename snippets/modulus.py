@@ -122,6 +122,7 @@ class modulus:
             "US_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "name":"EIN",  "len":9 },
 
             "MX_COMPANY_ID": {"algorithm":self.validate_mx,"name":"RFC",  "len":12},
+            "MX_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_mx,"name":"RFC",  "len":12},
           
 
             "AT_COMPANY_ID": {"algorithm":self.validate_fn,"name":"FN",  "min_len":1, "len":7,
