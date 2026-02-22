@@ -14,6 +14,11 @@ class modulus:
         for key, item in temp.items():
             clean_key = self.clean_str(key)
             self.dict_xjustiz[clean_key] = item
+
+        self.dict_xjustiz_to_name={}  # build dictionary to provide the correctly edited name
+        for key, item in temp.items():
+            self.dict_xjustiz_to_name[item] = '(' + key + ')'
+            
         # TBD - comment in start 
         self.definitions = {
             "DK_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"DK", "name":"CVR" ,
@@ -65,7 +70,9 @@ class modulus:
             "BE_COMPANY_ID": {"algorithm":self.validate_modulus97, "country":"BE","name":"Ondernemingsnummer", "len":10},
             "BE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus97, 
                           "country":"BE", "name":"Ondernemingsnummer", "len":10},
-            "SE_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"SE","name":"Organisationsnummer", "len":10},
+            "SE_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"SE","name":"Organisationsnummer", "len":10,
+                                "mask":"%s%s%s%s%s%s-%s%s%s%s"},    
+
             "FR_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"FR","name":"Siren", "len":9},
             "PL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"PL","name":"KRS", "len":10},
             "HU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"HU","name":"Adoszam", "len":11},
@@ -78,7 +85,7 @@ class modulus:
             "AT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"AT","name":"ATU",  
                           "len":8, "before_list":["ATU", ""]},
 
-            "SE_BG": {"algorithm":self.validate_modulus10, "country":"SE","name":"Bankgiro", "min_len":7, "len":8},    
+            "SE_BG": {"algorithm":self.validate_modulus10, "country":"SE","name":"Bankgiro", "min_len":7, "len":8},
             "DK_NATURAL": {"algorithm":self.validate_modulus11, "country":"DK","name":"CPR",
                         "weights": [ 4,3,2,7,6,5,4,3,2,1 ], "len":10}, 
             "standard":{"algorithm":self.validate_modulus11, "country":"","name":"standard", "len":0,
@@ -255,7 +262,11 @@ class modulus:
         result['XJustiz_code'] = self.dict_xjustiz.get(result['after'], None)
         if result['XJustiz_code'] == None:
             return self.create_result_error("Invalid XJustis code", result)
-        # still here all good 
+        else:
+            # still here all good create an edited name also
+            result['edited_name'] = ( result['before'] + ' ' + result['number'] + ' ' +
+                                     self.dict_xjustiz_to_name[result['XJustiz_code']] ) 
+     
         return self.create_result_ok(result)
         
     def validate_vat_std(self, s, variant):
@@ -280,22 +291,32 @@ class modulus:
         result['HOMOCLAVE'] = s[9:11]
         return self.create_result_ok(result)
 
-    def validate(self, s, variant_name):
+    def validate(self, in_str, variant_name):
         variant = self.definitions.get(variant_name, None)
         if  variant == None:
             return {'validation_result':False, 'error':'Algorithm not found'}
-        s = self.clean_str(s)
+        s = self.clean_str(in_str)
         zfill_len = variant.get('zfill_len', 0)
         if zfill_len > 0:
             s = s.zfill(zfill_len)
         return variant["algorithm"](s, variant)
-   
+
     def validate_bool(self, s, variant_name) -> bool:
         res = self.validate(s, variant_name)
         return res['validation_result']
 
     def validate_COMPANY_ID(self, s, country_code):
-        return self.validate(s, country_code + '_COMPANY_ID')
+        result =  self.validate(s, country_code + '_COMPANY_ID') 
+        if result['validation_result']: 
+            variant = self.definitions[country_code + '_COMPANY_ID']
+            mask = variant.get('mask', None)
+            if mask == None:
+                result['edited_name'] = s
+            else:
+                result['edited_name'] = mask % tuple(result['number'])
+
+        return result            
+
 
     def validate_VAT_ID(self, s, country_code):
         variant = self.definitions.get(country_code + '_VAT_ID', None)
@@ -319,7 +340,9 @@ class modulus:
 
 if __name__=="__main__":
     m_obj = modulus()
-    r = m_obj.validate_VAT_ID_bool('NO123456785', 'NO')
+#    r = m_obj.validate_VAT_ID_bool('NO123456785', 'NO')
+    r = m_obj.validate_COMPANY_ID('HRB-1234 Aachen', 'DE')
+    r = m_obj.validate_COMPANY_ID('2021005489', 'SE')
 
 #    r = m_obj.validate_COMPANY_ID('0001590082', 'RO')
 #    r = m_obj.validate_COMPANY_ID('01590082', 'RO')
