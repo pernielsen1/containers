@@ -18,95 +18,63 @@ class modulus:
         self.definitions = {
             "DK_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"DK", "name":"CVR" ,
                         "weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},
-  
             "NO_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"NO", "name":"Organisationsnummer", "len":9, 
                         "weights": [ 3, 2, 7, 6, 5, 4, 3, 2, 1 ]},
-  
             "CH_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"CH", "name":"Che", "len":9,
                         "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ],   "before_list": ['CHE']},
             "CH_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11,
-                          "country":"CH","name":"Che", "len":9,
-                        "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ]},
-                        
+                          "country":"CH","name":"Che", "len":9, "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ]},
             "FI_COMPANY_ID" : {"algorithm":self.validate_modulus11,"country":"FI", "name":"LY - business ID", "len":8,
-                        "zfill_len":8, 
-                        "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ]},
-  
+                        "zfill_len":8,  "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ]},
             "GR_COMPANY_ID" : {"algorithm":self.validate_modulus11,"country":"GR", "name":"AFM", "len": 9,
-                        "weights": [  256, 128, 64, 32, 16, 8, 4, 2],
-                         "return_rest": True, "return_10":0},
-            
+                        "weights": [  256, 128, 64, 32, 16, 8, 4, 2], "return_rest": True, "return_10":0},
             "RO_COMPANY_ID" : {"algorithm":self.validate_modulus11,"country":"RO", "name":"CUI/CIF", "len": 10,
-                        "weights": [  7, 5, 3, 2, 1, 7, 5, 3, 2],
-                        "mult10": True, "zfill_len":10,
+                        "weights": [  7, 5, 3, 2, 1, 7, 5, 3, 2], "mult10": True, "zfill_len":10,
                          "return_rest": True, "return_10":0},
-    
             "DE_COMPANY_ID": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc", 
-                              "country":"DE",
-                              "min_len":3, "len":6, "before_list": ['HRA', 'HRB'], 'after_allowed':True},
+                              "country":"DE", "min_len":3, "len":6, "before_list": ['HRA', 'HRB'], 'after_allowed':True},
             # TBD add modulus 89 ? 
             "DE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"DE", "name":"Germany VAT", "len":9},
-           
             "NL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"NL", "name":"KVN",  "len":8},
-      
             "ES_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"ES", "name":"Spanish NIF", "len":8, 
                         "before_list": ['A', 'B', 'C', 'F', 'G', 'N', 'W']},
-            "ES_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus10,
-                          "country":"ES","name":"Spanish NIF", "len":8,
+            "ES_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus10, "country":"ES",
+                          "name":"Spanish NIF", "len":8,
                         "before_list_TBD": ['ESA', 'ESB', 'ESC', 'ESF', 'ESG', 'ESN', 'ESW']}, 
-      
             "PT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"PT","name":"NIPC", "len":9, 
                         "weights": [ 9, 8, 7, 6, 5, 4, 3, 2]},
             "PT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
                           "country":"PT", "name":"NIPC", "len":9, 
                         "weights": [ 9, 8, 7, 6, 5, 4, 3, 2]},
-                        
             "CZ_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"CZ", "name":"ICO", "len":8, 
                         "weights": [ 8, 7, 6, 5, 4, 3, 2], "check_digit_for_0":1},
-         
             "LU_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LU", "name":"LU RCS", "len":11, 
                         "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 3, 2]},
- 
             "LV_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LV", "name":"", "len":11, 
                         "weights": [ 1, 3, 9, 10, 5, 8, 4, 2, 1, 6], 'check_digit_for_1':1},
- 
             "LT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LT", "name":"Legal identity code", "len":9, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 1 ], 
                          "return_rest": True },
-
             "EE_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"EE", "name":"Legal identity code", "len":8, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9 ], 
                          "return_rest": True },
-
             "BG_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"BG","name":"UIC", "len":9, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 10 ], 
                          "return_rest": True },
-
             "IT_COMPANY_ID": {"algorithm":self.validate_italy, "country":"IT","name":"Partita IVA", "len":11} ,
-
             "BE_COMPANY_ID": {"algorithm":self.validate_modulus97, "country":"BE","name":"Ondernemingsnummer", "len":10},
             "BE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus97, 
                           "country":"BE", "name":"Ondernemingsnummer", "len":10},
-
             "SE_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"SE","name":"Organisationsnummer", "len":10},
-            
             "FR_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"FR","name":"Siren", "len":9},
-
             "PL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"PL","name":"KRS", "len":10},
-
             "HU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"HU","name":"Adoszam", "len":11},
-
             "IE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"IE", "name":"CRO", "min_len": 3, "len":6 },
-
             "US_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"UA","name":"EIN",  "len":9 },
             "US_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"US","name":"EIN",  "len":9 },
-
             "MX_COMPANY_ID": {"algorithm":self.validate_mx, "country":"MX","name":"RFC",  "len":12},
-          
-
             "AT_COMPANY_ID": {"algorithm":self.validate_fn,"country":"AT","name":"FN",  "min_len":1, "len":7,
-                              "before_list":["FB", "FN", "ZVR", ""], 
-                              'after_allowed':True},
+                              "before_list":["FB", "FN", "ZVR", ""], 'after_allowed':True},
             "AT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"AT","name":"ATU",  
                           "len":8, "before_list":["ATU", ""]},
 
@@ -143,7 +111,6 @@ class modulus:
         mult10=variant.get('mult10', False)
         if mult10:
             res = res * 10
-
         return  res % 11 
 
     def calc_modulus11_check_digit(self, s:str, variant) -> int:
@@ -238,7 +205,6 @@ class modulus:
     def validate_just_numeric(self, s:str, variant):
         return self.get_before_number_after(s, variant)
 
-
     def validate_fn(self, s, variant):
         # simplified validation of austrian number 1..6 digits followed by a character (lowercase)
         result = self.get_before_number_after(s, variant)
@@ -322,9 +288,7 @@ class modulus:
         zfill_len = variant.get('zfill_len', 0)
         if zfill_len > 0:
             s = s.zfill(zfill_len)
-
-        algo = variant["algorithm"]
-        return algo(s, variant)
+        return variant["algorithm"](s, variant)
    
     def validate_bool(self, s, variant_name) -> bool:
         res = self.validate(s, variant_name)
