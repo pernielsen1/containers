@@ -28,7 +28,7 @@ sys.path.insert(0, parentdir)
 import unittest
 import json
 import logging
-from modulus import modulus
+from company_identifiers import company_identifiers
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s - %(message)s %(funcName)s()') 
 
 #-------------------------------------------------------------------
@@ -42,7 +42,7 @@ class test_moudulus(unittest.TestCase):
       cls.log = logging.Logger(__name__)
 
       cls.log.info("setUp starting")
-      cls.m_obj = modulus()
+      cls.m_obj = company_identifiers()
       cls.log.info("setUp completed starting tests")    
 
   def test_netherland(self): # netherlands
@@ -207,55 +207,6 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0001590082', 'RO'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('01590082', 'RO'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0001590084', 'RO'), False)  
-
-# TBD : padd to len with zero
-# refactor VAT
-
-#    r = m_obj.validate_COMPANY_ID('200000017', 'LT') # 
-     
-#      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('40003032949', 'LV') , True)   
-#      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('40003032944', 'LV') , False)   
-#      self.assertEqual(self.m_obj.validate_VAT_ID_bool('LV40003032949', 'LV') , True)   
-
-#    Tier 1 Calculation:
-#        Multiply the first 7 digits by weights 1, 2, 3, 4, 5, 6, 7 respectively.
-#        Sum the products and calculate the remainder of the sum divided by 11 (Sum % 11).
-#        If the remainder is less than 10, it is the check digit.
-#    Tier 2 Calculation (if Tier 1 remainder is 10):
-#        If the first calculation yields a remainder of 10, repeat the process with new weights: 3, 4, 5, 6, 7, 8, 9.
-#        Sum these products and calculate the remainder divided by 11.
-#        If this second remainder is less than 10, it is the check digit.
-#        If the second remainder is still 10, the check digit is 0. 
-
-#Structure and Official Verification
-#
-#    Length: Exactly 8 digits.
-#    First Digit: Indicates the entity type (e.g., 1 for companies, 8 for non-profits, 7 for government agencies).
-#    Official Search: You can verify if a specific code is currently active and assigned to a legal entity via the Estonian e-Business Register (Äriregister).
-#    VAT Numbers: If checking a VAT ID (format EE + 9 digits), the first 8 digits are usually the registry code, and the 9th is a separate checksum verifiable via the European VIES system. 
-# Lithuania
-# Check Digit Calculation Rules
-# The check digit is calculated based on the first 8 digits of the company code: 
-#
-#    Weights: Each of the first 8 digits is multiplied by a weight ranging from 1 to 8, respectively.
-#        Digit 1 × 1
-#        Digit 2 × 2
-#        Digit 3 × 3
-#        Digit 4 × 4
-#        Digit 5 × 5
-#        Digit 6 × 6
-#        Digit 7 × 7
-#        Digit 8 × 8
-#    Summation: The results of these multiplications are summed together.
-#    Modulo 11: The sum is divided by 11 to find the remainder.
-#    Result: The remainder is the 9th check digit.
-#    Exception: If the remainder is 10, a new, unused 8-digit code must be used, or a different weight set (3, 4, 5, 6, 7, 8, 9, 1) is applied in some legacy systems to ensure the check digit is less than 10. 
-# Österreichische Post AG	250328t	High digit count
-# Red Bull GmbH	56247k	Five-digit number
-# Erste Group Bank AG	33209m	Common retail bank FN
-# OMV AG	93308v	Short digit sequence
-# Raiffeisen Bank International	121075t	Six-digit number
- 
 
   @classmethod
   def tearDownClass(cls):

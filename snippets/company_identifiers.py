@@ -3,7 +3,7 @@ import os
 import json
 # https://github.com/hubipe/company-identifiers/tree/master/src/CountryValidators
 
-class modulus:
+class company_identifiers:
     def __init__(self):
         self.clean_table = str.maketrans('.-()',"    ")
         # load the Xjustiz - json and clean the keys
@@ -340,7 +340,7 @@ class modulus:
         return result['validation_result']
 
 if __name__=="__main__":
-    m_obj = modulus()
+    m_obj = company_identifiers()
 #    r = m_obj.validate_VAT_ID_bool('NO123456785', 'NO')
     r = m_obj.validate_COMPANY_ID('HRB-1234 Aachen', 'DE')
     print(r)
@@ -410,7 +410,7 @@ if __name__=="__main__":
     parser.add_argument("-i", "--input")
     args=parser.parse_args()
     r=-1
-    m_obj = modulus()
+    m_obj = company_identifiers()
     if args.command == 'calculate':
         r=m_obj.calc_chk_digit(args.input, args.variant)
     if args.command == 'validate':
