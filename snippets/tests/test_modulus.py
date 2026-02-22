@@ -19,7 +19,11 @@ sys.path.insert(0, parentdir)
 
 # END OF DIRTY
 #----------------------------------------------------------
-#  
+
+# TBD - is there actually a check digit on the first 8 for Hungary ?
+# TBD - validate is date for the mexican
+
+ 
 
 import unittest
 import json
@@ -41,9 +45,7 @@ class test_moudulus(unittest.TestCase):
       cls.m_obj = modulus()
       cls.log.info("setUp completed starting tests")    
 
-  def test_nl(self): # netherlands
-      print("xyz")
-      self.log.info("testing kvn")
+  def test_netherland(self): # netherlands
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('68750110', 'NL'), True)
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('6875011', 'NL'), False)
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('6875011', 'NL'), False)
@@ -51,11 +53,6 @@ class test_moudulus(unittest.TestCase):
       self.assertEqual(self.m_obj.validate_VAT_ID_bool('NL68750110', 'NL'), True)
  
   def test_denmark(self):
-      print("xyz")
-      # https://gist.github.com/henrik/daf364fb7e22b3b10cad
-      # Search for real CVRs, to see examples: https://datacvr.virk.dk/data/
-      # E.g. 35408002, 30715063.
-
       self.log.info("testing cvr")
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('35408002', 'DK'), True)
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('35408009', 'DK'), False)
@@ -196,14 +193,23 @@ class test_moudulus(unittest.TestCase):
   def test_hungary(self): 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12870491-2-41', 'HU'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12870491-2-4', 'HU'), False)  
-# TBD - is there actually a check digit on the first 8 for Hungary ?
-# TBD - validate is date for the mexican
+
   def test_mexico(self): 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ABC680524P76', 'MX'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ABCD80524P76', 'MX'), False)  
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('MXABCD80524P76', 'MX'), False)  
 
+  def test_greece(self): 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('094014298', 'GR'), True)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('094014290', 'GR'), False)  
 
+  def test_romania(self): 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0001590082', 'RO'), True)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('01590082', 'RO'), True)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0001590084', 'RO'), False)  
+
+# TBD : padd to len with zero
+# refactor VAT
 
 #    r = m_obj.validate_COMPANY_ID('200000017', 'LT') # 
      

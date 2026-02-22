@@ -1,55 +1,181 @@
 import argparse
 import os
+import json
 # https://github.com/hubipe/company-identifiers/tree/master/src/CountryValidators
-import pandas as pd
+
 class modulus:
     def __init__(self):
-        self.clean_table = str.maketrans('.-',"  ")
+        self.clean_table = str.maketrans('.-()',"    ")
+        # load the Xjustiz - json and clean the keys
         module_path = os.path.dirname(os.path.abspath(__file__))
-        df =  pd.read_excel(module_path + '/' + 'XJustiz.xlsx')
-        df['key'] = df.apply(self.clean_key, axis=1)  # remove the ( and . etc)
-        self.dict_xjustiz = pd.Series(df.value.values,index=df.key).to_dict()
-#        print(dict_xjustiz['Aachen'])
+        with open(module_path + '/' + 'XJustiz.json') as json_file:
+            temp = json.load(json_file)
+        self.dict_xjustiz={}
+        for key, item in temp.items():
+            clean_key = self.clean_str(key)
+            self.dict_xjustiz[clean_key] = item
+        # the variants of calculations input dictionary
+        # TBD - comment in start 
+        # TBD IT which code ? ,
         self.definitions = {
-            "DK_NATURAL": {"algorithm":self.validate_modulus11, "name":"CPR",
-                        "weights": [ 4,3,2,7,6,5,4,3,2,1 ], "len":10}     ,
-            "DK_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"CVR",
+            "DK_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"DK", "name":"CVR" ,
                         "weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},
-            "SE_COMPANY_ID": {"algorithm":self.validate_modulus10, "name":"Organisationsnummer",
-                        "weights": None, "len":10},
-            "NO_COMPANY_ID": {"algorithm":self.validate_modulus11,"name":"Organisationsnummer",
-                        "weights": [ 3, 2, 7, 6, 5, 4, 3, 2, 1 ], "len":9},
-            "FR_COMPANY_ID": {"algorithm":self.validate_modulus10,"name":"Siren", 
-                    "weights": None, "len":9},
-            "CH_COMPANY_ID": {"algorithm":self.validate_che,"name":"Che",
-                    "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ], "len":9},
-            "FI_COMPANY_ID" : {"algorithm":self.validate_ly,"name":"LY - business ID",
-                "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ], "len":8},
-            "AT_COMPANY_ID": {"algorithm":self.validate_fn,"name":"FN",
-                "weights": None, "len":7},
-            "DE_COMPANY_ID": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc",
-               "weights": None, "len":0},
-            "NL_COMPANY_ID": {"algorithm":self.validate_modulus11, "name":"KVN",
-                    "weights": [8, 7, 6, 5, 4, 3, 2, 1], "len":8},
-            "SE_BG7": {"algorithm":self.validate_modulus10,"name":"Bankgiro 7 digits",
-                    "weights": None, "len":7},    
-            "SE_BG8": {"algorithm":self.validate_modulus10, "name":"Bankgiro 8 digits",
-                    "weights": None, "len":8},
-            "standard":{"algorithm":self.validate_modulus11, "name":"standard",
-                        "weights": [7, 6, 5, 4, 3, 2, 1], "len":0}
+    #        "DK_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11, "country":"DK", "name":"CVR",
+    #                    "weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},
+
+            "NO_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"NO", "name":"Organisationsnummer", "len":9, 
+                        "weights": [ 3, 2, 7, 6, 5, 4, 3, 2, 1 ]},
+    #        "NO_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11,
+    #                   "country":"NO","name":"Organisationsnummer", "len":9, 
+    #                    "weights": [ 3, 2, 7, 6, 5, 4, 3, 2, 1 ]},
+
+            "CH_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"CH", "name":"Che", "len":9,
+                        "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ],   "before_list": ['CHE']},
+            "CH_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11,
+                          "country":"CH","name":"Che", "len":9,
+                        "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ]},
+                        
+            "FI_COMPANY_ID" : {"algorithm":self.validate_modulus11,"country":"FI", "name":"LY - business ID", "len":8,
+                        "zfill_len":8, 
+                        "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ]},
+    #        "FI_VAT_ID" : {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11,
+    #                       "country":"FI","name":"LY - business ID", "len":8,
+    #                    "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ]},
+
+            "GR_COMPANY_ID" : {"algorithm":self.validate_modulus11,"country":"GR", "name":"AFM", "len": 9,
+                        "weights": [  256, 128, 64, 32, 16, 8, 4, 2],
+                         "return_rest": True, "return_10":0},
+            
+            "RO_COMPANY_ID" : {"algorithm":self.validate_modulus11,"country":"RO", "name":"CUI/CIF", "len": 10,
+                        "weights": [  7, 5, 3, 2, 1, 7, 5, 3, 2],
+                        "mult10": True, "zfill_len":10,
+                         "return_rest": True, "return_10":0},
+    
+            "DE_COMPANY_ID": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc", 
+                              "country":"DE",
+                              "min_len":3, "len":6, "before_list": ['HRA', 'HRB'], 'after_allowed':True},
+            # TBD add modulus 89 ? 
+            "DE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"DE", "name":"Germany VAT", "len":9},
+           
+            "NL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"NL", "name":"KVN",  "len":8},
+            "NL_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"NL",
+                          "name":"KVN", "len":8},  
+      
+            "ES_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"ES", "name":"Spanish NIF", "len":8, 
+                        "before_list": ['A', 'B', 'C', 'F', 'G', 'N', 'W']},
+            "ES_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus10,
+                          "country":"ES","name":"Spanish NIF", "len":8,
+                        "before_list_TBD": ['ESA', 'ESB', 'ESC', 'ESF', 'ESG', 'ESN', 'ESW']}, 
+      
+            "PT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"PT","name":"NIPC", "len":9, 
+                        "weights": [ 9, 8, 7, 6, 5, 4, 3, 2]},
+            "PT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
+                          "country":"PT", "name":"NIPC", "len":9, 
+                        "weights": [ 9, 8, 7, 6, 5, 4, 3, 2]},
+                        
+            "CZ_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"CZ", "name":"ICO", "len":8, 
+                        "weights": [ 8, 7, 6, 5, 4, 3, 2], "check_digit_for_0":1},
+            "CZ_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
+                          "country":"CZ","name":"ICO", "len":8, 
+                        "weights": [ 8, 7, 6, 5, 4, 3, 2], "check_digit_for_0":1},
+         
+            "LU_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LU", "name":"LU RCS", "len":11, 
+                        "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 3, 2]},
+            "LU_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
+                          "country":"LU", "name":"LU RCS", "len":11, 
+                        "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 3, 2]},
+
+            "LV_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LV", "name":"", "len":11, 
+                        "weights": [ 1, 3, 9, 10, 5, 8, 4, 2, 1, 6], 'check_digit_for_1':1},
+            "LV_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
+                          "country":"LV","name":"", "len":11, 
+                        "weights": [ 1, 3, 9, 10, 5, 8, 4, 2, 1, 6], 'check_digit_for_1':1},
+ 
+            "LT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LT", "name":"Legal identity code", "len":9, 
+                        "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 1 ], 
+                         "return_rest": True },
+            "LT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
+                         "country":"LT", "name":"Legal identity code", "len":9, 
+                        "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 1 ], 
+                         "return_rest": True },
+
+            "EE_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"EE", "name":"Legal identity code", "len":8, 
+                        "weights": [  1, 2, 3, 4, 5, 6, 7 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9 ], 
+                         "return_rest": True },
+
+            "EE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
+                         "country":"EE", "name":"Legal identity code", "len":8, 
+                        "weights": [  1, 2, 3, 4, 5, 6, 7 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9 ], 
+                         "return_rest": True },
+
+            "BG_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"BG","name":"UIC", "len":9, 
+                        "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 10 ], 
+                         "return_rest": True },
+
+            "BG_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
+                          "country":"BG","name":"UIC", "len":9, 
+                        "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 10 ], 
+                         "return_rest": True },
+
+            "IT_COMPANY_ID": {"algorithm":self.validate_italy, "country":"IT","name":"Partita IVA", "len":11} ,
+            "IT_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_italy, 
+                          "country":"IT","name":"VAT IT", "len":11},
+
+            "BE_COMPANY_ID": {"algorithm":self.validate_modulus97, "country":"BE","name":"Ondernemingsnummer", "len":10},
+            "BE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus97, 
+                          "country":"BE", "name":"Ondernemingsnummer", "len":10},
+
+            "SE_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"SE","name":"Organisationsnummer", "len":10},
+            "SE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus10, 
+                          "country":"SE","name":"Organisationsnummer", "len":10},
+            
+            "FR_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"FR","name":"Siren", "len":9},
+            "FR_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus10,"country":"FR","name":"Siren", "len":9},
+
+            "PL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"PL","name":"KRS", "len":10},
+            "PL_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"PL","name":"KRS", "len":10},
+
+            "HU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"HU","name":"Adoszam", "len":11},
+            "HU_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"HU","name":"KRS", "len":11},
+
+            "IE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"IE", "name":"CRO", "min_len": 3, "len":6 },
+            "IE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"IE","name":"CRO", "min_len": 3, "len":6 },
+
+            "US_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"UA","name":"EIN",  "len":9 },
+            "US_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"US","name":"EIN",  "len":9 },
+
+            "MX_COMPANY_ID": {"algorithm":self.validate_mx, "country":"MX","name":"RFC",  "len":12},
+            "MX_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_mx,"country":"MX","name":"RFC",  "len":12},
+          
+
+            "AT_COMPANY_ID": {"algorithm":self.validate_fn,"country":"AT","name":"FN",  "min_len":1, "len":7,
+                              "before_list":["FB", "FN", "ZVR", ""], 
+                              'after_allowed':True},
+            "AT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"AT","name":"ATU",  
+                          "len":8, "before_list":["ATU", ""]},
+
+            "SE_BG": {"algorithm":self.validate_modulus10, "country":"SE","name":"Bankgiro", "min_len":7, "len":8},    
+            "DK_NATURAL": {"algorithm":self.validate_modulus11, "country":"DK","name":"CPR",
+                        "weights": [ 4,3,2,7,6,5,4,3,2,1 ], "len":10}, 
+            "standard":{"algorithm":self.validate_modulus11, "country":"","name":"standard", "len":0,
+                        "weights": [7, 6, 5, 4, 3, 2, 1] }
         }
         return
-    def clean_key(self, row) -> str:
-        return self.clean_str(row['key'])
-    
+
     def clean_str(self,s:str) -> str:
         s = s.translate(self.clean_table)
         return  s.replace(' ','')
 
-    def calc_modulus11_chkdigit(self, s:str, variant) -> int:
-        weights = self.definitions[variant]["weights"]
-        if not isinstance(s, str) or not s.isdigit():
-            return -1
+    def create_result_error(self, error:str, result={}):
+        result['validation_result'] = False
+        result['error'] = error
+        return result
+
+    def create_result_ok(self, result={}):
+        result['validation_result'] = True
+        return result
+
+    def calc_modulus11_remainder(self, s, weights, variant):
         i = 0
         res = 0
         for c in s:
@@ -57,32 +183,37 @@ class modulus:
                 i=0
             res += int(c) * weights[i]
             i += 1
+        # some variations on what to return when rest is 0 and 1
+        mult10=variant.get('mult10', False)
+        if mult10:
+            res = res * 10
 
-        rest = res % 11 
-        if (rest == 0):
+        return  res % 11 
+
+    def calc_modulus11_check_digit(self, s:str, variant) -> int:
+        return_rest = variant.get('return_rest', False)
+        rest = self.calc_modulus11_remainder(s, variant["weights"], variant)
+        # special for the Latvia and estonian do two rounds... 
+        if rest == 10:
+            round2 = variant.get("weights_round2", None)
+            if round != None:
+                rest = self.calc_modulus11_remainder(s, round2, variant)
+                if rest == 10:
+                    return 0
+            return_10 = variant.get("return_10", None)
+            if return_10 != None:
+                return return_10     
+        if return_rest:
             return rest
+        # some variations on what to return when rest is 0 and 1
+        if rest == 0: 
+            return variant.get('check_digit_for_0', 0)
+        if rest == 1:
+            return variant.get('check_digit_for_1', 0)
         else: 
             return 11 - rest
-
-    def validate_modulus11(self, s:str, variant):
-        result = {}
-        exp_len = self.definitions[variant]["len"]
-        if not isinstance(s, str) or not s.isdigit():
-            return {'validation_result':False, 'error':'not string or digits'}
-        if exp_len > 0 and len(s) != exp_len:
-            return {'validation_result':False, 'error':'wrong length'}
-        result['excl_chk_dig'] = s[0:exp_len - 1]
-        result['expected'] = int(s[exp_len-1:exp_len])
-        result['check_digit'] = self.calc_modulus11_chkdigit(result['excl_chk_dig'], variant)
-        if (result['check_digit'] == result['expected']):
-            result['validation_result'] = True
-        else:
-            result['validation_result'] = False
-            result['error'] = 'Wrong modulus 11 check digit'
-   
-        return result 
     
-    def calc_modulus10(self, s:str) -> int:
+    def calc_modulus10_check_digit(self, s:str, variant=None) -> int:
         res = 0
         reverse_digits = s[::-1]
         for i, d in enumerate(reverse_digits):
@@ -92,58 +223,77 @@ class modulus:
                 if n > 9:
                     n -= 9
             res += n
-
         chk_dig = 10 - (res % 10)
         if chk_dig == 10:
             return 0
         else:
             return chk_dig
+
+    def validate_modulus(self, s:str, variant, calc_function):
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] == False:
+            return result
+        result['check_digit'] = calc_function(result['excl_chk_dig'], variant)
+        if (result['check_digit'] == result['expected']):
+            return self.create_result_ok(result)
+        else:
+            return self.create_result_error('Wrong modulus 11 check digit', result)
+         
+    def validate_modulus11(self, s:str, variant):
+        return self.validate_modulus(s, variant, self.calc_modulus11_check_digit)
     
     def validate_modulus10(self, s:str, variant):
-        exp_len = self.definitions[variant]["len"]
-        if not isinstance(s, str) or not s.isdigit():
-            return {'validation_result':False, 'error':'not string or digits'}
-        if exp_len > 0 and len(s) != exp_len:
-            return {'validation_result':False, 'error':'wrong length'}
-        result = {}
-        result['excl_chk_dig']= s[0:exp_len - 1] 
-        result['expected'] = int(s[exp_len-1:exp_len])
-#        res = self.calc_modulus10(result['excl_chk_dig'])
-        result['check_digit'] = self.calc_modulus10(result['excl_chk_dig'])
-        if (result['check_digit'] == result['expected']):
-            result['validation_result'] = True
-        else:
-            result['validation_result'] = False
-            result['error'] = 'Wrong modulus 11 check digit'
+        return self.validate_modulus(s, variant, self.calc_modulus10_check_digit)
 
+    def validate_italy(self, s:str, variant):
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] == False:
+            return result
+        i=1
+        res = 0
+        for c in result['excl_chk_dig']:
+            if i % 2 == 0:  # even
+                x = int(c) * 2
+                if x > 9:
+                    x = x - 9
+                res += x
+            else:
+                res += int(c)
+            i += 1
+        result['res'] = res
+        result['check_digit'] = (10 - (res % 10)) % 10
+        if (result['check_digit'] == result['expected']):
+            return self.create_result_ok(result)
+        else:
+            return self.create_result_error('Wrong modulus 11 check digit', result)
+        
+                
+    def validate_modulus97(self, s:str, variant):
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] == False:
+            return result
+        result['first8'] = int(result['number'][0:8])  # first 8 digits - already validated a numeric string
+        result['last2'] = int(result['number'][8:10])
+        result['remainder'] = result['first8'] % 97
+        result['mod97'] = 97 - result['remainder']
+        result['validation_result'] = result['last2'] == result['mod97']
         return result
+    
+    def validate_just_numeric(self, s:str, variant):
+        return self.get_before_number_after(s, variant)
+
 
     def validate_fn(self, s, variant):
         # simplified validation of austrian number 1..6 digits followed by a character (lowercase)
-        max_len = self.definitions[variant]["len"]
-        if not isinstance(s, str) or len(s) > max_len:
-            return {'validation_result':False, 'error':'wrong len'}
-        chk_char=s[len(s)-1:len(s)]
-        digits= s[0:len(s) - 1] 
-        if not digits.isdigit() or len(digits) > 6:
-            return {'validation_result':False, 'error':'not string or digits'}
-        if chk_char < 'a' or chk_char > 'z':
-            return {'validation_result':False, 'error':'check char not between a and z'}
-        
-        return {'validation_result':True}
-        
-  
-    def calc_chk_digit(self, s, variant):
-        return self.calc_modulus11_chkdigit(s, variant)
-
-    def validate_che(self, s, variant):  # dot's and hyphens removed before call
-        if s[0:3] !=  'CHE':  # must start with CHE
-            return {'validation_result':False, 'error':'Does not start with CHE'}
-
-        digits = s[3:len(s)] # take position after CHE and to end of string and do a modulus 11
-        return self.validate_modulus11(digits, variant)
-
-    def get_before_number_after(self, s):
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] == False:
+            return result
+        if len(result['after']) != 1 or result['after'] < 'a' or result['after'] > 'z':
+            return self.create_result_error('check char not between a and z', result)
+        # still her all good
+        return self.create_result_ok(result)
+    
+    def get_before_number_after(self, s, variant):
         result={'before':'', 'number':'', 'after':''}
         i=0
         while i<len(s) and s[i].isdigit() == False:
@@ -155,73 +305,148 @@ class modulus:
         while i<len(s):
             result['after'] += s[i]
             i += 1
-        return result
+        # Validations - initially set to all good
+        after_allowed = variant.get('after_allowed', False)
+        before_list = variant.get('before_list', None)
+        max_len = variant.get('len', 0)  
+        min_len = variant.get('min_len', -1)
+        if len(result['number']) != max_len and  min_len == -1:
+            return self.create_result_error('Length of number does not match fixed number', result)
+        if len(result['number']) > max_len or len(result['number']) < min_len:
+            return self.create_result_error('Length of number not between min and max', result)
+        if before_list == None and len(result['before']) > 0:
+            return self.create_result_error('Length of before > 0 and empty before_list', result)
+        if before_list != None and result['before'] not in before_list:
+            return self.create_result_error('The before string is not in allowed before_list', result)
+        if len(result['after']) > 0 and after_allowed == False:
+            return self.create_result_error('The after string is not empty', result)
+        # still ehre all good
+        num_len = len(result['number'])
+        result['excl_chk_dig']= result['number'][0:num_len  - 1] 
+        result['expected'] = int(result['number'][num_len-1:num_len])
+        return self.create_result_ok(result)
 
     def validate_germany(self, s, variant):
-        result = self.get_before_number_after(s)
-        if result['before'] not in ['HRB', 'HRA']:
-            return {'validation_result':False, 'error':'Does not start with HRB, HRA'}
-        if not result['number'].isdigit():
-            return {'validation_result':False, 'error':'The number is not digits'}
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] == False:
+            return result
         result['XJustiz_code'] = self.dict_xjustiz.get(result['after'], None)
         if result['XJustiz_code'] == None:
-            result['validation_result'] = False
-            result['error']  = "Invalid XJustis code"
+            return self.create_result_error("Invalid XJustis code", result)
         # still here all good 
-        result['validation_result'] = True
-        return result
+        return self.create_result_ok(result)
         
-    def validate_germany_old(self, s, variant):
-        result = {}
-        result['type'] = s[0:3]
-        if result['type'] not in ['HRB', 'HRA']:
-            return {'validation_result':False, 'error':'Does not start with HRB, HRA'}
-        result['number'] =  ""
-        i = 3
-        while s[i].isdigit():
-            result['number'] += s[i]
-            i += 1  
-        result['court_name'] = ""
-        while i<len(s):
-            result['court_name'] += s[i]
-            i += 1
-        # find the XJustis if it is there
-        result['XJustiz_code'] = self.dict_xjustiz.get(result['court_name'], None)
-        # optimistic
-        if not result['number'].isdigit():
-            return {'validation_result':False, 'error':'The number is not digits'}
-        if len(result['number']) < 1 or len(result['number']) > 5:
-            return {'validation_result':False, 'error':'The number is not digits'}
-        if result['XJustiz_code'] == None:
-            result['validation_result'] = False
-            result['error']  = "Invalid XJustis code"
-        
-        # still here all good 
-        result['validation_result'] = True
-        return result
 
     def validate_ly(self, s, variant):    # Finnish Ly-number can be missing a leading 0 and we ignore hyphens
         if len(s) == 7:     # don't think it can be shorter than 7 digits who should have one zero added first
             s = s.zfill(8)
         return self.validate_modulus11(s, variant)
         
-    def validate(self, s, variant):
-        s = self.clean_str(s)         # clean up the string
-        if  self.definitions.get(variant, None) == None:
+    def validate_vat_std(self, s, variant):
+        result = self.get_before_number_after(s, variant)
+        result['var_cntry'] = variant['country']
+        if (result['before'][0:2] != result['var_cntry']):
+            return self.create_result_error('country code not valid', result)
+        # now validate the number with company id variant
+        number_algo = variant.get('number_algorithm', None)
+        if number_algo == None:  # no further validation just the number in correct lenght from above
+            return self.create_result_ok(result)
+        else:
+            return number_algo(result['number'], variant)        
+
+    def validate_mx(self, s, variant):
+        result={}
+        if len(s) != 12:
+            return self.create_result_error("wrong len must be 12")
+        result['YYMMDD'] = s[3:9]    
+        if result['YYMMDD'].isdigit() == False:
+            return self.create_result_error("not numeric YYMMDD")   
+        result['HOMOCLAVE'] = s[9:11]
+        return self.create_result_ok(result)
+
+    def validate(self, s, variant_name):
+        variant = self.definitions.get(variant_name, None)
+        if  variant == None:
             return {'validation_result':False, 'error':'Algorithm not found'}
-        algo = self.definitions[variant]["algorithm"]
-        res = algo(s, variant)
+        s = self.clean_str(s)
+        zfill_len = variant.get('zfill_len', 0)
+        if zfill_len > 0:
+            s = s.zfill(zfill_len)
+
+        algo = variant["algorithm"]
+        return algo(s, variant)
+   
+    def validate_bool(self, s, variant_name) -> bool:
+        res = self.validate(s, variant_name)
         return res['validation_result']
 
+    def validate_COMPANY_ID(self, s, country_code):
+        return self.validate(s, country_code + '_COMPANY_ID')
+
+    def validate_VAT_ID(self, s, country_code):
+        variant = self.definitions.get(country_code + '_VAT_ID', None)
+        if variant != None:
+            return self.validate(s, country_code + '_VAT_ID')
+        else:
+            variant = self.definitions.get(country_code + '_COMPANY_ID')
+            result = self.get_before_number_after(s, variant)
+            result['var_cntry'] = variant['country']
+            if (result['before'][0:2] != result['var_cntry']):
+                 return self.create_result_error('country code not valid', result)
+            return variant['algorithm'](result['number'], variant)        
+
+
     def validate_COMPANY_ID_bool(self, s, country_code):
-        return self.validate(s, country_code + '_' + 'LEGAL')
+        return self.validate_bool(s, country_code + '_COMPANY_ID')
+
+    def validate_VAT_ID_bool(self, s, country_code):
+        result = self.validate_VAT_ID(s, country_code)
+        return result['validation_result']
 
 if __name__=="__main__":
-    r='validate'
     m_obj = modulus()
-    r = m_obj.validate_germany(m_obj.clean_str('HRB-1234 Aachen'), 'DE_COMPANY_ID') # Offical example
-    print("Here we go")
+    r = m_obj.validate_VAT_ID_bool('NO123456785', 'NO')
+
+#    r = m_obj.validate_COMPANY_ID('0001590082', 'RO')
+#    r = m_obj.validate_COMPANY_ID('01590082', 'RO')
+
     print(r)
+    print(r)
+#    r = m_obj.validate_COMPANY_ID('094014298', 'GR')
+#   r = m_obj.validate_COMPANY_ID('12870491-2-41', 'HU')  
+#   r = m_obj.validate_VAT_ID('BG12870491-2-41', 'HU')  
+#    r = m_obj.validate_COMPANY_ID('ABC680524P76', 'MX')
+#    r = m_obj.validate_COMPANY_ID('131468980', 'BG') # 
+#    r = m_obj.validate_COMPANY_ID('111111118', 'LT') # 
+#    r = m_obj.validate_COMPANY_ID('10345833', 'EE') # 
+#    r = m_obj.validate_COMPANY_ID('200000017', 'LT') # 
+
+
+#    r = m_obj.validate_COMPANY_ID('20000001', 'LT') # 
+#    r = m_obj.validate_COMPANY_ID('188659752', 'LT') # 
+#    r = m_obj.validate_COMPANY_ID('300060819', 'LT') # 
+# 188659752
+# 300060819
+    print(r)
+#   r = m_obj.validate_VAT_ID('ATU12345678', 'AT') # 
+#    r = m_obj.validate_COMPANY_ID('40003032949', 'LV') # Offical example
+#    r = m_obj.validate_VAT_ID('BE0403.019.261', 'BE')
+#    r = m_obj.validate_VAT_ID('IT01533030480', 'IT')
+#    r = m_obj.validate_VAT_ID('ESA28123453', 'ES') # Offical example
+
+#    r = m_obj.validate_COMPANY_ID('01533030480', 'IT')
+    
+#    r = m_obj.validate_COMPANY_ID('19871234569', 'LU') 
+#    r = m_obj.validate_COMPANY_ID('25596641', 'CZ')
+#    r = m_obj.validate_COMPANY_ID('0403.019.261', 'BE')
+#    r = m_obj.validate_COMPANY_ID_bool('A28123453', 'ES') # Offical example
+#    r = m_obj.validate_COMPANY_ID_bool('1234567890', 'PL') # Offical example
+#    r = m_obj.validate_germany(m_obj.clean_str('HRB-1234 Aachen'), 'DE_COMPANY_ID') # Offical example
+#    x = m_obj.clean_str('Bad Homburg v.d.H.')
+#    print(x)
+#    print(m_obj.dict_xjustiz[x])
+#    print(m_obj.dict_xjustiz['Aachen'])
+#    print(r)
 #    r = m_obj.validate_COMPANY_ID_bool('123456785', 'NO') # Offical example
 #    r = m_obj.validate('974760673', 'NO_COMPANY_ID') # Brönnoy sund 
     
@@ -241,8 +466,7 @@ if __name__=="__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--command", choices=['calculate', 'validate' ])
-    parser.add_argument("-v", "--variant", choices=['standard', 'kvn',
-                                                    'cpr', 'cvr' ])
+    parser.add_argument("-v", "--variant", choices=['standard', 'kvn',                                                    'cpr', 'cvr' ])
     parser.add_argument("-i", "--input")
     args=parser.parse_args()
     r=-1
@@ -251,5 +475,3 @@ if __name__=="__main__":
         r=m_obj.calc_chk_digit(args.input, args.variant)
     if args.command == 'validate':
         r=m_obj.validate(args.input, args.variant)
-
-    print(r)
