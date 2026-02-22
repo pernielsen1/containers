@@ -1,7 +1,14 @@
+""" company_identifiers: class validating company identifiers and VAT-id's primarily in Europe
+
+    variations of check digit calculations stored in definitions.
+    main access via validate_COMPANY_id and validate_VAT_ID
+    for test convinience also exists in .bool variations.
+    
+"""
+
 import argparse
 import os
 import json
-# https://github.com/hubipe/company-identifiers/tree/master/src/CountryValidators
 
 class company_identifiers:
     def __init__(self):
@@ -197,7 +204,6 @@ class company_identifiers:
         else:
             return self.create_result_error('Wrong modulus 11 check digit', result)
         
-                
     def validate_modulus97(self, s:str, variant):
         result = self.get_before_number_after(s, variant)
         if result['validation_result'] == False:
@@ -318,7 +324,6 @@ class company_identifiers:
 
         return result            
 
-
     def validate_VAT_ID(self, s, country_code):
         variant = self.definitions.get(country_code + '_VAT_ID', None)
         if variant != None:
@@ -345,14 +350,12 @@ if __name__=="__main__":
     r = m_obj.validate_COMPANY_ID('HRB-1234 Aachen', 'DE')
     print(r)
 
-    r = m_obj.validate_COMPANY_ID('2021005489', 'SE')
+#    r = m_obj.validate_COMPANY_ID('2021005489', 'SE')
 
 #    r = m_obj.validate_COMPANY_ID('0001590082', 'RO')
 #    r = m_obj.validate_COMPANY_ID('01590082', 'RO')
 
-    print(r)
-    print(r)
-#    r = m_obj.validate_COMPANY_ID('094014298', 'GR')
+#     r = m_obj.validate_COMPANY_ID('094014298', 'GR')
 #   r = m_obj.validate_COMPANY_ID('12870491-2-41', 'HU')  
 #   r = m_obj.validate_VAT_ID('BG12870491-2-41', 'HU')  
 #    r = m_obj.validate_COMPANY_ID('ABC680524P76', 'MX')
