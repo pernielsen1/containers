@@ -308,12 +308,13 @@ class modulus:
     def validate_COMPANY_ID(self, s, country_code):
         result =  self.validate(s, country_code + '_COMPANY_ID') 
         if result['validation_result']: 
-            variant = self.definitions[country_code + '_COMPANY_ID']
-            mask = variant.get('mask', None)
-            if mask == None:
-                result['edited_name'] = s
-            else:
-                result['edited_name'] = mask % tuple(result['number'])
+            if result.get('edited_name', None) == None:
+                variant = self.definitions[country_code + '_COMPANY_ID']
+                mask = variant.get('mask', None)
+                if mask == None:
+                    result['edited_name'] = s
+                else:
+                    result['edited_name'] = mask % tuple(result['number'])
 
         return result            
 
@@ -342,6 +343,8 @@ if __name__=="__main__":
     m_obj = modulus()
 #    r = m_obj.validate_VAT_ID_bool('NO123456785', 'NO')
     r = m_obj.validate_COMPANY_ID('HRB-1234 Aachen', 'DE')
+    print(r)
+
     r = m_obj.validate_COMPANY_ID('2021005489', 'SE')
 
 #    r = m_obj.validate_COMPANY_ID('0001590082', 'RO')
