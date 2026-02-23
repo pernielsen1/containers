@@ -203,7 +203,11 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('094014298', 'GR'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('094014290', 'GR'), False)  
 
-  def test_great_brotain(self): 
+  def test_slovenia(self): 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('50223054', 'SI'), True)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('50223053', 'SI'), False)  
+
+  def test_great_britain(self): 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12345678', 'GB'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('SC123456', 'GB'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FC123566', 'GB'), True)  

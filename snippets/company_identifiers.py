@@ -51,7 +51,10 @@ class company_identifiers:
                               "before_list": ['SC', 'FC', '']},
 
             # TBD add modulus 89 ? 
+
             "DE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"DE", "name":"Germany VAT", "len":9},
+            "CA_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"CA", "name":"BN business number", 
+                              "len":9},
             "NL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"NL", "name":"KVN",  "len":8},
             "ES_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"ES", "name":"Spanish NIF", "len":8, 
                         "before_list": ['A', 'B', 'C', 'F', 'G', 'N', 'W']},
@@ -69,6 +72,9 @@ class company_identifiers:
                         "before_list": ['B','']},
             "LV_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LV", "name":"", "len":11, 
                         "weights": [ 1, 3, 9, 10, 5, 8, 4, 2, 1, 6], 'check_digit_for_1':1},
+            "SI_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"SI","name":"ID za DDV", "len":8 ,
+                        "weights": [ 8, 7, 6, 5, 4, 3, 2 ]},
+
             "LT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LT", "name":"Legal identity code", "len":9, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 1 ], 
                          "return_rest": True },
@@ -79,6 +85,7 @@ class company_identifiers:
                         "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 10 ], 
                          "return_rest": True },
             "IT_COMPANY_ID": {"algorithm":self.validate_italy, "country":"IT","name":"Partita IVA", "len":11} ,
+
             "BE_COMPANY_ID": {"algorithm":self.validate_modulus97, "country":"BE","name":"Ondernemingsnummer", "len":10},
             "BE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus97, 
                           "country":"BE", "name":"Ondernemingsnummer", "len":10},
@@ -364,15 +371,16 @@ class company_identifiers:
 
 if __name__=="__main__":
     m_obj = company_identifiers()
+    r = m_obj.validate_COMPANY_ID('50223054', 'SI')
+
 #    r = m_obj.validate_VAT_ID_bool('NO123456785', 'NO')
-    r = m_obj.validate_COMPANY_ID('HRB-1234 Aachen', 'DE')
+#    r = m_obj.validate_COMPANY_ID('HRB-1234 Aachen', 'DE')
+    print(r)
     print(r)
 
 #    r = m_obj.validate_COMPANY_ID('2021005489', 'SE')
-
 #    r = m_obj.validate_COMPANY_ID('0001590082', 'RO')
 #    r = m_obj.validate_COMPANY_ID('01590082', 'RO')
-
 #     r = m_obj.validate_COMPANY_ID('094014298', 'GR')
 #   r = m_obj.validate_COMPANY_ID('12870491-2-41', 'HU')  
 #   r = m_obj.validate_VAT_ID('BG12870491-2-41', 'HU')  
