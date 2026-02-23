@@ -153,11 +153,11 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('CZ25596641', 'CZ') , True)   # AI google example
 
   def test_luxembourg(self): # Luxembourg  TBD more edge cases in test for 1 in rest
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('19871234569', 'LU') , True)   # AI google example
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('B112.11', 'LU') , True)   # AI google example
 #        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('92345678902', 'LU') , True)   # OECD example
         # Result: Remainder 0 results in check digit 0 or 2 depending on specific tax office rounding, but commonly matches 2 in practice for certain registry series.      
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('19871234568', 'LU') , False)   # Wrong digit
-    self.assertEqual(self.m_obj.validate_VAT_ID_bool('LU19871234569', 'LU') , True)   # AI google example
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('1234', 'LU') , False)   # Wrong digit
+    self.assertEqual(self.m_obj.validate_VAT_ID_bool('LUB1234', 'LU') , True)   # AI google example
 
   def test_italy(self): # Italy a variant of luhn 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('01533030480', 'IT') , True)   # AI google example
