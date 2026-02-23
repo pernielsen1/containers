@@ -44,7 +44,8 @@ class company_identifiers:
                         "weights": [  7, 5, 3, 2, 1, 7, 5, 3, 2], "mult10": True, "zfill_len":10,
                          "return_rest": True, "return_10":0},
             "DE_COMPANY_ID": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc", 
-                              "country":"DE", "min_len":3, "len":6, "before_list": ['HRA', 'HRB'], 'after_allowed':True},
+                              "country":"DE", "min_len":3, "len":6, 
+                              "before_list": ['HRA', 'HRB', 'GnR', 'GsR', 'VR', 'PR'], 'after_allowed':True},
             # TBD add modulus 89 ? 
             "DE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"DE", "name":"Germany VAT", "len":9},
             "NL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"NL", "name":"KVN",  "len":8},
@@ -82,7 +83,7 @@ class company_identifiers:
 
             "FR_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"FR","name":"Siren", "len":9},
             "PL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"PL","name":"KRS", "len":10},
-            "HU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"HU","name":"Adoszam", "len":11},
+            "HU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"HU","name":"Adoszam", "len":10},
             "IE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"IE", "name":"CRO", "min_len": 3, "len":6 },
             "US_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"UA","name":"EIN",  "len":9 },
             "US_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"US","name":"EIN",  "len":9 },
@@ -133,7 +134,7 @@ class company_identifiers:
         # special for the Latvia and estonian do two rounds... 
         if rest == 10:
             round2 = variant.get("weights_round2", None)
-            if round != None:
+            if round2 != None:
                 rest = self.calc_modulus11_remainder(s, round2, variant)
                 if rest == 10:
                     return 0
@@ -329,7 +330,10 @@ class company_identifiers:
         if variant != None:
             return self.validate(s, country_code + '_VAT_ID')
         else:
-            variant = self.definitions.get(country_code + '_COMPANY_ID')
+            variant = self.definitions.get(country_code + '_COMPANY_ID', None)
+            if variant == None:
+                return self.create_result_error("VAT-ID no country algorithm available")
+
             result = self.get_before_number_after(s, variant)
             result['var_cntry'] = variant['country']
             if (result['before'][0:2] != result['var_cntry']):
