@@ -46,6 +46,10 @@ class company_identifiers:
             "DE_COMPANY_ID": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc", 
                               "country":"DE", "min_len":3, "len":6, 
                               "before_list": ['HRA', 'HRB', 'GnR', 'GsR', 'VR', 'PR'], 'after_allowed':True},
+            "GB_COMPANY_ID": {"algorithm":self.validate_great_britain,"name":"UK SC, FC, etcc", 
+                              "country":"GB", "min_len":6, "len":8, 
+                              "before_list": ['SC', 'FC', '']},
+
             # TBD add modulus 89 ? 
             "DE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"DE", "name":"Germany VAT", "len":9},
             "NL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"NL", "name":"KVN",  "len":8},
@@ -61,8 +65,8 @@ class company_identifiers:
                         "weights": [ 9, 8, 7, 6, 5, 4, 3, 2]},
             "CZ_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"CZ", "name":"ICO", "len":8, 
                         "weights": [ 8, 7, 6, 5, 4, 3, 2], "check_digit_for_0":1},
-            "LU_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LU", "name":"LU RCS", "min_len":4, "len":6, 
-                        "before_list": ['B',''},
+            "LU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LU", "name":"LU RCS", "min_len":4, "len":6, 
+                        "before_list": ['B','']},
             "LV_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LV", "name":"", "len":11, 
                         "weights": [ 1, 3, 9, 10, 5, 8, 4, 2, 1, 6], 'check_digit_for_1':1},
             "LT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LT", "name":"Legal identity code", "len":9, 
@@ -275,6 +279,16 @@ class company_identifiers:
                                      self.dict_xjustiz_to_name[result['XJustiz_code']] ) 
      
         return self.create_result_ok(result)
+
+    def validate_great_britain(self, s, variant):
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] == False:
+            return result
+        if (len(result['number']) == 6 and len(result['before']) == 2) or len(result['number']) == 8:
+            return self.create_result_ok(result)
+        else: # bad
+            return self.create_result_error("GB wrong len")
+        
         
     def validate_vat_std(self, s, variant):
         result = self.get_before_number_after(s, variant)

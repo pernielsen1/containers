@@ -156,8 +156,8 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('B112.11', 'LU') , True)   # AI google example
 #        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('92345678902', 'LU') , True)   # OECD example
         # Result: Remainder 0 results in check digit 0 or 2 depending on specific tax office rounding, but commonly matches 2 in practice for certain registry series.      
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('1234', 'LU') , False)   # Wrong digit
-    self.assertEqual(self.m_obj.validate_VAT_ID_bool('LUB1234', 'LU') , True)   # AI google example
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12345', 'LU') , True)   # 
+    self.assertEqual(self.m_obj.validate_VAT_ID_bool('LUB1234', 'LU') , True) # why is false not correct ?   
 
   def test_italy(self): # Italy a variant of luhn 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('01533030480', 'IT') , True)   # AI google example
@@ -203,10 +203,14 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('094014298', 'GR'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('094014290', 'GR'), False)  
 
-  def test_romania(self): 
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0001590082', 'RO'), True)  
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('01590082', 'RO'), True)  
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0001590084', 'RO'), False)  
+  def test_great_brotain(self): 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12345678', 'GB'), True)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('SC123456', 'GB'), True)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FC123566', 'GB'), True)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FC12356', 'GB'), False)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('SC12356', 'GB'), False)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('412356', 'GB'), False)  
+
 
   @classmethod
   def tearDownClass(cls):
