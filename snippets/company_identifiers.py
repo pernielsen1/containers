@@ -82,6 +82,9 @@ class company_identifiers:
                         
             "SK_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"SK","name":"ICO", "len":8},
 
+            "MT_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"MT","name":"ICO", 
+                              "before_list":['C'], "min_len":3, "len":5},
+
             "LT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LT", "name":"Legal identity code", "len":9, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 1 ], 
                          "return_rest": True },
