@@ -12,7 +12,7 @@ import json
 
 class company_identifiers:
     def __init__(self):
-        self.clean_table = str.maketrans('.-()/',"     ")
+        self.clean_table = str.maketrans('.-()',"    ")
         # load the Xjustiz - json and clean the keys
         module_path = os.path.dirname(os.path.abspath(__file__))
         with open(module_path + '/' + 'XJustiz.json') as json_file:
@@ -76,8 +76,10 @@ class company_identifiers:
                         "before_list": ['B','']},
             "LV_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LV", "name":"", "len":11, 
                         "weights": [ 1, 3, 9, 10, 5, 8, 4, 2, 1, 6], 'check_digit_for_1':1},
-            "SI_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"SI","name":"ID za DDV", "len":8 ,
+            "SI_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"SI","name":"dont know", "len":10 },
+            "SI_COMPANY_ID_IDza": {"algorithm":self.validate_modulus11, "country":"SI","name":"ID za DDV", "len":8 ,
                         "weights": [ 8, 7, 6, 5, 4, 3, 2 ]},
+                        
             "SK_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"SK","name":"ICO", "len":8},
 
             "LT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LT", "name":"Legal identity code", "len":9, 
@@ -326,18 +328,17 @@ class company_identifiers:
     
     def validate_romania(self, s, variant):
         result={}
-        if len(s) != 12:
-            return self.create_result_error("J-number wrong len must be 12")
-        result['J'] = s[0:1]
-        result['COUNTY'] = s[1:3]
-        result['number'] = s[3:8]
-        result['YYYY'] = s[8:12]
+        elements = s.split('/')
+        result['J'] = elements[0]
+        result['COUNTY'] = elements[1]
+        result['number'] = elements[2]
+        result['YYYY'] = elements[3]
         if result['J'] != 'J':
-            return self.create_result_error("J-number wrong first char not a J")
+            return self.create_result_error("J-number wrong first char not a J", result)
         if result['number'].isdigit() == False:
-            return self.create_result_error("J-number not numeric in the middle")
+            return self.create_result_error("J-number not numeric in the middle", result)
         if result['YYYY'].isdigit() == False:
-            return self.create_result_error("J-number not numeric YYYY")
+            return self.create_result_error("J-number not numeric YYYY", result)
         # still here all good            
         return self.create_result_ok(result)
 
