@@ -12,7 +12,7 @@ import json
 
 class company_identifiers:
     def __init__(self):
-        self.clean_table = str.maketrans('.-()',"    ")
+        self.clean_table = str.maketrans('.-()/',"     ")
         # load the Xjustiz - json and clean the keys
         module_path = os.path.dirname(os.path.abspath(__file__))
         with open(module_path + '/' + 'XJustiz.json') as json_file:
@@ -40,9 +40,13 @@ class company_identifiers:
                         "zfill_len":8,  "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ]},
             "GR_COMPANY_ID" : {"algorithm":self.validate_modulus11,"country":"GR", "name":"AFM", "len": 9,
                         "weights": [  256, 128, 64, 32, 16, 8, 4, 2], "return_rest": True, "return_10":0},
-            "RO_COMPANY_ID" : {"algorithm":self.validate_modulus11,"country":"RO", "name":"CUI/CIF", "len": 10,
+            "RO_COMPANY_ID_CUI" : {"algorithm":self.validate_modulus11,"country":"RO", "name":"CUI/CIF", "len": 10,
                         "weights": [  7, 5, 3, 2, 1, 7, 5, 3, 2], "mult10": True, "zfill_len":10,
                          "return_rest": True, "return_10":0},
+            "RO_COMPANY_ID" : {"algorithm":self.validate_romania,"country":"RO", "name":"Trade Register Number - J-number", 
+                               "len": 12},
+
+      
             "DE_COMPANY_ID": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc", 
                               "country":"DE", "min_len":3, "len":6, 
                               "before_list": ['HRA', 'HRB', 'GnR', 'GsR', 'VR', 'PR'], 'after_allowed':True},
@@ -74,6 +78,7 @@ class company_identifiers:
                         "weights": [ 1, 3, 9, 10, 5, 8, 4, 2, 1, 6], 'check_digit_for_1':1},
             "SI_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"SI","name":"ID za DDV", "len":8 ,
                         "weights": [ 8, 7, 6, 5, 4, 3, 2 ]},
+            "SK_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"SK","name":"ICO", "len":8},
 
             "LT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LT", "name":"Legal identity code", "len":9, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 1 ], 
@@ -318,6 +323,23 @@ class company_identifiers:
             return self.create_result_error("not numeric YYMMDD")   
         result['HOMOCLAVE'] = s[9:11]
         return self.create_result_ok(result)
+    
+    def validate_romania(self, s, variant):
+        result={}
+        if len(s) != 12:
+            return self.create_result_error("J-number wrong len must be 12")
+        result['J'] = s[0:1]
+        result['COUNTY'] = s[1:3]
+        result['number'] = s[3:8]
+        result['YYYY'] = s[8:12]
+        if result['J'] != 'J':
+            return self.create_result_error("J-number wrong first char not a J")
+        if result['number'].isdigit() == False:
+            return self.create_result_error("J-number not numeric in the middle")
+        if result['YYYY'].isdigit() == False:
+            return self.create_result_error("J-number not numeric YYYY")
+        # still here all good            
+        return self.create_result_ok(result)
 
     def validate(self, in_str, variant_name):
         variant = self.definitions.get(variant_name, None)
@@ -371,7 +393,9 @@ class company_identifiers:
 
 if __name__=="__main__":
     m_obj = company_identifiers()
-    r = m_obj.validate_COMPANY_ID('50223054', 'SI')
+    r = m_obj.validate_COMPANY_ID('J/AB/12345/1999', 'RO')
+
+#    r = m_obj.validate_COMPANY_ID('50223054', 'SI')
 
 #    r = m_obj.validate_VAT_ID_bool('NO123456785', 'NO')
 #    r = m_obj.validate_COMPANY_ID('HRB-1234 Aachen', 'DE')
