@@ -328,11 +328,25 @@ class company_identifiers:
     
     def validate_romania(self, s, variant):
         result={}
+        result['J'] = s[0:1]
         elements = s.split('/')
-        result['J'] = elements[0]
-        result['COUNTY'] = elements[1]
-        result['number'] = elements[2]
-        result['YYYY'] = elements[3]
+        if len(elements) == 5:
+            result['J'] = elements[1]
+            result['COUNTY'] = elements[2]
+            result['number'] = elements[4]
+            result['YYYY'] = elements[4]
+        if len(elements) == 4:
+            result['COUNTY'] = elements[1]
+            result['number'] = elements[2]
+            result['YYYY'] = elements[3]
+        if len(elements) == 3:
+            result['COUNTY'] = elements[0]
+            result['number'] = elements[1]
+            result['YYYY'] = elements[2]
+
+        if len(elements) < 3:
+            return self.create_result_error("J-number not enough parts in elements after split", result)
+     
         if result['J'] != 'J':
             return self.create_result_error("J-number wrong first char not a J", result)
         if result['number'].isdigit() == False:
@@ -394,7 +408,9 @@ class company_identifiers:
 
 if __name__=="__main__":
     m_obj = company_identifiers()
-    r = m_obj.validate_COMPANY_ID('J/AB/12345/1999', 'RO')
+#    r = m_obj.validate_COMPANY_ID('J/AB/12345/1999', 'RO')
+    r = m_obj.validate_COMPANY_ID('/J/AB/12345/1999', 'RO')
+
 
 #    r = m_obj.validate_COMPANY_ID('50223054', 'SI')
 

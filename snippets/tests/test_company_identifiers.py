@@ -209,6 +209,9 @@ class test_moudulus(unittest.TestCase):
 
   def test_romania(self): 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('J/AB/12345/1999', 'RO'), True)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('/J/AB/12345/1999', 'RO'), True)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('JAB/12345/1999', 'RO'), True)  
+
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('J/AB/125/1999', 'RO'), True)  
 
   def test_slovakia(self): 
