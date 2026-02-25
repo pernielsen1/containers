@@ -226,6 +226,9 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('SC12356', 'GB'), False)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('412356', 'GB'), False)  
 
+  def test_great_croatia(self): 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('71481280786', 'HR'), True)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('71481280785', 'HR'), False)  
 
   @classmethod
   def tearDownClass(cls):

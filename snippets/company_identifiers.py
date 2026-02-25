@@ -85,6 +85,9 @@ class company_identifiers:
             "MT_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"MT","name":"ICO", 
                               "before_list":['C'], "min_len":3, "len":5},
 
+            "HR_COMPANY_ID": {"algorithm":self.validate_iso7064_11_10, "country":"HR","name":"OIB", 
+                               "len":11},
+
             "LT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LT", "name":"Legal identity code", "len":9, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 1 ], 
                          "return_rest": True },
@@ -187,7 +190,23 @@ class company_identifiers:
             return 0
         else:
             return chk_dig
-
+    def calc_iso7064_10_11_check_digit(self, s:str, variant) -> int:
+        remainder = 10
+        # Process the first 10 digits
+        for i in range(10):
+            digit = int(s[i])            
+            remainder = (remainder + digit) % 10
+            if remainder == 0:
+                remainder = 10
+            remainder = (remainder * 2) % 11
+        
+        # 3. Calculate expected check digit
+        check_digit = 11 - remainder
+        if check_digit == 10:
+            check_digit = 0
+    
+        return check_digit
+        
     def validate_modulus(self, s:str, variant, calc_function):
         result = self.get_before_number_after(s, variant)
         if result['validation_result'] == False:
@@ -203,6 +222,10 @@ class company_identifiers:
     
     def validate_modulus10(self, s:str, variant):
         return self.validate_modulus(s, variant, self.calc_modulus10_check_digit)
+
+    def validate_iso7064_11_10(self, s:str, variant):
+        return self.validate_modulus(s, variant, self.calc_iso7064_10_11_check_digit)
+
 
     def validate_italy(self, s:str, variant):
         result = self.get_before_number_after(s, variant)
@@ -411,12 +434,11 @@ class company_identifiers:
 
 if __name__=="__main__":
     m_obj = company_identifiers()
+    r = m_obj.validate_COMPANY_ID('71481280786', 'HR')
+
 #    r = m_obj.validate_COMPANY_ID('J/AB/12345/1999', 'RO')
-    r = m_obj.validate_COMPANY_ID('/J/AB/12345/1999', 'RO')
-
-
+#    r = m_obj.validate_COMPANY_ID('/J/AB/12345/1999', 'RO')
 #    r = m_obj.validate_COMPANY_ID('50223054', 'SI')
-
 #    r = m_obj.validate_VAT_ID_bool('NO123456785', 'NO')
 #    r = m_obj.validate_COMPANY_ID('HRB-1234 Aachen', 'DE')
     print(r)
