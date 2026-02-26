@@ -11,6 +11,9 @@ import os
 import json
 
 class company_identifiers:
+    """ company_identifiers - 
+        setting it up definint the variations and loading the Xjustiz for Germany
+    """
     def __init__(self):
         self.clean_table = str.maketrans('.-()',"    ")
         # load the Xjustiz - json and clean the keys
@@ -26,7 +29,6 @@ class company_identifiers:
         for key, item in temp.items():
             self.dict_xjustiz_to_name[item] = '(' + key + ')'
             
-        # TBD - comment in start 
         self.definitions = {
             "DK_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"DK", "name":"CVR" ,
                         "weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},
@@ -126,6 +128,8 @@ class company_identifiers:
         return
 
     def clean_str(self,s:str) -> str:
+        """ Clean the string from the unwanted chars like .- etc 
+        """
         s = s.translate(self.clean_table)
         return  s.replace(' ','')
 
@@ -139,6 +143,8 @@ class company_identifiers:
         return result
 
     def calc_modulus11_remainder(self, s, weights, variant):
+        """ calculate the remainder for modulus 11 for each char in string apply the weights
+        """
         i = 0
         res = 0
         for c in s:
@@ -153,6 +159,9 @@ class company_identifiers:
         return  res % 11 
 
     def calc_modulus11_check_digit(self, s:str, variant) -> int:
+        """ calculata modulus11 check digits - variant may imply more than one round (Latvia & Estonia)
+            different variations exists for how to handle when rest is 10.
+        """
         return_rest = variant.get('return_rest', False)
         rest = self.calc_modulus11_remainder(s, variant["weights"], variant)
         # special for the Latvia and estonian do two rounds... 
@@ -176,6 +185,8 @@ class company_identifiers:
             return 11 - rest
     
     def calc_modulus10_check_digit(self, s:str, variant=None) -> int:
+        """ calculate modulus 10 standard routines alter between *2 and just add 
+        """    
         res = 0
         reverse_digits = s[::-1]
         for i, d in enumerate(reverse_digits):
@@ -191,6 +202,8 @@ class company_identifiers:
         else:
             return chk_dig
     def calc_iso7064_10_11_check_digit(self, s:str, variant) -> int:
+        """ calculate the ISO7064 mod10 11 variation of modulus 10 and 11
+        """
         remainder = 10
         # Process the first 10 digits
         for i in range(10):
@@ -208,6 +221,9 @@ class company_identifiers:
         return check_digit
         
     def validate_modulus(self, s:str, variant, calc_function):
+        """" split the string in the before number and after - then verify if the number 
+        follows the modulus rule in varian the actual calculation taken from the calc function passed
+        """
         result = self.get_before_number_after(s, variant)
         if result['validation_result'] == False:
             return result
@@ -218,16 +234,23 @@ class company_identifiers:
             return self.create_result_error('Wrong modulus 11 check digit', result)
          
     def validate_modulus11(self, s:str, variant):
+        """ wrapper to do modulus 11 via validate modulus
+        """
         return self.validate_modulus(s, variant, self.calc_modulus11_check_digit)
     
     def validate_modulus10(self, s:str, variant):
+        """ wrapper to do modulus 10 via validate modulus
+        """
         return self.validate_modulus(s, variant, self.calc_modulus10_check_digit)
 
     def validate_iso7064_11_10(self, s:str, variant):
+        """ wrapper to do iso7064 modulus 11 10 
+        """
         return self.validate_modulus(s, variant, self.calc_iso7064_10_11_check_digit)
 
-
     def validate_italy(self, s:str, variant):
+        """ do the italian special version
+        """
         result = self.get_before_number_after(s, variant)
         if result['validation_result'] == False:
             return result
@@ -250,6 +273,8 @@ class company_identifiers:
             return self.create_result_error('Wrong modulus 11 check digit', result)
         
     def validate_modulus97(self, s:str, variant):
+        """ do the modulus 97 standard version 
+        """
         result = self.get_before_number_after(s, variant)
         if result['validation_result'] == False:
             return result
@@ -261,9 +286,14 @@ class company_identifiers:
         return result
     
     def validate_just_numeric(self, s:str, variant):
+        """ wrapper is the number numeric and of correct length - actual validation in get_before_number_after
+        """
         return self.get_before_number_after(s, variant)
 
     def validate_fn(self, s, variant):
+        """ austria firmen buch number - just validate we have OK string before (FN, FB or none)
+            followed by a check char between a and z
+        """
         # simplified validation of austrian number 1..6 digits followed by a character (lowercase)
         result = self.get_before_number_after(s, variant)
         if result['validation_result'] == False:
@@ -274,6 +304,9 @@ class company_identifiers:
         return self.create_result_ok(result)
     
     def get_before_number_after(self, s, variant):
+        """ main validation split string in before a number, a number and a string after
+            validate that number has OK length and before string is allowed
+        """
         result={'before':'', 'number':'', 'after':''}
         i=0
         while i<len(s) and s[i].isdigit() == False:
@@ -307,6 +340,9 @@ class company_identifiers:
         return self.create_result_ok(result)
 
     def validate_germany(self, s, variant):
+        """ Germany - split in before which must be one of the allowed values HRB, HRA etc 
+            followed by a number and then a name of a court - the court name should be in the XJustiz dictionary
+        """
         result = self.get_before_number_after(s, variant)
         if result['validation_result'] == False:
             return result
@@ -321,6 +357,8 @@ class company_identifiers:
         return self.create_result_ok(result)
 
     def validate_great_britain(self, s, variant):
+        """ great britain 8 digits or SC FC followed by 6 
+        """
         result = self.get_before_number_after(s, variant)
         if result['validation_result'] == False:
             return result
@@ -331,6 +369,8 @@ class company_identifiers:
         
         
     def validate_vat_std(self, s, variant):
+        """ vat std i.e. the name of the country followed by the normal number for company ID
+        """
         result = self.get_before_number_after(s, variant)
         result['var_cntry'] = variant['country']
         if (result['before'][0:2] != result['var_cntry']):
@@ -343,6 +383,8 @@ class company_identifiers:
             return number_algo(result['number'], variant)        
 
     def validate_mx(self, s, variant):
+        """ Mexico first a string 3 chars then YYMMDD followd by 3 
+        """
         result={}
         if len(s) != 12:
             return self.create_result_error("wrong len must be 12")
@@ -353,6 +395,8 @@ class company_identifiers:
         return self.create_result_ok(result)
     
     def validate_romania(self, s, variant):
+        """ romania the j-number.. uses / to split the string 
+        """
         result={}
         result['J'] = s[0:1]
         elements = s.split('/')
@@ -383,6 +427,8 @@ class company_identifiers:
         return self.create_result_ok(result)
 
     def validate(self, in_str, variant_name):
+        """ main entry point for validation - will return a dict with the results
+        """
         variant = self.definitions.get(variant_name, None)
         if  variant == None:
             return {'validation_result':False, 'error':'Algorithm not found'}
@@ -393,10 +439,14 @@ class company_identifiers:
         return variant["algorithm"](s, variant)
 
     def validate_bool(self, s, variant_name) -> bool:
+        """ wrapper usefull for test return the boolean result of the validation
+        """
         res = self.validate(s, variant_name)
         return res['validation_result']
 
     def validate_COMPANY_ID(self, s, country_code):
+        """ find the variant for the coutnry for COMPANY_ID and run the validate function
+        """
         result =  self.validate(s, country_code + '_COMPANY_ID') 
         if result['validation_result']: 
             if result.get('edited_name', None) == None:
@@ -410,6 +460,9 @@ class company_identifiers:
         return result            
 
     def validate_VAT_ID(self, s, country_code):
+        """ if specific VAT_ID exists (like Germany) then use that variant otherwise just validate 
+            starting with country and then followed by the number for the standard COMPANY_ID routine
+        """
         variant = self.definitions.get(country_code + '_VAT_ID', None)
         if variant != None:
             return self.validate(s, country_code + '_VAT_ID')
@@ -424,26 +477,27 @@ class company_identifiers:
                  return self.create_result_error('country code not valid', result)
             return variant['algorithm'](result['number'], variant)        
 
-
     def validate_COMPANY_ID_bool(self, s, country_code):
+        """ wrapper to return the validation result of COMPANY_ID validation - usefull for test
+        """
         return self.validate_bool(s, country_code + '_COMPANY_ID')
 
     def validate_VAT_ID_bool(self, s, country_code):
+        """ wrapper to validate the VAT_ID usefull for test 
+        """
         result = self.validate_VAT_ID(s, country_code)
         return result['validation_result']
 
 if __name__=="__main__":
     m_obj = company_identifiers()
     r = m_obj.validate_COMPANY_ID('71481280786', 'HR')
-
+    print(r)
+    print(r)
 #    r = m_obj.validate_COMPANY_ID('J/AB/12345/1999', 'RO')
 #    r = m_obj.validate_COMPANY_ID('/J/AB/12345/1999', 'RO')
 #    r = m_obj.validate_COMPANY_ID('50223054', 'SI')
 #    r = m_obj.validate_VAT_ID_bool('NO123456785', 'NO')
 #    r = m_obj.validate_COMPANY_ID('HRB-1234 Aachen', 'DE')
-    print(r)
-    print(r)
-
 #    r = m_obj.validate_COMPANY_ID('2021005489', 'SE')
 #    r = m_obj.validate_COMPANY_ID('0001590082', 'RO')
 #    r = m_obj.validate_COMPANY_ID('01590082', 'RO')
