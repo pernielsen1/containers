@@ -47,10 +47,9 @@ class company_identifiers:
                          "return_rest": True, "return_10":0},
             "RO_COMPANY_ID" : {"algorithm":self.validate_romania,"country":"RO", "name":"Trade Register Number - J-number", 
                                "len": 12},
-
-      
             "DE_COMPANY_ID": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc", 
-                              "country":"DE", "min_len":3, "len":6, 
+                              "comment":"Minimum length normally 4 but see audi in ingolstadt down to 1 exists",
+                              "country":"DE", "min_len":1, "len":6, 
                               "before_list": ['HRA', 'HRB', 'GnR', 'GsR', 'VR', 'PR'], 'after_allowed':True},
             "GB_COMPANY_ID": {"algorithm":self.validate_great_britain,"name":"UK SC, FC, etcc", 
                               "country":"GB", "min_len":6, "len":8, 
