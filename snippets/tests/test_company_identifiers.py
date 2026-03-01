@@ -1,46 +1,34 @@
 #-----------------------------------------------------
 # articles on the test patterns
 # https://docs.python.org/3/library/unittest.html
-
 #--------------------------------------------------------
 # START OF DIRTY
 # OK this is dirty .. we will go directy to the package in the source instead of the installed version of pn_utilities.
-# 
-#import sys, os
-#sys.path.insert(0, '../..')
-# 
 import os
 import sys
 import inspect
-
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir) 
-
 # END OF DIRTY
 #----------------------------------------------------------
-
 # TBD - is there actually a check digit on the first 8 for Hungary ?
 # TBD - validate is date for the mexican
-
- 
-
+# get loggin output ? 
+# ---------------------------
 import unittest
 import json
 import logging
 from company_identifiers import company_identifiers
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s - %(message)s %(funcName)s()') 
-
 #-------------------------------------------------------------------
-# 
+# the test class
 #-------------------------------------------------------------------
 class test_moudulus(unittest.TestCase):
- 
   @classmethod
   def setUpClass(cls):
       logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s - %(message)s %(funcName)s()') 
       cls.log = logging.Logger(__name__)
-
       cls.log.info("setUp starting")
       cls.m_obj = company_identifiers()
       cls.log.info("setUp completed starting tests")    
@@ -197,6 +185,7 @@ class test_moudulus(unittest.TestCase):
   def test_mexico(self): 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ABC680524P76', 'MX'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ABCD80524P76', 'MX'), False)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ABC680230P76', 'MX'), False)
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('MXABCD80524P76', 'MX'), False)  
 
   def test_greece(self): 
@@ -233,8 +222,6 @@ class test_moudulus(unittest.TestCase):
   @classmethod
   def tearDownClass(cls):
       cls.log.info("in tear down")
-
-
 #-------------------------------
 # local tests
 #--------------------------------

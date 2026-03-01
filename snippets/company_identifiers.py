@@ -9,6 +9,7 @@
 import argparse
 import os
 import json
+from datetime import datetime
 
 class company_identifiers:
     """ company_identifiers - 
@@ -132,8 +133,11 @@ class company_identifiers:
         s = s.translate(self.clean_table)
         return  s.replace(' ','')
 
-    def create_result_error(self, error:str, result={}):
+    def create_result_error(self, error_code:str, result={}, error=""):
         result['validation_result'] = False
+        result['error_code'] = error_code
+        if error == None:
+            result['error'] = error_code
         result['error'] = error
         return result
 
@@ -230,7 +234,7 @@ class company_identifiers:
         if (result['check_digit'] == result['expected']):
             return self.create_result_ok(result)
         else:
-            return self.create_result_error('Wrong modulus 11 check digit', result)
+            return self.create_result_error("MD01", result, 'Wrong modulus 11 check digit')
          
     def validate_modulus11(self, s:str, variant):
         """ wrapper to do modulus 11 via validate modulus
@@ -366,7 +370,6 @@ class company_identifiers:
         else: # bad
             return self.create_result_error("GB wrong len")
         
-        
     def validate_vat_std(self, s, variant):
         """ vat std i.e. the name of the country followed by the normal number for company ID
         """
@@ -380,16 +383,37 @@ class company_identifiers:
             return self.create_result_ok(result)
         else:
             return number_algo(result['number'], variant)        
+    def is_valid_ccyymmdd(self, ccyymmdd:str, cc_floor=18, cc_ceiling=20):
+        """ validate a ccyymmdd date
+        """
+        if ccyymmdd.isdigit() == False:
+            return False
+        cc = int(ccyymmdd[0:2])
+        if cc < cc_floor or cc > cc_ceiling:
+            return False
+        try:
+            d = datetime.strptime(ccyymmdd, '%Y%m%d')
+        except ValueError:
+            return False   # bad date 
+        return True  # still here all good 
+    def is_valid_yymmdd(self, yymmdd):
+        """ validate a yymmdd date - special case always accept 000229 
+        - which is correct for 20000229 but not for 19000229
+        """
+        if yymmdd  =="000229":
+            return True # OK we accepte 10000229 as OK which it isnøt and 21000229 - couldn't care less
+        return self.is_valid_ccyymmdd("20" + yymmdd)
 
     def validate_mx(self, s, variant):
         """ Mexico first a string 3 chars then YYMMDD followd by 3 
         """
         result={}
         if len(s) != 12:
-            return self.create_result_error("wrong len must be 12")
+            return self.create_result_error("MX01 wrong len must be 12")
         result['YYMMDD'] = s[3:9]    
-        if result['YYMMDD'].isdigit() == False:
-            return self.create_result_error("not numeric YYMMDD")   
+        if self.is_valid_yymmdd(result["YYMMDD"]) == False:
+            return self.create_result_error("the YYMMDD is not valid")   
+            
         result['HOMOCLAVE'] = s[9:11]
         return self.create_result_ok(result)
     
@@ -418,8 +442,8 @@ class company_identifiers:
      
         if result['J'] != 'J':
             return self.create_result_error("J-number wrong first char not a J", result)
-        if result['number'].isdigit() == False:
-            return self.create_result_error("J-number not numeric in the middle", result)
+        if self.is_valid_ccyymmdd(result['YYYY'] + '0101') == False:
+            return self.create_result_error("J-YYYY not valid", result)
         if result['YYYY'].isdigit() == False:
             return self.create_result_error("J-number not numeric YYYY", result)
         # still here all good            
@@ -489,7 +513,7 @@ class company_identifiers:
 
 if __name__=="__main__":
     m_obj = company_identifiers()
-    r = m_obj.validate_COMPANY_ID('71481280786', 'HR')
+    r = m_obj.validate_COMPANY_ID('J/AB/12345/1999', 'RO')
     print(r)
     print(r)
 #    r = m_obj.validate_COMPANY_ID('J/AB/12345/1999', 'RO')
