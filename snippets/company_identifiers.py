@@ -274,7 +274,7 @@ class company_identifiers:
         if (result['check_digit'] == result['expected']):
             return self.create_result_ok(result)
         else:
-            return self.create_result_error('Wrong modulus 11 check digit', result)
+            return self.create_result_error('IT01', result, 'Wrong modulus 11 check digit')
         
     def validate_modulus97(self, s:str, variant):
         """ do the modulus 97 standard version 
@@ -303,7 +303,7 @@ class company_identifiers:
         if result['validation_result'] == False:
             return result
         if len(result['after']) != 1 or result['after'] < 'a' or result['after'] > 'z':
-            return self.create_result_error('check char not between a and z', result)
+            return self.create_result_error('AT01', result, 'check char not between a and z')
         # still her all good
         return self.create_result_ok(result)
     
@@ -328,15 +328,15 @@ class company_identifiers:
         max_len = variant.get('len', 0)  
         min_len = variant.get('min_len', -1)
         if len(result['number']) != max_len and  min_len == -1:
-            return self.create_result_error('Length of number does not match fixed number', result)
+            return self.create_result_error('NU01',  result, 'Length of number does not match fixed number')
         if len(result['number']) > max_len or len(result['number']) < min_len:
-            return self.create_result_error('Length of number not between min and max', result)
+            return self.create_result_error('NU02', result, 'Length of number not between min and max')
         if before_list == None and len(result['before']) > 0:
-            return self.create_result_error('Length of before > 0 and empty before_list', result)
+            return self.create_result_error('NU03', result, 'Length of before > 0 and empty before_list')
         if before_list != None and result['before'] not in before_list:
-            return self.create_result_error('The before string is not in allowed before_list', result)
+            return self.create_result_error('NU04', result, 'The before string is not in allowed before_list')
         if len(result['after']) > 0 and after_allowed == False:
-            return self.create_result_error('The after string is not empty', result)
+            return self.create_result_error('NU05', result, 'The after string is not empty')
         # still ehre all good
         num_len = len(result['number'])
         result['excl_chk_dig']= result['number'][0:num_len  - 1] 
@@ -352,7 +352,7 @@ class company_identifiers:
             return result
         result['XJustiz_code'] = self.dict_xjustiz.get(result['after'], None)
         if result['XJustiz_code'] == None:
-            return self.create_result_error("Invalid XJustis code", result)
+            return self.create_result_error('DE01', result, "Invalid XJustis code")
         else:
             # still here all good create an edited name also
             result['edited_name'] = ( result['before'] + ' ' + result['number'] + ' ' +
@@ -369,7 +369,7 @@ class company_identifiers:
         if (len(result['number']) == 6 and len(result['before']) == 2) or len(result['number']) == 8:
             return self.create_result_ok(result)
         else: # bad
-            return self.create_result_error("GB wrong len")
+            return self.create_result_error('GB01', result, 'GB wrong len')
         
     def validate_vat_std(self, s, variant):
         """ vat std i.e. the name of the country followed by the normal number for company ID
@@ -377,7 +377,7 @@ class company_identifiers:
         result = self.get_before_number_after(s, variant)
         result['var_cntry'] = variant['country']
         if (result['before'][0:2] != result['var_cntry']):
-            return self.create_result_error('country code not valid', result)
+            return self.create_result_error('VA01', result, 'country code not valid')
         # now validate the number with company id variant
         number_algo = variant.get('number_algorithm', None)
         if number_algo == None:  # no further validation just the number in correct lenght from above
@@ -410,10 +410,10 @@ class company_identifiers:
         """
         result={}
         if len(s) != 12:
-            return self.create_result_error("MX01 wrong len must be 12")
+            return self.create_result_error('MX01', result, "MX01 wrong len must be 12")
         result['YYMMDD'] = s[3:9]    
         if self.is_valid_yymmdd(result["YYMMDD"]) == False:
-            return self.create_result_error("the YYMMDD is not valid")   
+            return self.create_result_error('MX02', result, "the YYMMDD is not valid")   
             
         result['HOMOCLAVE'] = s[9:11]
         return self.create_result_ok(result)
@@ -439,14 +439,14 @@ class company_identifiers:
             result['YYYY'] = elements[2]
 
         if len(elements) < 3:
-            return self.create_result_error("J-number not enough parts in elements after split", result)
+            return self.create_result_error('RO01', result, "J-number not enough parts in elements after split")
      
         if result['J'] != 'J':
-            return self.create_result_error("J-number wrong first char not a J", result)
+            return self.create_result_error('RO02', result, "J-number wrong first char not a J")
         if self.is_valid_ccyymmdd(result['YYYY'] + '0101') == False:
-            return self.create_result_error("J-YYYY not valid", result)
+            return self.create_result_error('RO03', result, "J-YYYY not valid")
         if result['YYYY'].isdigit() == False:
-            return self.create_result_error("J-number not numeric YYYY", result)
+            return self.create_result_error('RO04', result, "J-number not numeric YYYY")
         # still here all good            
         return self.create_result_ok(result)
 
