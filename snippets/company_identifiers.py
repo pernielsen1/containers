@@ -138,7 +138,8 @@ class company_identifiers:
         result['error_code'] = error_code
         if error == None:
             result['error'] = error_code
-        result['error'] = error
+        else:
+            result['error'] = error
         return result
 
     def create_result_ok(self, result={}):
