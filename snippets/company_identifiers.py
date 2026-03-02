@@ -133,7 +133,7 @@ class company_identifiers:
         s = s.translate(self.clean_table)
         return  s.replace(' ','')
 
-    def create_result_error(self, error_code:str, result={}, error=""):
+    def create_result_error(self, error_code:str, result={}, error=None):
         result['validation_result'] = False
         result['error_code'] = error_code
         if error == None:
