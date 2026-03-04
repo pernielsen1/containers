@@ -107,7 +107,10 @@ class company_identifiers:
             "SE_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"SE","name":"Organisationsnummer", "len":10,
                                 "mask":"%s%s%s%s%s%s-%s%s%s%s"},    
 
-            "FR_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"FR","name":"Siren", "len":9},
+            "X_FR_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"FR","name":"Siren", "len":9},
+            "FR_COMPANY_ID": {"algorithm":self.validate_france, "country":"FR","name":"Siren", "min_len":9, "len":14},
+
+    
             "PL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"PL","name":"KRS", "len":10},
             "HU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"HU","name":"Adoszam", "len":10},
             "IE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"IE", "name":"CRO", "min_len": 3, "len":6 },
@@ -511,10 +514,37 @@ class company_identifiers:
         """
         result = self.validate_VAT_ID(s, country_code)
         return result['validation_result']
+    def validate_france(self, s, variant):
+        """ France Siren, sirete, RCS 
+            SIREN (Système d’Identification du Répertoire des Entreprises):
+            Structure: 9 digits (e.g., 123 456 789).
+            purpose: Unique ID for the legal entity (company or sole trader). It remains with the company for its entire life.
+            Usage: Mandatory on invoices, legal documents, and official correspondence.
+            SIRET (Système d’Identification du Répertoire des Établissements):
+            Structure: 14 digits (9-digit SIREN + 5-digit NIC code).
+            Purpose: Identifies specific geographical locations (headquarters, branch offices, stores).
+            Usage: Required on pay slips and for tax/social security (URSSAF) filings.
+            RCS (Trade and Companies Register): Indicates registration as a merchant or company.
+        """
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] == False:
+            return result
+        # OK we accept both 9 (SIREN) and 14 (SIRETE) as length
+        if len(result['number']) != 9 and len(result['number']) != 14:
+            return self.create_result_error('FR01', result, "Siren or Sitrete are either 9 or 14 long")
+        # first 9 should be modulus 10 
+        return  self.validate_modulus10(result['number'][0:9], variant)
+    #        validate_modulus10
+    #    return self.create_result_ok(result)
+    
+
+
 
 if __name__=="__main__":
     m_obj = company_identifiers()
-    r = m_obj.validate_COMPANY_ID('J/AB/12345/1999', 'RO')
+    r = m_obj.validate_COMPANY_ID('784671695-12345', 'FR')
+
+#    r = m_obj.validate_COMPANY_ID('J/AB/12345/1999', 'RO')
     print(r)
     print(r)
 #    r = m_obj.validate_COMPANY_ID('J/AB/12345/1999', 'RO')

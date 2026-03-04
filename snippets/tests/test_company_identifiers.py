@@ -68,7 +68,9 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('ATU12345678', 'AT'), True) # 
 
   def test_france(self):  # France
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('784671695', 'FR'), True) # Unicef 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('784671695', 'FR'), True) # Unicef
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('784671695-12345', 'FR'), True) # Sirete  
+    
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('005520135', 'FR'), True) # starts with zero 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('78467169', 'FR'), False) # to short
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('78A467169', 'FR'), False) # letter 
@@ -218,6 +220,7 @@ class test_moudulus(unittest.TestCase):
   def test_great_croatia(self): 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('71481280786', 'HR'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('71481280785', 'HR'), False)  
+
 
   @classmethod
   def tearDownClass(cls):
