@@ -38,7 +38,7 @@ class test_moudulus(unittest.TestCase):
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('6875011', 'NL'), False)
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('6875011', 'NL'), False)
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('687A0110', 'NL'), False)
-      self.assertEqual(self.m_obj.validate_VAT_ID_bool('NL68750110', 'NL'), True)
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('NL123456789B01', 'NL'), True)
  
   def test_denmark(self):
       self.log.info("testing cvr")
@@ -75,7 +75,7 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('78467169', 'FR'), False) # to short
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('78A467169', 'FR'), False) # letter 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('', 'FR'), False) # Empty 
-    self.assertEqual(self.m_obj.validate_VAT_ID_bool('FR784671695', 'FR'), True) # Unicef 
+    self.assertEqual(self.m_obj.validate_VAT_ID_bool('FR01784671695', 'FR'), True) # Unicef 
         
   def test_che(self):  # France
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-123.456.788', 'CH'), True) # OK 
@@ -212,11 +212,22 @@ class test_moudulus(unittest.TestCase):
   def test_great_britain(self): 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12345678', 'GB'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('SC123456', 'GB'), True)  
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FC123566', 'GB'), True)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FC123566', 'GB'), True)
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('BR123566', 'GB'), True)
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('NI123566', 'GB'), True)
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('OE123566', 'GB'), True)
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('RC123566', 'GB'), True)
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('SE123566', 'GB'), True)
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('SO123566', 'GB'), True)
+    
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('IP12356R', 'GB'), True)
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('SP12435R', 'GB'), True)
+
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FC12356', 'GB'), False)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('SC12356', 'GB'), False)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('412356', 'GB'), False)  
-
+    self.assertEqual(self.m_obj.validate_VAT_ID_bool('GB123456789', 'GB'), True)
+    
   def test_great_croatia(self): 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('71481280786', 'HR'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('71481280785', 'HR'), False)  

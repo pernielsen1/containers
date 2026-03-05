@@ -52,10 +52,17 @@ class company_identifiers:
                               "country":"DE", "min_len":1, "len":6, 
                               "before_list": ['HRA', 'HRB', 'GnR', 'GsR', 'VR', 'PR'], 'after_allowed':True},
             "GB_COMPANY_ID": {"algorithm":self.validate_great_britain,"name":"UK SC, FC, etcc", 
-                              "country":"GB", "min_len":6, "len":8, 
-                              "before_list": ['SC', 'FC', '']},
+                              "country":"GB", "min_len":5, "len":8, 'after_allowed':True,
+                              "before_list": ['SC', 'FC', 'BR', 'NI', 'OE', 'RC', 
+                                              'SE', 'SO', 'SP', 'IP', ''],
+                                "five_and_R": ['IP', 'SP']
+                            },
+            "GB_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"GB", "name":"GB VAt", "len":9},
+       
             # TBD add modulus 89 ? 
             "DE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"DE", "name":"Germany VAT", "len":9},
+            "NL_VAT_ID": {"algorithm":self.validate_vat_nl, "country":"GB", "name":"GB VAt", "len":9},
+
             "CA_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"CA", "name":"BN business number", 
                               "len":9},
             "NL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"NL", "name":"KVN",  "len":8},
@@ -100,6 +107,9 @@ class company_identifiers:
                                 "mask":"%s%s%s%s%s%s-%s%s%s%s"},    
             "X_FR_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"FR","name":"Siren", "len":9},
             "FR_COMPANY_ID": {"algorithm":self.validate_france, "country":"FR","name":"Siren", "min_len":9, "len":14},   
+            "FR_VAT_ID": {"algorithm":self.validate_france_vat, "country":"FR","name":"NN + Siren", "len":11, 
+                          "before_list":['FR'] },   
+  
             "PL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"PL","name":"KRS", "len":10},
             "HU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"HU","name":"Adoszam", "len":10},
             "IE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"IE", "name":"CRO", "min_len": 3, "len":6 },
@@ -341,7 +351,13 @@ class company_identifiers:
         result = self.get_before_number_after(s, variant)
         if result['validation_result'] == False:
             return result
-        if (len(result['number']) == 6 and len(result['before']) == 2) or len(result['number']) == 8:
+        if (
+                (len(result['number']) == 6 and len(result['before']) == 2) 
+                    or len(result['number']) == 8
+                    or (len(result['number']) == 5 and result['before'] in variant['five_and_R'] 
+                        and result['after'] == 'R') 
+
+                ):
             return self.create_result_ok(result)
         else: # bad
             return self.create_result_error('GB01', result, 'GB wrong len')  
@@ -497,14 +513,54 @@ class company_identifiers:
             return self.create_result_error('FR01', result, "Siren or Sitrete are either 9 or 14 long")
         # first 9 should be modulus 10 
         return  self.validate_modulus10(result['number'][0:9], variant)
+    
+    def validate_france_vat(self, s, variant):
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] != True:
+            return result
+        result['siren'] = s[4:13]
+        result['chk_digit'] = self.calc_modulus10_check_digit(result['siren'][0:8], None)
+        if result['chk_digit'] != int(result['siren'][8:9]):
+            return self.create_result_error('FR05', result, "Wrong check digit in French VAT")
+        # still here all good
+        return self.create_result_ok(result)
+ 
+    def validate_vat_nl(self, s, variant):
+        result={}
+        if len(s) != 14:
+            self.create_result_error("NLV01", result, "Lenght not 12 for NL VAT ID")
+        result['country'] = s[0:2]
+        result['number'] = s[2:11]
+        result['B'] = s[11:12]
+        result['chk_digits'] = s[12:14]
+        if result['country'] != 'NL':
+            self.create_result_error("NLV02", result, "country not NL")
+        if result['B'] != 'B':
+            self.create_result_error("NLV03", result, "NL B is not B")
+        if result['number'].isdigit() != True:
+            self.create_result_error("NLV04", result, "NL number 9 digits not numeric")
+        if result['chk_digits'].isdigit() != True:
+            self.create_result_error("NLV05", result, "NL check digit not numeric")
+
+#         NL000099998B57
+        return self.create_result_ok()
+  
 
 if __name__=="__main__":
     m_obj = company_identifiers()
-    r = m_obj.validate_COMPANY_ID('784671695-12345', 'FR')
+    r = m_obj.validate_VAT_ID('NL123456789B01', 'NL')
+
+#    r = m_obj.validate_VAT_ID('FR01784671695', 'FR')
+
+
+#    r = m_obj.validate_COMPANY_ID('IP12356R', 'GB')
+
+    print(r)
+    print()
+#    r = m_obj.validate_COMPANY_ID('784671695-12345', 'FR')
 
 #    r = m_obj.validate_COMPANY_ID('J/AB/12345/1999', 'RO')
-    print(r)
-    print(r)
+
 #    r = m_obj.validate_COMPANY_ID('J/AB/12345/1999', 'RO')
 #    r = m_obj.validate_COMPANY_ID('/J/AB/12345/1999', 'RO')
 #    r = m_obj.validate_COMPANY_ID('50223054', 'SI')
@@ -528,7 +584,6 @@ if __name__=="__main__":
 #    r = m_obj.validate_COMPANY_ID('300060819', 'LT') # 
 # 188659752
 # 300060819
-    print(r)
 #   r = m_obj.validate_VAT_ID('ATU12345678', 'AT') # 
 #    r = m_obj.validate_COMPANY_ID('40003032949', 'LV') # Offical example
 #    r = m_obj.validate_VAT_ID('BE0403.019.261', 'BE')
