@@ -53,7 +53,7 @@ class company_identifiers:
                               "before_list": ['HRA', 'HRB', 'GnR', 'GsR', 'VR', 'PR'], 'after_allowed':True},
             "GB_COMPANY_ID": {"algorithm":self.validate_great_britain,"name":"UK SC, FC, etcc", 
                               "country":"GB", "min_len":5, "len":8, 'after_allowed':True,
-                              "before_list": ['SC', 'FC', 'BR', 'NI', 'OE', 'RC', 
+                              "before_list": ['SC', 'FC', 'BR', 'NI', 'OE', 'RC', 'OC', 'LP',
                                               'SE', 'SO', 'SP', 'IP', ''],
                                 "five_and_R": ['IP', 'SP']
                             },
