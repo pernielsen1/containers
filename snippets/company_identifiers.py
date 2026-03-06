@@ -126,7 +126,7 @@ class company_identifiers:
             "US_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"US","name":"EIN",  "len":9 },
             "MX_COMPANY_ID": {"algorithm":self.validate_mx, "country":"MX","name":"RFC",  "len":12},
             "AT_COMPANY_ID": {"algorithm":self.validate_fn,"country":"AT","name":"FN",  "min_len":1, "len":9,
-                              "before_list":["FB", "FN", "ZVR", ""], 'after_allowed':True},
+                              "before_list":["FB", "FN", "ZVR", "FNZVR", "FNZVRZAHL", "ZVRZAHL", ""], 'after_allowed':True},
             "AT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"AT","name":"ATU",  
                           "len":8, "before_list":["ATU", ""]},
             "SE_BG": {"algorithm":self.validate_modulus10, "country":"SE","name":"Bankgiro", "min_len":7, "len":8},
