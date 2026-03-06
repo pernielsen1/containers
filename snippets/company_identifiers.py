@@ -115,7 +115,8 @@ class company_identifiers:
                           "before_list":['SE'] },   
    
             "X_FR_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"FR","name":"Siren", "len":9},
-            "FR_COMPANY_ID": {"algorithm":self.validate_france, "country":"FR","name":"Siren", "min_len":9, "len":14},   
+            "FR_COMPANY_ID": {"algorithm":self.validate_france, "country":"FR","name":"Siren", 
+                              "min_len":9, "len":14, "after_allowed":True},   
             "FR_VAT_ID": {"algorithm":self.validate_france_vat, "country":"FR","name":"NN + Siren", "len":11, 
                           "before_list":['FR'] },   
   

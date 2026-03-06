@@ -74,6 +74,7 @@ class test_moudulus(unittest.TestCase):
   def test_france(self):  # France
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('784671695', 'FR'), True) # Unicef
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('784671695-12345', 'FR'), True) # Sirete  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('784671695 RCS Nantes', 'FR'), True) # Sirete  
     
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('005520135', 'FR'), True) # starts with zero 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('78467169', 'FR'), False) # to short
