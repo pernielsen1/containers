@@ -300,7 +300,7 @@ class company_identifiers:
         result = self.get_before_number_after(s, variant)
         if result['validation_result'] == False:
             return result
-        if result['before'] in ['FNZVR', 'FNZVRZAHL', 'ZVR', 'ZVRZAHL']:
+        if result['before'].upper() in ['FNZVR', 'FNZVRZAHL', 'ZVR', 'ZVRZAHL']:
             if len(result['number']) != 9:
                 return self.create_result_error('AT02', result, 'ZVR number should  be 9 long')
         else:
@@ -338,8 +338,11 @@ class company_identifiers:
             return self.create_result_error('NU02', result, 'Length of number not between min and max')
         if before_list == None and len(result['before']) > 0:
             return self.create_result_error('NU03', result, 'Length of before > 0 and empty before_list')
-        if before_list != None and result['before'] not in before_list:
-            return self.create_result_error('NU04', result, 'The before string is not in allowed before_list')
+        if before_list != None: 
+            if (    result['before'] not in before_list and  
+                    result['before'].upper() not in before_list 
+                ):
+                return self.create_result_error('NU04', result, 'The before string is not in allowed before_list')
         if len(result['after']) > 0 and after_allowed == False:
             return self.create_result_error('NU05', result, 'The after string is not empty')
         # still ehre all good

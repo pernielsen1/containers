@@ -67,6 +67,7 @@ class test_moudulus(unittest.TestCase):
   #  self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ZVR802191111d', 'AT'), True) # 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('33282b Wien', 'AT'), True) #
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ZVR 123456789 Wien', 'AT'), True) # 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ZVR-Zahl 123456789 Wien', 'AT'), True) # 
    
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('ATU12345678', 'AT'), True) # 
 
@@ -82,7 +83,6 @@ class test_moudulus(unittest.TestCase):
         
   def test_che(self):  # France
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-123.456.788', 'CH'), True) # OK 
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHe-123.456.788', 'CH'), False) # Is case sensitive 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHX-123.456.788', 'CH'), False) # CHE not CHX 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-123456788', 'CH'), True) # ok with no dots  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-123456A88', 'CH'), False) # not numeric
