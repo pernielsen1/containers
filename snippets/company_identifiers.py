@@ -125,7 +125,7 @@ class company_identifiers:
             "US_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"UA","name":"EIN",  "len":9 },
             "US_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"US","name":"EIN",  "len":9 },
             "MX_COMPANY_ID": {"algorithm":self.validate_mx, "country":"MX","name":"RFC",  "len":12},
-            "AT_COMPANY_ID": {"algorithm":self.validate_fn,"country":"AT","name":"FN",  "min_len":1, "len":7,
+            "AT_COMPANY_ID": {"algorithm":self.validate_fn,"country":"AT","name":"FN",  "min_len":1, "len":9,
                               "before_list":["FB", "FN", "ZVR", ""], 'after_allowed':True},
             "AT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"AT","name":"ATU",  
                           "len":8, "before_list":["ATU", ""]},
@@ -294,13 +294,22 @@ class company_identifiers:
     def validate_fn(self, s, variant):
         """ austria firmen buch number - just validate we have OK string before (FN, FB or none)
             followed by a check char between a and z
+            can also be ZVR (Zentrales Vereinsregister) 9 digits number
         """
         # simplified validation of austrian number 1..6 digits followed by a character (lowercase)
         result = self.get_before_number_after(s, variant)
         if result['validation_result'] == False:
             return result
-        if len(result['after']) != 1 or result['after'] < 'a' or result['after'] > 'z':
-            return self.create_result_error('AT01', result, 'check char not between a and z')
+        if result['before'] in ['FNZVR', 'FNZVRZAHL', 'ZVR', 'ZVRZAHL']:
+            if len(result['number']) != 9:
+                return self.create_result_error('AT02', result, 'ZVR number should  be 9 long')
+        else:
+            if len(result['number']) > 6:
+                return self.create_result_error('AT03', result, 'FN number longer than 6')
+            if len(result['after']) < 1:
+                return self.create_result_error('AT04', result, 'There must be a check char')
+            if result['after'][0:1] < 'a' or result['after'][0:1] > 'z':
+                return self.create_result_error('AT01', result, 'check char not between a and z')
         # still her all good
         return self.create_result_ok(result)
     def get_before_number_after(self, s, variant):
@@ -575,7 +584,8 @@ class company_identifiers:
 
 if __name__=="__main__":
     m_obj = company_identifiers()
-    r = m_obj.validate_VAT_ID('RO12345678', 'RO')
+#    r = m_obj.validate_COMPANY_ID('33282b Wien' , 'AT')
+    r = m_obj.validate_COMPANY_ID('ZVR 123456789 Wien' , 'AT')
 
 #    r = m_obj.validate_VAT_ID('SK1234567890', 'SK')
 #    r = m_obj.validate_VAT_ID('SE202100548901', 'SE')

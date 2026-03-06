@@ -64,7 +64,10 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FN 80219d', 'AT'), True) # 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FN 80219d', 'AT'), True) # 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FB 80219d', 'AT'), True) # 
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ZVR80219d', 'AT'), True) # 
+  #  self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ZVR802191111d', 'AT'), True) # 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('33282b Wien', 'AT'), True) #
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ZVR 123456789 Wien', 'AT'), True) # 
+   
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('ATU12345678', 'AT'), True) # 
 
   def test_france(self):  # France
