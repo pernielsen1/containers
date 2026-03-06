@@ -140,6 +140,8 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0403.019.261', 'BE') , True)   # AI google example
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0403.019.262', 'BE') , False)   # Wrong digit
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('BE0403.019.261', 'BE') , True)   # AI google example
+    self.assertEqual(self.m_obj.validate_VAT_ID_bool('EU1', 'BE') , True)   # A EU example
+
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('BA0403.019.261', 'BE') , False)   # AI google example
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('BE0403.019.262', 'BE') , False)   # AI google example
    
@@ -167,7 +169,6 @@ class test_moudulus(unittest.TestCase):
 
   def test_latvia(self): #  Latvia
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('40003032949', 'LV') , True)   
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('40003032944', 'LV') , False)   
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('LV40003032949', 'LV') , True)   
 
   def test_lithuania(self): #  Lthuania

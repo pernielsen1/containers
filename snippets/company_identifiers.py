@@ -30,30 +30,55 @@ class company_identifiers:
             self.dict_xjustiz_to_name[item] = '(' + key + ')'
             
         self.definitions = {
-            "DK_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"DK", "name":"CVR" ,
-                        "weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},
-            "NO_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"NO", "name":"Organisationsnummer", "len":9, 
-                        "weights": [ 3, 2, 7, 6, 5, 4, 3, 2, 1 ]},
+            "AT_COMPANY_ID": {"algorithm":self.validate_fn,"country":"AT","name":"FN",  "min_len":1, "len":9,
+                              "before_list":["FB", "FN", "ZVR", "FNZVR", "FNZVRZAHL", "ZVRZAHL", ""], 'after_allowed':True},
+            "AT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"AT","name":"ATU",  
+                          "len":8, "before_list":["ATU", ""]},
+            "BE_COMPANY_ID": {"algorithm":self.validate_modulus97, "country":"BE","name":"Ondernemingsnummer", "len":10},
+            "BE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus97, 
+                          "country":"BE", "name":"Ondernemingsnummer", "len":10},
+            "BG_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"BG","name":"UIC", "len":9, 
+                        "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 10 ], 
+                         "return_rest": True },
+            
+            "CA_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"CA", "name":"BN business number", 
+                              "len":9},
+
             "CH_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"CH", "name":"Che", "len":9,
                         "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ],   "before_list": ['CHE']},
             "CH_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11,
                           "country":"CH","name":"Che", "len":9, "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ]},
-            "FI_COMPANY_ID" : {"algorithm":self.validate_modulus11,"country":"FI", "name":"LY - business ID", "len":8,
-                        "zfill_len":8,  "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ]},
-            "GR_COMPANY_ID" : {"algorithm":self.validate_modulus11,"country":"GR", "name":"AFM", "len": 9,
-                        "weights": [  256, 128, 64, 32, 16, 8, 4, 2], "return_rest": True, "return_10":0},
-            "RO_COMPANY_ID_CUI" : {"algorithm":self.validate_modulus11,"country":"RO", "name":"CUI/CIF", "len": 10,
-                        "weights": [  7, 5, 3, 2, 1, 7, 5, 3, 2], "mult10": True, "zfill_len":10,
-                         "return_rest": True, "return_10":0},
-            "RO_COMPANY_ID" : {"algorithm":self.validate_romania,"country":"RO", "name":"Trade Register Number - J-number", 
-                               "len": 12},
-            "RO_VAT_ID" : {"algorithm":self.validate_romania_vat,"country":"RO", "name":"Cod de inregistra de TVA", 
-                               "min_len": 2, "len":10, "before_list":['RO']}, 
+            "CZ_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"CZ", "name":"ICO", "len":8, 
+                        "weights": [ 8, 7, 6, 5, 4, 3, 2], "check_digit_for_0":1},
 
             "DE_COMPANY_ID": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc", 
                               "comment":"Minimum length normally 4 but see audi in ingolstadt down to 1 exists",
                               "country":"DE", "min_len":1, "len":6, 
                               "before_list": ['HRA', 'HRB', 'GnR', 'GsR', 'VR', 'PR'], 'after_allowed':True},
+            "DE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"DE", "name":"Germany VAT", "len":9},
+
+            "DK_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"DK", "name":"CVR" ,
+                        "weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},
+
+            "EE_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"EE", "name":"Legal identity code", "len":8, 
+                        "weights": [  1, 2, 3, 4, 5, 6, 7 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9 ], 
+                         "return_rest": True },
+
+            "ES_COMPANY_ID": {"algorithm":self.validate_spain, "country":"ES", "name":"Spanish NIF", "min_len":7, "len":8, 
+                        "before_list": ['A', 'B', 'C', 'F', 'G', 'N', 'W'], "after_allowed":True},
+            "ES_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus10, "country":"ES",
+                          "name":"Spanish NIF", "len":8,
+                        "before_list_TBD": ['ESA', 'ESB', 'ESC', 'ESF', 'ESG', 'ESN', 'ESW']}, 
+            "EU_VAT_ID": {"algorithm":self.validate_just_numeric,  
+                          "country":"EU", "name":"EU vat", "min_len":1, "len":4, 
+                          "before_list":"EU"},
+            "FI_COMPANY_ID" : {"algorithm":self.validate_modulus11,"country":"FI", "name":"LY - business ID", "len":8,
+                        "zfill_len":8,  "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ]},
+
+            "FR_COMPANY_ID": {"algorithm":self.validate_france, "country":"FR","name":"Siren", 
+                              "min_len":9, "len":14, "after_allowed":True},   
+            "FR_VAT_ID": {"algorithm":self.validate_france_vat, "country":"FR","name":"NN + Siren", "len":11, 
+                          "before_list":['FR'] },   
             "GB_COMPANY_ID": {"algorithm":self.validate_great_britain,"name":"UK SC, FC, etcc", 
                               "country":"GB", "min_len":5, "len":8, 'after_allowed':True,
                               "before_list": ['SC', 'FC', 'BR', 'NI', 'OE', 'RC', 'OC', 'LP',
@@ -61,75 +86,57 @@ class company_identifiers:
                                 "five_and_R": ['IP', 'SP']
                             },
             "GB_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"GB", "name":"GB VAt", "len":9},
-       
-            # TBD add modulus 89 ? 
-            "DE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"DE", "name":"Germany VAT", "len":9},
-            "NL_VAT_ID": {"algorithm":self.validate_vat_nl, "country":"GB", "name":"GB VAt", "len":9},
 
-            "CA_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"CA", "name":"BN business number", 
-                              "len":9},
+            "GR_COMPANY_ID" : {"algorithm":self.validate_modulus11,"country":"GR", "name":"AFM", "len": 9,
+                        "weights": [  256, 128, 64, 32, 16, 8, 4, 2], "return_rest": True, "return_10":0},
+
+            "HR_COMPANY_ID": {"algorithm":self.validate_iso7064_11_10, "country":"HR","name":"OIB", 
+                               "len":11},
+            "HU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"HU","name":"Adoszam", "len":10},
+            "IE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"IE", "name":"CRO", "min_len": 3, "len":6 },
+            "IT_COMPANY_ID": {"algorithm":self.validate_italy, "country":"IT","name":"Partita IVA", "len":11} ,
+            "LT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LT", "name":"Legal identity code", "len":9, 
+                        "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 1 ], 
+                         "return_rest": True },
+            "LU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LU", "name":"LU RCS", "min_len":4, "len":6, 
+                        "before_list": ['B','']},
+#   Latvia not always same weights we have to go for just numeric "weights": [ 1, 3, 9, 10, 5, 8, 4, 2, 1, 6], 'check_digit_for_1':1},
+       
+            "LV_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LV", "name":"", "len":11},
+            "MT_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"MT","name":"ICO", 
+                              "before_list":['C'], "min_len":3, "len":5},
+            "MX_COMPANY_ID": {"algorithm":self.validate_mx, "country":"MX","name":"RFC",  "len":12},
+            "NL_VAT_ID": {"algorithm":self.validate_vat_nl, "country":"GB", "name":"GB VAt", "len":9},
             "NL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"NL", "name":"KVN",  "len":8},
-            "ES_COMPANY_ID": {"algorithm":self.validate_spain, "country":"ES", "name":"Spanish NIF", "min_len":7, "len":8, 
-                        "before_list": ['A', 'B', 'C', 'F', 'G', 'N', 'W'], "after_allowed":True},
-            "ES_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus10, "country":"ES",
-                          "name":"Spanish NIF", "len":8,
-                        "before_list_TBD": ['ESA', 'ESB', 'ESC', 'ESF', 'ESG', 'ESN', 'ESW']}, 
+            "NO_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"NO", "name":"Organisationsnummer", "len":9, 
+                        "weights": [ 3, 2, 7, 6, 5, 4, 3, 2, 1 ]},
+            "PL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"PL","name":"KRS", "len":10},
             "PT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"PT","name":"NIPC", "len":9, 
                         "weights": [ 9, 8, 7, 6, 5, 4, 3, 2]},
             "PT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
                           "country":"PT", "name":"NIPC", "len":9, 
                         "weights": [ 9, 8, 7, 6, 5, 4, 3, 2]},
-            "CZ_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"CZ", "name":"ICO", "len":8, 
-                        "weights": [ 8, 7, 6, 5, 4, 3, 2], "check_digit_for_0":1},
-            "LU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LU", "name":"LU RCS", "min_len":4, "len":6, 
-                        "before_list": ['B','']},
-            "LV_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LV", "name":"", "len":11, 
-                        "weights": [ 1, 3, 9, 10, 5, 8, 4, 2, 1, 6], 'check_digit_for_1':1},
+            "RO_COMPANY_ID_CUI" : {"algorithm":self.validate_modulus11,"country":"RO", "name":"CUI/CIF", "len": 10,
+                        "weights": [  7, 5, 3, 2, 1, 7, 5, 3, 2], "mult10": True, "zfill_len":10,
+                         "return_rest": True, "return_10":0},
+            "RO_COMPANY_ID" : {"algorithm":self.validate_romania,"country":"RO", "name":"Trade Register Number - J-number", 
+                               "len": 12},
+            "RO_VAT_ID" : {"algorithm":self.validate_romania_vat,"country":"RO", "name":"Cod de inregistra de TVA", 
+                               "min_len": 2, "len":10, "before_list":['RO']}, 
+            "SE_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"SE","name":"Organisationsnummer", "len":10,
+                                "mask":"%s%s%s%s%s%s-%s%s%s%s"},  
+            "SE_VAT_ID": {"algorithm":self.validate_sweden_vat, "country":"SE","name":"SE + orgno + 01", "len":12, 
+                          "before_list":['SE'] },   
             "SI_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"SI","name":"dont know", "len":10 },
             "SI_COMPANY_ID_IDza": {"algorithm":self.validate_modulus11, "country":"SI","name":"ID za DDV", "len":8 ,
                         "weights": [ 8, 7, 6, 5, 4, 3, 2 ]},
             "SK_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"SK","name":"ICO", "len":8},
             "SK_VAT_ID": {"algorithm":self.validate_just_numeric, "country":"SK","name":"VAT ID DPH", "len":10, 
                           "before_list":['SK']},
-
-            "MT_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"MT","name":"ICO", 
-                              "before_list":['C'], "min_len":3, "len":5},
-            "HR_COMPANY_ID": {"algorithm":self.validate_iso7064_11_10, "country":"HR","name":"OIB", 
-                               "len":11},
-            "LT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LT", "name":"Legal identity code", "len":9, 
-                        "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 1 ], 
-                         "return_rest": True },
-            "EE_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"EE", "name":"Legal identity code", "len":8, 
-                        "weights": [  1, 2, 3, 4, 5, 6, 7 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9 ], 
-                         "return_rest": True },
-            "BG_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"BG","name":"UIC", "len":9, 
-                        "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 10 ], 
-                         "return_rest": True },
-            "IT_COMPANY_ID": {"algorithm":self.validate_italy, "country":"IT","name":"Partita IVA", "len":11} ,
-            "BE_COMPANY_ID": {"algorithm":self.validate_modulus97, "country":"BE","name":"Ondernemingsnummer", "len":10},
-            "BE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus97, 
-                          "country":"BE", "name":"Ondernemingsnummer", "len":10},
-            "SE_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"SE","name":"Organisationsnummer", "len":10,
-                                "mask":"%s%s%s%s%s%s-%s%s%s%s"},  
-            "SE_VAT_ID": {"algorithm":self.validate_sweden_vat, "country":"SE","name":"SE + orgno + 01", "len":12, 
-                          "before_list":['SE'] },   
-   
-            "X_FR_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"FR","name":"Siren", "len":9},
-            "FR_COMPANY_ID": {"algorithm":self.validate_france, "country":"FR","name":"Siren", 
-                              "min_len":9, "len":14, "after_allowed":True},   
-            "FR_VAT_ID": {"algorithm":self.validate_france_vat, "country":"FR","name":"NN + Siren", "len":11, 
-                          "before_list":['FR'] },   
-  
-            "PL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"PL","name":"KRS", "len":10},
-            "HU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"HU","name":"Adoszam", "len":10},
-            "IE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"IE", "name":"CRO", "min_len": 3, "len":6 },
             "US_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"UA","name":"EIN",  "len":9 },
             "US_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"US","name":"EIN",  "len":9 },
-            "MX_COMPANY_ID": {"algorithm":self.validate_mx, "country":"MX","name":"RFC",  "len":12},
-            "AT_COMPANY_ID": {"algorithm":self.validate_fn,"country":"AT","name":"FN",  "min_len":1, "len":9,
-                              "before_list":["FB", "FN", "ZVR", "FNZVR", "FNZVRZAHL", "ZVRZAHL", ""], 'after_allowed':True},
-            "AT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"AT","name":"ATU",  
-                          "len":8, "before_list":["ATU", ""]},
+
+            "X_FR_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"FR","name":"Siren", "len":9},
             "SE_BG": {"algorithm":self.validate_modulus10, "country":"SE","name":"Bankgiro", "min_len":7, "len":8},
             "DK_NATURAL": {"algorithm":self.validate_modulus11, "country":"DK","name":"CPR",
                         "weights": [ 4,3,2,7,6,5,4,3,2,1 ], "len":10}, 
@@ -386,8 +393,12 @@ class company_identifiers:
     def validate_vat_std(self, s, variant):
         """ vat std i.e. the name of the country followed by the normal number for company ID
         """
+        if s[0:2] == 'EU':
+            return self.validate_VAT_ID(s, 'EU')
+        
         result = self.get_before_number_after(s, variant)
         result['var_cntry'] = variant['country']
+
         if (result['before'][0:2] != result['var_cntry']):
             return self.create_result_error('VA01', result, 'country code not valid')
         # now validate the number with company id variant
@@ -599,26 +610,19 @@ class company_identifiers:
             
 if __name__=="__main__":
     m_obj = company_identifiers()
-    r = m_obj.validate_COMPANY_ID('A2812345C', 'ES')
-
+    r = m_obj.validate_VAT_ID('EU1', 'BE') 
+    print(r)
+    print()
 #    r = m_obj.validate_COMPANY_ID('33282b Wien' , 'AT')
 #    r = m_obj.validate_COMPANY_ID('ZVR 123456789 Wien' , 'AT')
-
+#    r = m_obj.validate_COMPANY_ID('A2812345C', 'ES')
 #    r = m_obj.validate_VAT_ID('SK1234567890', 'SK')
 #    r = m_obj.validate_VAT_ID('SE202100548901', 'SE')
 #    r = m_obj.validate_VAT_ID('NL123456789B01', 'NL')
-
 #    r = m_obj.validate_VAT_ID('FR01784671695', 'FR')
-
-
 #    r = m_obj.validate_COMPANY_ID('IP12356R', 'GB')
-
-    print(r)
-    print()
 #    r = m_obj.validate_COMPANY_ID('784671695-12345', 'FR')
-
 #    r = m_obj.validate_COMPANY_ID('J/AB/12345/1999', 'RO')
-
 #    r = m_obj.validate_COMPANY_ID('J/AB/12345/1999', 'RO')
 #    r = m_obj.validate_COMPANY_ID('/J/AB/12345/1999', 'RO')
 #    r = m_obj.validate_COMPANY_ID('50223054', 'SI')
