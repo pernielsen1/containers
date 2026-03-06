@@ -53,7 +53,7 @@ class test_moudulus(unittest.TestCase):
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('202100548', 'SE'), False)
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('2021005487', 'SE'), False)
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('2021A05489', 'SE'), False)
-      self.assertEqual(self.m_obj.validate_VAT_ID_bool('SE2021005489', 'SE'), True) # skatteverket
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('SE202100548901', 'SE'), True) # skatteverket
       self.assertEqual(self.m_obj.validate_bool('9912346', 'SE_BG'), True) # from bg https://www.bankgirot.se/globalassets/dokument/anvandarmanualer/10-modul.pdf
       self.assertEqual(self.m_obj.validate_bool('55555551', 'SE_BG'), True) # from bg example
 
@@ -202,7 +202,8 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('J/AB/12345/1999', 'RO'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('/J/AB/12345/1999', 'RO'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('JAB/12345/1999', 'RO'), True)  
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('J/AB/125/1999', 'RO'), True)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('J/AB/125/1999', 'RO'), True) 
+    self.assertEqual(self.m_obj.validate_VAT_ID_bool('RO12345678', 'RO'), True) 
 
   def test_malta(self): 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('C 12345', 'MT'), True)  
@@ -228,10 +229,13 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('412356', 'GB'), False)  
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('GB123456789', 'GB'), True)
     
-  def test_great_croatia(self): 
+  def test_croatia(self): 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('71481280786', 'HR'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('71481280785', 'HR'), False)  
 
+  def test_slovakia(self): 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12345678', 'SK'), True)  
+    self.assertEqual(self.m_obj.validate_VAT_ID_bool('SK1234567890', 'SK'), True)  
 
   @classmethod
   def tearDownClass(cls):

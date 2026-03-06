@@ -47,6 +47,9 @@ class company_identifiers:
                          "return_rest": True, "return_10":0},
             "RO_COMPANY_ID" : {"algorithm":self.validate_romania,"country":"RO", "name":"Trade Register Number - J-number", 
                                "len": 12},
+            "RO_VAT_ID" : {"algorithm":self.validate_romania_vat,"country":"RO", "name":"Cod de inregistra de TVA", 
+                               "min_len": 2, "len":10, "before_list":['RO']}, 
+
             "DE_COMPANY_ID": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc", 
                               "comment":"Minimum length normally 4 but see audi in ingolstadt down to 1 exists",
                               "country":"DE", "min_len":1, "len":6, 
@@ -86,6 +89,9 @@ class company_identifiers:
             "SI_COMPANY_ID_IDza": {"algorithm":self.validate_modulus11, "country":"SI","name":"ID za DDV", "len":8 ,
                         "weights": [ 8, 7, 6, 5, 4, 3, 2 ]},
             "SK_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"SK","name":"ICO", "len":8},
+            "SK_VAT_ID": {"algorithm":self.validate_just_numeric, "country":"SK","name":"VAT ID DPH", "len":10, 
+                          "before_list":['SK']},
+
             "MT_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"MT","name":"ICO", 
                               "before_list":['C'], "min_len":3, "len":5},
             "HR_COMPANY_ID": {"algorithm":self.validate_iso7064_11_10, "country":"HR","name":"OIB", 
@@ -104,7 +110,10 @@ class company_identifiers:
             "BE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus97, 
                           "country":"BE", "name":"Ondernemingsnummer", "len":10},
             "SE_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"SE","name":"Organisationsnummer", "len":10,
-                                "mask":"%s%s%s%s%s%s-%s%s%s%s"},    
+                                "mask":"%s%s%s%s%s%s-%s%s%s%s"},  
+            "SE_VAT_ID": {"algorithm":self.validate_sweden_vat, "country":"SE","name":"SE + orgno + 01", "len":12, 
+                          "before_list":['SE'] },   
+   
             "X_FR_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"FR","name":"Siren", "len":9},
             "FR_COMPANY_ID": {"algorithm":self.validate_france, "country":"FR","name":"Siren", "min_len":9, "len":14},   
             "FR_VAT_ID": {"algorithm":self.validate_france_vat, "country":"FR","name":"NN + Siren", "len":11, 
@@ -524,6 +533,24 @@ class company_identifiers:
             return self.create_result_error('FR05', result, "Wrong check digit in French VAT")
         # still here all good
         return self.create_result_ok(result)
+
+    def validate_sweden_vat(self, s, variant):
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] != True:
+            return result
+        result['orgno'] = s[2:12]
+        result['01'] = s[12:14]
+        if result['01'] != '01':
+            return self.create_result_error('SEV01', result, "Last two digits not 01")
+            
+        result['chk_digit'] = self.calc_modulus10_check_digit(result['orgno'][0:9], None)
+        if result['chk_digit'] != int(result['orgno'][9:10]):
+            return self.create_result_error('SEV02', result, "Wrong check digit in Swedish VAT")
+        # still here all good
+        return self.create_result_ok(result)
+
+    def validate_romania_vat(self, s, variant):
+        return self.get_before_number_after(s, variant)
  
     def validate_vat_nl(self, s, variant):
         result={}
@@ -548,7 +575,11 @@ class company_identifiers:
 
 if __name__=="__main__":
     m_obj = company_identifiers()
-    r = m_obj.validate_VAT_ID('NL123456789B01', 'NL')
+    r = m_obj.validate_VAT_ID('RO12345678', 'RO')
+
+#    r = m_obj.validate_VAT_ID('SK1234567890', 'SK')
+#    r = m_obj.validate_VAT_ID('SE202100548901', 'SE')
+#    r = m_obj.validate_VAT_ID('NL123456789B01', 'NL')
 
 #    r = m_obj.validate_VAT_ID('FR01784671695', 'FR')
 
