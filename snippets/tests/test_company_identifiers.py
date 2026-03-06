@@ -32,7 +32,35 @@ class test_moudulus(unittest.TestCase):
       cls.log.info("setUp starting")
       cls.m_obj = company_identifiers()
       cls.log.info("setUp completed starting tests")    
+  def test_austria(self):
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('33282b', 'AT'), True) # 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('56247t', 'AT'), True) # 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('80219d', 'AT'), True) # 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FN 80219d', 'AT'), True) # 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FN 80219d', 'AT'), True) # 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FB 80219d', 'AT'), True) # 
+      #  self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ZVR802191111d', 'AT'), True) # 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('33282b Wien', 'AT'), True) #
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ZVR 123456789 Wien', 'AT'), True) # 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ZVR-Zahl 123456789 Wien', 'AT'), True) # 
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('ATU12345678', 'AT'), True) # 
+  def test_belgium(self): # Belgium
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0403.019.261', 'BE') , True)   # AI google example
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0403.019.262', 'BE') , False)   # Wrong digit
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('BE0403.019.261', 'BE') , True)   # AI google example
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('EU1', 'BE') , True)   # A EU example
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('BA0403.019.261', 'BE') , False)   # AI google example
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('BE0403.019.262', 'BE') , False)   # AI google example
+  def test_bulgaria(self): #  Bulgaria
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('131468980', 'BG'), True)  
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('131468981', 'BG'), False)  
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('BG131468980', 'BG'), True)  
 
+  def test_czech(self): # Czechia  TBD more edge cases in test for 1 in rest
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('25596641', 'CZ') , True)   # AI google example
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('25596640', 'CZ') , False)   # Wrong digit
+      self.assertEqual(self.m_obj.validate_VAT_ID_bool('CZ25596641', 'CZ') , True)   # AI google example
+ 
   def test_netherland(self): # netherlands
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('68750110', 'NL'), True)
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('6875011', 'NL'), False)
@@ -57,20 +85,7 @@ class test_moudulus(unittest.TestCase):
       self.assertEqual(self.m_obj.validate_bool('9912346', 'SE_BG'), True) # from bg https://www.bankgirot.se/globalassets/dokument/anvandarmanualer/10-modul.pdf
       self.assertEqual(self.m_obj.validate_bool('55555551', 'SE_BG'), True) # from bg example
 
-  def test_austria(self):
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('33282b', 'AT'), True) # 
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('56247t', 'AT'), True) # 
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('80219d', 'AT'), True) # 
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FN 80219d', 'AT'), True) # 
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FN 80219d', 'AT'), True) # 
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FB 80219d', 'AT'), True) # 
-  #  self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ZVR802191111d', 'AT'), True) # 
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('33282b Wien', 'AT'), True) #
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ZVR 123456789 Wien', 'AT'), True) # 
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ZVR-Zahl 123456789 Wien', 'AT'), True) # 
-   
-    self.assertEqual(self.m_obj.validate_VAT_ID_bool('ATU12345678', 'AT'), True) # 
-
+  
   def test_france(self):  # France
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('784671695', 'FR'), True) # Unicef
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('784671695-12345', 'FR'), True) # Sirete  
@@ -82,7 +97,7 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('', 'FR'), False) # Empty 
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('FR01784671695', 'FR'), True) # Unicef 
         
-  def test_che(self):  # France
+  def test_switzerland(self):  # France
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-123.456.788', 'CH'), True) # OK 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHX-123.456.788', 'CH'), False) # CHE not CHX 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-123456788', 'CH'), True) # ok with no dots  
@@ -136,20 +151,8 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('ESA28123453', 'ES') , True)   # Offical example
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('A123456789', 'IE') , False)   # To Long
   
-  def test_belgium(self): # Belgium
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0403.019.261', 'BE') , True)   # AI google example
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0403.019.262', 'BE') , False)   # Wrong digit
-    self.assertEqual(self.m_obj.validate_VAT_ID_bool('BE0403.019.261', 'BE') , True)   # AI google example
-    self.assertEqual(self.m_obj.validate_VAT_ID_bool('EU1', 'BE') , True)   # A EU example
-
-    self.assertEqual(self.m_obj.validate_VAT_ID_bool('BA0403.019.261', 'BE') , False)   # AI google example
-    self.assertEqual(self.m_obj.validate_VAT_ID_bool('BE0403.019.262', 'BE') , False)   # AI google example
    
-  def test_czech(self): # Czechia  TBD more edge cases in test for 1 in rest
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('25596641', 'CZ') , True)   # AI google example
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('25596640', 'CZ') , False)   # Wrong digit
-    self.assertEqual(self.m_obj.validate_VAT_ID_bool('CZ25596641', 'CZ') , True)   # AI google example
-
+ 
   def test_luxembourg(self): # Luxembourg  TBD more edge cases in test for 1 in rest
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('B112.11', 'LU') , True)   # AI google example
 #        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('92345678902', 'LU') , True)   # OECD example
@@ -182,11 +185,7 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('80352598', 'EE'), True)  
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('EE80352598', 'EE'), True)  
 
-  def test_bulgaria(self): #  Bulgaria
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('131468980', 'BG'), True)  
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('131468981', 'BG'), False)  
-    self.assertEqual(self.m_obj.validate_VAT_ID_bool('BG131468980', 'BG'), True)  
-
+  
   def test_hungary(self): 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12870491-2-4', 'HU'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12870491-2-41', 'HU'), False)  
