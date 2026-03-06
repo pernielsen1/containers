@@ -128,8 +128,10 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12', 'IE') , False)   # To short
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('IE123260', 'IE') , True)   # Offical example
 
-  def test_spain(self): # Ireland
+  def test_spain(self): # spain 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('A28123453', 'ES') , True)   # Offical example
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('A2812345C', 'ES') , True)   # with a check letter
+
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('ESA28123453', 'ES') , True)   # Offical example
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('A123456789', 'IE') , False)   # To Long
   

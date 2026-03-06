@@ -69,8 +69,8 @@ class company_identifiers:
             "CA_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"CA", "name":"BN business number", 
                               "len":9},
             "NL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"NL", "name":"KVN",  "len":8},
-            "ES_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"ES", "name":"Spanish NIF", "len":8, 
-                        "before_list": ['A', 'B', 'C', 'F', 'G', 'N', 'W']},
+            "ES_COMPANY_ID": {"algorithm":self.validate_spain, "country":"ES", "name":"Spanish NIF", "min_len":7, "len":8, 
+                        "before_list": ['A', 'B', 'C', 'F', 'G', 'N', 'W'], "after_allowed":True},
             "ES_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus10, "country":"ES",
                           "name":"Spanish NIF", "len":8,
                         "before_list_TBD": ['ESA', 'ESB', 'ESC', 'ESF', 'ESG', 'ESN', 'ESW']}, 
@@ -584,11 +584,24 @@ class company_identifiers:
 #         NL000099998B57
         return self.create_result_ok()
   
-
+    def validate_spain(self, s, variant):
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] != True:
+            return result
+        if len(result['number']) == 7:
+            if len(result['after']) == 1:
+                return self.create_result_ok()
+            else:
+                return self.create_result_error("ES01", result, "Should be a check letter when 7 digits")
+        else:  # len is 8
+            return self.validate_modulus10(s, variant)
+            
 if __name__=="__main__":
     m_obj = company_identifiers()
+    r = m_obj.validate_COMPANY_ID('A2812345C', 'ES')
+
 #    r = m_obj.validate_COMPANY_ID('33282b Wien' , 'AT')
-    r = m_obj.validate_COMPANY_ID('ZVR 123456789 Wien' , 'AT')
+#    r = m_obj.validate_COMPANY_ID('ZVR 123456789 Wien' , 'AT')
 
 #    r = m_obj.validate_VAT_ID('SK1234567890', 'SK')
 #    r = m_obj.validate_VAT_ID('SE202100548901', 'SE')
