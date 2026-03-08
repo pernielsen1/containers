@@ -30,7 +30,7 @@ class company_identifiers:
             self.dict_xjustiz_to_name[item] = '(' + key + ')'
             
         self.definitions = {
-            "AT_COMPANY_ID": {"algorithm":self.validate_fn,"country":"AT","name":"FN",  "min_len":1, "len":9,
+            "AT_COMPANY_ID": {"algorithm":self.validate_austria,"country":"AT","name":"FN",  "min_len":1, "len":9,
                               "before_list":["FB", "FN", "ZVR", "FNZVR", "FNZVRZAHL", "ZVRZAHL", ""], 'after_allowed':True},
             "AT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"AT","name":"ATU",  
                           "len":8, "before_list":["ATU", ""]},
@@ -40,30 +40,25 @@ class company_identifiers:
             "BG_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"BG","name":"UIC", "len":9, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 10 ], 
                          "return_rest": True },
-            
             "CA_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"CA", "name":"BN business number", 
                               "len":9},
-
             "CH_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"CH", "name":"Che", "len":9,
-                        "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ],   "before_list": ['CHE']},
+                        "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ],   "before_list": ['CHE'],
+                        "mask":"CHE-%%s%s%s%.s%s%s%.s%s%s"},
             "CH_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11,
                           "country":"CH","name":"Che", "len":9, "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ]},
             "CZ_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"CZ", "name":"ICO", "len":8, 
                         "weights": [ 8, 7, 6, 5, 4, 3, 2], "check_digit_for_0":1},
-
             "DE_COMPANY_ID": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc", 
                               "comment":"Minimum length normally 4 but see audi in ingolstadt down to 1 exists",
                               "country":"DE", "min_len":1, "len":6, 
                               "before_list": ['HRA', 'HRB', 'GnR', 'GsR', 'VR', 'PR'], 'after_allowed':True},
             "DE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"DE", "name":"Germany VAT", "len":9},
-
             "DK_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"DK", "name":"CVR" ,
                         "weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},
-
             "EE_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"EE", "name":"Legal identity code", "len":8, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9 ], 
                          "return_rest": True },
-
             "ES_COMPANY_ID": {"algorithm":self.validate_spain, "country":"ES", "name":"Spanish NIF", "min_len":7, "len":8, 
                         "before_list": ['A', 'B', 'C', 'F', 'G', 'N', 'W'], "after_allowed":True},
             "ES_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus10, "country":"ES",
@@ -74,7 +69,6 @@ class company_identifiers:
                           "before_list":"EU"},
             "FI_COMPANY_ID" : {"algorithm":self.validate_modulus11,"country":"FI", "name":"LY - business ID", "len":8,
                         "zfill_len":8,  "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ]},
-
             "FR_COMPANY_ID": {"algorithm":self.validate_france, "country":"FR","name":"Siren", 
                               "min_len":9, "len":14, "after_allowed":True},   
             "FR_VAT_ID": {"algorithm":self.validate_france_vat, "country":"FR","name":"NN + Siren", "len":11, 
@@ -86,10 +80,8 @@ class company_identifiers:
                                 "five_and_R": ['IP', 'SP']
                             },
             "GB_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"GB", "name":"GB VAt", "len":9},
-
             "GR_COMPANY_ID" : {"algorithm":self.validate_modulus11,"country":"GR", "name":"AFM", "len": 9,
                         "weights": [  256, 128, 64, 32, 16, 8, 4, 2], "return_rest": True, "return_10":0},
-
             "HR_COMPANY_ID": {"algorithm":self.validate_iso7064_11_10, "country":"HR","name":"OIB", 
                                "len":11},
             "HU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"HU","name":"Adoszam", "len":10},
@@ -101,11 +93,10 @@ class company_identifiers:
             "LU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LU", "name":"LU RCS", "min_len":4, "len":6, 
                         "before_list": ['B','']},
 #   Latvia not always same weights we have to go for just numeric "weights": [ 1, 3, 9, 10, 5, 8, 4, 2, 1, 6], 'check_digit_for_1':1},
-       
             "LV_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LV", "name":"", "len":11},
             "MT_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"MT","name":"ICO", 
                               "before_list":['C'], "min_len":3, "len":5},
-            "MX_COMPANY_ID": {"algorithm":self.validate_mx, "country":"MX","name":"RFC",  "len":12},
+            "MX_COMPANY_ID": {"algorithm":self.validate_mexico, "country":"MX","name":"RFC",  "len":12},
             "NL_VAT_ID": {"algorithm":self.validate_vat_nl, "country":"GB", "name":"GB VAt", "len":9},
             "NL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"NL", "name":"KVN",  "len":8},
             "NO_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"NO", "name":"Organisationsnummer", "len":9, 
@@ -150,6 +141,64 @@ class company_identifiers:
         """
         s = s.translate(self.clean_table)
         return  s.replace(' ','')
+    def get_before_number_after(self, s, variant):
+        """ main validation split string in before a number, a number and a string after
+            validate that number has OK length and before string is allowed
+        """
+        result={'before':'', 'number':'', 'after':''}
+        i=0
+        while i<len(s) and s[i].isdigit() == False:
+            result['before'] += s[i]
+            i += 1
+        while i<len(s) and s[i].isdigit() == True:
+            result['number'] += s[i]
+            i += 1
+        while i<len(s):
+            result['after'] += s[i]
+            i += 1
+        # Validations - initially set to all good
+        after_allowed = variant.get('after_allowed', False)
+        before_list = variant.get('before_list', None)
+        max_len = variant.get('len', 0)  
+        min_len = variant.get('min_len', -1)
+        if len(result['number']) != max_len and  min_len == -1:
+            return self.create_result_error('NU01',  result, 'Length of number does not match fixed number')
+        if len(result['number']) > max_len or len(result['number']) < min_len:
+            return self.create_result_error('NU02', result, 'Length of number not between min and max')
+        if before_list == None and len(result['before']) > 0:
+            return self.create_result_error('NU03', result, 'Length of before > 0 and empty before_list')
+        if before_list != None: 
+            if (    result['before'] not in before_list and  
+                    result['before'].upper() not in before_list 
+                ):
+                return self.create_result_error('NU04', result, 'The before string is not in allowed before_list')
+        if len(result['after']) > 0 and after_allowed == False:
+            return self.create_result_error('NU05', result, 'The after string is not empty')
+        # still ehre all good
+        num_len = len(result['number'])
+        result['excl_chk_dig']= result['number'][0:num_len  - 1] 
+        result['expected'] = int(result['number'][num_len-1:num_len])
+        return self.create_result_ok(result)
+    def is_valid_ccyymmdd(self, ccyymmdd:str, cc_floor=18, cc_ceiling=20):
+        """ validate a ccyymmdd date
+        """
+        if ccyymmdd.isdigit() == False:
+            return False
+        cc = int(ccyymmdd[0:2])
+        if cc < cc_floor or cc > cc_ceiling:
+            return False
+        try:
+            d = datetime.strptime(ccyymmdd, '%Y%m%d')
+        except ValueError:
+            return False   # bad date 
+        return True  # still here all good 
+    def is_valid_yymmdd(self, yymmdd):
+        """ validate a yymmdd date - special case always accept 000229 
+        - which is correct for 20000229 but not for 19000229
+        """
+        if yymmdd  =="000229":
+            return True # OK we accepte 10000229 as OK which it isnøt and 21000229 - couldn't care less
+        return self.is_valid_ccyymmdd("20" + yymmdd)
     def create_result_error(self, error_code:str, result={}, error=None):
         result['validation_result'] = False
         result['error_code'] = error_code
@@ -260,29 +309,6 @@ class company_identifiers:
         """ wrapper to do iso7064 modulus 11 10 
         """
         return self.validate_modulus(s, variant, self.calc_iso7064_10_11_check_digit)
-    def validate_italy(self, s:str, variant):
-        """ do the italian special version
-        """
-        result = self.get_before_number_after(s, variant)
-        if result['validation_result'] == False:
-            return result
-        i=1
-        res = 0
-        for c in result['excl_chk_dig']:
-            if i % 2 == 0:  # even
-                x = int(c) * 2
-                if x > 9:
-                    x = x - 9
-                res += x
-            else:
-                res += int(c)
-            i += 1
-        result['res'] = res
-        result['check_digit'] = (10 - (res % 10)) % 10
-        if (result['check_digit'] == result['expected']):
-            return self.create_result_ok(result)
-        else:
-            return self.create_result_error('IT01', result, 'Wrong modulus 11 check digit')
     def validate_modulus97(self, s:str, variant):
         """ do the modulus 97 standard version 
         """
@@ -299,97 +325,6 @@ class company_identifiers:
         """ wrapper is the number numeric and of correct length - actual validation in get_before_number_after
         """
         return self.get_before_number_after(s, variant)
-    def validate_fn(self, s, variant):
-        """ austria firmen buch number - just validate we have OK string before (FN, FB or none)
-            followed by a check char between a and z
-            can also be ZVR (Zentrales Vereinsregister) 9 digits number
-        """
-        # simplified validation of austrian number 1..6 digits followed by a character (lowercase)
-        result = self.get_before_number_after(s, variant)
-        if result['validation_result'] == False:
-            return result
-        if result['before'].upper() in ['FNZVR', 'FNZVRZAHL', 'ZVR', 'ZVRZAHL']:
-            if len(result['number']) != 9:
-                return self.create_result_error('AT02', result, 'ZVR number should  be 9 long')
-        else:
-            if len(result['number']) > 6:
-                return self.create_result_error('AT03', result, 'FN number longer than 6')
-            if len(result['after']) < 1:
-                return self.create_result_error('AT04', result, 'There must be a check char')
-            if result['after'][0:1] < 'a' or result['after'][0:1] > 'z':
-                return self.create_result_error('AT01', result, 'check char not between a and z')
-        # still her all good
-        return self.create_result_ok(result)
-    def get_before_number_after(self, s, variant):
-        """ main validation split string in before a number, a number and a string after
-            validate that number has OK length and before string is allowed
-        """
-        result={'before':'', 'number':'', 'after':''}
-        i=0
-        while i<len(s) and s[i].isdigit() == False:
-            result['before'] += s[i]
-            i += 1
-        while i<len(s) and s[i].isdigit() == True:
-            result['number'] += s[i]
-            i += 1
-        while i<len(s):
-            result['after'] += s[i]
-            i += 1
-        # Validations - initially set to all good
-        after_allowed = variant.get('after_allowed', False)
-        before_list = variant.get('before_list', None)
-        max_len = variant.get('len', 0)  
-        min_len = variant.get('min_len', -1)
-        if len(result['number']) != max_len and  min_len == -1:
-            return self.create_result_error('NU01',  result, 'Length of number does not match fixed number')
-        if len(result['number']) > max_len or len(result['number']) < min_len:
-            return self.create_result_error('NU02', result, 'Length of number not between min and max')
-        if before_list == None and len(result['before']) > 0:
-            return self.create_result_error('NU03', result, 'Length of before > 0 and empty before_list')
-        if before_list != None: 
-            if (    result['before'] not in before_list and  
-                    result['before'].upper() not in before_list 
-                ):
-                return self.create_result_error('NU04', result, 'The before string is not in allowed before_list')
-        if len(result['after']) > 0 and after_allowed == False:
-            return self.create_result_error('NU05', result, 'The after string is not empty')
-        # still ehre all good
-        num_len = len(result['number'])
-        result['excl_chk_dig']= result['number'][0:num_len  - 1] 
-        result['expected'] = int(result['number'][num_len-1:num_len])
-        return self.create_result_ok(result)
-    def validate_germany(self, s, variant):
-        """ Germany - split in before which must be one of the allowed values HRB, HRA etc 
-            followed by a number and then a name of a court - the court name should be in the XJustiz dictionary
-        """
-        result = self.get_before_number_after(s, variant)
-        if result['validation_result'] == False:
-            return result
-        result['XJustiz_code'] = self.dict_xjustiz.get(result['after'], None)
-        if result['XJustiz_code'] == None:
-            return self.create_result_error('DE01', result, "Invalid XJustis code")
-        else:
-            # still here all good create an edited name also
-            result['edited_name'] = ( result['before'] + ' ' + result['number'] + ' ' +
-                                     self.dict_xjustiz_to_name[result['XJustiz_code']] ) 
-     
-        return self.create_result_ok(result)
-    def validate_great_britain(self, s, variant):
-        """ great britain 8 digits or SC FC followed by 6 
-        """
-        result = self.get_before_number_after(s, variant)
-        if result['validation_result'] == False:
-            return result
-        if (
-                (len(result['number']) == 6 and len(result['before']) == 2) 
-                    or len(result['number']) == 8
-                    or (len(result['number']) == 5 and result['before'] in variant['five_and_R'] 
-                        and result['after'] == 'R') 
-
-                ):
-            return self.create_result_ok(result)
-        else: # bad
-            return self.create_result_error('GB01', result, 'GB wrong len')  
     def validate_vat_std(self, s, variant):
         """ vat std i.e. the name of the country followed by the normal number for company ID
         """
@@ -407,69 +342,6 @@ class company_identifiers:
             return self.create_result_ok(result)
         else:
             return number_algo(result['number'], variant)        
-    def is_valid_ccyymmdd(self, ccyymmdd:str, cc_floor=18, cc_ceiling=20):
-        """ validate a ccyymmdd date
-        """
-        if ccyymmdd.isdigit() == False:
-            return False
-        cc = int(ccyymmdd[0:2])
-        if cc < cc_floor or cc > cc_ceiling:
-            return False
-        try:
-            d = datetime.strptime(ccyymmdd, '%Y%m%d')
-        except ValueError:
-            return False   # bad date 
-        return True  # still here all good 
-    def is_valid_yymmdd(self, yymmdd):
-        """ validate a yymmdd date - special case always accept 000229 
-        - which is correct for 20000229 but not for 19000229
-        """
-        if yymmdd  =="000229":
-            return True # OK we accepte 10000229 as OK which it isnøt and 21000229 - couldn't care less
-        return self.is_valid_ccyymmdd("20" + yymmdd)
-    def validate_mx(self, s, variant):
-        """ Mexico first a string 3 chars then YYMMDD followd by 3 
-        """
-        result={}
-        if len(s) != 12:
-            return self.create_result_error('MX01', result, "MX01 wrong len must be 12")
-        result['YYMMDD'] = s[3:9]    
-        if self.is_valid_yymmdd(result["YYMMDD"]) == False:
-            return self.create_result_error('MX02', result, "the YYMMDD is not valid")   
-            
-        result['HOMOCLAVE'] = s[9:11]
-        return self.create_result_ok(result)
-    def validate_romania(self, s, variant):
-        """ romania the j-number.. uses / to split the string 
-        """
-        result={}
-        result['J'] = s[0:1]
-        elements = s.split('/')
-        if len(elements) == 5:
-            result['J'] = elements[1]
-            result['COUNTY'] = elements[2]
-            result['number'] = elements[4]
-            result['YYYY'] = elements[4]
-        if len(elements) == 4:
-            result['COUNTY'] = elements[1]
-            result['number'] = elements[2]
-            result['YYYY'] = elements[3]
-        if len(elements) == 3:
-            result['COUNTY'] = elements[0]
-            result['number'] = elements[1]
-            result['YYYY'] = elements[2]
-
-        if len(elements) < 3:
-            return self.create_result_error('RO01', result, "J-number not enough parts in elements after split")
-     
-        if result['J'] != 'J':
-            return self.create_result_error('RO02', result, "J-number wrong first char not a J")
-        if self.is_valid_ccyymmdd(result['YYYY'] + '0101') == False:
-            return self.create_result_error('RO03', result, "J-YYYY not valid")
-        if result['YYYY'].isdigit() == False:
-            return self.create_result_error('RO04', result, "J-number not numeric YYYY")
-        # still here all good            
-        return self.create_result_ok(result)
     def validate(self, in_str, variant_name):
         """ main entry point for validation - will return a dict with the results
         """
@@ -526,6 +398,33 @@ class company_identifiers:
         """
         result = self.validate_VAT_ID(s, country_code)
         return result['validation_result']
+    
+    def validate_austria(self, s, variant):
+        """ austria firmen buch number - just validate we have OK string before (FN, FB or none)
+            followed by a check char between a and z
+            can also be ZVR (Zentrales Vereinsregister) 9 digits number
+        """
+        # simplified validation of austrian number 1..6 digits followed by a character (lowercase)
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] == False:
+            return result
+        zvr_list = ['FNZVR', 'FNZVRZAHL', 'ZVR', 'ZVRZAHL']
+        if result['before'].upper() in zvr_list:
+            if len(result['number']) != 9:
+                return self.create_result_error('AT02', result, 'ZVR number should  be 9 long')
+        else:
+            if len(result['number']) > 6:
+                return self.create_result_error('AT03', result, 'FN number longer than 6')
+            if len(result['after']) < 1:
+                return self.create_result_error('AT04', result, 'There must be a check char')
+            if result['after'][0:1] < 'a' or result['after'][0:1] > 'z':
+                return self.create_result_error('AT01', result, 'check char not between a and z')
+        # still her all good also return an edited name
+        if result['before'].upper in  zvr_list:
+            result['edited_name'] = 'ZVR ' + result['number']
+        else:
+            result['edited_name'] =  result['before'] + ' ' + result['number'] + result['after'][0:1] 
+        return self.create_result_ok(result)
     def validate_france(self, s, variant):
         """ France Siren, sirete, RCS 
             SIREN (Système d’Identification du Répertoire des Entreprises):
@@ -546,7 +445,6 @@ class company_identifiers:
             return self.create_result_error('FR01', result, "Siren or Sitrete are either 9 or 14 long")
         # first 9 should be modulus 10 
         return  self.validate_modulus10(result['number'][0:9], variant)
-    
     def validate_france_vat(self, s, variant):
         result = self.get_before_number_after(s, variant)
         if result['validation_result'] != True:
@@ -556,26 +454,74 @@ class company_identifiers:
         if result['chk_digit'] != int(result['siren'][8:9]):
             return self.create_result_error('FR05', result, "Wrong check digit in French VAT")
         # still here all good
-        return self.create_result_ok(result)
-
-    def validate_sweden_vat(self, s, variant):
+        return self.create_result_ok(result)    
+    def validate_germany(self, s, variant):
+        """ Germany - split in before which must be one of the allowed values HRB, HRA etc 
+            followed by a number and then a name of a court - the court name should be in the XJustiz dictionary
+        """
         result = self.get_before_number_after(s, variant)
-        if result['validation_result'] != True:
+        if result['validation_result'] == False:
             return result
-        result['orgno'] = s[2:12]
-        result['01'] = s[12:14]
-        if result['01'] != '01':
-            return self.create_result_error('SEV01', result, "Last two digits not 01")
-            
-        result['chk_digit'] = self.calc_modulus10_check_digit(result['orgno'][0:9], None)
-        if result['chk_digit'] != int(result['orgno'][9:10]):
-            return self.create_result_error('SEV02', result, "Wrong check digit in Swedish VAT")
-        # still here all good
+        result['XJustiz_code'] = self.dict_xjustiz.get(result['after'], None)
+        if result['XJustiz_code'] == None:
+            return self.create_result_error('DE01', result, "Invalid XJustis code")
+        else:
+            # still here all good create an edited name also
+            result['edited_name'] = ( result['before'] + ' ' + result['number'] + ' ' +
+                                     self.dict_xjustiz_to_name[result['XJustiz_code']] ) 
+     
         return self.create_result_ok(result)
+    def validate_great_britain(self, s, variant):
+        """ great britain 8 digits or SC FC followed by 6 
+        """
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] == False:
+            return result
+        if (
+                (len(result['number']) == 6 and len(result['before']) == 2) 
+                    or len(result['number']) == 8
+                    or (len(result['number']) == 5 and result['before'] in variant['five_and_R'] 
+                        and result['after'] == 'R') 
 
-    def validate_romania_vat(self, s, variant):
-        return self.get_before_number_after(s, variant)
- 
+                ):
+            return self.create_result_ok(result)
+        else: # bad
+            return self.create_result_error('GB01', result, 'GB wrong len')  
+    def validate_italy(self, s:str, variant):
+        """ do the italian special version
+        """
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] == False:
+            return result
+        i=1
+        res = 0
+        for c in result['excl_chk_dig']:
+            if i % 2 == 0:  # even
+                x = int(c) * 2
+                if x > 9:
+                    x = x - 9
+                res += x
+            else:
+                res += int(c)
+            i += 1
+        result['res'] = res
+        result['check_digit'] = (10 - (res % 10)) % 10
+        if (result['check_digit'] == result['expected']):
+            return self.create_result_ok(result)
+        else:
+            return self.create_result_error('IT01', result, 'Wrong modulus 11 check digit')
+    def validate_mexico(self, s, variant):
+        """ Mexico first a string 3 chars then YYMMDD followd by 3 
+        """
+        result={}
+        if len(s) != 12:
+            return self.create_result_error('MX01', result, "MX01 wrong len must be 12")
+        result['YYMMDD'] = s[3:9]    
+        if self.is_valid_yymmdd(result["YYMMDD"]) == False:
+            return self.create_result_error('MX02', result, "the YYMMDD is not valid")   
+            
+        result['HOMOCLAVE'] = s[9:11]
+        return self.create_result_ok(result)
     def validate_vat_nl(self, s, variant):
         result={}
         if len(s) != 14:
@@ -595,7 +541,6 @@ class company_identifiers:
 
 #         NL000099998B57
         return self.create_result_ok()
-  
     def validate_spain(self, s, variant):
         result = self.get_before_number_after(s, variant)
         if result['validation_result'] != True:
@@ -607,81 +552,59 @@ class company_identifiers:
                 return self.create_result_error("ES01", result, "Should be a check letter when 7 digits")
         else:  # len is 8
             return self.validate_modulus10(s, variant)
+    def validate_sweden_vat(self, s, variant):
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] != True:
+            return result
+        result['orgno'] = s[2:12]
+        result['01'] = s[12:14]
+        if result['01'] != '01':
+            return self.create_result_error('SEV01', result, "Last two digits not 01")
             
+        result['chk_digit'] = self.calc_modulus10_check_digit(result['orgno'][0:9], None)
+        if result['chk_digit'] != int(result['orgno'][9:10]):
+            return self.create_result_error('SEV02', result, "Wrong check digit in Swedish VAT")
+        # still here all good
+        return self.create_result_ok(result)   
+    def validate_romania(self, s, variant):
+        """ romania the j-number.. uses / to split the string 
+        """
+        result={}
+        result['J'] = s[0:1]
+        elements = s.split('/')
+        if len(elements) == 5:
+            result['J'] = elements[1]
+            result['COUNTY'] = elements[2]
+            result['number'] = elements[4]
+            result['YYYY'] = elements[4]
+        if len(elements) == 4:
+            result['COUNTY'] = elements[1]
+            result['number'] = elements[2]
+            result['YYYY'] = elements[3]
+        if len(elements) == 3:
+            result['COUNTY'] = elements[0]
+            result['number'] = elements[1]
+            result['YYYY'] = elements[2]
+
+        if len(elements) < 3:
+            return self.create_result_error('RO01', result, "J-number not enough parts in elements after split")
+     
+        if result['J'] != 'J':
+            return self.create_result_error('RO02', result, "J-number wrong first char not a J")
+        if self.is_valid_ccyymmdd(result['YYYY'] + '0101') == False:
+            return self.create_result_error('RO03', result, "J-YYYY not valid")
+        if result['YYYY'].isdigit() == False:
+            return self.create_result_error('RO04', result, "J-number not numeric YYYY")
+        # still here all good            
+        return self.create_result_ok(result)
+    def validate_romania_vat(self, s, variant):
+        return self.get_before_number_after(s, variant)
+             
 if __name__=="__main__":
     m_obj = company_identifiers()
     r = m_obj.validate_VAT_ID('EU1', 'BE') 
     print(r)
     print()
-#    r = m_obj.validate_COMPANY_ID('33282b Wien' , 'AT')
-#    r = m_obj.validate_COMPANY_ID('ZVR 123456789 Wien' , 'AT')
-#    r = m_obj.validate_COMPANY_ID('A2812345C', 'ES')
-#    r = m_obj.validate_VAT_ID('SK1234567890', 'SK')
-#    r = m_obj.validate_VAT_ID('SE202100548901', 'SE')
-#    r = m_obj.validate_VAT_ID('NL123456789B01', 'NL')
-#    r = m_obj.validate_VAT_ID('FR01784671695', 'FR')
-#    r = m_obj.validate_COMPANY_ID('IP12356R', 'GB')
-#    r = m_obj.validate_COMPANY_ID('784671695-12345', 'FR')
-#    r = m_obj.validate_COMPANY_ID('J/AB/12345/1999', 'RO')
-#    r = m_obj.validate_COMPANY_ID('J/AB/12345/1999', 'RO')
-#    r = m_obj.validate_COMPANY_ID('/J/AB/12345/1999', 'RO')
-#    r = m_obj.validate_COMPANY_ID('50223054', 'SI')
-#    r = m_obj.validate_VAT_ID_bool('NO123456785', 'NO')
-#    r = m_obj.validate_COMPANY_ID('HRB-1234 Aachen', 'DE')
-#    r = m_obj.validate_COMPANY_ID('2021005489', 'SE')
-#    r = m_obj.validate_COMPANY_ID('0001590082', 'RO')
-#    r = m_obj.validate_COMPANY_ID('01590082', 'RO')
-#     r = m_obj.validate_COMPANY_ID('094014298', 'GR')
-#   r = m_obj.validate_COMPANY_ID('12870491-2-41', 'HU')  
-#   r = m_obj.validate_VAT_ID('BG12870491-2-41', 'HU')  
-#    r = m_obj.validate_COMPANY_ID('ABC680524P76', 'MX')
-#    r = m_obj.validate_COMPANY_ID('131468980', 'BG') # 
-#    r = m_obj.validate_COMPANY_ID('111111118', 'LT') # 
-#    r = m_obj.validate_COMPANY_ID('10345833', 'EE') # 
-#    r = m_obj.validate_COMPANY_ID('200000017', 'LT') # 
-
-
-#    r = m_obj.validate_COMPANY_ID('20000001', 'LT') # 
-#    r = m_obj.validate_COMPANY_ID('188659752', 'LT') # 
-#    r = m_obj.validate_COMPANY_ID('300060819', 'LT') # 
-# 188659752
-# 300060819
-#   r = m_obj.validate_VAT_ID('ATU12345678', 'AT') # 
-#    r = m_obj.validate_COMPANY_ID('40003032949', 'LV') # Offical example
-#    r = m_obj.validate_VAT_ID('BE0403.019.261', 'BE')
-#    r = m_obj.validate_VAT_ID('IT01533030480', 'IT')
-#    r = m_obj.validate_VAT_ID('ESA28123453', 'ES') # Offical example
-
-#    r = m_obj.validate_COMPANY_ID('01533030480', 'IT')
-    
-#    r = m_obj.validate_COMPANY_ID('19871234569', 'LU') 
-#    r = m_obj.validate_COMPANY_ID('25596641', 'CZ')
-#    r = m_obj.validate_COMPANY_ID('0403.019.261', 'BE')
-#    r = m_obj.validate_COMPANY_ID_bool('A28123453', 'ES') # Offical example
-#    r = m_obj.validate_COMPANY_ID_bool('1234567890', 'PL') # Offical example
-#    r = m_obj.validate_germany(m_obj.clean_str('HRB-1234 Aachen'), 'DE_COMPANY_ID') # Offical example
-#    x = m_obj.clean_str('Bad Homburg v.d.H.')
-#    print(x)
-#    print(m_obj.dict_xjustiz[x])
-#    print(m_obj.dict_xjustiz['Aachen'])
-#    print(r)
-#    r = m_obj.validate_COMPANY_ID_bool('123456785', 'NO') # Offical example
-#    r = m_obj.validate('974760673', 'NO_COMPANY_ID') # Brönnoy sund 
-    
-#    r = m_obj.validate('2070742-1', 'ly') # Wärtsila  does not work 
-#    r = m_obj.validate('1572860-0', 'ly') # test case from google ai. 
-#    r = m_obj.validate('112038-9', 'ly')  # Nokia with a missing zero first
-#    r = m_obj.validate('CHE-123.456.788', 'che') # Unicef 
-#    r = m_obj.validate('784671695', 'siren') # Unicef 
-#    r = m_obj.validate('005520135', 'siren') # starts with zero 
-#    r = m_obj.validate('33282b', 'fn') # FN 72544g (Red Bull GmbH) FN 33282b (OMV Aktiengesellschaft)
-#    r = m_obj.validate('123456k', 'fn') # example
-#    r = m_obj.validate('56247t', 'fn') #  verfied red bull
-#    r = m_obj.validate('180219d', 'fn') # verified ostrischer post
-#    r = m_obj.validate('2021005489', 'sweorg')
-#    r = m_obj.validate('9912346', 'swebg7')
-#    r = m_obj.validate('55555551', 'swebg8')
-
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--command", choices=['calculate', 'validate' ])
     parser.add_argument("-v", "--variant", choices=['standard', 'kvn',                                                    'cpr', 'cvr' ])
