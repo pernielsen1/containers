@@ -104,6 +104,8 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-123456A88', 'CH'), False) # not numeric
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-12345688', 'CH'), False) # Wromg len        
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CHE-123456789', 'CH'), False) # Wromg chk didit not 9 but 8 is the result       
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('CH-1123456789', 'CH'), True) # Wromg chk didit not 9 but 8 is the result       
+  
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('CH123.456.788', 'CH'), True) # OK 
         
   def test_finland(self): # finland
