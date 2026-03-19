@@ -88,8 +88,11 @@ class company_identifiers:
             "GB_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"GB", "name":"GB VAt", "len":9},
             "GR_COMPANY_ID" : {"algorithm":self.validate_modulus11,"country":"GR", "name":"AFM", "len": 9,
                         "weights": [  256, 128, 64, 32, 16, 8, 4, 2], "return_rest": True, "return_10":0},
-            "HR_COMPANY_ID": {"algorithm":self.validate_iso7064_11_10, "country":"HR","name":"OIB", 
-                               "len":11},
+#            "HR_COMPANY_ID": {"algorithm":self.validate_iso7064_11_10, "country":"HR","name":"OIB or MBS", 
+#                               "len":11},
+            "HR_COMPANY_ID": {"algorithm":self.validate_croatia, "country":"HR","name":"OIB or MBS", 
+                               "min_len":8, "len":11},
+
             "HU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"HU","name":"Adoszam", "len":10},
             "IE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"IE", "name":"CRO", "min_len": 3, "len":6 },
             "IT_COMPANY_ID": {"algorithm":self.validate_italy, "country":"IT","name":"Partita IVA", "len":11} ,
@@ -434,6 +437,17 @@ class company_identifiers:
         else:
             result['edited_name'] =  result['before'] + ' ' + result['number'] + result['after'][0:1] 
         return self.create_result_ok(result)
+    def validate_croatia(self, s, variant):
+        result = self.get_before_number_after(s, variant)
+        if result['validation_result'] == False:
+            return result
+        if len(result['number']) == 11:  # it's the OIB number
+            return self.validate_iso7064_11_10(s, variant)
+        if len(result['number']) == 8:  # it's the MBS number = OK
+            return self.create_result_ok(result)
+        # still here illegal length
+        return self.create_result_error('HR01', result, 'Illegal length must be 8 or 11')
+
     def validate_france(self, s, variant):
         """ France Siren, sirete, RCS 
             SIREN (Système d’Identification du Répertoire des Entreprises):

@@ -241,8 +241,11 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('GB123456789', 'GB'), True)
     
   def test_croatia(self): 
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('71481280786', 'HR'), True)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('71481280786', 'HR'), True)  # OIB number
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('71481280785', 'HR'), False)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12345678', 'HR'), True) # MBS number  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('123456789', 'HR'), False) # MBS number wrong length  
+    
 
   def test_slovakia(self): 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12345678', 'SK'), True)  
