@@ -149,12 +149,13 @@ class test_moudulus(unittest.TestCase):
   def test_spain(self): # spain 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('A28123453', 'ES') , True)   # Offical example
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('A2812345C', 'ES') , True)   # with a check letter
-
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('ESA28123453', 'ES') , True)   # Offical example
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('A123456789', 'IE') , False)   # To Long
   
-   
- 
+  def test_liechtenstein(self): # Luxembourg  TBD more edge cases in test for 1 in rest
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FL-0001-123-456-7', 'LI') , True)   # AI google example
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('FL-001-123-456-7', 'LI') , False)   # AI google example
+
   def test_luxembourg(self): # Luxembourg  TBD more edge cases in test for 1 in rest
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('B112.11', 'LU') , True)   # AI google example
 #        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('92345678902', 'LU') , True)   # OECD example
@@ -165,6 +166,8 @@ class test_moudulus(unittest.TestCase):
   def test_italy(self): # Italy a variant of luhn 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('01533030480', 'IT') , True)   # AI google example
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('01533030484', 'IT') , False)   # Wrong digit
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ABC123123312', 'IT') , True)   # Starts with letter and not IT then solopreneur
+    
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('IT01533030480', 'IT') , True)   # AI google example
 
   def test_us(self): # us just number 01-1234567 

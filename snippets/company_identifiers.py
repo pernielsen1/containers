@@ -96,6 +96,9 @@ class company_identifiers:
             "LT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LT", "name":"Legal identity code", "len":9, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 1 ], 
                          "return_rest": True },
+            "LI_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LI", "name":"Like CH but with FL", "len":11, 
+                        "before_list": ['FL']},
+       
             "LU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LU", "name":"LU RCS", "min_len":4, "len":6, 
                         "before_list": ['B','']},
 #   Latvia not always same weights we have to go for just numeric "weights": [ 1, 3, 9, 10, 5, 8, 4, 2, 1, 6], 'check_digit_for_1':1},
@@ -496,6 +499,13 @@ class company_identifiers:
     def validate_italy(self, s:str, variant):
         """ do the italian special version
         """
+        if s[0:1] >= 'A' and s[0:1] <= 'Z':
+            # could be solopreneur
+            if s[0:2] != 'IT':
+                result = {'before': s}
+                return self.create_result_ok(result)
+
+        # still here normal italian number
         result = self.get_before_number_after(s, variant)
         if result['validation_result'] == False:
             return result
