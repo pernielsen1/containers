@@ -158,6 +158,7 @@ class test_moudulus(unittest.TestCase):
 
   def test_luxembourg(self): # Luxembourg  TBD more edge cases in test for 1 in rest
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('B112.11', 'LU') , True)   # AI google example
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('B112.11 Luxembourg', 'LU') , True)   # AI google example
 #        self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('92345678902', 'LU') , True)   # OECD example
         # Result: Remainder 0 results in check digit 0 or 2 depending on specific tax office rounding, but commonly matches 2 in practice for certain registry series.      
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12345', 'LU') , True)   # 
@@ -243,8 +244,8 @@ class test_moudulus(unittest.TestCase):
   def test_croatia(self): 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('71481280786', 'HR'), True)  # OIB number
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('71481280785', 'HR'), False)  
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12345678', 'HR'), True) # MBS number  
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('123456789', 'HR'), False) # MBS number wrong length  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('123456789', 'HR'), True) # MBS number  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('1234567890', 'HR'), False) # MBS number wrong length  
     
 
   def test_slovakia(self): 

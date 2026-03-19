@@ -91,7 +91,7 @@ class company_identifiers:
 #            "HR_COMPANY_ID": {"algorithm":self.validate_iso7064_11_10, "country":"HR","name":"OIB or MBS", 
 #                               "len":11},
             "HR_COMPANY_ID": {"algorithm":self.validate_croatia, "country":"HR","name":"OIB or MBS", 
-                               "min_len":8, "len":11},
+                               "min_len":9, "len":11},
 
             "HU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"HU","name":"Adoszam", "len":10},
             "IE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"IE", "name":"CRO", "min_len": 3, "len":6 },
@@ -103,7 +103,7 @@ class company_identifiers:
                         "before_list": ['FL']},
        
             "LU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LU", "name":"LU RCS", "min_len":4, "len":6, 
-                        "before_list": ['B','']},
+                        "before_list": ['B',''], "after_allowed":True},
 #   Latvia not always same weights we have to go for just numeric "weights": [ 1, 3, 9, 10, 5, 8, 4, 2, 1, 6], 'check_digit_for_1':1},
             "LV_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LV", "name":"", "len":11},
             "MT_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"MT","name":"ICO", 
@@ -443,10 +443,10 @@ class company_identifiers:
             return result
         if len(result['number']) == 11:  # it's the OIB number
             return self.validate_iso7064_11_10(s, variant)
-        if len(result['number']) == 8:  # it's the MBS number = OK
+        if len(result['number']) == 9:  # it's the MBS number = OK
             return self.create_result_ok(result)
         # still here illegal length
-        return self.create_result_error('HR01', result, 'Illegal length must be 8 or 11')
+        return self.create_result_error('HR01', result, 'Illegal length must be 9 or 11')
 
     def validate_france(self, s, variant):
         """ France Siren, sirete, RCS 
