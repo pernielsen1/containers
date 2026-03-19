@@ -42,7 +42,7 @@ class company_identifiers:
                          "return_rest": True },
             "CA_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"CA", "name":"BN business number", 
                               "len":9},
-            "CH_COMPANY_ID": {"algorithm":self.validate_switzerland, "country":"CH", "name":"CHE or CH", "min_len":9, "len":10,
+            "CH_COMPANY_ID": {"algorithm":self.validate_switzerland, "country":"CH", "name":"CHE or CH", "min_len":9, "len":11,
                         "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ],   "before_list": ['CHE', 'CH'],
                         "che_mask":"CHE-%s%s%s.%s%s%s.%s%s%s"},
 
@@ -616,7 +616,7 @@ class company_identifiers:
         if result['before'] == 'CHE':
             return self.validate_modulus11(s, variant)
         else:  # it CH
-            if len(result['number']) != 10:
+            if len(result['number']) != 11:
                 return self.create_result_error("CH01", result, 'for CH number must be 10 long') 
             else:
                 return self.create_result_ok(result)
@@ -624,7 +624,7 @@ class company_identifiers:
 if __name__=="__main__":
     m_obj = company_identifiers()
 #    r = m_obj.validate_COMPANY_ID('CHE-123.456.788', 'CH') 
-    r = m_obj.validate_COMPANY_ID('CH-1123.456.788', 'CH') 
+    r = m_obj.validate_COMPANY_ID('CH-11123.456.788', 'CH') 
 
 #    r = m_obj.validate_VAT_ID('EU1', 'BE') 
     print(r)
