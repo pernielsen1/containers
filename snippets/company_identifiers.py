@@ -93,8 +93,11 @@ class company_identifiers:
                          "return_rest": True },
             "LI_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LI", "name":"Like CH but with FL", "len":11, 
                         "before_list": ['FL']},       
-            "LU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LU", "name":"LU RCS", "min_len":4, "len":6, 
-                        "before_list": ['B',''], "after_allowed":True},
+            "LU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LU", "name":"LU RCS", "min_len":1, "len":6, 
+                        "before_list": ['B','F', 'G', 'J', ''], "after_allowed":True},
+            "LU_VAT_ID": {"algorithm":self.validate_just_numeric, "country":"LU", "name":"LU RCS", "len":8, 
+                        "before_list": ['LU'], "after_allowed":True},
+         
             "LV_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LV", "name":"", "len":11},
             "MT_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"MT","name":"ICO", 
                               "before_list":['C'], "min_len":3, "len":5},
