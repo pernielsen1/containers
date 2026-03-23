@@ -97,7 +97,6 @@ class company_identifiers:
                         "before_list": ['B','F', 'G', 'J', ''], "after_allowed":True},
             "LU_VAT_ID": {"algorithm":self.validate_just_numeric, "country":"LU", "name":"LU RCS", "len":8, 
                         "before_list": ['LU'], "after_allowed":True},
-         
             "LV_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LV", "name":"", "len":11},
             "MT_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"MT","name":"ICO", 
                               "before_list":['C'], "min_len":3, "len":5},

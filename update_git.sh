@@ -1,6 +1,7 @@
 #!/bin/bash
 # https://www.datacamp.com/tutorial/set-up-and-configure-mysql-in-docker
 # Add all files to be tracked
+cp -r ../clexp/experiments/* experiments
 git add .
 # commit will open nano for message 
 git commit 
