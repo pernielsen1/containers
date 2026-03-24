@@ -1,0 +1,259 @@
+"""
+BISTA XML Converter — Converts bista_mapper.py CSV output to XMW XML format.
+
+Produces a LIEFERUNG-BISTA XML file for submission to Deutsche Bundesbank via ExtraNet.
+Format follows the XMW Electronic Reporting System specification (December 2014).
+
+All HV11/HV12/HV21/HV22 items are combined into a single FORMULAR name="HV".
+Item positions are encoded as Z{LINE}S{SUBFORM}, e.g. HV11_010 → Z010S11.
+Amounts are converted from full EUR to EUR thousands (Tsd), rounded to integer.
+
+Usage:
+    python bista_to_xml.py --period 2024-12
+    python bista_to_xml.py --period 2024-12 --csv bista_report.csv --melder melder.json
+    python bista_to_xml.py --period 2024-12 --output bista2412.xml --stufe Produktion
+
+Input CSV columns : form, bista_item, bista_description, side, amount_eur
+Melder JSON keys  : absender.{rzlz,name}, melder.{blz,name,...,kontakt}
+Output            : LIEFERUNG-BISTA XML file
+"""
+
+import argparse
+import json
+import re
+import sys
+from datetime import datetime
+from pathlib import Path
+from xml.etree import ElementTree as ET
+from xml.dom import minidom
+
+import pandas as pd
+
+
+BISTA_XMLNS = "http://www.bundesbank.de/xmw/2003-01-01"
+XSI_XMLNS   = "http://www.w3.org/2001/XMLSchema-instance"
+SCHEMA_LOC  = "BbkXmwBsm.xsd"
+
+# Matches HV11_010, HV12_186, HV21_210, HV22_510, etc.
+ITEM_RE = re.compile(r"^HV(11|12|21|22)_(\d{3})$")
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def item_to_pos(bista_item: str) -> str:
+    """Convert 'HV11_010' → 'Z010S11', 'HV22_510' → 'Z510S22', etc."""
+    m = ITEM_RE.match(bista_item)
+    if not m:
+        raise ValueError(f"Cannot convert BISTA item to XML position: {bista_item!r}")
+    subform, line = m.group(1), m.group(2)
+    return f"Z{line}S{subform}"
+
+
+def add_adresse(parent: ET.Element, tag: str, data: dict) -> None:
+    """Append an adresse-typed element (MELDER or ABSENDER) to parent."""
+    elem = ET.SubElement(parent, tag)
+
+    # BLZ (mandatory for MELDER) or RZLZ (for ABSENDER/ERSTELLER)
+    if "blz" in data:
+        ET.SubElement(elem, "BLZ").text = str(data["blz"])
+    if "rzlz" in data:
+        ET.SubElement(elem, "RZLZ").text = str(data["rzlz"])
+
+    ET.SubElement(elem, "NAME").text = str(data["name"])
+
+    for key, xml_tag in [("strasse", "STRASSE"), ("postfach", "POSTFACH"),
+                          ("plz", "PLZ"), ("ort", "ORT"), ("land", "LAND")]:
+        if data.get(key):
+            ET.SubElement(elem, xml_tag).text = str(data[key])
+
+    if "kontakt" in data and data["kontakt"]:
+        k = data["kontakt"]
+        kontakt_el = ET.SubElement(elem, "KONTAKT")
+        for key, xml_tag in [("anrede", "ANREDE"), ("vorname", "VORNAME"),
+                               ("zuname", "ZUNAME"), ("abteilung", "ABTEILUNG"),
+                               ("telefon", "TELEFON"), ("fax", "FAX"),
+                               ("email", "EMAIL"), ("extranet_id", "EXTRANET-ID")]:
+            if k.get(key):
+                ET.SubElement(kontakt_el, xml_tag).text = str(k[key])
+
+
+def pretty_xml(root: ET.Element) -> str:
+    """Return a pretty-printed UTF-8 XML string."""
+    raw = ET.tostring(root, encoding="unicode")
+    dom = minidom.parseString(raw)
+    lines = dom.toprettyxml(indent="    ", encoding=None).splitlines()
+    # minidom adds its own <?xml?> declaration; replace with ours (UTF-8)
+    lines[0] = '<?xml version="1.0" encoding="UTF-8"?>'
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Main conversion
+# ---------------------------------------------------------------------------
+
+def convert(csv_path: str, melder_path: str, period: str,
+            output_path: str, stufe: str) -> None:
+
+    # --- Load inputs --------------------------------------------------------
+    print(f"Loading CSV     : {csv_path}")
+    df = pd.read_csv(csv_path)
+    required = {"bista_item", "amount_eur"}
+    missing = required - set(df.columns)
+    if missing:
+        print(f"ERROR: CSV missing columns: {missing}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Loading melder  : {melder_path}")
+    with open(melder_path, encoding="utf-8") as f:
+        config = json.load(f)
+
+    absender_cfg = config.get("absender", {})
+    melder_cfg   = config.get("melder", {})
+    if not melder_cfg.get("blz") or not melder_cfg.get("name"):
+        print("ERROR: melder.json must have melder.blz and melder.name", file=sys.stderr)
+        sys.exit(1)
+
+    # --- Derive positions and convert amounts -------------------------------
+    now_ts = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
+    positions = {}   # pos → amount_tsd
+    skipped   = []
+
+    for _, row in df.iterrows():
+        item = str(row["bista_item"]).strip()
+        try:
+            pos = item_to_pos(item)
+        except ValueError as e:
+            skipped.append(item)
+            continue
+
+        amount_tsd = round(float(row["amount_eur"]) / 1000)
+        if amount_tsd == 0:
+            continue  # omit zero positions (spec: omission = 0)
+
+        if pos in positions:
+            positions[pos] += amount_tsd   # sum if same pos appears twice
+        else:
+            positions[pos] = amount_tsd
+
+    if skipped:
+        print(f"  Warning: {len(skipped)} item(s) could not be converted "
+              f"(non-HV items?): {', '.join(set(skipped))}", file=sys.stderr)
+
+    print(f"  {len(positions)} non-zero BISTA positions to report.")
+
+    # --- Build XML ----------------------------------------------------------
+    # Register namespaces to get clean output
+    ET.register_namespace("",    BISTA_XMLNS)
+    ET.register_namespace("xsi", XSI_XMLNS)
+
+    root = ET.Element("LIEFERUNG-BISTA")
+    root.set("xmlns",     BISTA_XMLNS)
+    root.set("xmlns:xsi", XSI_XMLNS)
+    root.set("xsi:noNamespaceSchemaLocation", SCHEMA_LOC)
+    root.set("erstellzeit", now_ts)
+    root.set("version",     "1.0")
+    root.set("stufe",       stufe)
+    root.set("bereich",     "Statistik")
+
+    # ABSENDER
+    if absender_cfg:
+        add_adresse(root, "ABSENDER", absender_cfg)
+
+    # MELDUNG
+    meldung = ET.SubElement(root, "MELDUNG")
+    meldung.set("erstellzeit", now_ts)
+
+    # MELDER
+    add_adresse(meldung, "MELDER", melder_cfg)
+
+    # MELDETERMIN
+    ET.SubElement(meldung, "MELDETERMIN").text = period
+
+    # FORMULAR name="HV" — all balance sheet items combined
+    if positions:
+        formular = ET.SubElement(meldung, "FORMULAR")
+        formular.set("name",  "HV")
+        formular.set("modus", "Normal")
+
+        for pos in sorted(positions.keys()):
+            feld = ET.SubElement(formular, "FELD")
+            feld.set("pos", pos)
+            feld.text = str(positions[pos])
+    else:
+        # Explicit empty form (void report)
+        formular = ET.SubElement(meldung, "FORMULAR")
+        formular.set("name", "HV")
+
+    # --- Write output -------------------------------------------------------
+    xml_str = pretty_xml(root)
+    Path(output_path).write_text(xml_str, encoding="utf-8")
+    print(f"Output written  : {output_path}")
+    print(f"  Period        : {period}")
+    print(f"  Stufe         : {stufe}")
+    print(f"  Melder BLZ    : {melder_cfg['blz']}")
+    print(f"  Positions     : {len(positions)}")
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Convert BISTA mapper CSV output to XMW XML for Bundesbank submission.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  python bista_to_xml.py --period 2024-12\n"
+            "  python bista_to_xml.py --period 2024-12 --stufe Produktion\n"
+            "  python bista_to_xml.py --period 2024-12 --csv my_report.csv --melder my_org.json\n"
+        ),
+    )
+    parser.add_argument(
+        "--csv", default="bista_report.csv",
+        help="BISTA report CSV (output of bista_mapper.py). Default: bista_report.csv",
+    )
+    parser.add_argument(
+        "--melder", default="melder.json",
+        help="Reporting organisation JSON. Default: melder.json",
+    )
+    parser.add_argument(
+        "--period", required=True,
+        help="Reporting period in YYYY-MM format, e.g. 2024-12",
+    )
+    parser.add_argument(
+        "--output",
+        help="Output XML file. Default: bista{YYMM}.xml derived from --period",
+    )
+    parser.add_argument(
+        "--stufe", default="Test", choices=["Test", "Produktion"],
+        help="Test or Produktion. Default: Test (safe default — change for live submission)",
+    )
+    args = parser.parse_args()
+
+    # Validate period format
+    if not re.fullmatch(r"\d{4}-\d{2}", args.period):
+        print("ERROR: --period must be YYYY-MM, e.g. 2024-12", file=sys.stderr)
+        sys.exit(1)
+
+    # Derive default output filename: bista2412.xml from 2024-12
+    if args.output:
+        output_path = args.output
+    else:
+        yy = args.period[2:4]
+        mm = args.period[5:7]
+        output_path = f"bista{yy}{mm}.xml"
+
+    for path in [args.csv, args.melder]:
+        if not Path(path).exists():
+            print(f"ERROR: File not found: {path}", file=sys.stderr)
+            sys.exit(1)
+
+    convert(args.csv, args.melder, args.period, output_path, args.stufe)
+
+
+if __name__ == "__main__":
+    main()
