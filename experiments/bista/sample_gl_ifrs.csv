@@ -1,0 +1,53 @@
+account_number,description,amount_eur
+10100,Cash in hand EUR,450000.00
+10600,Overnight balance Deutsche Bundesbank,12500000.00
+11200,Demand deposits with banks (AC),25000000.00
+11600,Term deposits with banks (AC),18000000.00
+12100,Reverse repos - banks,8000000.00
+12600,Treasury bills (FVOCI),5000000.00
+13100,Corporate loans - current account,32000000.00
+13600,Corporate loans - investment,45000000.00
+14100,Mortgage loans - residential,120000000.00
+14600,Consumer and other retail loans,15000000.00
+15100,Government bonds (FVOCI),22000000.00
+15300,Corporate bonds (FVOCI),9000000.00
+15600,Equity instruments (FVOCI),3500000.00
+16100,Trading book - fixed income,2000000.00
+16300,Trading book - equity / units,1200000.00
+16600,Designated FVTPL - structured notes,800000.00
+17100,Positive fair values - hedging derivatives,350000.00
+17600,Investment in associate XY GmbH,5000000.00
+18100,Land and buildings,4500000.00
+18600,Right-of-use assets (leased premises),1200000.00
+19100,Goodwill,2000000.00
+19200,Other intangible assets - software,500000.00
+19600,Deferred tax assets,280000.00
+20100,Other assets,620000.00
+20600,Accrued income and prepaid expenses,45000000.00
+30100,Demand deposits from banks,14000000.00
+30600,Term deposits from banks,30000000.00
+31100,Repos - banks,8000000.00
+31600,Other liabilities to banks,3000000.00
+32100,Savings deposits,18500000.00
+32600,Demand deposits from customers,42000000.00
+33200,Time deposits from customers,25000000.00
+34100,Bonds issued,10000000.00
+34600,Commercial paper issued,3000000.00
+35100,Lease liabilities (IFRS 16),1100000.00
+35600,Negative fair values - hedging derivatives,400000.00
+36100,Designated FVTPL liabilities,500000.00
+36600,Other financial liabilities,430000.00
+37100,Current tax liabilities,220000.00
+37600,Deferred tax liabilities,180000.00
+38200,Provisions for restructuring and legal (IAS 37),3250000.00
+39100,Other liabilities,280000.00
+39600,Accrued expenses and deferred income,30000.00
+40100,Subordinated liabilities,5000000.00
+40600,Additional Tier 1 capital instruments,2000000.00
+50200,Share capital,15000000.00
+51200,Share premium,8000000.00
+52200,Retained earnings,3000000.00
+53100,OCI reserve - FVOCI revaluation,450000.00
+53600,OCI reserve - cash flow hedges,120000.00
+54200,Non-controlling interests,800000.00
+59200,Profit for the period,1250999.00

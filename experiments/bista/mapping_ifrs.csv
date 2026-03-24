@@ -17,7 +17,7 @@ account_from,account_to,bista_item,bista_description,form,side
 16500,16999,HV11_082,Financial assets at FVTPL - designated (debt),HV11,asset
 17000,17499,HV12_186,Derivative financial instruments - positive fair values (hedging),HV12,asset
 17500,17999,HV11_100,Investments in associates and joint ventures,HV11,asset
-18000,18499,HV11_150,Property, plant and equipment,HV11,asset
+18000,18499,HV11_150,"Property, plant and equipment",HV11,asset
 18500,18999,HV11_150,Right-of-use assets (IFRS 16),HV11,asset
 19000,19499,HV11_140,Intangible assets (incl. goodwill),HV11,asset
 19500,19999,HV11_175,Deferred tax assets,HV11,asset

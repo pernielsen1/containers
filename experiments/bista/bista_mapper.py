@@ -22,6 +22,7 @@ import argparse
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 # Built-in mapping files, relative to this script's directory
@@ -29,6 +30,7 @@ STANDARD_MAPPINGS = {
     "hgb":  "mapping.csv",
     "ifrs": "mapping_ifrs.csv",
 }
+BISTA_ITEMS_FILE = "bista_items.csv"
 SCRIPT_DIR = Path(__file__).parent
 
 
@@ -36,9 +38,18 @@ SCRIPT_DIR = Path(__file__).parent
 # Loading
 # ---------------------------------------------------------------------------
 
-def load_mapping(path: str) -> pd.DataFrame:
+def load_bista_items(path: str) -> pd.DataFrame:
     df = pd.read_csv(path)
-    required = {"account_from", "account_to", "bista_item", "bista_description", "form", "side"}
+    required = {"item", "name_en"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"BISTA items file is missing columns: {missing}")
+    return df.set_index("item")
+
+
+def load_mapping(path: str, bista_items: pd.DataFrame) -> pd.DataFrame:
+    df = pd.read_csv(path)
+    required = {"account_from", "account_to", "bista_item", "form", "side"}
     missing = required - set(df.columns)
     if missing:
         raise ValueError(f"Mapping file is missing columns: {missing}")
@@ -46,6 +57,10 @@ def load_mapping(path: str) -> pd.DataFrame:
     df["account_to"]   = pd.to_numeric(df["account_to"],   errors="coerce")
     if df[["account_from", "account_to"]].isna().any().any():
         raise ValueError("Mapping file contains non-numeric account_from/account_to values.")
+    # Enrich with description from bista_items_short
+    df["bista_description"] = df["bista_item"].map(bista_items["name_en"]).fillna(
+        df.get("bista_description", "")
+    )
     return df.sort_values("account_from").reset_index(drop=True)
 
 
@@ -86,7 +101,10 @@ def apply_mapping(gl: pd.DataFrame, mapping: pd.DataFrame) -> tuple[pd.DataFrame
 
     for _, row in gl.iterrows():
         acc = row["account_number"]
-        idx = intervals.get_loc(acc) if acc in intervals else None
+        try:
+            idx = intervals.get_loc(acc)
+        except KeyError:
+            idx = None
 
         if idx is None:
             unmapped.append(acc)
@@ -95,11 +113,11 @@ def apply_mapping(gl: pd.DataFrame, mapping: pd.DataFrame) -> tuple[pd.DataFrame
         # get_loc may return a slice, int, or boolean array
         if isinstance(idx, slice):
             match = mapping.iloc[idx].iloc[0]   # first hit
-        elif isinstance(idx, int):
+        elif isinstance(idx, (int, np.integer)):
             match = mapping.iloc[idx]
         else:
             # boolean array
-            hits = mapping[idx]
+            hits = mapping.iloc[idx]
             if hits.empty:
                 unmapped.append(acc)
                 continue
@@ -167,12 +185,18 @@ def print_summary(result: pd.DataFrame, unmapped: list[int]) -> None:
 def run(gl_path: str, mapping_path: str, output_path: str, standard: str = "") -> None:
     if standard:
         print(f"Standard         : {standard.upper()}")
+
+    items_path = str(SCRIPT_DIR / BISTA_ITEMS_FILE)
+    print(f"Loading items    : {items_path}")
+    bista_items = load_bista_items(items_path)
+    print(f"  {len(bista_items)} BISTA items loaded.")
+
     print(f"Loading GL       : {gl_path}")
     gl = load_gl(gl_path)
     print(f"  {len(gl)} GL rows loaded.")
 
     print(f"Loading mapping  : {mapping_path}")
-    mapping = load_mapping(mapping_path)
+    mapping = load_mapping(mapping_path, bista_items)
     print(f"  {len(mapping)} mapping rules loaded.")
 
     print("Applying mapping ...")
