@@ -11,8 +11,13 @@ python3 "$SCRIPT_DIR/bista_mapper.py" \
     --output "$MAPPED_CSV"
 
 echo "=== Step 2: bista_to_xml.py ==="
+XML_OUT="$SCRIPT_DIR/bista2603.xml"
 python3 "$SCRIPT_DIR/bista_to_xml.py" \
     --csv "$MAPPED_CSV" \
-    --period 2026-03
+    --period 2026-03 \
+    --output "$XML_OUT"
+
+echo "=== Step 3: verify_bista_xml.py ==="
+python3 "$SCRIPT_DIR/verify_bista_xml.py" "$XML_OUT"
 
 echo "=== Done ==="
