@@ -38,7 +38,7 @@ account_from,account_to,bista_item,bista_description,form,side
 36500,36999,HV21_250,Other financial liabilities,HV21,liability
 37000,37499,HV21_280,Current tax liabilities,HV21,liability
 37500,37999,HV21_280,Deferred tax liabilities,HV21,liability
-38000,38999,HV21_270,Provisions (IAS 37),HV21,liability
+38000,38999,HV21_260,Provisions (IAS 37),HV21,liability
 39000,39499,HV21_250,Other liabilities,HV21,liability
 39500,39999,HV21_260,Accrued expenses and deferred income,HV21,liability
 40000,40499,HV21_300,Subordinated liabilities,HV21,liability

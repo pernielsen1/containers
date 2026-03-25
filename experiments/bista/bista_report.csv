@@ -19,8 +19,7 @@ HV21,HV21_221,Savings deposits,liability,18500000.00
 HV21,HV21_231,Debt securities in issue,liability,10000000.00
 HV21,HV21_232,Money market paper in issue,liability,3000000.00
 HV21,HV21_250,Other liabilities,liability,2710000.00
-HV21,HV21_260,Deferred income,liability,30000.00
-HV21,HV21_270,Provisions for liabilities and charges,liability,3250000.00
+HV21,HV21_260,Deferred income,liability,3280000.00
 HV21,HV21_280,Tax liabilities,liability,400000.00
 HV21,HV21_300,Subordinated liabilities,liability,5000000.00
 HV21,HV21_311,Subscribed capital,liability,15000000.00

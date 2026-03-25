@@ -3,7 +3,7 @@ account_from,account_to,bista_item,bista_description,form,side
 0200,0299,HV11_020,Guthaben bei Zentralnotenbanken,HV11,asset
 0300,0399,HV11_020,Guthaben Postgiro und sonstige Zentralbankguthaben,HV11,asset
 0500,0599,HV11_040,Schatzwechsel und ähnliche refinanzierbare Schuldtitel öffentlicher Stellen,HV11,asset
-0600,0699,HV11_031,Schuldtitel oeffentlicher Stellen (nicht refinanzierbar),HV11,asset
+0600,0699,HV11_082,Schuldtitel oeffentlicher Stellen (nicht refinanzierbar),HV11,asset
 1000,1499,HV11_061,Buchforderungen an Kreditinstitute - taeglich faellig,HV11,asset
 1500,1999,HV11_061,Buchforderungen an Kreditinstitute - andere Forderungen,HV11,asset
 2000,2499,HV11_061,Buchforderungen an Kreditinstitute - Termin,HV11,asset
@@ -39,7 +39,7 @@ account_from,account_to,bista_item,bista_description,form,side
 9300,9399,HV21_250,Sonstige Verbindlichkeiten,HV21,liability
 9400,9499,HV21_280,Steuerverbindlichkeiten,HV21,liability
 9500,9599,HV21_260,Rechnungsabgrenzungsposten Passiva,HV21,liability
-9600,9799,HV21_270,Rueckstellungen,HV21,liability
+9600,9799,HV21_260,Rueckstellungen,HV21,liability
 9800,9849,HV21_300,Nachrangige Verbindlichkeiten,HV21,liability
 9850,9899,HV21_290,Genussrechtskapital,HV21,liability
 9900,9909,HV21_320,Fonds fuer allgemeine Bankrisiken,HV21,liability
