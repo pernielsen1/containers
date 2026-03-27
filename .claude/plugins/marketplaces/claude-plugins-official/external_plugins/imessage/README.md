@@ -76,7 +76,7 @@ Quick reference: IDs are **handle addresses** (`+15551234567` or `someone@icloud
 | Tool | Purpose |
 | --- | --- |
 | `reply` | Send to a chat. `chat_id` + `text`, optional `files` (absolute paths). Auto-chunks text; files send as separate messages. |
-| `chat_messages` | Fetch recent history from a chat (oldest-first). Reads `chat.db` directly — full native history. Scoped to allowlisted chats. |
+| `chat_messages` | Fetch recent history as conversation threads. Each thread is labelled **DM** or **Group** with its participant list, then timestamped messages (oldest-first). Omit `chat_guid` to see every allowlisted chat at once, or pass one to drill in. Default 100 messages per chat. Reads `chat.db` directly — full native history. |
 
 ## What you don't get
 
