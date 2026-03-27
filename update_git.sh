@@ -1,11 +1,24 @@
 #!/bin/bash
-# https://www.datacamp.com/tutorial/set-up-and-configure-mysql-in-docker
-# Add all files to be tracked
-cp -r ../clexp/experiments/* experiments
+# Run before leaving a laptop to sync Claude memory/settings and push everything.
+# On the other laptop: git pull to resume with full context.
+# Note: experiments and AnaCredit are synced via their own deploy.sh scripts.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# --- sync Claude memory + settings ---
+rsync -a --delete \
+    --exclude 'todos/' \
+    --exclude 'ide/' \
+    --exclude '*.log' \
+    --exclude 'statsig/' \
+    --exclude 'cache/' \
+    "$HOME/.claude/" "$SCRIPT_DIR/.claude/"
+
+# --- commit and push ---
+cd "$SCRIPT_DIR"
 git add .
-# commit will open nano for message 
-git commit 
-# cpnfigure a remote # the URL is without https i.e. userid needs to be provied with token
+git commit
 REMOTE_URL="github.com/$GIT_USER/containers.git"
-# push to a remote repository  GIT_ISER and token are set before calling this 
 git push -u https://$GIT_USER:$GIT_ACCESS_TOKEN@$REMOTE_URL main

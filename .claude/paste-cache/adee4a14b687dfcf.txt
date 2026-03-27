@@ -1,0 +1,21 @@
+Time for a new skill AnaCredit 
+Info:
+I have made a new directory "AnaCredit" and downloaded relevant documents to docs directory.
+One PDF "ana-credit guidelines" and one Excel "anacredit-codelist"
+which is the just used for referencing the values. The PDF - will often refer to this with a "URL" -link ignore it and just use this Excel as the reference data.
+
+Guidance:
+Start by understanding the PDF and interpretate the Data Attributes for each Data Set.
+Each item will be in header with the test "Data attribute" 
+In chapter four the data set "counter party reference data" is explained 
+Example for one data item from chapter 4 is "Data attribute: Type of counterparty identifier"
+
+In chapter 5 a number of data sets for credit data are explained starting with 
+5.1 Instrument data set - where the first item "Data Attribute is Contract Identifier"
+
+Goal: Understand the PDF "ana-credit guidelines" - and make one basic csv with the columns:
+data set
+Data Attribute
+Description which is all text from the data attribute until the next data attribute or next data set or - "end of chapter"
+
+Results of this to be stored in the "AnaCredit" folder

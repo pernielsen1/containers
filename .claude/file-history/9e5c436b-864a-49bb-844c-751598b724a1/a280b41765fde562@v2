@@ -1,0 +1,4 @@
+# Memory Index
+
+- [user_environment.md](user_environment.md) — Python is `python3` on this system; use in all scripts/commands
+- [project_anacredit.md](project_anacredit.md) — AnaCredit ECB credit register: PDF extraction script, CSV output, 120 attributes across 11 datasets

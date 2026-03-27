@@ -1,0 +1,269 @@
+"""
+extract_attributes.py
+
+Extracts data attributes from the AnaCredit guidelines PDF (chapters 4 and 5)
+and writes them to a CSV file.
+
+Key design decisions:
+- Single-pass flat line scan over pages 57-145 (0-indexed 56-144).
+- Section headers detected by accumulating consecutive bold+size>=11 lines.
+- "Data attribute(s):" labels detected, including the edge case where the
+  label is split across two lines ("Data" / "attribute:") on page 68.
+- Attribute names are bold lines (size 9-11) that immediately follow a label.
+- Description text accumulated until next attribute label.
+- Superscript footnote numbers (size<7, bold) and footnote body blocks
+  (bottom 15% of page, all text size<=8.5) are filtered out.
+"""
+
+import fitz  # PyMuPDF
+import csv
+import re
+import os
+
+PDF_PATH = "/home/perni/clexp/AnaCredit/docs/anacredit-guidelines-data.pdf"
+CSV_PATH  = "/home/perni/clexp/AnaCredit/anacredit_data_attributes.csv"
+
+FIRST_PAGE = 56   # 0-indexed; PDF page 57
+LAST_PAGE  = 144  # 0-indexed; PDF page 145 (inclusive)
+
+SECTION_PATTERNS = [
+    (re.compile(r"4\..*counterparty reference data",              re.I | re.S),
+     "Counterparty reference data"),
+    (re.compile(r"5\.1\s+Instrument dataset",                     re.I),
+     "Instrument dataset"),
+    (re.compile(r"5\.2\s+Financial dataset",                      re.I),
+     "Financial dataset"),
+    (re.compile(r"5\.3\s+Counterparty.instrument dataset",        re.I),
+     "Counterparty-instrument dataset"),
+    (re.compile(r"5\.4\s+Joint liabilities dataset",              re.I),
+     "Joint liabilities dataset"),
+    (re.compile(r"5\.5\s+Accounting dataset",                     re.I),
+     "Accounting dataset"),
+    (re.compile(r"5\.6\s+Protection received dataset",            re.I),
+     "Protection received dataset"),
+    (re.compile(r"5\.7\s+Instrument.protection received dataset",  re.I),
+     "Instrument-protection received dataset"),
+    (re.compile(r"5\.8\s+Counterparty risk dataset",              re.I),
+     "Counterparty risk dataset"),
+    (re.compile(r"5\.9\s+Counterparty default dataset",           re.I),
+     "Counterparty default dataset"),
+    (re.compile(r"5\.10\s+Protection provider dataset",           re.I),
+     "Protection provider dataset"),
+]
+
+
+def match_section(text):
+    t = " ".join(text.split())
+    for pattern, name in SECTION_PATTERNS:
+        if pattern.search(t):
+            return name
+    return None
+
+
+def is_superscript(span):
+    return span["size"] < 7.0 and bool(span["flags"] & 1)
+
+
+def is_footnote_body_block(block, page_height):
+    if block["bbox"][1] <= page_height * 0.85:
+        return False
+    sizes = [s["size"] for ln in block["lines"] for s in ln["spans"] if s["text"].strip()]
+    return bool(sizes) and max(sizes) <= 8.5
+
+
+def collect_all_lines(doc):
+    """
+    Collect all text lines from the target page range as a flat list of dicts:
+      text     : cleaned line text (all spans joined)
+      bold     : True if all non-empty spans are bold (flags & 16)
+      max_size : maximum font size among spans
+      pg       : 1-indexed page number (for debugging)
+    """
+    lines = []
+    for pg_idx in range(FIRST_PAGE, LAST_PAGE + 1):
+        page = doc[pg_idx]
+        ph = page.rect.height
+        blocks = page.get_text("dict", flags=fitz.TEXT_PRESERVE_WHITESPACE)["blocks"]
+        for block in blocks:
+            if block["type"] != 0 or is_footnote_body_block(block, ph):
+                continue
+            for line in block["lines"]:
+                spans = [s for s in line["spans"]
+                         if s["text"].strip() and not is_superscript(s)]
+                if not spans:
+                    continue
+                text = " ".join(s["text"].strip() for s in spans).strip()
+                if not text or re.match(r"^Page\s+\d+\s*$", text):
+                    continue
+                lines.append({
+                    "text":     text,
+                    "bold":     all(bool(s["flags"] & 16) for s in spans),
+                    "max_size": max(s["size"] for s in spans),
+                    "pg":       pg_idx + 1,
+                })
+    return lines
+
+
+# Patterns to detect "Data attribute(s):" labels (full and split variants)
+LABEL_FULL  = re.compile(r"^Data attributes?\s*:\s*$", re.I)
+LABEL_PART1 = re.compile(r"^Data\s*$", re.I)
+LABEL_PART2 = re.compile(r"^attributes?\s*:\s*$", re.I)
+
+
+def run_state_machine(lines):
+    records = []
+
+    dataset        = None
+    attr           = None
+    desc           = []
+    expecting_name = False   # True after seeing a "Data attribute(s):" label
+    hdr_buf        = []      # accumulate consecutive bold+size>=11 lines for section header detection
+    prev_was_data  = False   # for split "Data" / "attribute:" handling
+
+    def flush():
+        nonlocal attr, desc
+        if attr and dataset:
+            text = re.sub(r"\s+", " ", " ".join(desc)).strip()
+            records.append({"data_set": dataset, "data_attribute": attr,
+                             "description": text})
+        attr = None
+        desc = []
+
+    def try_match_hdr():
+        """Try to match hdr_buf as a known section header. Return matched name or None."""
+        nonlocal dataset, expecting_name
+        combined = " ".join(hdr_buf)
+        name = match_section(combined)
+        if name:
+            flush()
+            dataset = name
+            expecting_name = False
+            return name
+        return None
+
+    i = 0
+    while i < len(lines):
+        ln       = lines[i]
+        text     = ln["text"]
+        bold     = ln["bold"]
+        max_size = ln["max_size"]
+
+        # ── Section header accumulation ──────────────────────────────────────
+        # Section headers are bold AND size >= 11 (e.g. "5.5", "Accounting dataset")
+        if bold and max_size >= 11.0:
+            hdr_buf.append(text)
+            matched = try_match_hdr()
+            if matched:
+                hdr_buf.clear()
+                prev_was_data = False
+            # else keep accumulating
+            i += 1
+            continue
+
+        # ── Flush pending header buffer if current line is NOT a header ───────
+        if hdr_buf:
+            matched = try_match_hdr()
+            if matched:
+                hdr_buf.clear()
+            else:
+                # Not a section header — the buffered bold lines are body/subheads
+                # Add them to description if we have a current attribute
+                for bt in hdr_buf:
+                    if attr:
+                        desc.append(bt)
+                hdr_buf.clear()
+            prev_was_data = False
+
+        # ── Handle split "Data" / "attribute:" label (page 68 edge case) ─────
+        if LABEL_PART1.match(text):
+            prev_was_data = True
+            i += 1
+            continue
+
+        if prev_was_data and LABEL_PART2.match(text):
+            # Reconstruct the full label
+            expecting_name = True
+            prev_was_data  = False
+            i += 1
+            continue
+
+        prev_was_data = False
+
+        # ── Full "Data attribute(s):" label ──────────────────────────────────
+        if LABEL_FULL.match(text):
+            expecting_name = True
+            i += 1
+            continue
+
+        # ── Attribute name: bold line at size 9-11 following a label ─────────
+        # The name may wrap across multiple bold lines (e.g. "Fair value changes
+        # due to changes in credit risk before" / "purchase").
+        if expecting_name and bold and 9.0 <= max_size <= 11.0:
+            flush()
+            name_parts = [text]
+            # Greedily consume subsequent bold ~10pt lines as part of the name,
+            # as long as they are NOT themselves "Data attribute:" labels.
+            j = i + 1
+            while j < len(lines):
+                nxt = lines[j]
+                if (nxt["bold"] and 9.0 <= nxt["max_size"] <= 11.0
+                        and not LABEL_FULL.match(nxt["text"])
+                        and not LABEL_PART1.match(nxt["text"])):
+                    name_parts.append(nxt["text"])
+                    j += 1
+                else:
+                    break
+            attr = " ".join(name_parts)
+            desc = []
+            expecting_name = False
+            i = j
+            continue
+
+        # ── Body text ────────────────────────────────────────────────────────
+        expecting_name = False
+        if attr:
+            desc.append(text)
+
+        i += 1
+
+    flush()
+    return records
+
+
+def write_csv(records, path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f,
+                                fieldnames=["data_set", "data_attribute", "description"],
+                                quoting=csv.QUOTE_ALL)
+        writer.writeheader()
+        writer.writerows(records)
+    print(f"Written {len(records)} rows to {path}")
+
+
+if __name__ == "__main__":
+    print("Extracting data attributes from AnaCredit PDF...\n")
+    doc = fitz.open(PDF_PATH)
+    lines = collect_all_lines(doc)
+    doc.close()
+    print(f"Collected {len(lines)} text lines from pages {FIRST_PAGE+1}-{LAST_PAGE+1}.\n")
+
+    records = run_state_machine(lines)
+
+    from collections import Counter
+    counts = Counter(r["data_set"] for r in records)
+    print("Attributes per dataset:")
+    total = 0
+    for _, name in SECTION_PATTERNS:
+        n = counts.get(name, 0)
+        total += n
+        print(f"  {n:3d}  {name}")
+    print(f"  ---\n  {total:3d}  TOTAL\n")
+
+    write_csv(records, CSV_PATH)
+
+    print("\n--- First 20 rows ---")
+    print(f"{'data_set':<45} {'data_attribute':<45} {'description (first 80 chars)'}")
+    print("-" * 140)
+    for r in records[:20]:
+        print(f"{r['data_set']:<45} {r['data_attribute']:<45} {r['description'][:80]}")

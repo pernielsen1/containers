@@ -1,0 +1,246 @@
+"""
+BISTA Mapper — Maps general ledger accounts to BISTA reporting items.
+
+Reads a GL export (CSV) with account numbers and EUR amounts, applies a configurable
+account-range-to-BISTA mapping, and writes a BISTA report CSV aggregated by item.
+
+Two built-in mapping standards are provided:
+    hgb   German GAAP (HGB / RechKredV / SKR 51)  →  mapping.csv
+    ifrs  IFRS (IFRS 9 / IAS 37/32)               →  mapping_ifrs.csv
+
+Usage:
+    python bista_mapper.py --standard hgb   [--gl <file>] [--output <file>]
+    python bista_mapper.py --standard ifrs  [--gl <file>] [--output <file>]
+    python bista_mapper.py --mapping <custom.csv> [--gl <file>] [--output <file>]
+
+Input GL columns  : account_number, amount_eur, [description]
+Mapping columns   : account_from, account_to, bista_item, bista_description, form, side
+Output columns    : form, bista_item, bista_description, side, amount_eur
+"""
+
+import argparse
+import sys
+from pathlib import Path
+
+import pandas as pd
+
+# Built-in mapping files, relative to this script's directory
+STANDARD_MAPPINGS = {
+    "hgb":  "mapping.csv",
+    "ifrs": "mapping_ifrs.csv",
+}
+SCRIPT_DIR = Path(__file__).parent
+
+
+# ---------------------------------------------------------------------------
+# Loading
+# ---------------------------------------------------------------------------
+
+def load_mapping(path: str) -> pd.DataFrame:
+    df = pd.read_csv(path)
+    required = {"account_from", "account_to", "bista_item", "bista_description", "form", "side"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"Mapping file is missing columns: {missing}")
+    df["account_from"] = pd.to_numeric(df["account_from"], errors="coerce")
+    df["account_to"]   = pd.to_numeric(df["account_to"],   errors="coerce")
+    if df[["account_from", "account_to"]].isna().any().any():
+        raise ValueError("Mapping file contains non-numeric account_from/account_to values.")
+    return df.sort_values("account_from").reset_index(drop=True)
+
+
+def load_gl(path: str) -> pd.DataFrame:
+    df = pd.read_csv(path)
+    required = {"account_number", "amount_eur"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"GL file is missing columns: {missing}")
+    df["account_number"] = pd.to_numeric(df["account_number"], errors="coerce")
+    df["amount_eur"]     = pd.to_numeric(df["amount_eur"],     errors="coerce")
+    invalid = df["account_number"].isna().sum()
+    if invalid:
+        print(f"  Warning: {invalid} rows dropped — non-numeric account_number.", file=sys.stderr)
+    df = df.dropna(subset=["account_number", "amount_eur"])
+    df["account_number"] = df["account_number"].astype(int)
+    return df.reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
+# Mapping logic
+# ---------------------------------------------------------------------------
+
+def apply_mapping(gl: pd.DataFrame, mapping: pd.DataFrame) -> tuple[pd.DataFrame, list[int]]:
+    """
+    Merge GL rows against mapping ranges using a vectorised interval join.
+    Returns (mapped_df, list_of_unmapped_accounts).
+    """
+    # Build an IntervalIndex on the mapping for fast lookups
+    intervals = pd.IntervalIndex.from_arrays(
+        mapping["account_from"],
+        mapping["account_to"],
+        closed="both",
+    )
+
+    mapped_rows = []
+    unmapped    = []
+
+    for _, row in gl.iterrows():
+        acc = row["account_number"]
+        idx = intervals.get_loc(acc) if acc in intervals else None
+
+        if idx is None:
+            unmapped.append(acc)
+            continue
+
+        # get_loc may return a slice, int, or boolean array
+        if isinstance(idx, slice):
+            match = mapping.iloc[idx].iloc[0]   # first hit
+        elif isinstance(idx, int):
+            match = mapping.iloc[idx]
+        else:
+            # boolean array
+            hits = mapping[idx]
+            if hits.empty:
+                unmapped.append(acc)
+                continue
+            match = hits.iloc[0]
+
+        mapped_rows.append({
+            "account_number":   acc,
+            "bista_item":       match["bista_item"],
+            "bista_description": match["bista_description"],
+            "form":             match["form"],
+            "side":             match["side"],
+            "amount_eur":       row["amount_eur"],
+        })
+
+    return pd.DataFrame(mapped_rows), unmapped
+
+
+def aggregate(mapped: pd.DataFrame) -> pd.DataFrame:
+    """Sum amounts per BISTA item and sort by form + item code."""
+    result = (
+        mapped
+        .groupby(["form", "bista_item", "bista_description", "side"], as_index=False)["amount_eur"]
+        .sum()
+        .sort_values(["form", "bista_item"])
+        .reset_index(drop=True)
+    )
+    result["amount_eur"] = result["amount_eur"].round(2)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Reporting
+# ---------------------------------------------------------------------------
+
+def print_summary(result: pd.DataFrame, unmapped: list[int]) -> None:
+    print("\n=== BISTA Mapping Summary ===")
+
+    for form, group in result.groupby("form"):
+        print(f"\n  {form}")
+        for _, r in group.iterrows():
+            print(f"    {r['bista_item']:12s}  {r['bista_description'][:50]:50s}  "
+                  f"{r['amount_eur']:>18,.2f} EUR")
+        subtotal = group["amount_eur"].sum()
+        print(f"    {'SUBTOTAL':12s}  {'':50s}  {subtotal:>18,.2f} EUR")
+
+    assets      = result[result["side"] == "asset"]["amount_eur"].sum()
+    liabilities = result[result["side"] == "liability"]["amount_eur"].sum()
+    print(f"\n  Total Assets      : {assets:>18,.2f} EUR")
+    print(f"  Total Liabilities : {liabilities:>18,.2f} EUR")
+    diff = assets - liabilities
+    print(f"  Balance difference: {diff:>18,.2f} EUR"
+          + (" (balanced)" if abs(diff) < 0.01 else " *** CHECK REQUIRED ***"))
+
+    if unmapped:
+        print(f"\n  Unmapped accounts ({len(set(unmapped))} unique): "
+              + ", ".join(str(a) for a in sorted(set(unmapped))))
+
+    print()
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+def run(gl_path: str, mapping_path: str, output_path: str, standard: str = "") -> None:
+    if standard:
+        print(f"Standard         : {standard.upper()}")
+    print(f"Loading GL       : {gl_path}")
+    gl = load_gl(gl_path)
+    print(f"  {len(gl)} GL rows loaded.")
+
+    print(f"Loading mapping  : {mapping_path}")
+    mapping = load_mapping(mapping_path)
+    print(f"  {len(mapping)} mapping rules loaded.")
+
+    print("Applying mapping ...")
+    mapped, unmapped = apply_mapping(gl, mapping)
+
+    if mapped.empty:
+        print("ERROR: No accounts were mapped. Verify mapping.csv against your GL.", file=sys.stderr)
+        sys.exit(1)
+
+    result = aggregate(mapped)
+    print(f"  {len(result)} BISTA line items produced ({len(unmapped)} GL rows unmapped).")
+
+    result.to_csv(output_path, index=False, float_format="%.2f")
+    print(f"Output written   : {output_path}")
+
+    print_summary(result, unmapped)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Map GL accounts to BISTA reporting items (HGB or IFRS).",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  python bista_mapper.py --standard hgb\n"
+            "  python bista_mapper.py --standard ifrs --gl my_gl.csv\n"
+            "  python bista_mapper.py --mapping custom_mapping.csv --gl my_gl.csv\n"
+        ),
+    )
+    parser.add_argument(
+        "--standard", choices=["hgb", "ifrs"],
+        help="Accounting standard: 'hgb' (German GAAP) or 'ifrs'. "
+             "Selects the built-in mapping file. Ignored if --mapping is set.",
+    )
+    parser.add_argument(
+        "--mapping",
+        help="Custom account-range-to-BISTA mapping CSV. Overrides --standard.",
+    )
+    parser.add_argument(
+        "--gl", default="sample_gl.csv",
+        help="Input GL CSV (columns: account_number, amount_eur). Default: sample_gl.csv",
+    )
+    parser.add_argument(
+        "--output", default="bista_report.csv",
+        help="Output BISTA report CSV. Default: bista_report.csv",
+    )
+    args = parser.parse_args()
+
+    # Resolve mapping file
+    if args.mapping:
+        mapping_path = args.mapping
+        standard_label = ""
+    elif args.standard:
+        mapping_path = str(SCRIPT_DIR / STANDARD_MAPPINGS[args.standard])
+        standard_label = args.standard
+    else:
+        # Default to HGB
+        mapping_path = str(SCRIPT_DIR / STANDARD_MAPPINGS["hgb"])
+        standard_label = "hgb"
+        print("No --standard or --mapping specified. Defaulting to --standard hgb.", file=sys.stderr)
+
+    for path in [args.gl, mapping_path]:
+        if not Path(path).exists():
+            print(f"ERROR: File not found: {path}", file=sys.stderr)
+            sys.exit(1)
+
+    run(args.gl, mapping_path, args.output, standard=standard_label)
+
+
+if __name__ == "__main__":
+    main()
