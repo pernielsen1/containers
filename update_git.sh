@@ -1,20 +1,20 @@
 #!/bin/bash
 # Run before leaving a laptop to sync Claude memory/settings and push everything.
 # On the other laptop: git pull to resume with full context.
-# Note: experiments and AnaCredit are synced via their own deploy.sh scripts.
+# Calls clexp deploy scripts to pull in latest experiments and AnaCredit changes.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CLEXP_DIR="$HOME/clexp"
 
-# --- sync Claude memory + settings ---
-rsync -a --delete \
-    --exclude 'todos/' \
-    --exclude 'ide/' \
-    --exclude '*.log' \
-    --exclude 'statsig/' \
-    --exclude 'cache/' \
-    "$HOME/.claude/" "$SCRIPT_DIR/.claude/"
+# --- sync clexp content into containers ---
+# echo "==> Syncing experiments..."
+# bash "$CLEXP_DIR/deploy.sh"
+
+# echo "==> Syncing AnaCredit..."
+# bash "$CLEXP_DIR/AnaCredit/deploy.sh"
+
 
 # --- commit and push ---
 cd "$SCRIPT_DIR"
