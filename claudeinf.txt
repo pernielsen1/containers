@@ -1,3 +1,11 @@
 Start here
 https://github.com/porkchop/claude-code-sync
+1. The "Git + Memory" Strategy (Recommended)
+This method keeps your codebase synced with Git and uses manual summaries for AI context.
+Git Sync: Push all code changes to a remote repository (GitHub/GitLab).
+Context Sync: Create a claude.md file in your project root. At the end of a session, ask Claude to summarize the work, decisions, and next steps into this file.
+Workflow: On a new laptop, pull the code and tell Claude: Read the claude.md file to understand the current project state. 
+Reddit
+Reddit
+
 
