@@ -20,8 +20,11 @@ import csv
 import re
 import os
 
-PDF_PATH = "/home/perni/clexp/AnaCredit/docs/anacredit-guidelines-data.pdf"
-CSV_PATH = "/home/perni/clexp/AnaCredit/anacredit_data_attributes.csv"
+_SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+_ROOT    = os.path.dirname(_SRC_DIR)
+
+PDF_PATH = os.path.join(_ROOT, "docs", "anacredit-guidelines-data.pdf")
+CSV_PATH = os.path.join(_ROOT, "anacredit_data_attributes.csv")
 
 FIRST_PAGE = 56   # 0-indexed; PDF page 57
 LAST_PAGE  = 144  # 0-indexed; PDF page 145 (inclusive)

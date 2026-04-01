@@ -5,8 +5,8 @@ AnaCredit Counterparty Reference Data Validator
 Validates counterparty reference data against the AnaCredit validation rules
 (Handbuch zu den AnaCredit-Validierungsregeln, Version 22, gültig ab 01.08.2026).
 
-Implements rules from section 4.2 (Vollständigkeit - Vertragspartner-Stammdaten)
-and selected consistency rules (section 4.4) relevant to the counterparty dataset.
+Implements rules from section 4.2 (Vollständigkeit - Vertragspartner-Stammdaten),
+selected consistency rules (section 4.4), and section 4.5 postal code format checks.
 
 Usage:
     python3 validate_counterparty.py <input_csv> [--output <report.csv>]
@@ -19,138 +19,56 @@ Input CSV format:
 
 import argparse
 import csv
+import json
 import sys
 import re
 from datetime import datetime, date
 from pathlib import Path
 
+from postal_code_validator import PostalCodeValidator
+
 # ---------------------------------------------------------------------------
-# Code lists (sourced from anacredit-codelist-version-2-8-data.xlsx)
+# Code lists — loaded from codelists/ directory at import time
 # ---------------------------------------------------------------------------
 
-# Valid ISO 3166-1 alpha-2 country codes (238 codes in v2.8)
-VALID_COUNTRIES = {
-    'AD','AE','AF','AG','AI','AL','AM','AO','AQ','AR','AS','AT','AU','AW','AX',
-    'AZ','BA','BB','BD','BE','BF','BG','BH','BI','BJ','BL','BM','BN','BO','BQ',
-    'BR','BS','BT','BV','BW','BY','BZ','CA','CC','CD','CF','CG','CH','CI','CK',
-    'CL','CM','CN','CO','CR','CU','CV','CW','CX','CY','CZ','DE','DJ','DK','DM',
-    'DO','DZ','EC','EE','EG','EH','ER','ES','ET','FI','FJ','FK','FM','FO','FR',
-    'GA','GB','GD','GE','GF','GG','GH','GI','GL','GM','GN','GP','GQ','GR','GS',
-    'GT','GU','GW','GY','HK','HM','HN','HR','HT','HU','ID','IE','IL','IM','IN',
-    'IO','IQ','IR','IS','IT','JE','JM','JO','JP','KE','KG','KH','KI','KM','KN',
-    'KP','KR','KW','KY','KZ','LA','LB','LC','LI','LK','LR','LS','LT','LU','LV',
-    'LY','MA','MC','MD','ME','MF','MG','MH','MK','ML','MM','MN','MO','MP','MQ',
-    'MR','MS','MT','MU','MV','MW','MX','MY','MZ','NA','NC','NE','NF','NG','NI',
-    'NL','NO','NP','NR','NU','NZ','OM','PA','PE','PF','PG','PH','PK','PL','PM',
-    'PN','PR','PS','PT','PW','PY','QA','RE','RO','RS','RU','RW','SA','SB','SC',
-    'SD','SE','SG','SH','SI','SJ','SK','SL','SM','SN','SO','SR','SS','ST','SV',
-    'SX','SY','SZ','TC','TD','TF','TG','TH','TJ','TK','TL','TM','TN','TO','TR',
-    'TT','TV','TW','TZ','UA','UG','UM','US','UY','UZ','VA','VC','VE','VG','VI',
-    'VN','VU','WF','WS','XK','YE','YT','ZA','ZM','ZW',
-}
+_CODELISTS_DIR = Path(__file__).parent.parent / 'codelists'
 
-# Valid institutional sector codes (INSTTTNL_SCTR)
-VALID_INSTITUTIONAL_SECTORS = {
-    '-4','S11','S11_A','S11_B','S11_C','S121','S122','S122_A','S122_B','S123',
-    'S124','S124_A','S124_B','S125','S125_A','S125_B1','S125_B2','S125_C',
-    'S125_D','S125_E','S126','S126_A','S126_B','S126_C','S126_D','S127',
-    'S127_A','S127_B','S128','S128_A','S128_B','S128_C','S128_D','S129',
-    'S1311','S1312','S1313','S1314','S14','S15',
-}
 
-# Valid legal proceeding status codes (LGL_PRCDNG_STTS)
-VALID_LEGAL_PROCEEDING_STATUS = {'1', '2', '3', '4', 'NOT_APPL'}
+def _load(filename: str) -> set:
+    path = _CODELISTS_DIR / filename
+    with open(path, encoding='utf-8') as f:
+        return set(json.load(f))
 
-# Valid enterprise size codes (SZ)
-VALID_ENTERPRISE_SIZES = {'1', '2', '3', '4', 'NOT_APPL'}
 
-# Valid counterparty identifier types (TYP_CP_ID)
-VALID_CP_ID_TYPES = {'1', '2', '3', '4'}
+_POSTAL_VALIDATOR = PostalCodeValidator(_CODELISTS_DIR / 'postal_code_formats.json')
 
-# Valid accounting standard codes (ACCNTNG_FRMWRK)
-VALID_ACCOUNTING_STANDARDS = {'1', '2', '3'}
+VALID_COUNTRIES               = _load('country_codes.json')
+VALID_INSTITUTIONAL_SECTORS   = _load('institutional_sectors.json')
+VALID_LEGAL_PROCEEDING_STATUS = _load('legal_proceeding_status.json')
+VALID_ENTERPRISE_SIZES        = _load('enterprise_sizes.json')
+VALID_CP_ID_TYPES             = _load('cp_id_types.json')
+VALID_ACCOUNTING_STANDARDS    = _load('accounting_standards.json')
+REPORTING_MEMBER_STATES       = _load('reporting_member_states.json')
 
 # Non-applicable sentinel value
 NOT_APPL = 'NOT_APPL'
 NON_APPLICABLE = 'Non-applicable'
 
-# EU/EEA Reporting Member States (as per AnaCredit Regulation, Article 1)
-REPORTING_MEMBER_STATES = {
-    'AT','BE','BG','CY','CZ','DE','DK','EE','ES','FI','FR','GR','HR','HU',
-    'IE','IT','LT','LU','LV','MT','NL','PL','PT','RO','SE','SI','SK',
-}
-
 # ---------------------------------------------------------------------------
-# Column name mapping (CSV header -> internal name)
+# Column name mapping — loaded from codelists/column_map.json
 # ---------------------------------------------------------------------------
-COLUMN_MAP = {
-    # Identifiers
-    'type_of_counterparty_identifier':      'cp_id_type',
-    'counterparty_identifier':              'cp_id',
-    'legal_entity_identifier_lei':          'lei',
-    'national_identifier':                  'national_id',
-    'other_identifier':                     'other_id',
-    # Hierarchy
-    'type_of_head_office_undertaking_identifier': 'head_office_id_type',
-    'head_office_undertaking_identifier':   'head_office_id',
-    'type_of_immediate_parent_undertaking_identifier': 'immediate_parent_id_type',
-    'immediate_parent_undertaking_identifier': 'immediate_parent_id',
-    'type_of_ultimate_parent_undertaking_identifier': 'ultimate_parent_id_type',
-    'ultimate_parent_undertaking_identifier': 'ultimate_parent_id',
-    # Address
-    'name':                                 'name',
-    'address_street':                       'street',
-    'address_city_town_village':            'city',
-    'address_county_administrative_division': 'county',
-    'address_postal_code':                  'postal_code',
-    'address_country':                      'country',
-    # Reference data
-    'legal_form':                           'legal_form',
-    'institutional_sector':                 'institutional_sector',
-    'economic_activity':                    'economic_activity',
-    'customer_classification_code':         'customer_classification_code',
-    'status_of_legal_proceedings':          'legal_proceedings_status',
-    'date_of_initiation_of_legal_proceedings': 'legal_proceedings_date',
-    'enterprise_size':                      'enterprise_size',
-    'date_of_enterprise_size':              'enterprise_size_date',
-    'number_of_employees':                  'num_employees',
-    'balance_sheet_total':                  'balance_sheet_total',
-    'annual_turnover':                      'annual_turnover',
-    'accounting_standard':                  'accounting_standard',
-}
 
-# Also accept the exact attribute names from anacredit_data_attributes.csv
-COLUMN_MAP_VERBOSE = {
-    'Type of counterparty identifier':              'cp_id_type',
-    'Counterparty identifier':                      'cp_id',
-    'Legal entity identifier (LEI)':               'lei',
-    'National identifier':                          'national_id',
-    'Other identifier':                             'other_id',
-    'Type of head office undertaking identifier':   'head_office_id_type',
-    'Head office undertaking identifier':           'head_office_id',
-    'Type of immediate parent undertaking identifier': 'immediate_parent_id_type',
-    'Immediate parent undertaking identifier':      'immediate_parent_id',
-    'Type of ultimate parent undertaking identifier': 'ultimate_parent_id_type',
-    'Ultimate parent undertaking identifier':       'ultimate_parent_id',
-    'Name':                                         'name',
-    'Address: street':                              'street',
-    'Address: city/town/village':                   'city',
-    'Address: county/administrative division':      'county',
-    'Address: postal code':                         'postal_code',
-    'Address: country':                             'country',
-    'Legal form':                                   'legal_form',
-    'Institutional sector':                         'institutional_sector',
-    'Economic activity':                            'economic_activity',
-    'Customer classification code':                 'customer_classification_code',
-    'Status of legal proceedings':                  'legal_proceedings_status',
-    'Date of initiation of legal proceedings':      'legal_proceedings_date',
-    'Enterprise size':                              'enterprise_size',
-    'Date of enterprise size':                      'enterprise_size_date',
-    'Number of employees':                          'num_employees',
-    'Balance sheet total':                          'balance_sheet_total',
-    'Annual turnover':                              'annual_turnover',
-    'Accounting standard':                          'accounting_standard',
-}
+def _snake(verbose: str) -> str:
+    """Derive snake_case key from a verbose AnaCredit attribute name."""
+    return (verbose.strip().lower()
+            .replace(' ', '_').replace(':', '').replace('/', '_')
+            .replace('-', '_').replace('(', '').replace(')', '').replace('.', ''))
+
+
+_COL_MAP_DATA = json.load(open(_CODELISTS_DIR / 'column_map.json', encoding='utf-8'))
+
+COLUMN_MAP_VERBOSE = {row['verbose']: row['internal'] for row in _COL_MAP_DATA}
+COLUMN_MAP         = {_snake(row['verbose']): row['internal'] for row in _COL_MAP_DATA}
 
 
 def normalize_header(col: str) -> str:
@@ -351,10 +269,11 @@ def validate_record(rec: dict, row_num: int) -> list[ValidationResult]:
     # -----------------------------------------------------------------------
     # CY0100: Address: postal code - required (most conditions)
     # -----------------------------------------------------------------------
-    if not is_present(rec.get('postal_code')):
+    postal_code = rec.get('postal_code', '').strip()
+    if not is_present(postal_code):
         add('CY0100',
             'Address: postal code (Anschrift: Postleitzahl) is mandatory.',
-            'ERROR', 'postal_code', rec.get('postal_code', ''))
+            'ERROR', 'postal_code', postal_code)
 
     # -----------------------------------------------------------------------
     # CY0110: Address: country - required and must be a valid ISO 3166 code
@@ -369,6 +288,15 @@ def validate_record(rec: dict, row_num: int) -> list[ValidationResult]:
             f'Address: country value "{country}" is not a valid ISO 3166-1 '
             'alpha-2 country code.',
             'ERROR', 'country', country)
+
+    # -----------------------------------------------------------------------
+    # PSTL_CD: Postal code format check per country (section 4.5)
+    # Only applied when both postal code and a valid country are present.
+    # -----------------------------------------------------------------------
+    if is_present(postal_code) and is_present(country) and country in VALID_COUNTRIES:
+        pv = _POSTAL_VALIDATOR.validate(postal_code, country)
+        if not pv.valid:
+            add(pv.rule, pv.message, 'ERROR', 'postal_code', postal_code)
 
     # -----------------------------------------------------------------------
     # CY0120: Legal form - required (most conditions, especially CC0010)
@@ -745,68 +673,47 @@ def write_csv_report(findings: list[ValidationResult], output_path: str):
 # CLI
 # ---------------------------------------------------------------------------
 
-HELP_COLUMNS = """
+def _build_help_columns() -> str:
+    col_lines = '\n'.join(
+        f'  {row["verbose"]:<48} {row["internal"]}'
+        for row in _COL_MAP_DATA
+    )
+    return f"""\
 Expected CSV columns (semicolon-delimited, UTF-8):
   Either the exact AnaCredit attribute names or snake_case equivalents.
 
-  AnaCredit attribute name                        Internal name
-  -----------------------------------------------  ----------------
-  Type of counterparty identifier                  cp_id_type
-  Counterparty identifier                          cp_id
-  Legal entity identifier (LEI)                   lei
-  National identifier                              national_id
-  Other identifier                                 other_id
-  Type of head office undertaking identifier       head_office_id_type
-  Head office undertaking identifier               head_office_id
-  Type of immediate parent undertaking identifier  immediate_parent_id_type
-  Immediate parent undertaking identifier          immediate_parent_id
-  Type of ultimate parent undertaking identifier   ultimate_parent_id_type
-  Ultimate parent undertaking identifier           ultimate_parent_id
-  Name                                             name
-  Address: street                                  street
-  Address: city/town/village                       city
-  Address: county/administrative division          county
-  Address: postal code                             postal_code
-  Address: country                                 country
-  Legal form                                       legal_form
-  Institutional sector                             institutional_sector
-  Economic activity                                economic_activity
-  Customer classification code                     customer_classification_code
-  Status of legal proceedings                      legal_proceedings_status
-  Date of initiation of legal proceedings          legal_proceedings_date
-  Enterprise size                                  enterprise_size
-  Date of enterprise size                          enterprise_size_date
-  Number of employees                              num_employees
-  Balance sheet total                              balance_sheet_total
-  Annual turnover                                  annual_turnover
-  Accounting standard                              accounting_standard
+  AnaCredit attribute name                         Internal name
+  ------------------------------------------------ ------------------------
+{col_lines}
 
 Validation rules implemented:
-  CY0010      LEI presence (WARNING if missing for EU resident counterparty)
+  CY0010        LEI presence (WARNING if missing for EU resident counterparty)
   CY0010_FORMAT LEI format: must be 20 alphanumeric chars
-  CY0011      National identifier: mandatory (ERROR -> record rejection)
-  CY0030_DE   Head office identifier and type: must be paired
-  CY0040_DE   Immediate parent identifier and type: must be paired
-  CY0050_DE   Ultimate parent identifier and type: must be paired
-  CY0060      Name: mandatory
-  CY0070      Street: mandatory
-  CY0080      City: mandatory
-  CY0100      Postal code: mandatory
-  CY0110      Country: mandatory, must be ISO 3166-1 alpha-2
-  CY0120      Legal form: mandatory, validated against LGL_FRM codelist
-  CY0130      Institutional sector: mandatory, validated against INSTTTNL_SCTR
-  CY0140_DE   Economic activity OR customer classification: at least one required
-  CY0150      Status of legal proceedings: LGL_PRCDNG_STTS codelist check
-  CY0160      Date of legal proceedings: format + consistency with status
-  CY0170      Enterprise size: SZ codelist check
-  CY0180      Date of enterprise size: format + consistency with size
-  CY0190      Number of employees: numeric check
-  CY0200      Balance sheet total: numeric check
-  CY0210      Annual turnover: numeric check
-  CY0220      Accounting standard: ACCNTNG_FRMWRK codelist check
-  CN_CP_ID_TYPE  Counterparty identifier type: valid code
-  CN_CP_ID_PAIR  Identifier and type must appear together
+  CY0011        National identifier: mandatory (ERROR -> record rejection)
+  CY0030_DE     Head office identifier and type: must be paired
+  CY0040_DE     Immediate parent identifier and type: must be paired
+  CY0050_DE     Ultimate parent identifier and type: must be paired
+  CY0060        Name: mandatory
+  CY0070        Street: mandatory
+  CY0080        City: mandatory
+  CY0100        Postal code: mandatory
+  CY0110        Country: mandatory, must be ISO 3166-1 alpha-2
+  CY0120        Legal form: mandatory, validated against LGL_FRM codelist
+  CY0130        Institutional sector: mandatory, validated against INSTTTNL_SCTR
+  CY0140_DE     Economic activity OR customer classification: at least one required
+  CY0150        Status of legal proceedings: LGL_PRCDNG_STTS codelist check
+  CY0160        Date of legal proceedings: format + consistency with status
+  CY0170        Enterprise size: SZ codelist check
+  CY0180        Date of enterprise size: format + consistency with size
+  CY0190        Number of employees: numeric check
+  CY0200        Balance sheet total: numeric check
+  CY0210        Annual turnover: numeric check
+  CY0220        Accounting standard: ACCNTNG_FRMWRK codelist check
+  CN_CP_ID_TYPE Counterparty identifier type: valid code
+  CN_CP_ID_PAIR Identifier and type must appear together
 """
+
+HELP_COLUMNS = _build_help_columns()
 
 
 def main():

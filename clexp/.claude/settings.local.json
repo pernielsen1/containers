@@ -13,7 +13,9 @@
       "Bash(python3 -c \"import pandas as pd; df = pd.read_csv\\(''bista_items_short.csv''\\); print\\(df[df.duplicated\\(''item'', keep=False\\)][[''item'',''name_en'']].head\\(10\\)\\)\")",
       "Bash(python3:*)",
       "Bash(bash deploy.sh)",
-      "Bash(pdftotext /home/perni/.claude/projects/-home-perni-clexp/cb4c6cb1-15c5-4745-a8f4-d21a078d2929/tool-results/webfetch-1774464467892-aq79rr.pdf -)"
+      "Bash(pdftotext /home/perni/.claude/projects/-home-perni-clexp/cb4c6cb1-15c5-4745-a8f4-d21a078d2929/tool-results/webfetch-1774464467892-aq79rr.pdf -)",
+      "Bash(ls:*)",
+      "Bash(bash validate.sh sample_counterparty.csv 2>&1)"
     ]
   }
 }

@@ -3,4 +3,6 @@
 "1";"CUST-001-VALID";"";"DE-TAX-123456789";"";"";"";"";"";"";"";"Muster GmbH";"Hauptstraße 42";"München";"Bayern";"80331";"DE";"DE105";"S11";"46_73";"";"1";"";"3";"2023-12-31";"48";"2500000";"4800000";"1"
 "2";"INTL0000000000001";"NOT_APPL";"NOT_APPL";"";"";"";"";"";"";"";"International Monetary Fund";"700 19th Street NW";"Washington D.C.";"";"20431";"US";"NOT_APPL";"S128";"NOT_APPL";"";"NOT_APPL";"";"NOT_APPL";"";"";"";"";""
 "1";"CUST-ERR-001";"BADLEIFORMAT";"";"";"";"";"";"";"";"";"Fehlerhafter Vertragspartner GmbH";"Musterstraße 1";"";"";"12345";"XX";"INVALID_FORM";"S99";"";"";"";"";"INVALID_SIZE";"";"";"ABC";"DEF";"99"
-"1";"CUST-WARN-001";"5493001KJTIIGC8Y1R12";"DE-REG-999888777";"";"";"10020000";"";"";"";"";"Konsistenzfehler AG";"Industriestr. 5";"Hamburg";"Hamburg";"20095";"DE";"DE201";"S11";"62_01";"";"2";"";"2";"";"120";"15000000";"8000000";"2"
+"1";"CUST-WARN-001";"5493001KJTIIGC8Y1R12";"DE-REG-999888777";"";"3";"10020000";"";"";"";"";"Konsistenzfehler AG";"Industriestr. 5";"Hamburg";"Hamburg";"20095";"DE";"DE201";"S11";"62_01";"";"2";"";"2";"";"120";"15000000";"8000000";"2"
+"3";"10020000";"529900HPSWCJB1WVVN19";"HRB99999-F0601";"";"";"";"";"";"";"";"Konzern Holding GmbH";"Bockenheimer Landstr. 10";"Frankfurt am Main";"Hessen";"60323";"DE";"DE201";"S11";"64_20";"";"1";"";"4";"2024-03-31";"850";"5000000000";"750000000";"2"
+"1";"CUST-XREF-BAD";"";"DE-TAX-987654321";"";"";"";"";"";"1";"GHOST-PARENT-999";"Fehlreferenz GmbH";"Testweg 7";"Berlin";"Berlin";"10117";"DE";"DE105";"S11";"46_73";"";"1";"";"1";"2024-03-31";"3";"150000";"200000";"1"
