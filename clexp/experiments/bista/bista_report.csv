@@ -1,0 +1,28 @@
+form,bista_item,bista_description,side,amount_eur
+HV11,HV11_010,Cash in hand,asset,450000.00
+HV11,HV11_020,Balances with central banks,asset,12500000.00
+HV11,HV11_040,Treasury bills eligible for refinancing,asset,5000000.00
+HV11,HV11_061,Loans and advances to banks (MFIs),asset,51000000.00
+HV11,HV11_071,Loans and advances to non-banks (non-MFIs),asset,212000000.00
+HV11,HV11_082,Bonds and notes,asset,33800000.00
+HV11,HV11_090,Shares and other variable-yield securities,asset,4700000.00
+HV11,HV11_100,Participations,asset,5000000.00
+HV11,HV11_140,Intangible assets,asset,2500000.00
+HV11,HV11_150,Property and equipment,asset,5700000.00
+HV11,HV11_170,Other assets,asset,620000.00
+HV11,HV11_175,Tax receivables,asset,280000.00
+HV11,HV11_176,Prepaid expenses and accrued income,asset,45000000.00
+HV12,HV12_186,Derivative financial instruments in trading portfolio (positive value),asset,350000.00
+HV21,HV21_210,Liabilities to banks (MFIs),liability,55000000.00
+HV21,HV21_220,Other liabilities to non-banks (non-MFIs),liability,67000000.00
+HV21,HV21_221,Savings deposits,liability,18500000.00
+HV21,HV21_231,Debt securities in issue,liability,10000000.00
+HV21,HV21_232,Money market paper in issue,liability,3000000.00
+HV21,HV21_250,Other liabilities,liability,2710000.00
+HV21,HV21_260,Deferred income,liability,3280000.00
+HV21,HV21_280,Tax liabilities,liability,400000.00
+HV21,HV21_300,Subordinated liabilities,liability,5000000.00
+HV21,HV21_311,Subscribed capital,liability,15000000.00
+HV21,HV21_312,Reserves,liability,12370000.00
+HV22,HV22_295,Additional regulatory tier 1 instruments,liability,2000000.00
+HV22,HV22_510,Net profit of previous financial year and profit brought forward,liability,1250999.00

@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.bundesbank.de)",
+      "Bash(mkdir -p /home/perni/clexp/docs)",
+      "Bash(wget -q -O /home/perni/clexp/docs/banking-statistics-guidelines-jan2026.pdf \"https://www.bundesbank.de/resource/blob/620158/4f3806b49ca5b2bbcdb492e0d728d3a1/472B63F073F071307366337C94F8C870/statso01-03-monatliche-bilanzstatistik-data.pdf\")",
+      "Bash(sort -t, -k1,1)",
+      "Bash(mv /tmp/bista_sorted.csv /home/perni/clexp/experiments/bista/bista_items.csv)",
+      "Bash(find /home/perni/clexp/experiments/bista -type f -name *.csv -o -name *.xml -o -name *.xsd -o -name *.json)",
+      "Bash(xargs ls:*)",
+      "Bash(pdftotext /home/perni/clexp/docs/banking-statistics-guidelines-jan2026.pdf -)",
+      "Bash(python3 bista_mapper.py)",
+      "Bash(python3 -c \"import pandas as pd; df = pd.read_csv\\(''bista_items_short.csv''\\); print\\(df[df.duplicated\\(''item'', keep=False\\)][[''item'',''name_en'']].head\\(10\\)\\)\")",
+      "Bash(python3:*)",
+      "Bash(bash deploy.sh)",
+      "Bash(pdftotext /home/perni/.claude/projects/-home-perni-clexp/cb4c6cb1-15c5-4745-a8f4-d21a078d2929/tool-results/webfetch-1774464467892-aq79rr.pdf -)"
+    ]
+  }
+}
