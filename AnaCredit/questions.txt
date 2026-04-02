@@ -1,0 +1,2 @@
+{"display":"create an own python class file for validation of postal codes - and inplement into the standard counterparty validator"
+

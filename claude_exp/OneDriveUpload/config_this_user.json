@@ -1,0 +1,17 @@
+{
+    "_note": "Personal Microsoft account (MSA). No corporate SharePoint tenant found on this machine.",
+    "_note2": "For personal OneDrive via SharePoint REST API you need an app registered at https://portal.azure.com — see README below.",
+
+    "user_email": "per.nielsen1@outlook.com",
+    "onedrive_cid": "a88215cb98efcb80",
+
+    "tenant_id": "9188040d-6c67-4c5b-b112-36a304b66dad",
+
+    "_client_id_note": "Register an app at https://portal.azure.com > App registrations > New. Add delegated permission 'Files.ReadWrite' (Microsoft Graph). Set redirect URI to 'http://localhost'. Paste the Application (client) ID below.",
+    "client_id": "REGISTER-APP-IN-AZURE-PORTAL",
+
+    "_sharepoint_url_note": "For personal OneDrive the REST host is your 'mysite' URL. Discover it by going to https://onedrive.live.com, clicking your name top-right > OneDrive settings and copying the URL (looks like https://pernielsen-my.sharepoint.com/personal/per_nielsen1_outlook_com). Alternatively run: Get-PnPContext in PnP PowerShell after connecting.",
+    "sharepoint_url": "https://YOURHANDLE-my.sharepoint.com/personal/per_nielsen1_outlook_com",
+
+    "target_folder": "Documents/uploaded_files"
+}

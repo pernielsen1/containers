@@ -1,9 +1,0 @@
-Basic>Information>I am a an experienced programmer, manager, architecht with a business twist into strategic level mergers and acquisitions.
-Basic>where we start>I know this can be useful, will test limits.
-Basic>Constraints>Make it usefull for me in a highly regulated environment
-Basic>Constraints and evolve: So sandbox = my private labtob in wsl - explain to me how I can take the solutions into the regulated bank environment.
-Basic>Banking world>Possible to make a container - BUT there will be limitations on how to access it.
-Tech>Keep it simple>Python is a simple way of expressing code>I like it,  BUT I'm above average on other languages - feel free to explain in other language
-Tech>OK infra as code>The sandbox environment (wsl) has a docker instance - OK to add - all instances added needs to be prefixed with CL42_ 
-BIG GOAL>make a development environment described in skills which I can transfer into my banking world
-BIG BIG GOAL>I can experiment in my labtop sandbox and with minimum effort commit code to the highly regulated banking world

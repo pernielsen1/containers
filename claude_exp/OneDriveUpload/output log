@@ -1,0 +1,270 @@
+         Claude Code v2.1.90
+ ▐▛███▜▌
+▝▜█████▛▘  Sonnet 4.6
+  ▘▘ ▝▝    Claude Pro
+           ~/…/OneDriveUpload
+❯ objective:                                      
+create python script uploading one file to a      
+sharepoint location using currently logged on     
+credentials                                       
+tests:                                            
+test file "hello.txt" to upload are in directory  
+"upload" located in same directory as the python  
+script.                                           
+the files are to uploaded to sharepoint directory 
+ "Documents/uploaded_files"                       
+before uploading the file it should renamed to a  
+"unique name" which is to be the base name of the 
+ file followed by "_" and a ISO timestamp         
+after uploading the ile it should be moved to     
+directory named "done" also located in same       
+directory as the python script                    
+configuration parameter constraints:              
+The actual name of sharepoint and other           
+credentials should be read from a json structure  
+location on "input", "done"  directory and input  
+file name should be command line parameters.      
+                                                  
+The solution should include test cases starting   
+with the "hello.txt" going all the way to upload  
+and restoring the situation plus clearing the     
+"done" directory                                  
+                                                  
+                                                  
+  ⎿  ⧉ Selected 13 lines from brief.md in Visual Studio Code
+
+
+
+  Read 1 file, listed 1 directory (ctrl+o to expand)
+
+● Let me look at the existing directory structure
+  and then build the solution.
+
+  Listed 1 directory (ctrl+o to expand)
+
+● Now I'll create all the files:
+
+● Write(config.json)
+  ⎿  Wrote 6 lines to config.json
+      1 {
+      2     "sharepoint_url": "https://your
+        company.sharepoint.com/sites/yoursi
+        te",
+      3     "tenant_id": "xxxxxxxx-xxxx-xxx
+        x-xxxx-xxxxxxxxxxxx",
+      4     "client_id": "xxxxxxxx-xxxx-xxx
+        x-xxxx-xxxxxxxxxxxx",
+      5     "target_folder": "Documents/upl
+        oaded_files"
+      6 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+● Write(upload_to_sharepoint.py)
+  ⎿  Wrote 147 lines to upload_to_sharepoint.py
+
+       1 """
+       2 Upload a file to SharePoint using
+         MSAL device-code authentication.
+       3
+       4 Usage:
+       5     python3 upload_to_sharepoint.p
+         y --filename hello.txt
+       6     python3 upload_to_sharepoint.p
+         y --filename hello.txt --input-dir
+          upload --done-dir done --config c
+         onfig.json
+       7 """
+       8
+       9 import argparse
+      10 import json
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+● Write(test_upload.py)
+  ⎿  Wrote 236 lines to test_upload.py
+       1 """
+       2 Tests for upload_to_sharepoint.py
+       3
+       4 Run all tests:
+       5     pytest test_upload.py -v
+       6
+       7 Run only unit tests (no real netwo
+         rk):
+       8     pytest test_upload.py -v -m un
+         it
+       9
+      10 Run the integration test (requires
+          real SharePoint credentials in co
+         nfig.json):
+     … +226 lines (ctrl+o to expand)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+● Write(requirements.txt)
+  ⎿  Wrote 3 lines to requirements.txt
+      1 Office365-REST-Python-Client>=2.5.0
+      2 msal>=1.28.0
+      3 pytest>=8.0.0
+
+
+
+
+
+
+● Now let's run the unit tests to verify the logic
+  works:
+
+● Bash(pip install -q Office365-REST-Python-Client msal
+      pytest 2>&1 | tail -5)
+  ⎿      See /usr/share/doc/python3.12/README.venv for more informati
+     on.
+     … +5 lines (ctrl+o to expand)
+
+
+
+
+● Bash(pip install -q --break-system-packages
+      Office365-REST-Python-Client msal pytest 2>&1 |
+      tail -3)
+  ⎿  (No output)
+
+● Bash(python3 -m pytest test_upload.py -v -m unit 2>&1)
+
+  ⎿  ============================= test session starts ==============
+     ================
+     platform linux -- Python 3.12.3, pytest-9.0.2, pluggy-1.6.0 -- /
+     … +36 lines (ctrl+o to expand)
+
+
+
+● All 9 unit tests pass. Let me add the pytest.ini
+  to silence the mark warnings:
+
+● Write(pytest.ini)
+  ⎿  Wrote 4 lines to pytest.ini
+      1 [pytest]
+      2 markers =
+      3     unit: fast unit tests with no n
+        etwork calls
+      4     integration: end-to-end test ag
+        ainst real SharePoint (requires val
+        id config.json)
+
+
+
+
+
+
+
+
+
+
+● Bash(python3 -m pytest test_upload.py -v -m unit 2>&1
+      | tail -5)
+  ⎿  test_upload.py::TestRunUnit::test_happy_path PASSED
+              [ 77%]
+     test_upload.py::TestRunUnit::test_upload_failure_restores_origin
+     … +6 lines (ctrl+o to expand)
+
+
+
+● All clean. Here's a summary of what was created:
+
+  ---
+  Files created
+
+  ┌─────────────────────────┬───────────────────────────────────────┐
+  │          File           │                Purpose                │
+  ├─────────────────────────┼───────────────────────────────────────┤
+  │ upload_to_sharepoint.py │ Main script                           │
+  ├─────────────────────────┼───────────────────────────────────────┤
+  │ config.json             │ Config template (fill in real values) │
+  ├─────────────────────────┼───────────────────────────────────────┤
+  │ test_upload.py          │ Unit + integration tests              │
+  ├─────────────────────────┼───────────────────────────────────────┤
+  │ requirements.txt        │ pip install -r requirements.txt       │
+  ├─────────────────────────┼───────────────────────────────────────┤
+  │ pytest.ini              │ Test marker definitions               │
+  └─────────────────────────┴───────────────────────────────────────┘
+
+  ---
+  How it works
+
+  Authentication — Uses MSAL device-code flow on first run: it prints a
+  URL and a short code; you open the URL in any browser and enter the
+  code. The token is cached in .token_cache.bin so subsequent runs are
+  silent.
+
+  Rename — hello.txt → hello_2026-04-02T221530.txt (ISO timestamp,
+  colon-free for filesystem safety).
+
+  Upload — Via SharePoint REST API (Office365-REST-Python-Client),
+  uploaded to the target_folder path in the site.
+
+  Archive — Renamed file is moved to done/ on success; original name is
+  restored if upload fails.
+
+  ---
+  Setup
+
+  1. Fill in config.json with your real SharePoint URL, tenant ID, and app
+   client ID.
+    - The app registration needs AllSites.Write delegated permission (or
+  Sites.ReadWrite.All).
+  2. Install dependencies:
+  pip3 install -r requirements.txt
+  3. Run unit tests (no network needed):
+  pytest test_upload.py -v -m unit
+  4. Run the integration test (triggers device-code auth on first run):
+  pytest test_upload.py -v -m integration
+  5. Or run directly:
+  python3 upload_to_sharepoint.py --filename hello.txt

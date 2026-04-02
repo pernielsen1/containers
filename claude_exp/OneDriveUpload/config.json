@@ -1,0 +1,6 @@
+{
+    "sharepoint_url": "https://yourcompany.sharepoint.com/sites/yoursite",
+    "tenant_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "client_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "target_folder": "Documents/uploaded_files"
+}
