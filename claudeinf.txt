@@ -8,4 +8,13 @@ Workflow: On a new laptop, pull the code and tell Claude: Read the claude.md fil
 Reddit
 Reddit
 
+goal: make a skill who_am_i
+target language: python
+restrictions: sandbox environment
+restrictions: generated code / containers needs to be deployable in highly regulated environment - bank
+my_profile: Senior architect - handles multiple programming languages - python, java, c, c++, RPG, RPGle, Cobol
+goals: this labtop computer is my private sandbox - but I need to distribute the findings into the highly regulated environment
+exporting: any code generated here can be exported to my private GitHub environment by having a file inside directory ~containers
+GitHub credentials: my user environment variable $GIT_USER_NAME with git access token: $GIT_ACCESS_TOKEN
+
 

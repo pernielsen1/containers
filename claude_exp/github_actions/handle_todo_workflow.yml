@@ -1,0 +1,56 @@
+name: Handle Todo Files
+
+# Triggers only when files are pushed/uploaded into the todo/ directory.
+on:
+  push:
+    paths:
+      - 'todo/**'
+
+jobs:
+  process-todo:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to commit processed files back
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2   # need parent commit to detect new files
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Detect new files added to todo/
+        id: detect
+        run: |
+          # List files added (A) in this push inside todo/
+          NEW=$(git diff --name-only --diff-filter=A HEAD~1 HEAD -- 'todo/' || true)
+          echo "files=$NEW"
+          # Pass as newline-safe env var
+          printf '%s' "$NEW" > /tmp/new_files.txt
+
+      - name: Process todo files
+        run: |
+          mkdir -p next_step
+          mapfile -t FILES < /tmp/new_files.txt
+          if [ ${#FILES[@]} -eq 0 ] || [ -z "${FILES[0]}" ]; then
+            echo "No new files detected in todo/ — nothing to process."
+          else
+            echo "Processing: ${FILES[*]}"
+            python3 handle_todo.py "${FILES[@]}"
+          fi
+
+      - name: Commit results to next_step/
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name  "github-actions[bot]"
+          git add next_step/
+          if git diff --staged --quiet; then
+            echo "Nothing new to commit."
+          else
+            git commit -m "chore: processed todo files [skip ci]"
+            git push
+          fi

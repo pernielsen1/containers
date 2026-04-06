@@ -1,0 +1,23 @@
+# Large reference documents — mount these locally, don't commit to git
+docs/*.pdf
+docs/*.xlsx
+docs/*.xls
+
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
