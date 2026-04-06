@@ -1,7 +1,3 @@
-# Large reference documents — mount these locally, don't commit to git
-docs/*.pdf
-docs/*.xlsx
-docs/*.xls
 
 # Secrets
 .env

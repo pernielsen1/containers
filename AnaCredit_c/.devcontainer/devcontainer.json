@@ -1,0 +1,32 @@
+{
+  "name": "AnaCredit_c",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "workspaceFolder": "/workspaces/AnaCredit_c",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/AnaCredit_c,type=bind",
+  "mounts": [
+    // AnaCredit source directories (mapped from host AnaCredit project)
+    "source=/home/perni/containers/AnaCredit/src,target=/workspaces/AnaCredit_c/src,type=bind",
+    "source=/home/perni/containers/AnaCredit/tests,target=/workspaces/AnaCredit_c/tests,type=bind",
+    "source=/home/perni/containers/AnaCredit/docs,target=/workspaces/AnaCredit_c/docs,type=bind",
+    "source=/home/perni/containers/AnaCredit/codelists,target=/workspaces/AnaCredit_c/codelists,type=bind",
+    // Host Claude commands directory (target for update_host_skills)
+    "source=/home/perni/.claude/commands,target=/host_commands,type=bind"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.pylance",
+        "ms-toolsai.jupyter"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "remoteUser": "vscode",
+  "postCreateCommand": "echo 'AnaCredit_c container ready. Run update_host_skills to deploy skills to host.'"
+}
