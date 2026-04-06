@@ -14,7 +14,7 @@
   // Mount the docs folder from the host so large PDFs/XLS are not in git
   "mounts": [
     "source=${localEnv:HOME}/containers/AnaCredit/src,target=/workspace/src,type=bind,consistency=cached",
-    "source=${localWorkspaceFolder}/docs,target=/workspace/docs,type=bind,consistency=cached"
+    "source=${localEnv:HOME}/containers/AnaCredit/docs,target=/workspace/docs,type=bind,consistency=cached"
   ],
 
   "customizations": {
