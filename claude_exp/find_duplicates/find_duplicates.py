@@ -195,6 +195,35 @@ def _candidate_pairs(records: list) -> list:
 
 # ── Wide-format output builder ────────────────────────────────────────────────
 
+def _build_group_ids(adj: dict) -> dict:
+    """Union-Find over duplicate adj list; returns id → group's minimum id."""
+    parent: dict = {}
+
+    def find(x: str) -> str:
+        if x not in parent:
+            parent[x] = x
+        if parent[x] != x:
+            parent[x] = find(parent[x])
+        return parent[x]
+
+    def union(x: str, y: str) -> None:
+        rx, ry = find(x), find(y)
+        if rx == ry:
+            return
+        # Keep lexicographically smallest ID as root
+        if rx < ry:
+            parent[ry] = rx
+        else:
+            parent[rx] = ry
+
+    for src_id, dup_list in adj.items():
+        find(src_id)
+        for _, dup_rec in dup_list:
+            union(src_id, dup_rec[COL_ID])
+
+    return {x: find(x) for x in parent}
+
+
 def build_wide_rows(records: list, threshold: float) -> tuple:
     """
     For each record with at least one duplicate above threshold, build one output row.
@@ -227,17 +256,21 @@ def build_wide_rows(records: list, threshold: float) -> tuple:
 
     max_dups = max((len(v) for v in adj.values()), default=0)
 
+    group_ids = _build_group_ids(adj)
+
     rows = []
     for src_id, dup_list in adj.items():
         src = id_to_rec[src_id]
         row: dict = {
-            "src_id":      src[COL_ID],
-            "src_name":    src[COL_NAME],
-            "src_street":  src[COL_STREET],
-            "src_city":    src[COL_CITY],
-            "src_postal":  src[COL_POSTAL],
-            "src_country": src[COL_COUNTRY],
-            "dup_count":   len(dup_list),
+            "src_id":                   src[COL_ID],
+            "src_name":                 src[COL_NAME],
+            "src_street":               src[COL_STREET],
+            "src_city":                 src[COL_CITY],
+            "src_postal":               src[COL_POSTAL],
+            "src_country":              src[COL_COUNTRY],
+            "dup_count":                len(dup_list),
+            "duplicate_id_combination": group_ids.get(src_id, src_id),
+            "has_more":                 1 if len(dup_list) > 1 else 0,
         }
         for i, (scores, dup) in enumerate(dup_list, 1):
             p = f"dup{i}_"
@@ -260,7 +293,7 @@ def build_wide_rows(records: list, threshold: float) -> tuple:
 
 def _output_columns(max_dups: int) -> list:
     cols = ["src_id", "src_name", "src_street", "src_city", "src_postal", "src_country",
-            "dup_count"]
+            "dup_count", "duplicate_id_combination", "has_more"]
     for i in range(1, max_dups + 1):
         p = f"dup{i}_"
         cols += [f"{p}id", f"{p}name", f"{p}street", f"{p}city",
@@ -319,8 +352,8 @@ def main() -> int:
     print(f"  Best-match MEDIUM(>= 0.78):{medium}")
     print(f"  Best-match LOW   (>= 0.70):{low}")
     print(f"Max duplicates per record:   {max_dups}")
-    print(f"Output columns:              src(6) + dup_count + {max_dups}x dup(9) = "
-          f"{7 + max_dups * 9} total")
+    print(f"Output columns:              src(6) + dup_count + duplicate_id_combination + has_more + {max_dups}x dup(9) = "
+          f"{9 + max_dups * 9} total")
     print(f"Output:                      {args.output}")
 
     return 1 if rows else 0

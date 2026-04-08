@@ -1,0 +1,6 @@
+OBS on other computer - buildvenv.sh claude_exp
+
+find_duplicates.py identifies duplicates. 
+When rows (2 or more) are identified as duplicates mark all rows with a unique 
+"duplicate_id_combination" which should have the value of the counterparty id with the lowest id.
+If a row has more than one possible duplicate then make a column "has_more" which should be 1 if this is the case and 0 otherwise
