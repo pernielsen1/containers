@@ -42,7 +42,8 @@ class test_moudulus(unittest.TestCase):
       #  self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ZVR802191111d', 'AT'), True) # 
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('33282b Wien', 'AT'), True) #
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ZVR 123456789 Wien', 'AT'), True) # 
-      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ZVR-Zahl 123456789 Wien', 'AT'), True) # 
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ZVR-Zahl 123456789 Wien', 'AT'), True) #
+      self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('ZVR1234567890', 'AT'), True) # can be 10 long
       self.assertEqual(self.m_obj.validate_VAT_ID_bool('ATU12345678', 'AT'), True) # 
   def test_belgium(self): # Belgium
       self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('0403.019.261', 'BE') , True)   # AI google example
@@ -215,12 +216,19 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('/J/AB/12345/1999', 'RO'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('JAB/12345/1999', 'RO'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('J/AB/125/1999', 'RO'), True) 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('J2010123456400', 'RO'), True) 
+
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('RO12345678', 'RO'), True) 
 
   def test_malta(self): 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('C 12345', 'MT'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('C 123', 'MT'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('123456', 'MT'), False)  
+
+  def test_monaco(self): 
+    self.assertEqual(self.m_obj.validate_VAT_ID_bool('FR12345678901', 'MC'), True) 
+    self.assertEqual(self.m_obj.validate_VAT_ID_bool('FR2345678901', 'MC'), False) 
+    self.assertEqual(self.m_obj.validate_VAT_ID_bool('MC12345678901', 'MC'), False) 
 
   def test_great_britain(self): 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('12345678', 'GB'), True)  

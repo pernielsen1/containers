@@ -30,7 +30,7 @@ class company_identifiers:
             self.dict_xjustiz_to_name[item] = '(' + key + ')'
             
         self.definitions = {
-            "AT_COMPANY_ID": {"algorithm":self.validate_austria,"country":"AT","name":"FN",  "min_len":1, "len":9,
+            "AT_COMPANY_ID": {"algorithm":self.validate_austria,"country":"AT","name":"FN",  "min_len":1, "len":10,
                               "before_list":["FB", "FN", "ZVR", "FNZVR", "FNZVRZAHL", "ZVRZAHL", ""], 'after_allowed':True},
             "AT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"AT","name":"ATU",  
                           "len":8, "before_list":["ATU", ""]},
@@ -74,6 +74,9 @@ class company_identifiers:
                               "min_len":9, "len":14, "after_allowed":True},   
             "FR_VAT_ID": {"algorithm":self.validate_france_vat, "country":"FR","name":"NN + Siren", "len":11, 
                           "before_list":['FR'] },   
+            "MC_VAT_ID": {"algorithm":self.validate_monaco_vat, "country":"MC","name":"FR ! + 11 digits", "len":11, 
+                          "before_list":['FR'] },   
+
             "GB_COMPANY_ID": {"algorithm":self.validate_great_britain,"name":"UK SC, FC, etcc", 
                               "country":"GB", "min_len":5, "len":8, 'after_allowed':True,
                               "before_list": ['SC', 'FC', 'BR', 'NI', 'OE', 'RC', 'OC', 'LP',
@@ -115,7 +118,7 @@ class company_identifiers:
                         "weights": [  7, 5, 3, 2, 1, 7, 5, 3, 2], "mult10": True, "zfill_len":10,
                          "return_rest": True, "return_10":0},
             "RO_COMPANY_ID" : {"algorithm":self.validate_romania,"country":"RO", "name":"Trade Register Number - J-number", 
-                               "len": 12},
+                               "len": 14},
             "RO_VAT_ID" : {"algorithm":self.validate_romania_vat,"country":"RO", "name":"Cod de inregistra de TVA", 
                                "min_len": 2, "len":10, "before_list":['RO']}, 
             "SE_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"SE","name":"Organisationsnummer", "len":10,
@@ -411,8 +414,8 @@ class company_identifiers:
             return result
         zvr_list = ['FNZVR', 'FNZVRZAHL', 'ZVR', 'ZVRZAHL']
         if result['before'].upper() in zvr_list:
-            if len(result['number']) != 9:
-                return self.create_result_error('AT02', result, 'ZVR number should  be 9 long')
+            if len(result['number']) != 9 and len(result['number']) !=10:
+                return self.create_result_error('AT02', result, 'ZVR number should  be 9 or 10 long')
         else:
             if len(result['number']) > 6:
                 return self.create_result_error('AT03', result, 'FN number longer than 6')
@@ -466,6 +469,11 @@ class company_identifiers:
             return self.create_result_error('FR05', result, "Wrong check digit in French VAT")
         # still here all good
         return self.create_result_ok(result)    
+
+    def validate_monaco_vat(self, s, variant):
+        result = self.get_before_number_after(s, variant)
+        return result
+
     def validate_germany(self, s, variant):
         """ Germany - split in before which must be one of the allowed values HRB, HRA etc 
             followed by a number and then a name of a court - the court name should be in the XJustiz dictionary
@@ -602,7 +610,15 @@ class company_identifiers:
             result['number'] = elements[1]
             result['YYYY'] = elements[2]
 
-        if len(elements) < 3:
+        if len(elements) == 1:
+            if len(elements[0]) != 14:
+                return self.create_result_error("R004", "J-number in new format no slashes needs to be 14 long")
+            result['YYYY'] = elements[0][1:5]
+            result['ORDER_NO'] = elements[0][5:11]
+            result['COUNTY'] = elements[0][11:13]
+            result['CHECK_DIGIT'] = elements[0][13:14]
+
+        if len(elements) < 3 and len(elements) != 1:   # if 1 then the new format
             return self.create_result_error('RO01', result, "J-number not enough parts in elements after split")
      
         if result['J'] != 'J':
@@ -634,7 +650,11 @@ class company_identifiers:
 if __name__=="__main__":
     m_obj = company_identifiers()
 #    r = m_obj.validate_COMPANY_ID('CHE-123.456.788', 'CH') 
-    r = m_obj.validate_COMPANY_ID('CH-11123.456.788', 'CH') 
+#    r = m_obj.validate_COMPANY_ID('CH-11123.456.788', 'CH') 
+#    r = m_obj.validate_VAT_ID('FR12345678901', 'MC') 
+#    r = m_obj.validate_COMPANY_ID('ZVR1234567890', 'AT') 
+     #    r = m_obj.validate_COMPANY_ID('ZVR1234567890', 'AT') 
+    r = m_obj.validate_COMPANY_ID('J2010123456400', 'RO') 
 
 #    r = m_obj.validate_VAT_ID('EU1', 'BE') 
     print(r)
