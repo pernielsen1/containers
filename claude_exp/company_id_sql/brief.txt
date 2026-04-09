@@ -1,0 +1,18 @@
+create a development container company_id_container
+the container should have mysql, python and claude installed.
+the user for mysql is in environment variable PN_MYSQL_USER the password in PN_MYSQL_PASSWORD
+a python script test_company_id.py shall:
+create a database called db
+create a table company_ids with three character fields  CNTRY char(2), ID_TYPE char (3), ID char(50)
+load the contents of company_ids.csv into the table.
+create a stored procedure called validate_company_id taking CNTRY. ID_TYPE and ID as input which returns 1 if CNTRY is 'NO' or 'SE'
+list the contents of a select from the table return all fields plus the result of callind validate_company_id stored procedure as field validation_result
+
+sg docker -c "docker build -t company_id_container            
+  /home/per-nielsen/containers/claude_exp/company_id_sql/"
+sudo usermod -aG docker per-nielsen && newgrp dockersudo usermod -aG docker per-nielsen && newgrp docker
+
+
+company_id_sql-company_id_container:latest
+
+sudo docker run -i -t company_id_sql-company_id_container:latest
