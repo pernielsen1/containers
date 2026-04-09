@@ -2,9 +2,6 @@ services:
   company_id_container:
     build: .
     container_name: company_id_container
-    environment:
-      - PN_MYSQL_USER=${PN_MYSQL_USER}
-      - PN_MYSQL_PASSWORD=${PN_MYSQL_PASSWORD}
     volumes:
       - .:/app
     stdin_open: true

@@ -30,5 +30,7 @@ RUN mkdir -p /var/run/mysqld && chown mysql:mysql /var/run/mysqld
 # Entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
+ENV PN_MYSQL_USER="pn_user"
+ENV PN_MYSQL_PASSWORD="pn_password"
 
 ENTRYPOINT ["/entrypoint.sh"]
