@@ -1,6 +1,7 @@
 services:
   company_id_container:
     build: .
+    image: comp_mysql
     container_name: company_id_container
     volumes:
       - .:/app

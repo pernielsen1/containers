@@ -612,7 +612,7 @@ class company_identifiers:
 
         if len(elements) == 1:
             if len(elements[0]) != 14:
-                return self.create_result_error("R004", "J-number in new format no slashes needs to be 14 long")
+                return self.create_result_error("R004", result, "J-number in new format no slashes needs to be 14 long")
             result['YYYY'] = elements[0][1:5]
             result['ORDER_NO'] = elements[0][5:11]
             result['COUNTY'] = elements[0][11:13]

@@ -21,8 +21,8 @@ RUN npm install -g @anthropic-ai/claude-code
 WORKDIR /app
 
 # Copy project files
-COPY company_ids.csv .
-COPY test_company_id.py .
+# PY company_ids.csv .
+# PY test_company_id.py .
 
 # Configure MySQL to allow root login and external connections
 RUN mkdir -p /var/run/mysqld && chown mysql:mysql /var/run/mysqld

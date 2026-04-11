@@ -1,6 +1,5 @@
 jellyfish==1.2.1
 numpy==2.4.4
 pandas==3.0.2
-pn_utilities @ file:///home/per-nielsen/containers/claude_exp/local_packages/pn_utilities-0.1.tar.gz#sha256=6f62429c84c7dd5966fe267593b5d60a273dcc4b4f08a17f7c4a9373dc69c645
 python-dateutil==2.9.0.post0
 six==1.17.0

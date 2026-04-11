@@ -217,6 +217,7 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('JAB/12345/1999', 'RO'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('J/AB/125/1999', 'RO'), True) 
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('J2010123456400', 'RO'), True) 
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('J201012345640', 'RO'), False) # to short 
 
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('RO12345678', 'RO'), True) 
 
