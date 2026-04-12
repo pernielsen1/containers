@@ -1,6 +1,6 @@
-DUNS_NO;CNTRY_CD;registrationNumber;NAME;DESC
--1;SE;5561234567;Skuldman & Son TEST AB;Good customer Rating AAA + Tax clearance certificate registered
-350575093;SE;5562000116;Test No 3 mining enterprise Has Branches;
-5563035798;SE;5563035798;Test Tourism bank;Average company
--1;SE;5562187129;AB;Average company
--1;SE;5561060111;Konkursen TEST AB;Inactive company with Current financial statements
+DUNS_NO;CNTRY_CD;registrationNumber;NAME;DESC;age_in_days
+-1;SE;5561234567;Skuldman & Son TEST AB;Good customer Rating AAA + Tax clearance certificate registered;
+350575093;SE;5562000116;Test No 3 mining enterprise Has Branches;;
+5563035798;SE;5563035798;Test Tourism bank;Average company;7
+-1;SE;5562187129;AB;Average company;
+-1;SE;5561060111;Konkursen TEST AB;Inactive company with Current financial statements;

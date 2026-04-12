@@ -26,17 +26,21 @@ class DunsCache:
         """
         Return cached data for the row if a fresh cache file exists, else None.
         Rows with DUNS_NO == -1 cannot be looked up by DUNS and always return None.
+        The row's age_in_days column, when filled, overrides the global setting.
         """
         duns_number = str(row.get("DUNS_NO", "")).strip()
         if not duns_number or duns_number == "-1":
             return None
 
+        row_age = str(row.get("age_in_days", "")).strip()
+        age_in_days = int(row_age) if row_age.isdigit() else self.age_in_days
+
         cache_file = self._find_latest(duns_number)
         if cache_file is None:
             return None
 
-        if not self._is_fresh(cache_file):
-            print(f"  [cache] Stale entry for {duns_number} — will re-fetch")
+        if not self._is_fresh(cache_file, age_in_days):
+            print(f"  [cache] Stale entry for {duns_number} (max age: {age_in_days}d) — will re-fetch")
             return None
 
         print(f"  [cache] Hit for {duns_number}: {cache_file}")
@@ -70,7 +74,7 @@ class DunsCache:
         matches.sort(reverse=True)  # lexicographic sort on YYYYMMDD_HHMMSS
         return os.path.join(self.cache_dir, matches[0])
 
-    def _is_fresh(self, filepath: str) -> bool:
+    def _is_fresh(self, filepath: str, age_in_days: int) -> bool:
         """Return True if the cache file is within age_in_days."""
         stem = os.path.basename(filepath)[:-4]  # strip .txt
         parts = stem.rsplit("_", 2)              # [duns, YYYYMMDD, HHMMSS]
@@ -81,6 +85,6 @@ class DunsCache:
                 f"{parts[-2]}_{parts[-1]}", "%Y%m%d_%H%M%S"
             ).replace(tzinfo=timezone.utc)
             age = datetime.now(timezone.utc) - file_time
-            return age.days <= self.age_in_days
+            return age.days <= age_in_days
         except ValueError:
             return False
