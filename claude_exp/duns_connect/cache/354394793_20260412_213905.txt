@@ -1,0 +1,23 @@
+{
+  "companies": [
+    {
+      "name": "Skuldman & Son, TEST AB",
+      "country": "SE",
+      "registrationNumber": "5561234567",
+      "dunsNumber": "354394793",
+      "active": true,
+      "headQuarter": true,
+      "address": {
+        "street": "Rosenborgsgatan 4-6",
+        "town": "Solna",
+        "postalCode": "16974"
+      },
+      "legalForm": "LIMITED_COMPANY"
+    }
+  ],
+  "_paging": {
+    "resultCount": 1,
+    "limit": 20,
+    "offset": 0
+  }
+}

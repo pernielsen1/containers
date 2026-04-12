@@ -1,3 +1,11 @@
+ToDo:
+Find api to connect to doucment how to get the user... etc - currentyl in config.json
+move container_start, container_stop and container_stop to utils.
+ensure requests are loaded and entrypoint.sh is run
+
+https://www.dnb.com/developers-nordics/
+https://api.bisnode.com/credit-data-companies/v2/api-docs/api-docs.json
+
 create a python application fetch_duns_info.py 
 reading duns_to_collect.csv and for each record 
 does a search using the DUNS_NO in the api defined in api-docs.json
@@ -12,3 +20,4 @@ if the row has a DUNS_NO which can be found in the cache directory (first part o
 the directory cache has the files already retrieved via the api. 
 The naming convention means that the DUNS_No and timestame is available.
 the config json should have a new parameter "age_in_days" representing the days allowed for a cache to age i.e. if the file found in directory cache is not older the "age_in_days" then don't collect new information¨
+

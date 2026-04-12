@@ -1,15 +1,15 @@
 {
   "companies": [
     {
-      "name": "Test No 3 mining enterprise",
+      "name": "ÁàèôÑ ÅäöáàéèÔÑ AB",
       "country": "SE",
-      "registrationNumber": "5562000116",
-      "dunsNumber": "350575093",
+      "registrationNumber": "5562187129",
+      "dunsNumber": "350575119",
       "active": true,
       "headQuarter": true,
       "address": {
-        "street": "Vägen 6",
-        "town": "Umeå",
+        "street": "Vägen 7",
+        "town": "Gävle",
         "postalCode": "12345"
       },
       "legalForm": "LIMITED_COMPANY"

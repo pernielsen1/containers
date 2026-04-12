@@ -25,8 +25,6 @@ RUN chmod +x /entrypoint.sh
 COPY requirements_manual.txt .
 RUN pip install --break-system-packages -r requirements_manual.txt
 
-# COPY requirements_manual.txt /requirements_manual.sh
-
 
 ENTRYPOINT ["/entrypoint.sh"]
 

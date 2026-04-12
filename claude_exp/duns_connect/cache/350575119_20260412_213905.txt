@@ -1,15 +1,15 @@
 {
   "companies": [
     {
-      "name": "Test Tourism bank",
+      "name": "ÁàèôÑ ÅäöáàéèÔÑ AB",
       "country": "SE",
-      "registrationNumber": "5563035798",
-      "dunsNumber": "350575101",
+      "registrationNumber": "5562187129",
+      "dunsNumber": "350575119",
       "active": true,
       "headQuarter": true,
       "address": {
-        "street": "Vägen 8",
-        "town": "Helsingborg",
+        "street": "Vägen 7",
+        "town": "Gävle",
         "postalCode": "12345"
       },
       "legalForm": "LIMITED_COMPANY"

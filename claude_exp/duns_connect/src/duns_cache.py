@@ -7,6 +7,12 @@ Cache layer for Bisnode API responses. Files are stored as:
 get_data(row) returns cached data when a file for the row's DUNS_NO exists
 and is within the allowed age; otherwise returns None so the caller knows
 to fetch from the API.
+
+No-hit entries (identifiers that returned zero results) are stored under:
+    <cache_dir>/no_hits/<identifier>_<YYYYMMDD>_<HHMMSS>.txt
+
+is_no_hit(identifier) returns True when a fresh no-hit entry exists, so the
+caller can skip the API call entirely for known "lost causes".
 """
 
 import json
@@ -18,9 +24,11 @@ CACHE_DIR = "cache"
 
 
 class DunsCache:
-    def __init__(self, cache_dir: str, age_in_days: int):
+    def __init__(self, cache_dir: str, age_in_days: int, no_hit_age_in_days: int = 15):
         self.cache_dir = cache_dir
         self.age_in_days = age_in_days
+        self.no_hit_age_in_days = no_hit_age_in_days
+        self._no_hit_dir = os.path.join(cache_dir, "no_hits")
 
     def get_data(self, row) -> dict | None:
         """
@@ -47,6 +55,26 @@ class DunsCache:
         with open(cache_file, "r", encoding="utf-8") as fh:
             return json.load(fh)
 
+    def is_no_hit(self, identifier: str) -> bool:
+        """Return True if a fresh no-hit entry exists for identifier."""
+        cache_file = self._find_latest_no_hit(identifier)
+        if cache_file is None:
+            return False
+        if not self._is_fresh(cache_file, self.no_hit_age_in_days):
+            print(f"  [cache/no_hits] Stale entry for {identifier} (max age: {self.no_hit_age_in_days}d) — will retry")
+            return False
+        print(f"  [cache/no_hits] Known no-hit for {identifier} — skipping API call")
+        return True
+
+    def save_no_hit(self, identifier: str) -> str:
+        """Record that identifier produced no results; return the file path."""
+        os.makedirs(self._no_hit_dir, exist_ok=True)
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        path = os.path.join(self._no_hit_dir, f"{identifier}_{timestamp}.txt")
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump({"identifier": identifier, "cached_at": timestamp}, fh)
+        return path
+
     def save(self, duns_number: str, data: dict) -> str:
         """Write data to the cache and return the file path."""
         os.makedirs(self.cache_dir, exist_ok=True)
@@ -59,6 +87,20 @@ class DunsCache:
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
+
+    def _find_latest_no_hit(self, identifier: str) -> str | None:
+        """Return the most recent no-hit cache file for identifier, or None."""
+        if not os.path.isdir(self._no_hit_dir):
+            return None
+        prefix = f"{identifier}_"
+        matches = [
+            f for f in os.listdir(self._no_hit_dir)
+            if f.startswith(prefix) and f.endswith(".txt")
+        ]
+        if not matches:
+            return None
+        matches.sort(reverse=True)
+        return os.path.join(self._no_hit_dir, matches[0])
 
     def _find_latest(self, duns_number: str) -> str | None:
         """Return the most recent cache file for duns_number, or None."""
