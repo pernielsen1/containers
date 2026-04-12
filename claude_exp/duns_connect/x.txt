@@ -1,0 +1,7 @@
+ToDo:
+Find api to connect to doucment how to get the user... etc - currentyl in config.json
+move container_start, container_stop and container_stop to utils.
+ensure requests are loaded and entrypoint.sh is run
+
+https://www.dnb.com/developers-nordics/
+https://api.bisnode.com/credit-data-companies/v2/api-docs/api-docs.json

@@ -1,0 +1,9 @@
+services:
+  duns_connect:
+    build: .
+    image: duns_connect
+    container_name: duns_connect_test
+    volumes:
+      - .:/app
+    stdin_open: true
+    tty: true
