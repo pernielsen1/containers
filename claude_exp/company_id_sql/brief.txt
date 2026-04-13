@@ -16,3 +16,12 @@ sudo usermod -aG docker per-nielsen && newgrp dockersudo usermod -aG docker per-
 company_id_sql-company_id_container:latest
 
 sudo docker run -i -t company_id_sql-company_id_container:latest
+
+the snippets/company_identifiers.py contains a class that can validate a 
+company id and a vat id.
+focus first on the validate_COMPANY_ID function taking a string s i.e. the company_id and a country code as input.
+the csv we started with has a CNTRY which is the country and an ID which is the company ID
+in test_company_id we loaded the csv into a table and created a stored procdure.
+Now target is to create a stored procedure validate_company_id taking the CNTRY and ID as input and returning 
+1 of OK and 0 if not. 
+The validation should be based on the validate_COMPANY_ID in company_identifiers.py
