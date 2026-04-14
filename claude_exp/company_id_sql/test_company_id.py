@@ -1,5 +1,6 @@
 import os
 import csv
+import json
 import pymysql
 
 MYSQL_USER = os.environ["PN_MYSQL_USER"]
@@ -92,6 +93,27 @@ def run_pass(cursor, rows, procedure, label):
     print("-" * 62)
     print(f"Total: {passed + failed}  PASS: {passed}  FAIL: {failed}")
 
+
+# Create xjustiz database/table and load court data from XJustiz.json
+load_sql_file(cursor, os.path.join(os.path.dirname(__file__), "xjustiz.sql"), "xjustiz")
+
+_clean_table = str.maketrans('.-()','    ')
+
+def _clean_key(s: str) -> str:
+    """Mirror Python's clean_str: replace . - ( ) with space, then remove spaces."""
+    return s.translate(_clean_table).replace(' ', '')
+
+xjustiz_json = os.path.join(os.path.dirname(__file__), "snippets_copy", "XJustiz.json")
+with open(xjustiz_json, encoding="utf-8") as f:
+    xjustiz_data = json.load(f)
+
+cursor.execute("USE xjustiz")
+cursor.executemany(
+    "INSERT INTO courts (court_key, court_code, court_name) VALUES (%s, %s, %s)",
+    [(_clean_key(k), v, k) for k, v in xjustiz_data.items()],
+)
+print(f"Loaded {len(xjustiz_data)} XJustiz court entries.")
+cursor.execute("USE db")
 
 # Load stored procedures
 load_sql_file(cursor, os.path.join(os.path.dirname(__file__), "validate_company_id.sql"), "validate_company_id")

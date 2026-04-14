@@ -37,4 +37,7 @@ Now update test_company_id.py to have two passes the first reads rows with TYPE=
 and uses validate_company_id. 
 The second reads rows with TYPE='VAT' and uses validate_vat_id
 
+the validation of company_ID for Germany (DE) seems to have missed the check of 
+the string after versus the XJustiz dictionary. 
+The XJustis dictionary could be converted into a table in the database xjustiz.
 

@@ -387,14 +387,24 @@ BEGIN
             END;
 
         -- ── DE – Germany: [HRA|HRB|GnR|GsR|VR|PR] + 1-6 digits + court name
-        --        Full XJustiz lookup omitted; validate prefix+length only ─────
+        --        Court name (v_after) must be in the XJustiz dictionary ─────────
         WHEN 'DE' THEN
-            IF UPPER(v_before) IN ('HRA','HRB','GNR','GSR','VR','PR')
-                AND v_len BETWEEN 1 AND 6
-                AND CHAR_LENGTH(v_after) > 0
-            THEN
-                SET p_result = 1;
-            END IF;
+            BEGIN
+                DECLARE v_xcode VARCHAR(10) DEFAULT NULL;
+                DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_xcode = NULL;
+                IF UPPER(v_before) IN ('HRA','HRB','GNR','GSR','VR','PR')
+                    AND v_len BETWEEN 1 AND 6
+                    AND CHAR_LENGTH(v_after) > 0
+                THEN
+                    SELECT court_code INTO v_xcode
+                    FROM xjustiz.courts
+                    WHERE court_key = v_after
+                    LIMIT 1;
+                    IF v_xcode IS NOT NULL THEN
+                        SET p_result = 1;
+                    END IF;
+                END IF;
+            END;
 
         -- ── GB – Great Britain ────────────────────────────────────────────────
         WHEN 'GB' THEN
