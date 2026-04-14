@@ -25,3 +25,16 @@ in test_company_id we loaded the csv into a table and created a stored procdure.
 Now target is to create a stored procedure validate_company_id taking the CNTRY and ID as input and returning 
 1 of OK and 0 if not. 
 The validation should be based on the validate_COMPANY_ID in company_identifiers.py
+
+Next was to do it on vat - id - forgot to store it.
+
+snippets_copy/tests/test_company_identifiers.py contains test cases for validate_vat_id as well
+identified as the calls to self.m_obj.validate_VAT_ID_bool which returns True or False.
+extract the test cases and store in company_ids.csv with TYPE=VAT. CNTRY is the first parameter passed to 
+validate_VAT_ID_bool and ID is the second parameter. EXPECTED is derived from True or False expection to the AssertEquals
+
+Now update test_company_id.py to have two passes the first reads rows with TYPE='CID' 
+and uses validate_company_id. 
+The second reads rows with TYPE='VAT' and uses validate_vat_id
+
+
