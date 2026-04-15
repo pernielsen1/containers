@@ -5,6 +5,7 @@ Bisnode Credit Data API client.  Handles OAuth2 authentication and
 company searches by DUNS number or registration number.
 """
 
+import os
 import requests
 
 SUPPORTED_COUNTRIES = ["SE", "FI", "DK", "NO"]
@@ -22,11 +23,30 @@ class BisnodeClient:
 
     def _parse_proxies(self, env_config: dict) -> dict | None:
         proxy_source = env_config.get("Proxies") or env_config.get("proxies") or env_config.get("Proxy")
+        if proxy_source is None:
+            proxy_source = self._get_proxies_from_env()
         if isinstance(proxy_source, str):
             return {"http": proxy_source, "https": proxy_source}
         if isinstance(proxy_source, dict):
             return proxy_source
         return None
+
+    def _get_proxies_from_env(self) -> dict | None:
+        http_proxy = os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
+        https_proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
+        if not http_proxy and not https_proxy:
+            return None
+
+        proxies: dict[str, str] = {}
+        if http_proxy:
+            proxies["http"] = http_proxy
+        if https_proxy:
+            proxies["https"] = https_proxy
+        return proxies
+
+    @property
+    def proxies(self) -> dict | None:
+        return self._proxies
 
     def authenticate(self) -> None:
         """Fetch and store an OAuth2 access token (client credentials flow)."""
