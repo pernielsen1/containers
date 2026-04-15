@@ -466,23 +466,28 @@ BEGIN
             END;
 
         -- ── RO – Romania J-number (J<county>/<seq>/<YYYY>) ───────────────────
+        -- Supported slash variants (v_parts = 1 + slash count):
+        --   5 parts: /J/county/seq/YYYY  (leading slash, J is elements[1])
+        --   4 parts:  J/county/seq/YYYY  (standard, first char = J)
+        --   3 parts:  Jcounty/seq/YYYY   (no county separator, first char = J)
         WHEN 'RO' THEN
             BEGIN
                 DECLARE v_parts  INT;
-                DECLARE v_elem0  VARCHAR(50);
                 DECLARE v_yyyy_r VARCHAR(4);
-                -- After clean: J may survive since / is not removed
-                -- Re-clean keeping /: undo slash removal? Actually fn_cid_clean doesn't touch /
-                -- Use original p_ID with slashes
                 SET v_parts = 1 + CHAR_LENGTH(p_ID) - CHAR_LENGTH(REPLACE(p_ID, '/', ''));
                 IF v_parts >= 3 THEN
-                    -- Extract year from last element after final /
-                    SET v_yyyy_r = SUBSTR(p_ID, LOCATE('/', p_ID, LOCATE('/', p_ID, LOCATE('/', p_ID) + 1) + 1) + 1, 4);
+                    -- Year is always after the last slash
+                    SET v_yyyy_r = LEFT(SUBSTRING_INDEX(p_ID, '/', -1), 4);
                     IF v_yyyy_r REGEXP '^[0-9]{4}$'
                         AND CAST(v_yyyy_r AS UNSIGNED) BETWEEN 1800 AND 2099
-                        AND LEFT(LTRIM(p_ID), 1) = 'J'
                     THEN
-                        SET p_result = 1;
+                        -- 5-part (/J/county/seq/YYYY): 'J' is the 2nd element
+                        -- 3 or 4 part (J/... or Jcounty/...): first char is 'J'
+                        IF (v_parts = 5 AND SUBSTRING_INDEX(SUBSTRING_INDEX(p_ID, '/', 2), '/', -1) = 'J')
+                           OR (v_parts != 5 AND LEFT(p_ID, 1) = 'J')
+                        THEN
+                            SET p_result = 1;
+                        END IF;
                     END IF;
                 ELSEIF CHAR_LENGTH(p_ID) = 14 THEN
                     -- New compact format: J + YYYY + seq6 + county2 + chkdig
@@ -551,6 +556,34 @@ BEGIN
         ELSE BEGIN END;
 
     END CASE;
+END //
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- get_xjustiz_code
+-- For a German CID (CNTRY = 'DE') returns the XJustiz court_code that
+-- corresponds to the court name embedded in the ID (e.g. "HRB123Berlin").
+-- Returns '' when CNTRY != 'DE' or the court name is not found.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+DROP PROCEDURE IF EXISTS get_xjustiz_code //
+CREATE PROCEDURE get_xjustiz_code(
+    IN  p_CNTRY  CHAR(2),
+    IN  p_ID     VARCHAR(100),
+    OUT p_code   VARCHAR(10)
+)
+BEGIN
+    DECLARE v_after VARCHAR(50);
+    SET p_code = '';
+
+    IF p_CNTRY = 'DE' THEN
+        SET v_after = fn_cid_after(fn_cid_clean(p_ID));
+        IF CHAR_LENGTH(v_after) > 0 THEN
+            SELECT COALESCE(court_code, '') INTO p_code
+            FROM xjustiz.courts
+            WHERE court_key = v_after
+            LIMIT 1;
+        END IF;
+    END IF;
 END //
 
 DELIMITER ;

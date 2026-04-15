@@ -41,3 +41,26 @@ the validation of company_ID for Germany (DE) seems to have missed the check of
 the string after versus the XJustiz dictionary. 
 The XJustis dictionary could be converted into a table in the database xjustiz.
 
+Doing good even xjustiz for Germany is correct - but not all cases for Romania passes correct when running 
+test_company_id.py  In validate_company_id.sql the cases /J/AB/12345/1999 and JAB/12345/1999 both fails 
+but are correct in the original python code found in /snippets_copy/company_identifiers.py function validate_romania
+Two failing cases have 4 forwards slashes respectively 2 forward slashes. The current code only handles the case with 3 slashes.
+Both 4 and 2 can be correct and should be handled like in the validate_romania funcion in company_identifiers.py
+
+create a new sql stored procedure named get_xjustiz_code inside the validate_company_id.sql 
+I should for a german CID (CNTRY='DE') return the court_code from xjustiz table. if not found return empty string ''
+
+now update test_company_id.py to accept not only CID and VAT as parameter but also XJUSTIZ - if parameter is XJUSTIZ then for all 
+rows in company_ids.csv where CNTRY='DE' then find the XJUSTIZ code using the get_xjustis_code stored procedure.
+print a list with CNTRY, CID and XJUSTIZ
+
+ToDo: EU and CH
+
+The validate_vat_id.sql is wrong for CNTRY='CH' and fails in case CH123.456.788 - 
+it assumes that the string starts with CHE which is should not do for VAT-ID. 
+In original snippets_copy/company_identifiers.py that VAT for CH points to standard VAT id -calculation 
+CH followed by 9 digits the last digit is modulus 11 calculated 
+with the weights "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ]}, 
+
+OK last strange case for BE it can start with EU instead of BE. This is reflected in original validate_vat_std routing in python 
+basically saying if the string starts with EU then basically override the country code and use the rules for EU as country code

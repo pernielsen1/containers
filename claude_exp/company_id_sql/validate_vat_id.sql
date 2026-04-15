@@ -15,7 +15,7 @@
 -- Countries with dedicated VAT rules (handled inline in CASE):
 --   AT  ATU + 8 digits, no check digit
 --   BE  BE  + 10-digit modulus-97
---   CH  CHE + 9-digit modulus-11  (weights 5,4,3,2,7,6,5,4)
+--   CH  CH  + 9-digit modulus-11  (weights 5,4,3,2,7,6,5,4,1 — full sum % 11 = 0)
 --   DE  DE  + 9 digits, no check digit
 --   ES  ES* + 8-digit modulus-10  (prefix starting with ES, TBD letter types)
 --   EU  EU  + 1-4 digits, no check digit
@@ -71,11 +71,15 @@ BEGIN
                 SET p_result = 1;
             END IF;
 
-        -- ── BE: BE + 10-digit modulus-97 ──────────────────────────────────────
+        -- ── BE: BE + 10-digit modulus-97, or EU + 1-4 digits ────────────────
         -- Python: BE_VAT_ID → validate_vat_std + validate_modulus97, len=10
-        --   97 - (first_8 % 97) must equal last 2 digits
+        --   validate_vat_std checks s[0:2]=='EU' first and, if so, reroutes to
+        --   validate_VAT_ID(s,'EU'): EU prefix + 1-4 digits, no check digit.
+        --   Otherwise: BE prefix + 10 digits, 97 - (first_8 % 97) == last 2.
         WHEN 'BE' THEN
-            IF UPPER(v_before) = 'BE' AND v_len = 10 AND v_after = '' THEN
+            IF UPPER(v_before) = 'EU' AND v_len BETWEEN 1 AND 4 AND v_after = '' THEN
+                SET p_result = 1;
+            ELSEIF UPPER(v_before) = 'BE' AND v_len = 10 AND v_after = '' THEN
                 IF (97 - (CAST(LEFT(v_number, 8) AS UNSIGNED) % 97))
                     = CAST(SUBSTR(v_number, 9, 2) AS UNSIGNED)
                 THEN
@@ -83,19 +87,16 @@ BEGIN
                 END IF;
             END IF;
 
-        -- ── CH: CHE + 9-digit modulus-11, weights [5,4,3,2,7,6,5,4] ──────────
+        -- ── CH: CH + 9-digit modulus-11, weights [5,4,3,2,7,6,5,4,1] ──────────
         -- Python: CH_VAT_ID → validate_vat_std + validate_modulus11, len=9
-        --   Same weights and check-digit logic as CH_COMPANY_ID
+        --   Prefix: first 2 chars must be 'CH' (accepts both 'CH' and 'CHE').
+        --   All 9 weights are applied to all 9 digits; the weighted sum must be
+        --   divisible by 11 (remainder = 0 → valid).
         WHEN 'CH' THEN
-            IF UPPER(v_before) = 'CHE' AND v_len = 9 AND v_after = '' THEN
-                SET v_excl     = LEFT(v_number, 8);
-                SET v_expected = CAST(SUBSTR(v_number, 9, 1) AS UNSIGNED);
-                SET v_rest = fn_wsum(v_excl, 5,4,3,2,7,6,5,4, 0,0) % 11;
-                IF v_rest = 0 THEN SET v_chk = 0;
-                ELSEIF v_rest = 1 THEN SET v_chk = 0;
-                ELSE SET v_chk = 11 - v_rest;
+            IF UPPER(LEFT(v_before, 2)) = 'CH' AND v_len = 9 AND v_after = '' THEN
+                IF fn_wsum(v_number, 5,4,3,2,7,6,5,4,1, 0) % 11 = 0 THEN
+                    SET p_result = 1;
                 END IF;
-                IF v_chk = v_expected THEN SET p_result = 1; END IF;
             END IF;
 
         -- ── DE: DE + 9 digits, no check digit ────────────────────────────────

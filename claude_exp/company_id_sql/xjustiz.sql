@@ -3,8 +3,8 @@
 -- Data is loaded by test_company_id.py from snippets_copy/XJustiz.json.
 
 CREATE DATABASE IF NOT EXISTS xjustiz
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_unicode_ci;
+--    CHARACTER SET utf8mb4
+--    COLLATE utf8mb4_unicode_ci;
 
 USE xjustiz;
 
@@ -15,5 +15,5 @@ CREATE TABLE courts (
     court_name VARCHAR(200) NOT NULL COMMENT 'Original court name from XJustiz.json',
     PRIMARY KEY (court_key)
 ) ENGINE=InnoDB
-  DEFAULT CHARSET=utf8mb4
-  COLLATE=utf8mb4_unicode_ci;
+--  DEFAULT CHARSET=utf8mb4
+--  COLLATE=utf8mb4_unicode_ci;

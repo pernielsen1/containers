@@ -1,4 +1,5 @@
 import os
+import sys
 import csv
 import json
 import pymysql
@@ -6,6 +7,15 @@ import pymysql
 MYSQL_USER = os.environ["PN_MYSQL_USER"]
 MYSQL_PASSWORD = os.environ["PN_MYSQL_PASSWORD"]
 CSV_FILE = os.path.join(os.path.dirname(__file__), "company_ids.csv")
+
+# Parse optional argument: CID, VAT, or XJUSTIZ (default: run CID + VAT)
+_arg = sys.argv[1].upper() if len(sys.argv) > 1 else None
+if _arg not in (None, "CID", "VAT", "XJUSTIZ"):
+    print(f"Usage: python test_company_id.py [CID|VAT|XJUSTIZ]", file=sys.stderr)
+    sys.exit(1)
+RUN_CID     = _arg in (None, "CID")
+RUN_VAT     = _arg in (None, "VAT")
+RUN_XJUSTIZ = _arg == "XJUSTIZ"
 
 conn = pymysql.connect(
     host="localhost",
@@ -116,18 +126,37 @@ print(f"Loaded {len(xjustiz_data)} XJustiz court entries.")
 cursor.execute("USE db")
 
 # Load stored procedures
-load_sql_file(cursor, os.path.join(os.path.dirname(__file__), "validate_company_id.sql"), "validate_company_id")
-load_sql_file(cursor, os.path.join(os.path.dirname(__file__), "validate_vat_id.sql"), "validate_vat_id")
+if RUN_CID or RUN_XJUSTIZ:
+    load_sql_file(cursor, os.path.join(os.path.dirname(__file__), "validate_company_id.sql"), "validate_company_id")
+if RUN_VAT:
+    load_sql_file(cursor, os.path.join(os.path.dirname(__file__), "validate_vat_id.sql"), "validate_vat_id")
 
 # Pass 1 — CID rows → validate_company_id
-cursor.execute("SELECT CNTRY, ID, EXPECTED FROM company_ids WHERE ID_TYPE = 'CID'")
-cid_rows = cursor.fetchall()
-run_pass(cursor, cid_rows, "validate_company_id", "CID")
+if RUN_CID:
+    cursor.execute("SELECT CNTRY, ID, EXPECTED FROM company_ids WHERE ID_TYPE = 'CID'")
+    cid_rows = cursor.fetchall()
+    run_pass(cursor, cid_rows, "validate_company_id", "CID")
 
 # Pass 2 — VAT rows → validate_vat_id
-cursor.execute("SELECT CNTRY, ID, EXPECTED FROM company_ids WHERE ID_TYPE = 'VAT'")
-vat_rows = cursor.fetchall()
-run_pass(cursor, vat_rows, "validate_vat_id", "VAT")
+if RUN_VAT:
+    cursor.execute("SELECT CNTRY, ID, EXPECTED FROM company_ids WHERE ID_TYPE = 'VAT'")
+    vat_rows = cursor.fetchall()
+    run_pass(cursor, vat_rows, "validate_vat_id", "VAT")
+
+# Pass 3 — XJUSTIZ: DE CID rows → get_xjustiz_code
+if RUN_XJUSTIZ:
+    cursor.execute("SELECT CNTRY, ID FROM company_ids WHERE CNTRY = 'DE' AND ID_TYPE = 'CID'")
+    de_rows = cursor.fetchall()
+    print(f"\n=== XJustiz codes for DE company IDs ===")
+    print(f"{'CNTRY':<6} {'CID':<36} {'XJUSTIZ'}")
+    print("-" * 56)
+    for cntry, id_val in de_rows:
+        cursor.execute("CALL get_xjustiz_code(%s, %s, @code)", (cntry, id_val))
+        cursor.execute("SELECT @code")
+        (code,) = cursor.fetchone()
+        print(f"{cntry or '':<6} {(id_val or ''):<36} {code or ''}")
+    print("-" * 56)
+    print(f"Total: {len(de_rows)}")
 
 cursor.close()
 conn.close()
