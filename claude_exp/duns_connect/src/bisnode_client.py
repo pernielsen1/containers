@@ -18,6 +18,15 @@ class BisnodeClient:
         self._token_url = env_config.get("TokenUrl", "https://login.bisnode.com/as/token.oauth2")
         self._search_endpoint = f"{env_config['ApiBaseUrl']}/companies"
         self._access_token: str | None = None
+        self._proxies = self._parse_proxies(env_config)
+
+    def _parse_proxies(self, env_config: dict) -> dict | None:
+        proxy_source = env_config.get("Proxies") or env_config.get("proxies") or env_config.get("Proxy")
+        if isinstance(proxy_source, str):
+            return {"http": proxy_source, "https": proxy_source}
+        if isinstance(proxy_source, dict):
+            return proxy_source
+        return None
 
     def authenticate(self) -> None:
         """Fetch and store an OAuth2 access token (client credentials flow)."""
@@ -29,6 +38,7 @@ class BisnodeClient:
             },
             auth=(self._client_id, self._client_secret),
             timeout=30,
+            proxies=self._proxies,
         )
         response.raise_for_status()
         token = response.json().get("access_token")
@@ -69,6 +79,7 @@ class BisnodeClient:
             json=payload,
             headers=self._auth_headers(),
             timeout=30,
+            proxies=self._proxies,
         )
         if response.status_code == 400:
             return None

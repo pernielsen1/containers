@@ -138,6 +138,8 @@ def main() -> None:
 
     print(f"Environment : {environment}")
     print(f"API base URL: {env_config['ApiBaseUrl']}")
+    if env_config.get("Proxies") or env_config.get("proxies") or env_config.get("Proxy"):
+        print("Proxy       : configured")
     print(f"Cache dir   : {cache.cache_dir}  (max age: {cache.age_in_days} days)")
 
     try:
