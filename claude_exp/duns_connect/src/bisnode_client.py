@@ -14,8 +14,8 @@ SUPPORTED_COUNTRIES = ["SE", "FI", "DK", "NO"]
 class BisnodeClient:
 
     def __init__(self, env_config: dict):
-        self._client_id = env_config["ClientId"]
-        self._client_secret = env_config["ClientSecret"]
+        self._client_id = os.environ['DUNS_CLIENT_ID']
+        self._client_secret = os.environ['DUNS_CLIENT_SECRET']
         self._token_url = env_config.get("TokenUrl", "https://login.bisnode.com/as/token.oauth2")
         self._search_endpoint = f"{env_config['ApiBaseUrl']}/companies"
         self._access_token: str | None = None

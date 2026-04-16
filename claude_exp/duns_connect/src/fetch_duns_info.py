@@ -126,8 +126,6 @@ def main() -> None:
     env_config = config.get(environment)
     if not env_config:
         sys.exit(f"ERROR: No config block for environment '{environment}'")
-    if not env_config.get("ClientId") or not env_config.get("ClientSecret"):
-        sys.exit(f"ERROR: ClientId/ClientSecret missing for environment '{environment}'")
 
     client = BisnodeClient(env_config)
     cache = DunsCache(
