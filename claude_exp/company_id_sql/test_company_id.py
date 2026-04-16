@@ -4,8 +4,8 @@ import csv
 import json
 import pymysql
 
-MYSQL_USER = os.environ["PN_MYSQL_USER"]
-MYSQL_PASSWORD = os.environ["PN_MYSQL_PASSWORD"]
+MYSQL_USER = os.environ["MYSQL_USER"]
+MYSQL_PASSWORD = os.environ["MYSQL_PASSWORD"]
 CSV_FILE = os.path.join(os.path.dirname(__file__), "company_ids.csv")
 
 # Parse optional argument: CID, VAT, or XJUSTIZ (default: run CID + VAT)
