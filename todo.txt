@@ -1,10 +1,10 @@
-variables in .bashrc for 
+xvariables in .bashrc for 
 
 
+how to deploy... already in directory..
 
 ToDo: next
 Make java developer container.
-Make python script that act as auth client as seperate process that connects and runs towards running main and backend... 
 
 
 

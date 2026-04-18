@@ -58,3 +58,16 @@ try to run it yourself and correct the error
 
 further instructions 4:
 summarize learnings on iso8583 as skill iso8583 make skill file in current directory
+
+further instructions 5:
+make export.sh script making the packages from the venv pandas and pyiso8583 available in a tar file i can import on another machine
+make import.sh script which enables med to import the packages in the tar above possible to import on the other machine
+
+result:
+  - export.sh — downloads wheels for pandas, pyiso8583, and all dependencies (numpy, python-dateutil, six) into            
+  pkg_export/, then packs them into iso8583_packages.tar.gz (~28 MB).                                                      
+  - import.sh — extracts the tar and installs everything with pip --no-index (no internet needed). Optionally takes the tar
+   path as an argument: ./import.sh /path/to/iso8583_packages.tar.gz.                                                      
+                                                                                                                           
+  Note: the wheels are built for Python 3.12 on Linux x86_64 — the target machine needs a matching Python version. If the  
+  target differs, re-run export.sh there or on a matching machine.         
