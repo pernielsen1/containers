@@ -1,4 +1,9 @@
+# from collections import defaultdict
+#  types = defaultdict(lambda: str, A="int", B="float")
+# df = pd.read_csv("/path/to/file.csv", dtype=types, keep_default_na=False)
+
 import pandas as pd
+
 
 def do_it():
     df1 = pd.DataFrame({'k': ['k1','k2','k3'], 'desc':['text1', 'text2', 'text3']})

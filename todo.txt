@@ -1,13 +1,16 @@
 variables in .bashrc for 
-export DUNS_CLIENT_ID="ece7f6b4-1b70-4568-9ba4-24ab2d35bd1c"
-export DUNS_CLIENT_SECRET="f492oP18zjGheB3Gb7qQFRDtdRLBvMy1cgi3K8HXb26oTrFt2JakcGeDTmY847VI"
+
+
 
 ToDo: next
+Make java developer container.
+Make python script that act as auth client as seperate process that connects and runs towards running main and backend... 
+
+
 
 Containerize:
 
-
-OneDrive:
+eDrive:
 Create the "app" and test locally - make as appl and find actual tenant details
 
 Git hub actions: 

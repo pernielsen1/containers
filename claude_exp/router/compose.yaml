@@ -1,0 +1,13 @@
+services:
+  app:
+    image: eclipse-temurin:21-jdk
+    working_dir: /app
+    volumes:
+      - .:/app
+    ports:
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
+    environment:
+      - BACKEND_PORT=${BACKEND_PORT}
+    stdin_open: true
+    tty: true
+    command: bash

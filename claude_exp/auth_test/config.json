@@ -1,0 +1,11 @@
+{
+  "client": {
+    "connect_timeout": 60,
+    "batch_size": 50,
+    "batch_wait": 10,
+    "send_delay": 0.05
+  },
+  "server": {
+    "idle_timeout": 120
+  }
+}
