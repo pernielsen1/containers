@@ -1,11 +1,18 @@
 {
+  "tcp_framing": "TCP_framing_standard",
+  "log_level": "INFO",
   "client": {
+    "iso_spec": "test_spec.json",
+    "input_dir": "input",
+    "output_dir": "output",
     "connect_timeout": 60,
     "batch_size": 50,
     "batch_wait": 10,
     "send_delay": 0.05
   },
   "server": {
-    "idle_timeout": 120
+    "iso_spec": "test_spec.json",
+    "idle_timeout": 120,
+    "positive_list": "positive_list.json"
   }
 }

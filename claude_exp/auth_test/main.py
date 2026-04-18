@@ -12,14 +12,10 @@ import struct
 import sys
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Optional
 
 import iso8583
 import pandas as pd
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from iso_spec import test_spec
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,11 +23,8 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# Fields auto-managed by pyiso8583 or binary-encoded — skip when reading CSV
-_BINARY_FIELDS = frozenset(k for k, v in test_spec.items() if v.get("data_enc") == "b")
-_AUTO_FIELDS = frozenset({"h", "p", "1"}) | _BINARY_FIELDS
-
 DEFAULT_CONFIG = {
+    "tcp_framing": "TCP_framing_standard",
     "client": {
         "connect_timeout": 60,
         "batch_size": 50,
@@ -45,18 +38,33 @@ DEFAULT_CONFIG = {
 
 
 def load_config() -> dict:
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
-    cfg = {k: dict(v) for k, v in DEFAULT_CONFIG.items()}
+    base = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(base, "config.json")
+    cfg = {k: (dict(v) if isinstance(v, dict) else v) for k, v in DEFAULT_CONFIG.items()}
     if os.path.exists(path):
         with open(path) as f:
             file_cfg = json.load(f)
+        if "tcp_framing" in file_cfg:
+            cfg["tcp_framing"] = file_cfg["tcp_framing"]
         for role in ("client", "server"):
             if role in file_cfg:
                 cfg[role].update(file_cfg[role])
     return cfg
 
 
-# ── TCP framing (32-bit big-endian length prefix) ─────────────────────────────
+def load_spec(cfg: dict, role: str) -> dict:
+    base = os.path.dirname(os.path.abspath(__file__))
+    spec_file = cfg[role].get("iso_spec", "test_spec.json")
+    spec_path = os.path.join(base, spec_file)
+    with open(spec_path) as f:
+        return json.load(f)
+
+
+# ── TCP framing ───────────────────────────────────────────────────────────────
+# TCP_framing_standard  : 4-byte big-endian uint32 length + data
+# TCP_framing_FFFF_nnnn : 0xFFFFFFFF marker + 4 ASCII digit length + data
+
+_FFFF_MARKER = b"\xff\xff\xff\xff"
 
 def _recv_exact(sock: socket.socket, n: int) -> Optional[bytes]:
     buf = bytearray()
@@ -71,21 +79,36 @@ def _recv_exact(sock: socket.socket, n: int) -> Optional[bytes]:
     return bytes(buf)
 
 
-def send_frame(sock: socket.socket, data: bytes) -> None:
-    sock.sendall(struct.pack(">I", len(data)) + data)
+def send_frame(sock: socket.socket, data: bytes, framing: str) -> None:
+    if framing == "TCP_framing_FFFF_nnnn":
+        sock.sendall(_FFFF_MARKER + f"{len(data):04d}".encode("ascii") + data)
+    else:
+        sock.sendall(struct.pack(">I", len(data)) + data)
 
 
-def recv_frame(sock: socket.socket) -> Optional[bytes]:
-    header = _recv_exact(sock, 4)
-    if header is None:
-        return None
-    length = struct.unpack(">I", header)[0]
+def recv_frame(sock: socket.socket, framing: str) -> Optional[bytes]:
+    if framing == "TCP_framing_FFFF_nnnn":
+        marker = _recv_exact(sock, 4)
+        if marker is None:
+            return None
+        if marker != _FFFF_MARKER:
+            log.warning("recv_frame: expected FFFF marker, got %s", marker.hex())
+            return None
+        length_bytes = _recv_exact(sock, 4)
+        if length_bytes is None:
+            return None
+        length = int(length_bytes.decode("ascii"))
+    else:
+        header = _recv_exact(sock, 4)
+        if header is None:
+            return None
+        length = struct.unpack(">I", header)[0]
     return _recv_exact(sock, length)
 
 
 def hex_dump(direction: str, length: int, data: bytes) -> None:
     hex_str = " ".join(f"{b:02x}" for b in data)
-    log.info("%s Length: %d | %s", direction, length, hex_str)
+    log.debug("%s Length: %d | %s", direction, length, hex_str)
 
 
 # ── Stats ──────────────────────────────────────────────────────────────────────
@@ -115,47 +138,12 @@ class Stats:
             )
 
 
-# ── Web command server ─────────────────────────────────────────────────────────
-
-def make_handler(stats: Stats, role: str):
-    class _Handler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            s = stats.snapshot()
-            rows = "".join(
-                f"<tr><td>{k}</td><td>{v}</td></tr>" for k, v in s.items()
-            )
-            body = (
-                f'<!DOCTYPE html><html><head><title>ISO8583 {role}</title>'
-                f'<meta http-equiv="refresh" content="2"></head>'
-                f"<body><h2>ISO 8583 Test &mdash; {role.upper()}</h2>"
-                f'<table border="1" cellpadding="4">'
-                f"<tr><th>Metric</th><th>Value</th></tr>{rows}"
-                f"</table></body></html>"
-            ).encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-
-        def log_message(self, *_):
-            pass
-
-    return _Handler
-
-
-def start_command_server(stats: Stats, role: str, port: int) -> None:
-    server = HTTPServer(("localhost", port), make_handler(stats, role))
-    t = threading.Thread(target=server.serve_forever, name="command", daemon=True)
-    t.start()
-    log.info("Command web server: http://localhost:%d", port)
-
-
 # ── Client ─────────────────────────────────────────────────────────────────────
 
-def run_client(args, cfg: dict, verbose: bool = True) -> None:
+def run_client(args, cfg: dict, spec: dict, framing: str, verbose: bool = True) -> None:
+    binary_fields = frozenset(k for k, v in spec.items() if v.get("data_enc") == "b")
+    auto_fields = frozenset({"h", "p", "1"}) | binary_fields
     stats = Stats()
-    start_command_server(stats, "client", args.command_port)
 
     conn: Optional[socket.socket] = None
     deadline = time.monotonic() + cfg["client"]["connect_timeout"]
@@ -177,14 +165,17 @@ def run_client(args, cfg: dict, verbose: bool = True) -> None:
         sys.exit(1)
 
     base_dir = os.path.dirname(os.path.abspath(__file__))
+    input_dir = os.path.join(base_dir, cfg["client"].get("input_dir", "input"))
+    output_dir = os.path.join(base_dir, cfg["client"].get("output_dir", "output"))
+    os.makedirs(output_dir, exist_ok=True)
     df = pd.read_csv(
-        os.path.join(base_dir, "test_cases.csv"),
+        os.path.join(input_dir, "test_cases.csv"),
         sep=";",
         dtype=str,
     ).fillna("")
 
     # Only columns that map to valid (non-auto, non-binary) spec fields
-    valid_cols = [c for c in df.columns if c in test_spec and c not in _AUTO_FIELDS]
+    valid_cols = [c for c in df.columns if c in spec and c not in auto_fields]
 
     pending: dict = {}       # stan -> original row dict
     pending_lock = threading.Lock()
@@ -196,30 +187,30 @@ def run_client(args, cfg: dict, verbose: bool = True) -> None:
 
     def receive_thread():
         while True:
-            data = recv_frame(conn)
+            data = recv_frame(conn, framing)
             if data is None:
                 all_done.set()
                 break
             if verbose:
                 hex_dump("RECV", len(data), data)
             try:
-                resp = iso8583.decode(data, spec=test_spec)[0]
+                resp = iso8583.decode(data, spec=spec)[0]
             except Exception as exc:
                 log.warning("Decode error: %s", exc)
                 stats.inc(errors=1)
                 continue
 
             stats.inc(received=1)
-            stan = resp.get("11", "")
+            ref = resp.get("63", "")
             rc = resp.get("39", "")
             if rc == "00":
                 stats.inc(approved=1)
             else:
                 stats.inc(declined=1)
-            log.info("Response STAN=%s RC=%s auth=%s", stan, rc, resp.get("38", ""))
+            log.debug("Response F63=%s RC=%s auth=%s", ref, rc, resp.get("38", ""))
 
             with pending_lock:
-                req_row = pending.pop(stan, {})
+                req_row = pending.pop(ref, {})
 
             row = dict(req_row)
             for k, v in resp.items():
@@ -247,20 +238,21 @@ def run_client(args, cfg: dict, verbose: bool = True) -> None:
                 if val:
                     doc[col] = val
             doc["11"] = stan
+            ref = str(row.get("63", "")).strip()
 
             with pending_lock:
-                pending[stan] = dict(row)
+                pending[ref] = dict(row)
 
             try:
-                encoded, _ = iso8583.encode(doc, spec=test_spec)
-                send_frame(conn, encoded)
+                encoded, _ = iso8583.encode(doc, spec=spec)
+                send_frame(conn, encoded, framing)
                 stats.inc(sent=1)
-                log.debug("Sent STAN=%s", stan)
+                log.debug("Sent STAN=%s F63=%s", stan, ref)
             except Exception as exc:
                 log.warning("Encode/send error STAN=%s: %s", stan, exc)
                 stats.inc(errors=1)
                 with pending_lock:
-                    pending.pop(stan, None)
+                    pending.pop(ref, None)
 
             if (i + 1) % batch_size == 0:
                 log.info("Sent %d messages — pausing %ds", i + 1, batch_wait)
@@ -283,7 +275,7 @@ def run_client(args, cfg: dict, verbose: bool = True) -> None:
     log.info("Session complete. Stats: %s", stats.snapshot())
     conn.close()
 
-    results_path = os.path.join(base_dir, "results.csv")
+    results_path = os.path.join(output_dir, "results.csv")
     with results_lock:
         if not results:
             log.warning("No results to write")
@@ -304,12 +296,44 @@ def run_client(args, cfg: dict, verbose: bool = True) -> None:
                 writer.writerow(r)
     log.info("Wrote %d results to %s", len(results), results_path)
 
+    mismatches = [
+        r for r in results
+        if str(r.get("expected_39", "")).strip() != str(r.get("resp_39", "")).strip()
+    ]
+    if mismatches:
+        mismatches_path = os.path.join(output_dir, "errors.csv")
+        mismatch_keys: list = []
+        seen2: set = set()
+        for r in mismatches:
+            for k in r.keys():
+                if k not in seen2:
+                    mismatch_keys.append(k)
+                    seen2.add(k)
+        with open(mismatches_path, "w", newline="", encoding="utf-8-sig") as f:
+            writer = csv.DictWriter(
+                f, fieldnames=mismatch_keys, delimiter=";", extrasaction="ignore"
+            )
+            writer.writeheader()
+            for r in mismatches:
+                writer.writerow(r)
+        log.info("Wrote %d errors to %s", len(mismatches), mismatches_path)
+    else:
+        log.info("All responses matched expected_39")
+
 
 # ── Server ─────────────────────────────────────────────────────────────────────
 
-def run_server(args, cfg: dict, verbose: bool = True) -> None:
+def _load_positive_list(cfg: dict) -> list:
+    base = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(base, cfg["server"].get("positive_list", "positive_list.json"))
+    with open(path) as f:
+        return json.load(f)["starts_with"]
+
+
+def run_server(args, cfg: dict, spec: dict, framing: str, verbose: bool = True) -> None:
+    positive_prefixes = _load_positive_list(cfg)
+    log.info("Positive list: %s", positive_prefixes)
     stats = Stats()
-    start_command_server(stats, "server", args.command_port)
 
     srv_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -339,13 +363,13 @@ def run_server(args, cfg: dict, verbose: bool = True) -> None:
         except socket.timeout:
             continue
 
-        log.info("Client connected from %s", addr)
+        log.debug("Client connected from %s", addr)
         send_q: queue.Queue = queue.Queue()
         stop_ev = threading.Event()
 
         def _receive(conn=conn, send_q=send_q, stop_ev=stop_ev):
             while not stop_ev.is_set():
-                data = recv_frame(conn)
+                data = recv_frame(conn, framing)
                 if data is None:
                     log.info("Client disconnected")
                     stop_ev.set()
@@ -357,7 +381,7 @@ def run_server(args, cfg: dict, verbose: bool = True) -> None:
                     hex_dump("RECV", len(data), data)
                 stats.inc(received=1)
                 try:
-                    req = iso8583.decode(data, spec=test_spec)[0]
+                    req = iso8583.decode(data, spec=spec)[0]
                 except Exception as exc:
                     log.warning("Decode error: %s", exc)
                     stats.inc(errors=1)
@@ -366,27 +390,30 @@ def run_server(args, cfg: dict, verbose: bool = True) -> None:
                 pan = req.get("2", "")
                 resp: dict = {}
 
-                # Response MTI: set bit 1 of 3rd nibble (0100 → 0110)
-                mti = req.get("t", "0100")
-                resp["t"] = mti[:2] + "1" + mti[3]
+                mti = req.get("t", "")
+                if mti == "0100":
+                    resp["t"] = "0110"
+                else:
+                    log.warning("Unexpected MTI %s", mti)
+                    continue
 
                 # Echo STAN and key request fields
-                for fld in ("2", "3", "4", "11", "37", "41", "42"):
+                for fld in ("2", "3", "4", "11", "37", "41", "42", "63"):
                     if fld in req:
                         resp[fld] = req[fld]
 
-                if pan.startswith("543210"):
+                if any(pan.startswith(p) for p in positive_prefixes):
                     with auth_lock:
                         auth_counter[0] += 1
                         auth_code = str(auth_counter[0]).zfill(6)
                     resp["39"] = "00"
                     resp["38"] = auth_code
                     stats.inc(approved=1)
-                    log.info("Approved PAN=%s auth=%s", pan, auth_code)
+                    log.debug("Approved PAN=%s auth=%s", pan, auth_code)
                 else:
                     resp["39"] = "01"
                     stats.inc(declined=1)
-                    log.info("Declined PAN=%s", pan)
+                    log.debug("Declined PAN=%s", pan)
 
                 send_q.put(resp)
 
@@ -396,8 +423,8 @@ def run_server(args, cfg: dict, verbose: bool = True) -> None:
                 if item is None:
                     break
                 try:
-                    encoded, _ = iso8583.encode(item, spec=test_spec)
-                    send_frame(conn, encoded)
+                    encoded, _ = iso8583.encode(item, spec=spec)
+                    send_frame(conn, encoded, framing)
                     stats.inc(sent=1)
                 except Exception as exc:
                     log.warning("Send error: %s", exc)
@@ -425,21 +452,27 @@ def main():
     parser.add_argument("role", choices=["client", "server"])
     parser.add_argument("--port", type=int, default=1042)
     parser.add_argument("--host", default="localhost", help="Server host (client only)")
-    parser.add_argument("--command_port", type=int, default=None,
-                        help="Web command port (default: 1043 server, 1044 client)")
+    parser.add_argument("--framing", default=None,
+                        choices=["TCP_framing_standard", "TCP_framing_FFFF_nnnn"],
+                        help="TCP framing scheme (overrides config.json)")
     parser.add_argument("--verbose", default=True, action=argparse.BooleanOptionalAction,
                         help="Show hex dump of every message (default: on)")
+    parser.add_argument("--log-level", default=None,
+                        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+                        help="Log level (overrides config.json)")
     args = parser.parse_args()
 
-    if args.command_port is None:
-        args.command_port = 1043 if args.role == "server" else 1044
-
     cfg = load_config()
+    level = args.log_level or cfg.get("log_level", "INFO")
+    logging.getLogger().setLevel(level)
+    spec = load_spec(cfg, args.role)
+    framing = args.framing if args.framing else cfg.get("tcp_framing", "TCP_framing_standard")
+    log.info("TCP framing: %s", framing)
 
     if args.role == "client":
-        run_client(args, cfg, verbose=args.verbose)
+        run_client(args, cfg, spec, framing, verbose=args.verbose)
     else:
-        run_server(args, cfg, verbose=args.verbose)
+        run_server(args, cfg, spec, framing, verbose=args.verbose)
 
 
 if __name__ == "__main__":

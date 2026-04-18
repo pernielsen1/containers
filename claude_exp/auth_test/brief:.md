@@ -1,4 +1,4 @@
-virtual environment:
+virtual environment - already installed:
 pip install pyiso8583
 pip install pandas
 
@@ -59,15 +59,55 @@ try to run it yourself and correct the error
 further instructions 4:
 summarize learnings on iso8583 as skill iso8583 make skill file in current directory
 
-further instructions 5:
-make export.sh script making the packages from the venv pandas and pyiso8583 available in a tar file i can import on another machine
-make import.sh script which enables med to import the packages in the tar above possible to import on the other machine
 
-result:
-  - export.sh — downloads wheels for pandas, pyiso8583, and all dependencies (numpy, python-dateutil, six) into            
-  pkg_export/, then packs them into iso8583_packages.tar.gz (~28 MB).                                                      
-  - import.sh — extracts the tar and installs everything with pip --no-index (no internet needed). Optionally takes the tar
-   path as an argument: ./import.sh /path/to/iso8583_packages.tar.gz.                                                      
-                                                                                                                           
-  Note: the wheels are built for Python 3.12 on Linux x86_64 — the target machine needs a matching Python version. If the  
-  target differs, re-run export.sh there or on a matching machine.         
+  further instructions 6:
+  the command server was a bad idea on my side - sorry - remove it from the code and rerun test
+
+  further instructions 7:
+  let's refactor a bit - iso_spec.py defininition should be a test_spec.json file import. In config.json for both client and server it should be named what iso_spec json file to use
+
+further instructions 8: 
+TCP framing is simple now - "4-byte big-endian length prefix + data" let us call this TCP_framing_standard. 
+We need support for a new format called "TCP_framing_FFFF_nnnn" which mean the frame will be 
+ four bytes equaling FFFFFFFF then followed by 4 characters nnnn which are ascii numerics the nnnn is then translated to the lenght field. 
+The TCP framing scheme shold be a parameter in the config.json
+update tests to run both with TCP_framing_standard and TCP_framing_FFFF_nnnn
+
+further instructions 9:
+the current logic in server approves field 2 starting with  "543210" and declines all others.
+Change logic to have a list of approved "starts_with" field 2 defined in a json file called 
+positive_list.json - initialize this with the PAN's found in test_cases.csv starting with "543210"
+
+further instructions 10: 
+I have added two fields not defined in the iso message comment and expected_39
+but now I get error "WARNING Encode/send error STAN=000002: Field data is 3 bytes, expecting 12: field 4" 
+please fix
+
+further instructions 11: 
+the info logging of test messages including hex dump should be changed to debug and default level is info - the level should be a parameter set in config.json but can be override with a command level paramter - please suggest the best name for command parameter for log level
+
+further instructions 12:
+these type of messages should be debug not info
+2026-04-18 23:19:49,279 [MainThread] INFO Client connected from ('127.0.0.1', 44470)
+2026-04-18 23:19:49,287 [srv-receive] INFO Approved PAN=5432101234567890 auth=000001
+
+further instructions 13:
+the server receives a message type (field t) of 0100 = an authorization request and answers with 
+0110 (authorisation response)  - update to t is 0110 when inbound t is 0100
+
+further instructions 13:
+the testcase sent in contains field 63 which is also present in the response.
+This is used to connect request and response.
+the test case contains a field expected_39 which is the value expected to receive for the given case in  the response message.
+after all respones have been received prepare a errors.csv with the cases where expected_39 is different from the field 39 received in the response
+
+further instructions 14: 
+cleaning up - outsput files results.csv, mismatches.csv and errors.csv should land in directory output
+the output directory should be configurable in config.json default output
+the input file results.csv should resident in an input directory configurable in config.json default input
+
+further instructions 15:
+I get an error for both TCP framing scenarios - can't find the result.csv
+[TCP_framing_standard] FAIL — no results.csv
+please fix
+

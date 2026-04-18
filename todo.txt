@@ -1,5 +1,7 @@
 xvariables in .bashrc for 
 
+expected result
+dictionary to a json file - in the config.json
 
 how to deploy... already in directory..
 
