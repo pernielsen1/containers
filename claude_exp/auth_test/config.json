@@ -8,11 +8,23 @@
     "connect_timeout": 60,
     "batch_size": 50,
     "batch_wait": 10,
-    "send_delay": 0.05
+    "send_delay": 0.05,
+    "ssl": {
+      "enabled": true,
+      "certfile": "certificates/cert.pem",
+      "keyfile": "certificates/key.pem",
+      "cafile": "certificates/cert.pem"
+    }
   },
   "server": {
     "iso_spec": "mc_spec.json",
     "idle_timeout": 120,
-    "positive_list": "positive_list.json"
+    "positive_list": "positive_list.json",
+    "ssl": {
+      "enabled": true,
+      "certfile": "certificates/cert.pem",
+      "keyfile": "certificates/key.pem",
+      "cafile": "certificates/cert.pem"
+    }
   }
 }

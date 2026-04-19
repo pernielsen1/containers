@@ -123,3 +123,10 @@ Can you make a mc_spec.json which can be used in the same way as test_spec.json 
 
 further instructions 18:
 implement ssl on the TCP/IP connections - should be a config parameter for both client and server. 
+
+response... 
+For mutual TLS add certfile/keyfile to the client block and cafile to the server block. Set "verify": false on the client
+   to skip certificate verification (e.g. self-signed certs in testing).
+
+further instructions 18
+create script that creates a self signed certificate and stores in folder certificate.

@@ -1,0 +1,14 @@
+{
+    "scan_interval_seconds": 5,
+    "shutdown_timeout_seconds": 30,
+    "base_dir": "/home/perni/containers/claude_exp/scanner",
+    "pending_dir": "pending",
+    "log_dir": "log",
+    "failed_dir": "failed",
+    "directories": [
+        {
+            "path": "/home/perni/containers/claude_exp/scanner/to_upper",
+            "action": "upper.py"
+        }
+    ]
+}

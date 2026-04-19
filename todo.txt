@@ -1,7 +1,5 @@
-xvariables in .bashrc for 
-
-expected result
-dictionary to a json file - in the config.json
+claude desktop
+use claude sandbox
 
 how to deploy... already in directory..
 
