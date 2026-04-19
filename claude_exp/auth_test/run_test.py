@@ -12,19 +12,21 @@ PORT = 1042
 FRAMINGS = ["TCP_framing_standard", "TCP_framing_FFFF_nnnn"]
 
 
-def run_once(framing: str) -> bool:
+def run_once(framing: str, verbose: bool) -> bool:
     print(f"\n{'='*60}", flush=True)
     print(f"  Framing: {framing}", flush=True)
     print(f"{'='*60}", flush=True)
 
+    verbose_flag = ["--verbose", "--log-level", "DEBUG"] if verbose else ["--no-verbose"]
+
     server = subprocess.Popen(
-        [sys.executable, MAIN, "server", "--port", str(PORT), "--framing", framing],
+        [sys.executable, MAIN, "server", "--port", str(PORT), "--framing", framing] + verbose_flag,
         cwd=BASE,
     )
     time.sleep(0.5)
 
     client = subprocess.Popen(
-        [sys.executable, MAIN, "client", "--port", str(PORT), "--framing", framing],
+        [sys.executable, MAIN, "client", "--port", str(PORT), "--framing", framing] + verbose_flag,
         cwd=BASE,
     )
 
@@ -47,9 +49,14 @@ def run_once(framing: str) -> bool:
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Run ISO 8583 auth test suite")
+    parser.add_argument("--verbose", action="store_true", default=False,
+                        help="Pass --verbose to client and server subprocesses")
+    args = parser.parse_args()
     passed = []
     for framing in FRAMINGS:
-        passed.append(run_once(framing))
+        passed.append(run_once(framing, verbose=args.verbose))
 
     print(f"\n{'='*60}", flush=True)
     for framing, ok in zip(FRAMINGS, passed):

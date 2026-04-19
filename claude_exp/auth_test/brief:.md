@@ -111,3 +111,13 @@ I get an error for both TCP framing scenarios - can't find the result.csv
 [TCP_framing_standard] FAIL — no results.csv
 please fix
 
+further instructions 16:
+some fields are numeric with a fixed length in the spec. I is convinient in input files just to 
+write them as a number in the input csv instead of a string with the correct length. 
+the test_spec.json should have information on whether a fixed lenght is expected
+example which I tested was field 3 which should be numeric 6 long - i sent in 0 as input and this triggered the error 2026-04-19 07:55:19,428 [send] WARNING Encode/send error STAN=000001: Field data is 1 bytes, expecting 6: field 3
+please fix so that the correct length is achieved left padding with zeroes
+
+further instructions 17:
+Can you make a mc_spec.json which can be used in the same way as test_spec.json - but where the message definitions follows the MasterCard standard for authorization messages. Elements should be in EBCDIC
+

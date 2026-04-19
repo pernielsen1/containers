@@ -1,0 +1,2 @@
+in city copy the iso8583.md file to ~/.claude/commands/iso8583.md
+remember to install the pyiso8583 in the claude_exp virtual environment

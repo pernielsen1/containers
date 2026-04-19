@@ -236,6 +236,9 @@ def run_client(args, cfg: dict, spec: dict, framing: str, verbose: bool = True) 
             for col in valid_cols:
                 val = str(row[col]).strip()
                 if val:
+                    field_spec = spec.get(col, {})
+                    if field_spec.get("len_type", -1) == 0 and field_spec.get("data_enc") != "b":
+                        val = val.zfill(field_spec["max_len"])
                     doc[col] = val
             doc["11"] = stan
             ref = str(row.get("63", "")).strip()
