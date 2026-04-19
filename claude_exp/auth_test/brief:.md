@@ -121,3 +121,5 @@ please fix so that the correct length is achieved left padding with zeroes
 further instructions 17:
 Can you make a mc_spec.json which can be used in the same way as test_spec.json - but where the message definitions follows the MasterCard standard for authorization messages. Elements should be in EBCDIC
 
+further instructions 18:
+implement ssl on the TCP/IP connections - should be a config parameter for both client and server. 

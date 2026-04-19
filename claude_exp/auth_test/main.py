@@ -8,6 +8,7 @@ import logging
 import os
 import queue
 import socket
+import ssl
 import struct
 import sys
 import threading
@@ -30,9 +31,11 @@ DEFAULT_CONFIG = {
         "batch_size": 50,
         "batch_wait": 10,
         "send_delay": 0.05,
+        "ssl": {"enabled": False},
     },
     "server": {
         "idle_timeout": 120,
+        "ssl": {"enabled": False},
     },
 }
 
@@ -58,6 +61,27 @@ def load_spec(cfg: dict, role: str) -> dict:
     spec_path = os.path.join(base, spec_file)
     with open(spec_path) as f:
         return json.load(f)
+
+
+def _build_ssl_context(role: str, ssl_cfg: dict) -> Optional[ssl.SSLContext]:
+    if not ssl_cfg.get("enabled"):
+        return None
+    if role == "server":
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(certfile=ssl_cfg["certfile"], keyfile=ssl_cfg.get("keyfile"))
+        if ssl_cfg.get("cafile"):
+            ctx.load_verify_locations(ssl_cfg["cafile"])
+            ctx.verify_mode = ssl.CERT_REQUIRED
+    else:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        if not ssl_cfg.get("verify", True):
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+        elif ssl_cfg.get("cafile"):
+            ctx.load_verify_locations(ssl_cfg["cafile"])
+        if ssl_cfg.get("certfile"):
+            ctx.load_cert_chain(ssl_cfg["certfile"], ssl_cfg.get("keyfile"))
+    return ctx
 
 
 # ── TCP framing ───────────────────────────────────────────────────────────────
@@ -144,6 +168,7 @@ def run_client(args, cfg: dict, spec: dict, framing: str, verbose: bool = True) 
     binary_fields = frozenset(k for k, v in spec.items() if v.get("data_enc") == "b")
     auto_fields = frozenset({"h", "p", "1"}) | binary_fields
     stats = Stats()
+    ssl_ctx = _build_ssl_context("client", cfg["client"].get("ssl", {}))
 
     conn: Optional[socket.socket] = None
     deadline = time.monotonic() + cfg["client"]["connect_timeout"]
@@ -152,9 +177,11 @@ def run_client(args, cfg: dict, spec: dict, framing: str, verbose: bool = True) 
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(5)
             s.connect((args.host, args.port))
+            if ssl_ctx:
+                s = ssl_ctx.wrap_socket(s, server_hostname=args.host)
             s.settimeout(None)
             conn = s
-            log.info("Connected to %s:%d", args.host, args.port)
+            log.info("Connected to %s:%d%s", args.host, args.port, " (TLS)" if ssl_ctx else "")
             break
         except OSError as exc:
             log.debug("Connect failed: %s — retrying in 1s", exc)
@@ -337,12 +364,13 @@ def run_server(args, cfg: dict, spec: dict, framing: str, verbose: bool = True) 
     positive_prefixes = _load_positive_list(cfg)
     log.info("Positive list: %s", positive_prefixes)
     stats = Stats()
+    ssl_ctx = _build_ssl_context("server", cfg["server"].get("ssl", {}))
 
     srv_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     srv_sock.bind(("", args.port))
     srv_sock.listen(1)
-    log.info("Server listening on :%d", args.port)
+    log.info("Server listening on :%d%s", args.port, " (TLS)" if ssl_ctx else "")
 
     idle_timeout = cfg["server"]["idle_timeout"]
     auth_counter = [0]
@@ -363,10 +391,14 @@ def run_server(args, cfg: dict, spec: dict, framing: str, verbose: bool = True) 
         srv_sock.settimeout(1)
         try:
             conn, addr = srv_sock.accept()
-        except socket.timeout:
+            if ssl_ctx:
+                conn = ssl_ctx.wrap_socket(conn, server_side=True)
+        except (socket.timeout, ssl.SSLError) as exc:
+            if not isinstance(exc, socket.timeout):
+                log.warning("TLS handshake failed from %s: %s", addr if 'addr' in dir() else '?', exc)
             continue
 
-        log.debug("Client connected from %s", addr)
+        log.debug("Client connected from %s%s", addr, " (TLS)" if ssl_ctx else "")
         send_q: queue.Queue = queue.Queue()
         stop_ev = threading.Event()
 
