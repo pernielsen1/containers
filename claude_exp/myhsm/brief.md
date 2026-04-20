@@ -32,9 +32,21 @@ iv: the initial vector value - if not passed assume hex 00 in all bytes
 
 the result data in a dict should be the encrypted value in base64 format 
 
+further instructions 3:
 Great crypto basics in place
 Let us try the classical case of a pin block (field 52) in ISO8583
 the test case is PAN="555551234567890" PIN="1234"
 so let's assume the pin block in incoming is encrypted with the "des_key" from keystore.json and should be translated to being encrypted under "des_key_out" a new key with the value (hex) C1C1C1C1C1C1C1C11C1C1C1C1C1C1C1C
+
+further instructions 4: 
+let's up the ante - implement a plugin for ARQC calculation
+the test case PAN="555551234567890" PSN=01 amount = 1234 currency = 978 
+use des_key as the IMK
+
+further instruction 5:
+Wauw - Impressed - you implemented the VISA  - make type of derivation an input parameter - at least there is the CSK (EMVCO-standard ) and CSD - the MC proprietary
+
+further instruction 6:
+Well done with ARQC solved let's wrap it up and also implement the ARPC as a plug in. 
 
 
