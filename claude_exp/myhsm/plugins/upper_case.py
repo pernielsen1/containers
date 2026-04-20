@@ -1,2 +1,2 @@
-def run(input_data: str) -> str:
-    return str(input_data).upper()
+def run(input_data: dict) -> dict:
+    return {"result": input_data.get("input", "").upper()}

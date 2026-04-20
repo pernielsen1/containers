@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Fortanix DSM simulator — supports plugin invocation."""
+"""Fortanix DSM simulator — supports plugin invocation and crypto key operations."""
 
 import importlib.util
-import os
 import secrets
 import sys
 from functools import wraps
@@ -10,11 +9,14 @@ from pathlib import Path
 
 from flask import Flask, jsonify, request
 
+import keystore
+
 app = Flask(__name__)
 
 USERS = {"admin": "admin123"}
 TOKENS: dict[str, str] = {}  # token -> username
 PLUGINS_DIR = Path(__file__).parent / "plugins"
+KEYSTORE_PATH = Path(__file__).parent / "keystore.json"
 
 
 def load_plugin(name: str):
@@ -50,6 +52,35 @@ def session_auth():
     return jsonify({"access_token": token, "token_type": "Bearer"})
 
 
+@app.post("/crypto/v1/keys/derive")
+@require_auth
+def derive_key():
+    body = request.get_json(silent=True) or {}
+    keyname = body.get("keyname")
+    diversify = body.get("diversify")
+
+    if not keyname:
+        return jsonify({"error": "keyname is required"}), 400
+    if not diversify:
+        return jsonify({"error": "diversify is required"}), 400
+
+    base_key = keystore.get(keyname)
+    if base_key is None:
+        return jsonify({"error": f"key '{keyname}' not found in keystore"}), 404
+
+    try:
+        div_bytes = bytes.fromhex(diversify)
+    except ValueError:
+        return jsonify({"error": "diversify must be a hex string"}), 400
+
+    # XOR key bytes with diversify bytes (cycle diversify if shorter)
+    derived = bytes(b ^ div_bytes[i % len(div_bytes)] for i, b in enumerate(base_key))
+    token_id = diversify + keyname
+    keystore.put(token_id, derived)
+
+    return jsonify({"token_id": token_id})
+
+
 @app.post("/crypto/v1/plugins/<plugin_name>")
 @require_auth
 def invoke_plugin(plugin_name: str):
@@ -58,16 +89,16 @@ def invoke_plugin(plugin_name: str):
         return jsonify({"error": f"plugin '{plugin_name}' not found"}), 404
 
     body = request.get_json(silent=True) or {}
-    input_data = body.get("input", "")
 
     try:
-        result = mod.run(input_data)
+        result = mod.run(body)
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
 
-    return jsonify({"result": result})
+    return jsonify(result)
 
 
 if __name__ == "__main__":
+    keystore.load(KEYSTORE_PATH)
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 5000
     app.run(port=port, debug=True)
