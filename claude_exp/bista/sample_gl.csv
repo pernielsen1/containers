@@ -1,0 +1,45 @@
+account_number,description,amount_eur
+0110,Kassenbestand EUR,450000.00
+0210,Guthaben Deutsche Bundesbank,12500000.00
+0510,Schatzwechsel 3M,5000000.00
+1100,Tagesgeld Interbank,25000000.00
+1500,Festgeld KI > 1J,18000000.00
+2200,Repo-Forderungen Kreditinstitute,8000000.00
+3100,Kontokorrentkredite Kunden,32000000.00
+3600,Investitionskredite Kunden,45000000.00
+4050,Wohnbaufinanzierungen,120000000.00
+4250,Kommunalkredite,15000000.00
+5010,Bundesanleihen,22000000.00
+5210,Laenderbonds,9000000.00
+5420,Aktien DAX,3500000.00
+5510,Rentenfonds,2000000.00
+5620,Beteiligung XY GmbH,1200000.00
+5720,Tochtergesellschaft ABC AG,5000000.00
+5820,Treuhandkredite Aktiva,800000.00
+6010,Software-Lizenzen,350000.00
+6150,Gebaeude Hauptstelle,4500000.00
+6200,IT-Hardware,280000.00
+7100,Sonstige Forderungen,620000.00
+7550,Steuererstattungen,190000.00
+7910,Disagio aktiv,45000.00
+8050,Tagesgeld von Banken,14000000.00
+8300,Termingeld von Banken,30000000.00
+8450,Sparkonten klassisch,18500000.00
+8620,Girokonten Kunden,42000000.00
+8810,Festgelder Kunden 1J,25000000.00
+9010,Inhaberschuldverschreibungen,10000000.00
+9110,Commercial Paper,3000000.00
+9210,Treuhandverbindlichkeiten,800000.00
+9310,Verbindlichkeiten sonstige,430000.00
+9420,Koerperschaftsteuer,220000.00
+9510,Disagio passiv,30000.00
+9650,Pensionsrueckstellungen,2800000.00
+9700,Steuerrueckstellungen,450000.00
+9810,Nachrangdarlehen,5000000.00
+9860,Genussscheine,2000000.00
+9905,Fonds allg. Bankrisiken,1500000.00
+9915,Grundkapital,15000000.00
+9945,Kapitalruecklage,8000000.00
+9965,Gesetzliche Ruecklage,3000000.00
+9985,Jahresueberschuss,1250000.00
+9999,Unbekanntes Konto IGNORE,999.00
