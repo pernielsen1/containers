@@ -4,3 +4,8 @@ find_duplicates.py identifies duplicates.
 When rows (2 or more) are identified as duplicates mark all rows with a unique 
 "duplicate_id_combination" which should have the value of the counterparty id with the lowest id.
 If a row has more than one possible duplicate then make a column "has_more" which should be 1 if this is the case and 0 otherwise
+find_duplicates.py finds duplicates within one file.
+create a new version reusing the logic for identifying duplicates.
+the new version find_duplicates_from_newfile.py reads a file
+newfile_counterparties.csv and identifies whether those in newfile_counterparties
+are duplicates of what is already in test_counterparties.csv
