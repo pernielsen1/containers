@@ -1,0 +1,7 @@
+﻿CNTRPRTY_ID;NM_CP;ADDRS_STRT;CITY;PSTL_CD;CNTRY;exist_CNTRPRTY_ID;exist_NM_CP;exist_ADDRS_STRT;exist_CITY;exist_PSTL_CD;exist_CNTRY;overall_score
+NCP-001;Deutsche Bank GmbH;Taunusanlage 12;Frankfurt am Main;60325;DE;CP-001;Deutsche Bank AG;Taunusanlage 12;Frankfurt am Main;60325;DE;1.0
+NCP-002;Müller Maschinenbau AG;Industriestr. 7;Stuttgart;70174;DE;CP-003;Müller Maschinenbau GmbH;Industriestr. 7;Stuttgart;70174;DE;1.0
+NCP-004;Siemens GmbH;Werner-von-Siemens-Str. 1;München;80333;DE;CP-007;Siemens AG;Werner-von-Siemens-Str. 1;München;80333;DE;1.0
+NCP-006;Volkswagen GmbH;Berliner Ring 2;Wolfsburg;38440;DE;CP-011;Volkswagen AG;Berliner Ring 2;Wolfsburg;38440;DE;1.0
+NCP-009;Allianz SE;Königinstraße 28;München;80802;DE;CP-012;Allianz SE;Königinstraße 28;München;80802;DE;1.0
+NCP-005;Schmitt & Co. GmbH;Hauptstr. 4;Berlin;10115;DE;CP-009;Schmidt & Co. KG;Hauptstr. 4;Berlin;10115;DE;0.945
