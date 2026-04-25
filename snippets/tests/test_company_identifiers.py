@@ -222,9 +222,14 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('RO12345678', 'RO'), True) 
 
   def test_malta(self): 
+    print("test malta")
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('C 12345', 'MT'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('C 123', 'MT'), True)  
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('123456', 'MT'), False)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('1234567', 'MT'), False)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('x123456', 'MT'), False)  
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('C123456', 'MT'), True)  
+
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('OC123456', 'MT'), True)  
 
   def test_monaco(self): 
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('FR12345678901', 'MC'), True) 

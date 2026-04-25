@@ -1,0 +1,24 @@
+form,line,column,description,value_eur,comments
+
+# Minimal valid input for regression testing
+# Balance sheet: card receivables funded by interbank borrowing + equity
+
+# Main form — Assets
+HV11,020,00,Balances with Bundesbank,1000000,Mandatory Bundesbank account
+HV11,071,00,Card receivables — total,10000000,Core asset; must equal B7 total + non-EA in B1
+HV11,180,00,Total assets,11000000,Must equal HV21/330
+
+# Main form — Liabilities
+HV21,210,00,Liabilities to banks,5000000,Interbank funding
+HV21,311,00,Subscribed capital,6000000,Equity
+HV21,330,00,Total liabilities,11000000,Must equal HV11/180
+HV21,390,00,Irrevocable lending commitments — card limits,20000000,Off-balance; must equal L1 total
+
+# Annex B1 — Loans to non-banks (domestic only in this minimal case)
+B1,300,01,Domestic households — short-term card receivables,10000000,Charge cards; billing cycle <30d → column 01
+
+# Annex B7 — Credit card credit (convenience = charge card)
+B7,300,01,Domestic households — convenience credit card,10000000,Must equal B1/300/01 when no revolving and no non-EA
+
+# Annex L1 — Irrevocable lending commitments by sector
+L1,300,01,Domestic households — unused card limits,20000000,Must equal HV21/390

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LIEFERUNG-BISTA xmlns="http://www.bundesbank.de/xmw/2003-01-01" version="1.0" stufe="Test" bereich="Statistik">
+  <ABSENDER>
+    <RZLZ>R12345678</RZLZ>
+    <NAME>CardCo Rechenzentrum GmbH</NAME>
+  </ABSENDER>
+  <MELDUNG>
+    <MELDER>
+      <BLZ>20050550</BLZ>
+      <NAME>CardCo AG</NAME>
+      <STRASSE>Musterstrasse 1</STRASSE>
+      <PLZ>20095</PLZ>
+      <ORT>Hamburg</ORT>
+      <KONTAKT>
+        <NAME>Max Muster</NAME>
+        <TELEFON>+49 40 12345678</TELEFON>
+        <EMAIL>bista@cardco.de</EMAIL>
+      </KONTAKT>
+    </MELDER>
+    <MELDETERMIN>2026-03</MELDETERMIN>
+    <FORMULAR name="HV" modus="Normal">
+      <FELD pos="Z020S11">1000</FELD>
+      <FELD pos="Z071S11">10000</FELD>
+      <FELD pos="Z180S11">11000</FELD>
+      <FELD pos="Z210S21">5000</FELD>
+      <FELD pos="Z311S21">6000</FELD>
+      <FELD pos="Z330S21">11000</FELD>
+      <FELD pos="Z390S21">20000</FELD>
+    </FORMULAR>
+    <FORMULAR name="B1" modus="Normal">
+      <FELD pos="Z300S01">10000</FELD>
+    </FORMULAR>
+    <FORMULAR name="B7" modus="Normal">
+      <FELD pos="Z300S01">10000</FELD>
+    </FORMULAR>
+    <FORMULAR name="L1" modus="Normal">
+      <FELD pos="Z300S01">20000</FELD>
+    </FORMULAR>
+  </MELDUNG>
+</LIEFERUNG-BISTA>

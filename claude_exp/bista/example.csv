@@ -1,0 +1,104 @@
+form,line,column,description,value_eur,comments
+
+# ── MAIN FORM ─────────────────────────────────────────────────────────────────
+
+# Assets (HV11)
+HV11,020,00,Balances with Deutsche Bundesbank,2000000,Mandatory current account at Bundesbank; all MFIs must hold one
+HV11,061,00,Loans to banks — book claims,40000000,Interbank placements for liquidity management; feeds into Annex A1
+HV11,071,00,Loans to non-banks — card receivables (total),120000000,THE core asset for a charge card company; feeds into B1 + B3 + B7
+HV11,140,00,Tangible assets (IT + office),2000000,Fixed assets only; intangibles go to HV11/176
+HV11,176,00,Other assets (prepayments + tax claims),4000000,Catch-all; includes accrued income and deferred charges
+HV11,180,00,Total assets,168000000,Must equal total liabilities HV21/330 — hard validation check
+
+# Liabilities (HV21)
+HV21,210,00,Liabilities to banks (interbank funding),80000000,Funding side of the business; feeds into Annex A2
+HV21,311,00,Subscribed capital,60000000,Paid-in share capital
+HV21,312,00,Reserves,25000000,Retained earnings and other reserves; split in HV22/515 and HV22/521
+HV21,325,00,P&L balance,3000000,Current year net profit brought forward (debit balance → HV21/313 instead)
+HV21,330,00,Total liabilities,168000000,Must equal HV11/180
+HV21,390,00,Irrevocable lending commitments — total card limits,250000000,OFF balance sheet — the sum of all granted but unused credit limits; feeds into L1
+
+# ── ANNEX A1 — Loans to banks (breakdown of HV11/061) ────────────────────────
+# Must sum to HV11/061 = 40,000,000
+# Columns: 01=overnight, 02=short≤1yr, 03=medium 1-5yr, 09=central bank overnight
+
+A1,114,09,Deutsche Bundesbank — overnight deposits,2000000,Overnight balance at Bundesbank; matches HV11/020
+A1,110,01,Domestic banks — overnight,15000000,Cash placed overnight with domestic correspondent banks
+A1,110,02,Domestic banks — short-term ≤1yr,20000000,Short-term time deposits placed with domestic banks
+A1,130,01,Other EA banks — overnight,3000000,Overnight placements with banks in other euro area countries
+
+# ── ANNEX A2 — Liabilities to banks (breakdown of HV21/210) ──────────────────
+# Must sum to HV21/210 = 80,000,000
+# Columns: 01=overnight, 02=short≤1yr, 03=medium 1-5yr
+
+A2,110,01,Domestic banks — overnight,10000000,Overnight drawdowns on credit lines from domestic banks
+A2,110,02,Domestic banks — short-term ≤1yr,70000000,Term borrowing from domestic banks to fund card receivables
+
+# ── ANNEX B1 — Loans to non-banks, domestic + non-EA foreign ─────────────────
+# Covers domestic sectors AND non-euro-area foreign (rest of world)
+# EA foreign goes to Annex B3 — do NOT double-count here
+# Domestic + non-EA portion must sum to HV11/071 minus B3 total = 108,000,000
+# Columns: 01=short≤1yr, 02=medium 1-5yr, 03=long>5yr
+
+B1,200,01,Domestic non-financial corporations — short-term,50000000,Corporate charge card receivables; billing cycle <30 days → always column 01
+B1,300,01,Domestic households — short-term,55000000,Personal charge card receivables; same maturity logic as above
+B1,500,01,Non-EA foreign (enterprises + households) — short-term,3000000,Cardholders outside euro area; not in B3; no separate EA annex required for these
+
+# ── ANNEX B3 — Loans to non-banks in other EA member states ──────────────────
+# Separate mandatory annex when cross-border EA balances exist
+# Same row/column structure as B1; must be consistent with external position report
+# B3 total = 12,000,000; B1 + B3 + non-EA = HV11/071 = 120,000,000 ✓
+
+B3,200,01,EA non-financial corporations — short-term,8000000,Corporate cards issued to companies domiciled in other EA states
+B3,300,01,EA households — short-term,4000000,Personal cards issued to individuals domiciled in other EA states
+
+# ── ANNEX B4 — Household loans by type (domestic + EA households combined) ───
+# Required because you have household cardholders
+# Covers domestic + EA households together (unlike B1/B3 which separate them)
+# B4 total must equal B1/300 + B3/300 = 55,000,000 + 4,000,000 = 59,000,000
+# Rows: 211=consumer instalment, 212=housing, 213=other loans
+
+B4,211,01,Households — consumer instalment loans,0,No instalment credit offered — charge card only; nil by omission in XML
+B4,212,01,Households — housing loans,0,No mortgage or housing products
+B4,213,01,Households — other loans (charge card receivables),59000000,Charge card receivables classified as 'other loans' — not instalment and not housing
+
+# ── ANNEX B7 — Credit card credit ────────────────────────────────────────────
+# The specialist annex for card credit — mandatory if you issue any card product
+# Column 01 = convenience credit (charge card: full balance due each cycle) ← your business
+# Column 02 = extended credit (revolving: balance carried forward) ← always 0 here
+# B7 domestic total must equal B1/200 + B1/300 = 105,000,000
+# B7 EA total must equal B3/200 + B3/300 = 12,000,000
+# Non-EA foreign (B1/500) does NOT appear in B7 — B7 only covers domestic + EA
+
+B7,200,01,Domestic enterprises — convenience credit card,50000000,Charge card outstanding at month-end; full amount due next billing date
+B7,300,01,Domestic households — convenience credit card,55000000,Same logic for personal cardholders
+B7,600,01,EA enterprises — convenience credit card,8000000,EA corporate cards; reported here AND in B3
+B7,700,01,EA households — convenience credit card,4000000,EA personal cards; reported here AND in B3
+B7,200,02,Domestic enterprises — extended credit (revolving),0,Explicitly zero — no revolving product offered; omitted from XML
+B7,300,02,Domestic households — extended credit (revolving),0,Explicitly zero — confirm monthly to catch any mis-booking
+
+# ── ANNEX L1 — Irrevocable lending commitments (breakdown of HV21/390) ───────
+# = the UNUSED portion of each cardholder's credit limit at month-end
+# These are off-balance-sheet but must be reported and broken down by sector
+# L1 total must equal HV21/390 = 250,000,000
+
+L1,200,01,Domestic enterprises — unused card limits,90000000,Total granted corporate limits minus outstanding corporate balances
+L1,300,01,Domestic households — unused card limits,110000000,Total granted personal limits minus outstanding personal balances
+L1,600,01,EA enterprises — unused card limits,25000000,EA corporate unused limits
+L1,700,01,EA households — unused card limits,25000000,EA personal unused limits
+
+# ── ANNEX C1 — Liabilities to non-banks: credit balances on card accounts ────
+# Arises when a customer overpays their card — creates a liability to the company
+# Per guidelines: these are classified as 'on demand' (column 01) regardless of amount
+# C1 + C3 total = total credit balances held = 250,000
+
+C1,200,01,Domestic enterprises — credit balances on card accounts,80000,Overpayments by domestic corporate cardholders; on-demand liability
+C1,300,01,Domestic households — credit balances on card accounts,120000,Overpayments by domestic personal cardholders
+C1,500,01,Non-EA foreign — credit balances on card accounts,10000,Non-EA foreign cardholder overpayments
+
+# ── ANNEX C3 — Credit balances on card accounts for EA non-banks ─────────────
+# Same as C1 but specifically for other EA member state non-banks
+# Required because you have EA cardholders
+
+C3,200,01,EA enterprises — credit balances on card accounts,15000,EA corporate cardholder overpayments
+C3,300,01,EA households — credit balances on card accounts,25000,EA personal cardholder overpayments

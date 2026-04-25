@@ -102,7 +102,7 @@ class company_identifiers:
                         "before_list": ['LU'], "after_allowed":True},
             "LV_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LV", "name":"", "len":11},
             "MT_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"MT","name":"ICO", 
-                              "before_list":['C'], "min_len":3, "len":5},
+                              "before_list":['C', 'OC'], "min_len":3, "len":6},
             "MX_COMPANY_ID": {"algorithm":self.validate_mexico, "country":"MX","name":"RFC",  "len":12},
             "NL_VAT_ID": {"algorithm":self.validate_vat_nl, "country":"GB", "name":"GB VAt", "len":9},
             "NL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"NL", "name":"KVN",  "len":8},

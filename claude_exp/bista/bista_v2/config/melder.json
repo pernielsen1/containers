@@ -1,0 +1,12 @@
+{
+  "rzlz":           "R12345678",
+  "absender_name":  "CardCo Rechenzentrum GmbH",
+  "blz":            "20050550",
+  "melder_name":    "CardCo AG",
+  "strasse":        "Musterstrasse 1",
+  "plz":            "20095",
+  "ort":            "Hamburg",
+  "kontakt":        "Max Muster",
+  "telefon":        "+49 40 12345678",
+  "email":          "bista@cardco.de"
+}
