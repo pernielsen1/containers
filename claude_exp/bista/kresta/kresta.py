@@ -1,31 +1,41 @@
 #!/usr/bin/env python3
 """
-annex_bista.py  —  BISTA v2: annex-level CSV → XMW XML
+kresta.py  —  KreStA: quarterly borrower statistics (Kreditnehmerstatistik) CSV → XMW XML
 
 Usage:
-    python3 annex_bista.py --input input/example.csv --period 2026-03
-    python3 annex_bista.py --input input/example.csv --period 2026-03 --stufe Produktion
-    python3 annex_bista.py --input input/example.csv --period 2026-03 --no-catalogue
+    python3 kresta.py --input input/example.csv --period 2026-03
+    python3 kresta.py --input input/example.csv --period 2026-03 --stufe Produktion
+    python3 kresta.py --input input/example.csv --period 2026-03 --no-catalogue
 
 CSV format (columns):  form, line, column, description, value_eur, comments
   - Lines starting with # and blank lines are ignored
-  - form:   HV11 / HV12 / HV21 / HV22  or  A1 / B1 / B7 / L1 … (annex code)
-  - line:   numeric row code from official Bundesbank form template
-  - column: 00 for single-value main-form items; 01-nn for annex matrix columns
+  - form:   V1 / V2 / V3 / V4 / VA / VB  (main forms)
+            V1B / V2B / V3B / V4B / VAB / VBB  (value-adjustment forms)
+  - line:   numeric row code (100, 110, 120 … 400)
+  - column: credit type column
+              V1/V2/VA/VAB: 01=Forderungen≤1yr  02=Forderungen>1yr≤5yr
+                            03=Wechseldiskontkredite  04=Wechsel im Bestand
+              V3/V4/VB/V3B: 05=Forderungen>5yr(ohne Hyp)  06=Treuhand(deprecated=nil)
+                            07=Hypothekarkredite insgesamt  08=Hyp auf Wohngrundstücke
   - value_eur: full EUR amount (script converts to EUR thousands for XML)
 
-Position encoding:
-  HV11/12/21/22 →  Z{line}S{subform}   e.g. HV11/071 → Z071S11
-  Annexes       →  Z{line}S{column}    e.g. B7/120/02 → Z120S02
+Position encoding (same as BISTA annexes):
+  Z{line}S{col}    e.g. V1/110/01 → Z110S01,  V3/200/07 → Z200S07
 
-All HV11/HV12/HV21/HV22 items go into one <FORMULAR name="HV">.
-Each annex gets its own <FORMULAR name="B7"> etc.
-Zero values (after EUR→thousands rounding) are omitted per XMW spec.
+Each form gets its own <FORMULAR name="V1"> etc. No HV-style merging.
 
 Catalogue:
-  bista_fields.csv and bista_calcs.csv (in script directory by default) drive
-  automatic derivation of calculated fields and field-method validation.
-  Use --no-catalogue to skip catalogue loading.
+  kresta_fields.csv and kresta_calcs.csv (in script directory by default) drive
+  automatic derivation of calculated totals (rows 100, 200, 400).
+  Use --no-catalogue to skip.
+
+Period:
+  Use the last month of the quarter in YYYY-MM format:
+    Q1 → 2026-03   Q2 → 2026-06   Q3 → 2026-09   Q4 → 2026-12
+
+Reconciliation:
+  V1/Z400 + V3/Z400 (all columns summed) must equal BISTA B1/Z100 (total
+  loans to domestic enterprises and households).
 """
 
 import argparse
@@ -41,47 +51,38 @@ from shared.catalogue import Catalogue
 from shared.engine import CalculationEngine
 from shared.csv_io import load_csv, rows_to_data, data_to_rows
 
-# Re-export for tests that import these names from this module
-__all__ = ["Catalogue", "CalculationEngine", "FORM_TO_CAT", "HV_SUBFORMS"]
+# ── KreStA-specific constants ─────────────────────────────────────────────────
 
-# ── BISTA-specific constants ───────────────────────────────────────────────────
+# No HV-form merging for KreStA — each form keeps its own FORMULAR
+HV_SUBFORMS = {}
+# No catalogue key remapping — V1 stays V1, V3 stays V3
+FORM_TO_CAT = {}
 
-# Input CSV form names → XML subform suffix
-HV_SUBFORMS = {"HV11": "11", "HV12": "12", "HV21": "21", "HV22": "22"}
-
-# Input CSV form names → catalogue form key (S11 etc.)
-FORM_TO_CAT = {"HV11": "S11", "HV12": "S12", "HV21": "S21", "HV22": "S22"}
-
-KNOWN_FORMS = set(HV_SUBFORMS) | {
-    "A1","A2","A3",
-    "B1","B3","B4","B6","B7","BA",
-    "C1","C2","C3","C4","C5",
-    "D1","D2",
-    "E1","E2","E3","E4","E5",
-    "F1","F2",
-    "H",
-    "I1","I2",
-    "L1","L2",
-    "M1","M2",
-    "O1","O2","P1","Q1","S1",
+KNOWN_FORMS = {
+    "V1", "V2", "V3", "V4", "VA", "VB",
+    "V1B", "V2B", "V3B", "V4B", "VAB", "VBB",
 }
+
+# Column S06 (Treuhandkredite) is deprecated since 2021 — report nil
+DEPRECATED_COLS = {("V3", "06"), ("V4", "06"), ("VB", "06"),
+                   ("V3B", "06"), ("V4B", "06"), ("VBB", "06")}
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def parse_args():
     p = argparse.ArgumentParser(
-        description="BISTA annex-level CSV → Bundesbank XMW XML"
+        description="KreStA quarterly borrower statistics CSV → Bundesbank XMW XML"
     )
     p.add_argument("--input",  required=True,  help="Input CSV file")
-    p.add_argument("--period", required=True,  help="Reporting period YYYY-MM")
-    p.add_argument("--output", default=None,   help="Output XML (default: output/bista_YYYY-MM.xml)")
+    p.add_argument("--period", required=True,  help="Reporting period YYYY-MM (last month of quarter)")
+    p.add_argument("--output", default=None,   help="Output XML (default: output/kresta_YYYY-MM.xml)")
     p.add_argument("--melder", default=None,   help="Melder config JSON (default: config/melder.json next to script)")
     p.add_argument("--stufe",  default="Test", choices=["Test", "Produktion"])
     p.add_argument("--no-catalogue", action="store_true",
                    help="Skip catalogue loading and calculation engine")
     p.add_argument("--catalogue-dir", default=None,
-                   help="Directory containing bista_fields.csv / bista_calcs.csv (default: script dir)")
+                   help="Directory containing kresta_fields.csv / kresta_calcs.csv (default: script dir)")
     return p.parse_args()
 
 
@@ -91,6 +92,10 @@ def validate_period(period):
     if not re.fullmatch(r"\d{4}-\d{2}", period):
         print(f"ERROR: --period must be YYYY-MM, got: {period}", file=sys.stderr)
         sys.exit(1)
+    month = int(period.split("-")[1])
+    if month not in (3, 6, 9, 12):
+        print(f"WARNING: period month {month:02d} is not a quarter-end — "
+              f"expected 03, 06, 09, or 12", file=sys.stderr)
 
 
 def warn_unknown_forms(rows):
@@ -99,14 +104,19 @@ def warn_unknown_forms(rows):
         print(f"WARNING: unknown form '{u}' — included as-is in XML", file=sys.stderr)
 
 
+def warn_deprecated_cols(rows):
+    for form, line, col, value in rows:
+        if (form, col) in DEPRECATED_COLS and value != 0:
+            print(f"WARNING: {form}/Z{line}S{col} (Treuhandkredite) is deprecated "
+                  f"since 2021 — should be zero", file=sys.stderr)
+
+
 def validate_methods(rows, catalogue):
-    """Warn about fields marked 'nil' in catalogue but supplied with a value."""
     for form, line, col, value in rows:
         method = catalogue.method_of(form, line, col)
         if method == "nil" and value != 0:
             fid = Catalogue.make_field_id(line, col)
-            cat_form = catalogue.csv_form_to_cat(form)
-            print(f"WARNING: {cat_form}/{fid} is marked nil in catalogue "
+            print(f"WARNING: {form}/{fid} is marked nil in catalogue "
                   f"but value {value:,} was supplied", file=sys.stderr)
 
 
@@ -133,11 +143,17 @@ def main():
         sys.exit(1)
 
     warn_unknown_forms(rows)
+    warn_deprecated_cols(rows)
 
     if not args.no_catalogue:
         cat_dir = Path(args.catalogue_dir) if args.catalogue_dir \
                   else Path(__file__).parent
-        catalogue = Catalogue(cat_dir, form_to_cat=FORM_TO_CAT)
+        catalogue = Catalogue(
+            cat_dir,
+            fields_file="kresta_fields.csv",
+            calcs_file="kresta_calcs.csv",
+            form_to_cat=FORM_TO_CAT,
+        )
 
         if not catalogue.is_empty():
             validate_methods(rows, catalogue)
@@ -152,13 +168,14 @@ def main():
 
             rows = data_to_rows(merged, catalogue)
 
-    formulars = build_formulars(rows, hv_subforms=HV_SUBFORMS)
+    # KreStA: no HV merging, each form its own FORMULAR
+    formulars = build_formulars(rows, hv_subforms=None)
     xml_root  = build_xml(melder, args.period, args.stufe, formulars,
-                          root_element="LIEFERUNG-BISTA")
+                          root_element="LIEFERUNG-VJKRE")
     xml_str   = to_pretty_xml(xml_root)
 
     out_path = Path(args.output) if args.output \
-               else Path(__file__).parent / "output" / f"bista_{args.period}.xml"
+               else Path(__file__).parent / "output" / f"kresta_{args.period}.xml"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(xml_str, encoding="utf-8")
 

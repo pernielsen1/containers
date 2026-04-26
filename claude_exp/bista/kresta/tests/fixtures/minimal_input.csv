@@ -1,0 +1,14 @@
+form,line,column,description,value_eur,comments
+
+# Minimal KreStA fixture — charge card company, Q1 2026
+# Business: issues charge cards to domestic employed households (Z220 = employed)
+# No long-term credit; no service sector breakdown needed
+#
+# V1 columns: 01=Forderungen≤1yr  02=>1yr≤5yr  03=Wechseldiskontkredite  04=Wechsel im Bestand
+# Card receivables: billing cycle <30 days → all column 01 (≤1yr)
+#
+# Total: 120,000,000 EUR charge card receivables
+#   Sector: row 300 = Organisationen ohne Erwerbszweck (minimal placeholder = 0, omitted)
+#   Households (row 200): Nichtratenkredite (220) — charge card = non-instalment credit
+
+V1,220,01,Domestic employed households — convenience credit card (non-instalment),120000000,

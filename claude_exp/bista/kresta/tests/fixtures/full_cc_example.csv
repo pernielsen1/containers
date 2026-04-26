@@ -1,0 +1,32 @@
+form,line,column,description,value_eur,comments
+
+# Full charge card company KreStA — Q1 2026
+# Business: German MFI issuing charge cards (no revolving credit)
+# Domestic + EA cardholders (only domestic enterprises and households in scope)
+# Total V1/Z400 = 120,000,000; V3/Z400 = 0 (no long-term credit)
+# Reconciliation: V1/Z400/S01 = 120,000,000 must equal BISTA B1/Z100/S01
+#
+# V1 columns: 01=Forderungen≤1yr  02=>1yr≤5yr  03=Wechseldiskontkredite  04=Wechsel
+# Card receivables billing cycle <30 days → all col 01
+
+# ── V1 — Short and medium-term loans ─────────────────────────────────────────
+
+# Row 100: Unternehmen (enterprises) — 50,000,000
+# Sub-sectors:
+V1,110,01,Land- und Forstwirtschaft — card receivables,0,No agricultural borrowers
+V1,130,01,Verarbeitendes Gewerbe — card receivables,50000000,Manufacturing sector card spend
+# Row 200: Privatpersonen (households) — 70,000,000
+# Non-instalment credit = convenience/charge card
+V1,220,01,Nichtratenkredite — domestic employed households,70000000,
+
+# ── V2 — Supplementary short/medium-term data ────────────────────────────────
+# V2 sub-items: breakdown of row 130 (Verarbeitendes Gewerbe)
+V2,135,01,Maschinenbau; Fahrzeugbau — card receivables,30000000,Sub of V1/130
+V2,136,01,Datenverarbeitungsgeräte; elektronische Erzeugnisse,20000000,Sub of V1/130
+
+# ── V3 — Long-term loans (>5yr) — all zero for charge card company ───────────
+# No long-term credit: V3 forms are intentionally absent (zero → omitted)
+
+# ── V1B — Value adjustments for V1 (current quarter) ────────────────────────
+# Small write-down on corporate card receivables
+V1B,130,01,Value adjustment — Verarbeitendes Gewerbe,500000,Write-down this quarter

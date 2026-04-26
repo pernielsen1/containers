@@ -12,7 +12,7 @@ import pytest
 PROJECT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT))
 
-from annex_bista import Catalogue, CalculationEngine
+from annex_bista import Catalogue, CalculationEngine, FORM_TO_CAT
 
 
 CATALOGUE_DIR = PROJECT  # bista_fields.csv and bista_calcs.csv live here
@@ -22,7 +22,7 @@ CATALOGUE_DIR = PROJECT  # bista_fields.csv and bista_calcs.csv live here
 
 @pytest.fixture(scope="module")
 def cat():
-    return Catalogue(CATALOGUE_DIR)
+    return Catalogue(CATALOGUE_DIR, form_to_cat=FORM_TO_CAT)
 
 
 @pytest.fixture(scope="module")
@@ -218,17 +218,17 @@ def test_engine_no_conflict_within_tolerance(engine):
 
 # ── csv_form_to_cat helper ────────────────────────────────────────────────────
 
-def test_form_map_hv11():
-    assert Catalogue.csv_form_to_cat("HV11") == "S11"
+def test_form_map_hv11(cat):
+    assert cat.csv_form_to_cat("HV11") == "S11"
 
 
-def test_form_map_hv22():
-    assert Catalogue.csv_form_to_cat("HV22") == "S22"
+def test_form_map_hv22(cat):
+    assert cat.csv_form_to_cat("HV22") == "S22"
 
 
-def test_form_map_annex_passthrough():
-    assert Catalogue.csv_form_to_cat("B7") == "B7"
-    assert Catalogue.csv_form_to_cat("A1") == "A1"
+def test_form_map_annex_passthrough(cat):
+    assert cat.csv_form_to_cat("B7") == "B7"
+    assert cat.csv_form_to_cat("A1") == "A1"
 
 
 # ── make_field_id helper ──────────────────────────────────────────────────────

@@ -1,0 +1,121 @@
+form;field_id;description_en;method;notes
+V1;100;Unternehmen u. selbst. Privatpersonen — total (110+120+130+140+150+160+170+180);calculate;Z100S01..S04
+V1;110;Land- und Forstwirtschaft, Fischerei und Aquakultur;input;
+V1;120;Energie- und Wasserversorgung; Entsorgung; Bergbau;input;
+V1;130;Verarbeitendes Gewerbe;input;
+V1;140;Baugewerbe;input;
+V1;150;Handel;input;
+V1;160;Verkehr und Lagerei; Nachrichtenübermittlung;input;
+V1;170;Finanzierungsinstitutionen (ohne MFIs) u. Versicherungen;input;
+V1;180;Dienstleistungen (einschl. freier Berufe);input;
+V1;200;Wirtschaftlich unselbständige u. sonstige Privatpersonen (210+220+230);calculate;Z200S01..S04
+V1;210;Ratenkredite (ohne Wohnungsbaukredite);input;
+V1;220;Nichtratenkredite (ohne Wohnungsbaukredite);input;
+V1;230;Kredite für den Wohnungsbau;input;
+V1;300;Organisationen ohne Erwerbszweck;input;
+V1;400;Summe inländische Unternehmen und Privatpersonen (100+200+300);calculate;Z400S01..S04; must equal BISTA B1/Z100
+V2;100;Unternehmen u. selbst. Privatpersonen — total (sub-items);calculate;
+V2;105;Selbständige und Einzelkaufleute (in 110–180);input;sub-item of V1/100
+V2;106;Wohnungsbaukredite — Unternehmen etc. (in Zeile 100);input;sub-item
+V2;107;Wohnungsbaukredite — Unternehmen etc. (weitere);input;sub-item
+V2;108;Handwerk (in 110–180);input;sub-item
+V2;130;Verarbeitendes Gewerbe — total (131+132+133+134+135+136+137+138+139);calculate;
+V2;131;Chemische Industrie, Kokerei und Mineralölverarbeitung;input;sub of 130
+V2;132;Herstellung von Gummi- und Kunststoffwaren;input;sub of 130
+V2;133;Glasgewerbe; Keramik; Steine und Erden;input;sub of 130
+V2;134;Metallerzeugung und -bearbeitung; Herstellung von Metallerzeugnissen;input;sub of 130
+V2;135;Maschinenbau; Fahrzeugbau; Reparatur und Installation;input;sub of 130
+V2;136;Datenverarbeitungsgeräte; elektronische u. optische Erzeugnisse; Reparatur;input;sub of 130
+V2;137;Holzgewerbe; Papier- und Druckgewerbe; Möbel;input;sub of 130
+V2;138;Textil- und Bekleidungsgewerbe; Ledergewerbe;input;sub of 130
+V2;139;Ernährungsgewerbe; Tabakverarbeitung;input;sub of 130
+V2;171;Institutionen für Finanzierungsleasing (sub of 170);input;sub of 170
+V2;181;Wohnungsunternehmen (sub of 180);input;sub of 180
+V2;182;Beteiligungsgesellschaften (sub of 180);input;sub of 180
+V2;183;Sonstiges Grundstückswesen (sub of 180);input;sub of 180
+V2;184;Gastgewerbe (sub of 180);input;sub of 180
+V2;185;Information und Kommunikation; F&E; Interessenvertretungen (sub of 180);input;sub of 180
+V2;186;Gesundheits-; Veterinär- und Sozialwesen (sub of 180);input;sub of 180
+V2;221;Debetsalden auf Lohn-/Gehalts-/Renten-/Pensionskonten (sub of 220);input;sub of V1/220
+V2;309;Wohnungsbaukredite in Zeilen 200 und 300;input;sub-item
+V3;100;Unternehmen u. selbst. Privatpersonen — total (110+120+130+140+150+160+170+180);calculate;Z100S05..S08
+V3;110;Land- und Forstwirtschaft, Fischerei und Aquakultur;input;
+V3;120;Energie- und Wasserversorgung; Entsorgung; Bergbau;input;
+V3;130;Verarbeitendes Gewerbe;input;
+V3;140;Baugewerbe;input;
+V3;150;Handel;input;
+V3;160;Verkehr und Lagerei; Nachrichtenübermittlung;input;
+V3;170;Finanzierungsinstitutionen (ohne MFIs) u. Versicherungen;input;
+V3;180;Dienstleistungen (einschl. freier Berufe);input;
+V3;200;Wirtschaftlich unselbständige u. sonstige Privatpersonen (210+220+230);calculate;Z200S05..S08
+V3;210;Ratenkredite (ohne Wohnungsbaukredite);input;
+V3;220;Nichtratenkredite (ohne Wohnungsbaukredite);input;
+V3;230;Kredite für den Wohnungsbau;input;
+V3;300;Organisationen ohne Erwerbszweck;input;
+V3;400;Summe inländische Unternehmen und Privatpersonen (100+200+300);calculate;Z400S05..S08; must equal BISTA B1/Z100 (long-term portion)
+V4;105;Selbständige und Einzelkaufleute (in 110–180);input;sub-item of V3/100
+V4;106;Wohnungsbaukredite — Unternehmen etc. (in Zeile 100);input;sub-item
+V4;107;Wohnungsbaukredite — Unternehmen etc. (weitere);input;sub-item
+V4;108;Handwerk;input;sub-item
+V4;130;Verarbeitendes Gewerbe — total (131+…+139);calculate;
+V4;131;Chemische Industrie, Kokerei und Mineralölverarbeitung;input;sub of 130
+V4;132;Herstellung von Gummi- und Kunststoffwaren;input;sub of 130
+V4;133;Glasgewerbe; Keramik; Steine und Erden;input;sub of 130
+V4;134;Metallerzeugung und -bearbeitung; Herstellung von Metallerzeugnissen;input;sub of 130
+V4;135;Maschinenbau; Fahrzeugbau; Reparatur und Installation;input;sub of 130
+V4;136;Datenverarbeitungsgeräte; elektronische u. optische Erzeugnisse; Reparatur;input;sub of 130
+V4;137;Holzgewerbe; Papier- und Druckgewerbe; Möbel;input;sub of 130
+V4;138;Textil- und Bekleidungsgewerbe; Ledergewerbe;input;sub of 130
+V4;139;Ernährungsgewerbe; Tabakverarbeitung;input;sub of 130
+V4;171;Institutionen für Finanzierungsleasing (sub of 170);input;sub of 170
+V4;181;Wohnungsunternehmen (sub of 180);input;sub of 180
+V4;182;Beteiligungsgesellschaften (sub of 180);input;sub of 180
+V4;183;Sonstiges Grundstückswesen (sub of 180);input;sub of 180
+V4;184;Gastgewerbe (sub of 180);input;sub of 180
+V4;185;Information und Kommunikation; F&E; Interessenvertretungen (sub of 180);input;sub of 180
+V4;186;Gesundheits-; Veterinär- und Sozialwesen (sub of 180);input;sub of 180
+V4;309;Wohnungsbaukredite in Zeilen 200 und 300;input;sub-item
+VA;100;Unternehmen u. selbst. Privatpersonen — Dienstleistungsgewerbe (181+182+183+184+185+186);calculate;
+VA;181;Wohnungsunternehmen;input;
+VA;182;Beteiligungsgesellschaften;input;
+VA;183;Sonstiges Grundstückswesen;input;
+VA;184;Gastgewerbe;input;
+VA;185;Information und Kommunikation; F&E; Interessenvertretungen;input;
+VA;186;Gesundheits-; Veterinär- und Sozialwesen;input;
+VB;100;Unternehmen u. selbst. Privatpersonen — Dienstleistungsgewerbe (181+182+183+184+185+186);calculate;
+VB;181;Wohnungsunternehmen;input;
+VB;182;Beteiligungsgesellschaften;input;
+VB;183;Sonstiges Grundstückswesen;input;
+VB;184;Gastgewerbe;input;
+VB;185;Information und Kommunikation; F&E; Interessenvertretungen;input;
+VB;186;Gesundheits-; Veterinär- und Sozialwesen;input;
+V1B;100;Value adjustments — Unternehmen total;calculate;Bewertungskorrekturen
+V1B;110;Value adjustments — Land- und Forstwirtschaft;input;Bewertungskorrekturen
+V1B;120;Value adjustments — Energie/Wasserversorgung/Bergbau;input;Bewertungskorrekturen
+V1B;130;Value adjustments — Verarbeitendes Gewerbe;input;Bewertungskorrekturen
+V1B;140;Value adjustments — Baugewerbe;input;Bewertungskorrekturen
+V1B;150;Value adjustments — Handel;input;Bewertungskorrekturen
+V1B;160;Value adjustments — Verkehr und Lagerei;input;Bewertungskorrekturen
+V1B;170;Value adjustments — Finanzierungsinstitutionen;input;Bewertungskorrekturen
+V1B;180;Value adjustments — Dienstleistungen;input;Bewertungskorrekturen
+V1B;200;Value adjustments — Privatpersonen total;calculate;Bewertungskorrekturen
+V1B;210;Value adjustments — Ratenkredite;input;Bewertungskorrekturen
+V1B;220;Value adjustments — Nichtratenkredite;input;Bewertungskorrekturen
+V1B;230;Value adjustments — Wohnungsbaukredite;input;Bewertungskorrekturen
+V1B;300;Value adjustments — Organisationen ohne Erwerbszweck;input;Bewertungskorrekturen
+V1B;400;Value adjustments — Summe (100+200+300);calculate;Bewertungskorrekturen
+V3B;100;Value adjustments — Unternehmen total;calculate;Bewertungskorrekturen
+V3B;110;Value adjustments — Land- und Forstwirtschaft;input;Bewertungskorrekturen
+V3B;120;Value adjustments — Energie/Wasserversorgung/Bergbau;input;Bewertungskorrekturen
+V3B;130;Value adjustments — Verarbeitendes Gewerbe;input;Bewertungskorrekturen
+V3B;140;Value adjustments — Baugewerbe;input;Bewertungskorrekturen
+V3B;150;Value adjustments — Handel;input;Bewertungskorrekturen
+V3B;160;Value adjustments — Verkehr und Lagerei;input;Bewertungskorrekturen
+V3B;170;Value adjustments — Finanzierungsinstitutionen;input;Bewertungskorrekturen
+V3B;180;Value adjustments — Dienstleistungen;input;Bewertungskorrekturen
+V3B;200;Value adjustments — Privatpersonen total;calculate;Bewertungskorrekturen
+V3B;210;Value adjustments — Ratenkredite;input;Bewertungskorrekturen
+V3B;220;Value adjustments — Nichtratenkredite;input;Bewertungskorrekturen
+V3B;230;Value adjustments — Wohnungsbaukredite;input;Bewertungskorrekturen
+V3B;300;Value adjustments — Organisationen ohne Erwerbszweck;input;Bewertungskorrekturen
+V3B;400;Value adjustments — Summe (100+200+300);calculate;Bewertungskorrekturen

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LIEFERUNG-VJKRE xmlns="http://www.bundesbank.de/xmw/2003-01-01" version="1.0" stufe="Test" bereich="Statistik">
+  <ABSENDER>
+    <RZLZ>R12345678</RZLZ>
+    <NAME>CardCo Rechenzentrum GmbH</NAME>
+  </ABSENDER>
+  <MELDUNG>
+    <MELDER>
+      <BLZ>20050550</BLZ>
+      <NAME>CardCo AG</NAME>
+      <STRASSE>Musterstrasse 1</STRASSE>
+      <PLZ>20095</PLZ>
+      <ORT>Hamburg</ORT>
+      <KONTAKT>
+        <NAME>Max Muster</NAME>
+        <TELEFON>+49 40 12345678</TELEFON>
+        <EMAIL>bista@cardco.de</EMAIL>
+      </KONTAKT>
+    </MELDER>
+    <MELDETERMIN>2026-03</MELDETERMIN>
+    <FORMULAR name="V1" modus="Normal">
+      <FELD pos="Z220S01">120000</FELD>
+    </FORMULAR>
+  </MELDUNG>
+</LIEFERUNG-VJKRE>
