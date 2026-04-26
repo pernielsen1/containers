@@ -1,0 +1,8 @@
+form,line,column,description,value_eur,comments
+# Deliberately imbalanced — HV11/180 ≠ HV21/330
+HV11,071,00,Card receivables,10000000,
+HV11,180,00,Total assets — WRONG,10000000,
+HV21,311,00,Subscribed capital,5000000,
+HV21,330,00,Total liabilities — WRONG,9000000,Does not equal total assets
+B1,122,01,Domestic employed households,10000000,
+B7,122,02,Domestic employed households convenience,10000000,

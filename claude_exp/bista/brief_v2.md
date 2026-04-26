@@ -18,3 +18,14 @@ as usual pandas is available
 I would like you to find the appendixes you thing make sence if my business in principle is not a bank with complex products but rather a credit card company not offering revolving credit only charge cards
 
 
+start here 20260425:
+don't code let's start by planning
+on the other computer you had access to read at bundesbank.de - so continue doing so.
+some of the bista appendixes contains field which are a summary of other fields.
+make one csv which contains all fields with file (S11, A1,) etc field number, field description. plus method.
+method could be input or calculate.
+if calculate make a seperate csv file containing the calculation rule
+calculation rule is simple x11 + x12 etc ... 
+
+continue:
+build and create test script as well - tests to be kept in seperate directory

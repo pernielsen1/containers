@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LIEFERUNG-BISTA xmlns="http://www.bundesbank.de/xmw/2003-01-01" version="1.0" stufe="Test" bereich="Statistik">
+  <ABSENDER>
+    <RZLZ>R12345678</RZLZ>
+    <NAME>CardCo Rechenzentrum GmbH</NAME>
+  </ABSENDER>
+  <MELDUNG>
+    <MELDER>
+      <BLZ>20050550</BLZ>
+      <NAME>CardCo AG</NAME>
+      <STRASSE>Musterstrasse 1</STRASSE>
+      <PLZ>20095</PLZ>
+      <ORT>Hamburg</ORT>
+      <KONTAKT>
+        <NAME>Max Muster</NAME>
+        <TELEFON>+49 40 12345678</TELEFON>
+        <EMAIL>bista@cardco.de</EMAIL>
+      </KONTAKT>
+    </MELDER>
+    <MELDETERMIN>2026-03</MELDETERMIN>
+    <FORMULAR name="HV" modus="Normal">
+      <FELD pos="Z020S11">2250</FELD>
+      <FELD pos="Z061S11">40000</FELD>
+      <FELD pos="Z071S11">120000</FELD>
+      <FELD pos="Z140S11">2000</FELD>
+      <FELD pos="Z176S11">4000</FELD>
+      <FELD pos="Z210S21">80000</FELD>
+      <FELD pos="Z222S21">250</FELD>
+      <FELD pos="Z311S21">60000</FELD>
+      <FELD pos="Z312S21">25000</FELD>
+      <FELD pos="Z325S21">3000</FELD>
+      <FELD pos="Z390S21">250000</FELD>
+      <FELD pos="Z336S22">500</FELD>
+      <FELD pos="Z060S11">40000</FELD>
+      <FELD pos="Z070S11">120000</FELD>
+      <FELD pos="Z170S11">4000</FELD>
+      <FELD pos="Z180S11">168250</FELD>
+      <FELD pos="Z220S21">250</FELD>
+      <FELD pos="Z310S21">85000</FELD>
+      <FELD pos="Z320S21">3000</FELD>
+      <FELD pos="Z330S21">168250</FELD>
+      <FELD pos="Z360S21">168250</FELD>
+    </FORMULAR>
+    <FORMULAR name="A1" modus="Normal">
+      <FELD pos="Z114S09">2000</FELD>
+      <FELD pos="Z111S01">15000</FELD>
+      <FELD pos="Z111S02">20000</FELD>
+      <FELD pos="Z121S01">3000</FELD>
+      <FELD pos="Z110S01">15000</FELD>
+      <FELD pos="Z110S02">20000</FELD>
+      <FELD pos="Z110S05">35000</FELD>
+      <FELD pos="Z110S09">2000</FELD>
+      <FELD pos="Z120S01">3000</FELD>
+      <FELD pos="Z120S05">3000</FELD>
+      <FELD pos="Z111S05">35000</FELD>
+      <FELD pos="Z121S05">3000</FELD>
+      <FELD pos="Z100S01">18000</FELD>
+      <FELD pos="Z100S02">20000</FELD>
+      <FELD pos="Z100S05">38000</FELD>
+      <FELD pos="Z100S09">2000</FELD>
+    </FORMULAR>
+    <FORMULAR name="A2" modus="Normal">
+      <FELD pos="Z111S01">10000</FELD>
+      <FELD pos="Z111S02">70000</FELD>
+      <FELD pos="Z110S01">10000</FELD>
+      <FELD pos="Z110S02">70000</FELD>
+      <FELD pos="Z110S05">80000</FELD>
+      <FELD pos="Z111S05">80000</FELD>
+      <FELD pos="Z100S01">10000</FELD>
+      <FELD pos="Z100S02">70000</FELD>
+      <FELD pos="Z100S05">80000</FELD>
+    </FORMULAR>
+    <FORMULAR name="B1" modus="Normal">
+      <FELD pos="Z114S01">50000</FELD>
+      <FELD pos="Z121S01">3000</FELD>
+      <FELD pos="Z122S01">50000</FELD>
+      <FELD pos="Z123S01">5000</FELD>
+      <FELD pos="Z110S01">50000</FELD>
+      <FELD pos="Z120S01">58000</FELD>
+      <FELD pos="Z114S04">50000</FELD>
+      <FELD pos="Z121S04">3000</FELD>
+      <FELD pos="Z122S04">50000</FELD>
+      <FELD pos="Z123S04">5000</FELD>
+      <FELD pos="Z100S01">108000</FELD>
+      <FELD pos="Z100S04">108000</FELD>
+      <FELD pos="Z110S04">50000</FELD>
+      <FELD pos="Z120S04">58000</FELD>
+      <FELD pos="Z300S01">108000</FELD>
+      <FELD pos="Z300S04">108000</FELD>
+    </FORMULAR>
+    <FORMULAR name="B3" modus="Normal">
+      <FELD pos="Z114S01">8000</FELD>
+      <FELD pos="Z121S01">500</FELD>
+      <FELD pos="Z122S01">3000</FELD>
+      <FELD pos="Z123S01">500</FELD>
+    </FORMULAR>
+    <FORMULAR name="B4" modus="Normal">
+      <FELD pos="Z352S01">53000</FELD>
+      <FELD pos="Z323S01">3500</FELD>
+      <FELD pos="Z423S01">500</FELD>
+    </FORMULAR>
+    <FORMULAR name="B7" modus="Normal">
+      <FELD pos="Z114S02">50000</FELD>
+      <FELD pos="Z121S02">3000</FELD>
+      <FELD pos="Z122S02">50000</FELD>
+      <FELD pos="Z123S02">5000</FELD>
+      <FELD pos="Z214S02">8000</FELD>
+      <FELD pos="Z221S02">500</FELD>
+      <FELD pos="Z222S02">3000</FELD>
+      <FELD pos="Z223S02">500</FELD>
+      <FELD pos="Z120S02">58000</FELD>
+      <FELD pos="Z140S02">58000</FELD>
+      <FELD pos="Z220S02">4000</FELD>
+      <FELD pos="Z240S02">4000</FELD>
+    </FORMULAR>
+    <FORMULAR name="C1" modus="Normal">
+      <FELD pos="Z114S01">80</FELD>
+      <FELD pos="Z122S01">120</FELD>
+      <FELD pos="Z110S01">80</FELD>
+      <FELD pos="Z120S01">120</FELD>
+      <FELD pos="Z114S05">80</FELD>
+      <FELD pos="Z122S05">120</FELD>
+      <FELD pos="Z100S01">200</FELD>
+      <FELD pos="Z110S05">80</FELD>
+      <FELD pos="Z120S05">120</FELD>
+      <FELD pos="Z300S01">200</FELD>
+      <FELD pos="Z500S01">200</FELD>
+      <FELD pos="Z100S05">200</FELD>
+      <FELD pos="Z300S05">200</FELD>
+      <FELD pos="Z500S05">200</FELD>
+    </FORMULAR>
+    <FORMULAR name="C3" modus="Normal">
+      <FELD pos="Z114S01">15</FELD>
+      <FELD pos="Z122S01">35</FELD>
+    </FORMULAR>
+    <FORMULAR name="H" modus="Normal">
+      <FELD pos="Z210S03">250</FELD>
+      <FELD pos="Z260S03">250</FELD>
+    </FORMULAR>
+    <FORMULAR name="L1" modus="Normal">
+      <FELD pos="Z214S01">90000</FELD>
+      <FELD pos="Z220S01">110000</FELD>
+      <FELD pos="Z314S01">25000</FELD>
+      <FELD pos="Z320S01">25000</FELD>
+    </FORMULAR>
+  </MELDUNG>
+</LIEFERUNG-BISTA>

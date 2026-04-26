@@ -1,0 +1,21 @@
+form,line,column,description,value_eur,comments
+# Tests that calculated fields are auto-derived from inputs
+# S11/060 = 061 + 062 (both zero here, so 060 stays zero)
+# S11/070 = 071 + 072 — should be derived as 10,000,000
+# S11/180 = sum of all main items — should be derived as 12,000,000
+# S21/310 = 311 + 312 - 313 — should be derived as 11,000,000
+# S21/330 = 210 + 220 + 310 = 1,000,000 + 12,000,000 = ... no, just test 310
+
+HV11,020,00,Bundesbank balance,1000000,
+HV11,071,00,Card receivables,10000000,
+HV11,140,00,Tangible assets,1000000,
+# HV11/070 and HV11/180 intentionally NOT provided — should be computed
+
+HV21,210,00,Liabilities to banks,1000000,
+HV21,311,00,Subscribed capital,8000000,
+HV21,312,00,Reserves,3000000,
+# HV21/310 = 311 + 312 - 313 = 8M + 3M - 0 = 11M — should be computed
+# HV21/330 should also be computed
+
+B1,122,01,Domestic employed households,10000000,
+B7,122,02,Domestic employed households convenience,10000000,

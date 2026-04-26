@@ -1,24 +1,30 @@
 form,line,column,description,value_eur,comments
 
-# Minimal valid input for regression testing
-# Balance sheet: card receivables funded by interbank borrowing + equity
+# Minimal valid input — charge card company regression fixture
+# Row/column numbers from official Bundesbank blank forms (January 2022)
+# Balance sheet: 11,000,000 EUR assets = 5,000,000 interbank + 6,000,000 equity
 
-# Main form — Assets
-HV11,020,00,Balances with Bundesbank,1000000,Mandatory Bundesbank account
-HV11,071,00,Card receivables — total,10000000,Core asset; must equal B7 total + non-EA in B1
-HV11,180,00,Total assets,11000000,Must equal HV21/330
+# ── HV11 (S11) — Assets ──────────────────────────────────────────────────────
+# 180 auto-derived = 020 + 070 = 1M + 10M = 11M
+HV11,020,00,Balances with Deutsche Bundesbank,1000000,Mandatory MFI account
+HV11,071,00,Card receivables — book claims on non-banks,10000000,Core charge card asset
 
-# Main form — Liabilities
-HV21,210,00,Liabilities to banks,5000000,Interbank funding
-HV21,311,00,Subscribed capital,6000000,Equity
-HV21,330,00,Total liabilities,11000000,Must equal HV11/180
-HV21,390,00,Irrevocable lending commitments — card limits,20000000,Off-balance; must equal L1 total
+# ── HV21 (S21) — Liabilities ─────────────────────────────────────────────────
+# 310 auto-derived = 311 + 312 - 313 = 6M
+# 330 auto-derived = 210 + 310 = 5M + 6M = 11M (= HV11/180)
+HV21,210,00,Liabilities to banks — interbank funding,5000000,
+HV21,311,00,Subscribed capital,6000000,
+HV21,390,00,Irrevocable lending commitments — total unused card limits,20000000,Off-balance
 
-# Annex B1 — Loans to non-banks (domestic only in this minimal case)
-B1,300,01,Domestic households — short-term card receivables,10000000,Charge cards; billing cycle <30d → column 01
+# ── B1 — Loans to non-banks ──────────────────────────────────────────────────
+# Row 122 = employed households; col 01 = short-term (≤1yr)
+B1,122,01,Domestic employed households — short-term card receivables,10000000,
 
-# Annex B7 — Credit card credit (convenience = charge card)
-B7,300,01,Domestic households — convenience credit card,10000000,Must equal B1/300/01 when no revolving and no non-EA
+# ── B7 — Credit card credit (convenience = charge card; column 02) ───────────
+# col 01 = revolving/overdrafts → NOT supplied (zero → omitted from XML)
+# col 02 = convenience credit (charge card: full balance due each billing cycle)
+B7,122,02,Domestic employed households — convenience credit card,10000000,
 
-# Annex L1 — Irrevocable lending commitments by sector
-L1,300,01,Domestic households — unused card limits,20000000,Must equal HV21/390
+# ── L1 — Irrevocable lending commitments by sector ───────────────────────────
+# Row 220 = domestic households; col 01 = total
+L1,220,01,Domestic households — unused card limits,20000000,Must equal HV21/390

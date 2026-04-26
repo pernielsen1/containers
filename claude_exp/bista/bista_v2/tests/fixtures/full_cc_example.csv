@@ -1,0 +1,110 @@
+form,line,column,description,value_eur,comments
+
+# Full charge card company example — all relevant annexes
+# Row/column numbers from official Bundesbank blank forms (January 2022)
+#
+# Business: German MFI, issues charge cards (no revolving credit)
+#   Domestic + EA cardholders; funded via interbank borrowing + equity
+#   Balance sheet total: 168,250,000 EUR (includes 250K cardholder credit balances)
+#
+# B7 column key: 01=revolving+overdrafts  02=convenience card  03=extended card
+# For a pure charge card company: col 02 nonzero, col 01 and 03 = 0
+
+# ── HV11 (S11) — Assets ──────────────────────────────────────────────────────
+HV11,020,00,Balances with Deutsche Bundesbank,2250000,Mandatory MFI account + 250K cardholder overpayments held
+HV11,061,00,Book claims on banks — interbank placements,40000000,Overnight+time deposits; = Annex A1 row 100 total
+HV11,071,00,Card receivables — book claims on non-banks,120000000,= B1 + B3 total; core asset
+HV11,140,00,Tangible assets (IT/office),2000000,
+HV11,176,00,Other assets — accruals/prepaid/deferred tax,4000000,
+
+# ── HV21 (S21) — Liabilities ─────────────────────────────────────────────────
+HV21,210,00,Liabilities to banks — interbank funding,80000000,= Annex A2 row 100 total
+HV21,222,00,Other liabilities to non-banks — card credit balances,250000,Overpayments by cardholders; = C1+C3 row 500
+HV21,311,00,Subscribed capital,60000000,
+HV21,312,00,Reserves,25000000,
+HV21,325,00,Debit balance on income/expenditure accounts — P&L,3000000,Current year net income; only one of 325 or 313 nonzero
+HV21,390,00,Irrevocable lending commitments — total unused card limits,250000000,Off-balance; = L1/700/01
+
+# ── HV22 (S22) — Supplementary liabilities ───────────────────────────────────
+HV22,336,00,Interest accrued on liabilities (sub of HV21/326),500000,
+
+# ── ANNEX A1 — Loans to banks (breakdown of HV11/061) ────────────────────────
+# Cols: 01=overnight  02=≤1yr  03=>1yr≤5yr  04=>5yr  05=total(calc)  09=central bank
+# Bundesbank current account (overnight) → line 114, col 09
+# Domestic correspondent banks (overnight) → line 111, col 01
+# Domestic term deposits → line 111, col 02
+A1,114,09,Deutsche Bundesbank — overnight current account,2000000,
+A1,111,01,Other domestic banks — overnight,15000000,
+A1,111,02,Other domestic banks — short-term ≤1yr,20000000,
+A1,121,01,EA banks — overnight placements,3000000,
+
+# ── ANNEX A2 — Liabilities to banks (breakdown of HV21/210) ──────────────────
+# Cols: 01=overnight  02=≤1yr  03=>1yr≤2yr  04=>2yr  05=total(calc)
+A2,111,01,Other domestic banks — overnight credit line drawdown,10000000,
+A2,111,02,Other domestic banks — short-term ≤1yr term loan,70000000,
+
+# ── ANNEX B1 — Loans to non-banks; domestic + non-EA foreign ─────────────────
+# Charge card receivables: billing cycle <30 days → all short-term (column 01)
+# Row 114 = non-financial corporations
+# Row 121 = self-employed households  Row 122 = employed households  Row 123 = other
+# Row 421 = foreign (non-EA) enterprises+households combined
+B1,114,01,Domestic non-financial corporations — short-term card receivables,50000000,
+B1,121,01,Domestic self-employed households — short-term,3000000,
+B1,122,01,Domestic employed households — short-term,50000000,
+B1,123,01,Domestic other households — short-term,5000000,
+B1,421,01,Non-EA foreign non-banks — short-term,0,No non-EA cardholders in this example
+
+# ── ANNEX B3 — Loans to non-banks; other euro area member states ─────────────
+# Same structure as B1; mandatory when EA cross-border balances exist
+B3,114,01,EA non-financial corporations — short-term card receivables,8000000,
+B3,121,01,EA self-employed households — short-term,500000,
+B3,122,01,EA employed households — short-term,3000000,
+B3,123,01,EA other households — short-term,500000,
+
+# ── ANNEX B4 — Household loans by type (domestic + EA households combined) ───
+# Row 123 = Other lending (charge cards classified here; not consumer/housing)
+# Row 126 = to employed+other households — instalment (0 for pure charge card)
+# Row 352 = to employed+other households — non-instalment (convenience credit here)
+# Domestic households: B1/121+122+123 = 3+50+5 = 58M; EA = B3/121+122+123 = 4M; total = 62M
+B4,352,01,Domestic+EA employed households — non-instalment credit (charge card),53000000,Sub of B4/126
+B4,323,01,Domestic+EA self-employed — other loans (charge card),3500000,
+B4,423,01,EA self-employed — other loans,500000,
+
+# ── ANNEX B7 — Credit card credit ────────────────────────────────────────────
+# col 01 = revolving loans+overdrafts (zero for pure charge card company)
+# col 02 = convenience credit card (charge card — balance due each cycle) ← HERE
+# col 03 = extended credit card (revolving — balance carried forward) = zero
+# Domestic: row 114=corps, 121/122/123=households
+# EA: row 214=corps, 221/222/223=households
+B7,114,02,Domestic non-financial corporations — convenience credit card,50000000,
+B7,121,02,Domestic self-employed households — convenience credit card,3000000,
+B7,122,02,Domestic employed households — convenience credit card,50000000,
+B7,123,02,Domestic other households — convenience credit card,5000000,
+B7,214,02,EA non-financial corporations — convenience credit card,8000000,
+B7,221,02,EA self-employed households — convenience credit card,500000,
+B7,222,02,EA employed households — convenience credit card,3000000,
+B7,223,02,EA other households — convenience credit card,500000,
+
+# ── ANNEX C1 — Liabilities to non-banks (credit balances on card accounts) ───
+# Arises when a cardholder overpays — creates on-demand liability (col 01)
+C1,114,01,Domestic non-financial corporations — credit balances on card,80000,
+C1,122,01,Domestic employed households — credit balances,120000,
+
+# ── ANNEX C3 — Same as C1 for other euro area member states ──────────────────
+C3,114,01,EA non-financial corporations — credit balances,15000,
+C3,122,01,EA employed households — credit balances,35000,
+
+# ── ANNEX H — Minimum reserve calculation ─────────────────────────────────────
+# Sheet 1: liabilities excluded from reserve base (held by non-reserve-subject banks)
+# Sheet 2: col 03 = reserve base items
+# Non-bank liabilities ≤2yr (HV21/220 portion ≤2yr) — main reserve base item
+H,210,03,Non-bank liabilities ≤2yr — reserve base item,250000,The card credit balances ≤2yr; typically small
+
+# ── ANNEX L1 — Irrevocable lending commitments (breakdown of HV21/390) ───────
+# Row 214 = domestic enterprises  Row 220 = domestic households
+# Row 314 = EA enterprises  Row 320 = EA households
+# Total L1/700/01 must equal HV21/390 = 250,000,000
+L1,214,01,Domestic non-financial corporations — unused card limits,90000000,
+L1,220,01,Domestic households — unused card limits,110000000,
+L1,314,01,EA non-financial corporations — unused card limits,25000000,
+L1,320,01,EA households — unused card limits,25000000,
