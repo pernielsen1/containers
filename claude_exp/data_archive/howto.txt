@@ -1,0 +1,42 @@
+ARCHIVE PROCESSOR — HOW TO USE
+==============================
+
+PREREQUISITES
+  pip install filelock
+
+DIRECTORY STRUCTURE
+  input/      Drop JSON files here before running
+  committed/  Files successfully archived (moved here after processing)
+  error/      Files that failed (moved here after processing)
+  output/     archive.csv — the resulting archive
+
+INPUT FILE NAMING
+  Files must follow the pattern:  key_type_<anything>.json
+  Examples:  account_loan_20240101.json
+             entity_company_ts1234.json
+  key and type must not contain underscores.
+
+RUN
+  python3 run.py
+
+  Optionally pass a different base directory:
+  python3 run.py /path/to/base
+
+  Output: "Done: N committed, N errors, N skipped"
+
+EXTRACT A RECORD
+  python3 -m src.extractor <key> <type>
+  python3 -m src.extractor <key> <type> /path/to/archive.csv
+
+  Example:
+  python3 -m src.extractor account loan
+
+  Prints the original JSON to stdout. Exits with error if not found.
+
+RESILIENCE
+  The processor uses a file lock (output/archive.csv.lock) so concurrent
+  runs do not corrupt the CSV. If a run crashes mid-write, the next run
+  automatically truncates any partial last line before continuing.
+
+TESTS
+  python3 -m pytest tests/ -v
