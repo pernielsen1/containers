@@ -1,5 +1,6 @@
 import uuid
 import shutil
+from datetime import datetime
 from pathlib import Path
 
 import filelock
@@ -26,8 +27,8 @@ def _move_to_committed(src: Path, committed_dir: Path) -> Path:
 
 
 def process_input(base_dir: Path = BASE_DIR) -> dict:
-    output_csv = base_dir / 'output' / 'archive.csv'
-    lock_path = base_dir / 'output' / 'archive.csv.lock'
+    output_csv = base_dir / 'output' / 'pass1' / 'archive.csv'
+    lock_path = base_dir / 'output' / 'pass1' / 'archive.csv.lock'
     input_dir = base_dir / 'input'
     committed_dir = base_dir / 'committed'
     error_dir = base_dir / 'error'
@@ -35,6 +36,7 @@ def process_input(base_dir: Path = BASE_DIR) -> dict:
     for d in [input_dir, committed_dir, error_dir, output_csv.parent]:
         d.mkdir(parents=True, exist_ok=True)
 
+    run_id = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
     stats = {'committed': 0, 'error': 0, 'skipped': 0}
 
     with filelock.FileLock(str(lock_path)):
@@ -43,7 +45,7 @@ def process_input(base_dir: Path = BASE_DIR) -> dict:
 
         for json_file in sorted(input_dir.glob('*.json')):
             try:
-                key, type_ = parse_filename(json_file.name)
+                key, type_, suffix = parse_filename(json_file.name)
             except ValueError:
                 _move_to_error(json_file, error_dir)
                 stats['error'] += 1
@@ -61,7 +63,7 @@ def process_input(base_dir: Path = BASE_DIR) -> dict:
                 continue
 
             b64 = compress_to_base64(content)
-            append_to_csv(output_csv, key, type_, b64)
+            append_to_csv(output_csv, run_id, key, type_, suffix, b64)
             _move_to_committed(json_file, committed_dir)
             stats['committed'] += 1
 

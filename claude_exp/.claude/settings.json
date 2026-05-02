@@ -1,0 +1,5 @@
+{
+  "env": {
+    "PATH": "/home/perni/containers/claude_exp/bin:/home/perni/claude-code-sync:/home/perni/.vscode-server/data/User/globalStorage/github.copilot-chat/debugCommand:/home/perni/.vscode-server/data/User/globalStorage/github.copilot-chat/copilotCli:/home/perni/.vscode-server/bin/10c8e557c8b9f9ed0a87f61f1c9a44bde731c409/bin/remote-cli:/home/perni/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/wsl/lib"
+  }
+}

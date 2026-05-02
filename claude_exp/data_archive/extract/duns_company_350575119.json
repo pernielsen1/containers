@@ -1,0 +1,23 @@
+{
+  "companies": [
+    {
+      "name": "\u00c1\u00e0\u00e8\u00f4\u00d1 \u00c5\u00e4\u00f6\u00e1\u00e0\u00e9\u00e8\u00d4\u00d1 AB",
+      "country": "SE",
+      "registrationNumber": "5562187129",
+      "dunsNumber": "350575119",
+      "active": true,
+      "headQuarter": true,
+      "address": {
+        "street": "V\u00e4gen 7",
+        "town": "G\u00e4vle",
+        "postalCode": "12345"
+      },
+      "legalForm": "LIMITED_COMPANY"
+    }
+  ],
+  "_paging": {
+    "resultCount": 1,
+    "limit": 20,
+    "offset": 0
+  }
+}

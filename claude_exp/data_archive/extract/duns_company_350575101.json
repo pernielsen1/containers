@@ -1,0 +1,23 @@
+{
+  "companies": [
+    {
+      "name": "Test Tourism bank",
+      "country": "SE",
+      "registrationNumber": "5563035798",
+      "dunsNumber": "350575101",
+      "active": true,
+      "headQuarter": true,
+      "address": {
+        "street": "V\u00e4gen 8",
+        "town": "Helsingborg",
+        "postalCode": "12345"
+      },
+      "legalForm": "LIMITED_COMPANY"
+    }
+  ],
+  "_paging": {
+    "resultCount": 1,
+    "limit": 20,
+    "offset": 0
+  }
+}

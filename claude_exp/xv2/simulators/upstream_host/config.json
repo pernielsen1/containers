@@ -1,0 +1,14 @@
+{
+  "command_port": 8083,
+  "router": {
+    "host": "localhost",
+    "port": 5000
+  },
+  "framing": {
+    "header_hex": "",
+    "length_field_type": "ASCII",
+    "length_field_bytes": 4
+  },
+  "iso_spec": "../../test_spec.json",
+  "input_dir": "input"
+}

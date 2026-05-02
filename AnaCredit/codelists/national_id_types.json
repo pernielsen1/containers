@@ -1,0 +1,275 @@
+{
+  "country_types": {
+    "AT": [
+      "AT_IDENT_CD",
+      "AT_FB_CD",
+      "AT_ZVR_CD",
+      "AT_GEM_CD",
+      "AT_LAE_CD",
+      "AT_NOTAP_CD"
+    ],
+    "BE": [
+      "BE_OND_CD"
+    ],
+    "BG": [
+      "BG_BULSTAT_CD",
+      "BG_UIC_CD",
+      "BG_VAT_CD"
+    ],
+    "CA": [
+      "CA_BN_CD",
+      "CA_REG_ID_CD"
+    ],
+    "CY": [
+      "CY_CBCID_CD",
+      "CY_DRCOR_CD",
+      "CY_GG_CD",
+      "CY_PF_CD",
+      "CY_IF_CD",
+      "CY_VAT_CD",
+      "CY_TIC_CD",
+      "CY_OTHER_CD"
+    ],
+    "CZ": [
+      "CZ_ICO_CD",
+      "CZ_NID_CD"
+    ],
+    "DE": [
+      "DE_TRD_RGSTR_CD",
+      "DE_VAT_CD",
+      "DE_TAX_CD",
+      "DE_PS_CD",
+      "DE_NOTAP_CD"
+    ],
+    "DK": [
+      "DK_CVR_CD",
+      "DK_FT_CD",
+      "DK_SE_CD",
+      "DK_NOTAP_CD"
+    ],
+    "EE": [
+      "EE_FON_CD",
+      "EE_RG_CD"
+    ],
+    "ES": [
+      "ES_NIF_CD"
+    ],
+    "FI": [
+      "FI_Y_CD",
+      "FI_ALV_CD",
+      "FI_SIRA_CD",
+      "FI_NOTAP_CD"
+    ],
+    "FR": [
+      "FR_CIB",
+      "FR_IF_CD",
+      "FR_RNA_CD",
+      "FR_SIREN_CD"
+    ],
+    "GB": [
+      "GB_CRN_CD",
+      "GB_FSR_CD",
+      "GB_VAT_CD",
+      "GB_CHRTY_CD",
+      "GB_UTR_CD"
+    ],
+    "GR": [
+      "GR_AFM_CD",
+      "GR_IMO_CD"
+    ],
+    "HR": [
+      "HR_OIB_CD",
+      "HR_MB_CD",
+      "HR_MBS_CD"
+    ],
+    "HU": [
+      "HU_CEG_CD",
+      "HU_FB_CD",
+      "HU_KOZ_CD",
+      "HU_TOR_CD"
+    ],
+    "IE": [
+      "IE_CRO_CD",
+      "IE_GOV_CD",
+      "IE_VAT_CD",
+      "IE_NOTAP_CD"
+    ],
+    "IT": [
+      "IT_CF_CD",
+      "IT_UCITS_CD",
+      "IT_CCIAA_CD"
+    ],
+    "LT": [
+      "LT_JAR_CD",
+      "LT_INV_CD"
+    ],
+    "LU": [
+      "LU_RCS_CD",
+      "LU_VAT_CD",
+      "LU_IF_CD",
+      "LU_NOTAP_CD"
+    ],
+    "LV": [
+      "LV_NBR_CD",
+      "LV_VAT_CD",
+      "LV_FON_CD"
+    ],
+    "MT": [
+      "MT_CNUM_CD",
+      "MT_VAT_CD",
+      "MT_OLE_CD"
+    ],
+    "MX": [
+      "MX_RFC_CD"
+    ],
+    "NL": [
+      "NL_KVK_CD",
+      "NL_RSIN_CD"
+    ],
+    "PL": [
+      "PL_REGON_CD",
+      "PL_KRS_CD",
+      "PL_NIP_CD",
+      "PL_VAT_CD"
+    ],
+    "PT": [
+      "PT_NIF_CD",
+      "PT_FSA_CD",
+      "PT_IF_CD",
+      "PT_ASF_CD"
+    ],
+    "RO": [
+      "RO_CUI_CD",
+      "RO_TAX_CD",
+      "RO_TRN_CD"
+    ],
+    "SE": [
+      "SE_ORG_CD",
+      "SE_FIN_CD",
+      "SE_MOM_CD",
+      "SE_NOTAP_CD"
+    ],
+    "SI": [
+      "SI_MAT_CD",
+      "SI_DAV_CD",
+      "SI_DDV_CD"
+    ],
+    "SK": [
+      "SK_ICO_CD",
+      "SK_IF_CD",
+      "SK_IBD_CD"
+    ],
+    "US": [
+      "US_CIK_CD",
+      "US_DSFN_CD",
+      "US_EIN_CD"
+    ]
+  },
+  "formats": {
+    "AT_IDENT_CD": "ATU\\d{8}",
+    "AT_FB_CD": "\\d{1,6}[A-Za-z]\\d{0,3}",
+    "AT_ZVR_CD": "\\d{1,10}",
+    "AT_GEM_CD": "\\d{5}",
+    "AT_LAE_CD": "\\d",
+    "BE_OND_CD": "[0,1]\\d{9}",
+    "BG_BULSTAT_CD": "\\d{13}|\\d{10}|\\d{9}",
+    "BG_UIC_CD": "\\d{13}|\\d{9}",
+    "BG_VAT_CD": "(BG)\\d{9,10}",
+    "CA_BN_CD": "\\d{9}",
+    "CA_REG_ID_CD": "\\d{7}|(BC\\d{7})",
+    "CY_CBCID_CD": "[A-Z]{2}\\d{1,8}",
+    "CY_DRCOR_CD": "(C|O|P)\\d{1,8}",
+    "CY_GG_CD": "(S13)\\d{8}",
+    "CY_PF_CD": "(PF)\\d{1,4}",
+    "CY_IF_CD": "(IF)\\d{4}",
+    "CY_VAT_CD": "(0|1|3|4|5|9)\\d{7}[A-Z]",
+    "CY_TIC_CD": "\\d{8}[A-Z]",
+    "CZ_ICO_CD": "\\d{8}",
+    "CZ_NID_CD": "\\d{10}|\\d{8}",
+    "DE_TRD_RGSTR_CD": "((HRA)|(G(n|N)R)|(HRB)|(PR)|(VR)|(G(s|S)R))[1-9]\\d{0,5}[A-Z]{0,5}-[A-Z]\\d{4}",
+    "DE_VAT_CD": "DE\\d{9}",
+    "DE_TAX_CD": "[1-9]\\d{3}0\\d{8}",
+    "DE_PS_CD": "\\d{14}|\\d{15}",
+    "DK_CVR_CD": "\\d{8}",
+    "DK_FT_CD": "[1-9]((\\d{2,4})|(\\d{4}-\\d{3}))",
+    "DK_SE_CD": "\\d{8}",
+    "EE_FON_CD": "\\d{1,4}",
+    "EE_RG_CD": "\\d{8}",
+    "ES_NIF_CD": "[A-Z0-9]{9}",
+    "FI_Y_CD": "\\d{7}-\\d{1}",
+    "FI_ALV_CD": "(FI)\\d{8}",
+    "FI_SIRA_CD": "\\d{8}(#)\\d{3}",
+    "FR_CIB": "\\d{5}",
+    "FR_IF_CD": "(FR)[A-Z0-9]{10}",
+    "FR_RNA_CD": "[A-Z]\\d{9}",
+    "FR_SIREN_CD": "\\d{9}",
+    "GB_CRN_CD": "(\\d{8})|(([A-EG-NP-Z][A-Z]|F[A-BD-Z]|O[A-DF-Z])\\d{6})|([R]\\d{7})|(IP\\d{5}R)",
+    "GB_FSR_CD": "\\d{6,7}",
+    "GB_VAT_CD": "(GB)\\d{9}|(GB)\\d{12}|(GBGD)\\d{3}|(GBHA)\\d{3}",
+    "GB_CHRTY_CD": "^[0-9]{6,7}$|^SC[0-9]{6}$",
+    "GB_UTR_CD": "\\d{10}|\\d{9}(K)",
+    "GR_AFM_CD": "\\d{9}",
+    "GR_IMO_CD": "\\d{7}",
+    "HR_OIB_CD": "\\d{11}",
+    "HR_MB_CD": "\\d{8}",
+    "HR_MBS_CD": "[0-1]\\d{8}",
+    "HU_CEG_CD": "\\d{2}(-)\\d{2}(-)\\d{6}",
+    "HU_FB_CD": "(FB)\\d{6}|(FB)\\d{3}[A-Z]\\d{2}",
+    "HU_KOZ_CD": "(HU)\\d{8}",
+    "HU_TOR_CD": "\\d{8}",
+    "IE_CRO_CD": "[1-9]\\d{1,6}",
+    "IE_GOV_CD": "(GV)\\d{4}|(LA)\\d{3}",
+    "IE_VAT_CD": "(IE)[A-Z0-9]{1,9}",
+    "IT_CF_CD": "\\d{11}",
+    "IT_UCITS_CD": "\\d{1,7}",
+    "IT_CCIAA_CD": "[A-Z]{2}\\d{7}",
+    "LT_JAR_CD": "\\d{9}",
+    "LT_INV_CD": "[A-Z]\\d{3}|(SF)\\d{3}|[A-Z]{3}-\\d{2}\\/\\d{2}|[A-Z]{3}-[A-Z]{4}",
+    "LU_RCS_CD": "[B-Z]\\d+",
+    "LU_VAT_CD": "\\d{8}",
+    "LU_IF_CD": "(LU)[OK](\\d{6}C\\d{5})|(LURCS)[BKL]\\d{7}(?!C00000)(C\\d{5})?",
+    "LV_NBR_CD": "\\d{11}",
+    "LV_VAT_CD": "(LV)\\d{11}",
+    "LV_FON_CD": "(LV)\\d{11}|(LVAF)\\d{3}(A|B|\\d{1})\\d{2}|(LVB)\\d{6}|(LVIF)\\d{3}(A|B|C|D|E|F|\\d{1})\\d{2}|(LVVF)\\d{6}",
+    "MT_VAT_CD": "\\d{8}",
+    "MX_RFC_CD": "[A-Z]{3}-\\d{6}-[A-Z0-9]{3}",
+    "NL_KVK_CD": "\\d{8}",
+    "NL_RSIN_CD": "\\d{9}",
+    "PL_REGON_CD": "\\d{14}|\\d{9}",
+    "PL_KRS_CD": "\\d+",
+    "PL_NIP_CD": "\\d{10}",
+    "PL_VAT_CD": "(PL)\\d{10}",
+    "PT_NIF_CD": "^[5-9]\\d{8}$",
+    "PT_FSA_CD": "\\d{1,6}",
+    "PT_IF_CD": "\\d{1,8}",
+    "PT_ASF_CD": "\\d{1,4}",
+    "RO_CUI_CD": "(RO)\\d{1,10}",
+    "RO_TAX_CD": "(RO)\\d{1,10}",
+    "RO_TRN_CD": "(J|F|C)\\d{2}\\/\\d{1,9}\\/\\d{4}|(J|F|C)\\d{13}",
+    "SE_ORG_CD": "\\d{2}[2-9]\\d{3}-?\\d{4}",
+    "SE_FIN_CD": "\\d{5}",
+    "SE_MOM_CD": "(SE)\\d{12}",
+    "SI_MAT_CD": "\\d{10}",
+    "SI_DAV_CD": "\\d{8}",
+    "SI_DDV_CD": "(SI)\\d{8}",
+    "SK_ICO_CD": "\\d{8}[a-z]{0,1}",
+    "SK_IF_CD": "(SK)\\d{8}[A-Z]{3}\\d{2}",
+    "SK_IBD_CD": "\\d{8}[A-Z]\\d{6}",
+    "US_CIK_CD": "\\d{10}",
+    "US_DSFN_CD": "\\d{5,8}",
+    "US_EIN_CD": "\\d{2}-\\d{7}"
+  },
+  "gen_codes": [
+    "GEN_IPF_CD",
+    "GEN_NBR_ENTTY_CD",
+    "GEN_NCB_ENTTY_CD",
+    "GEN_NOTAP_CD",
+    "GEN_NSA_ENTTY_CD",
+    "GEN_NSI_ENTTY_CD",
+    "GEN_OTHER_CD",
+    "GEN_PS_CD",
+    "GEN_TAX_CD",
+    "GEN_TRD_RGSTR_ENTTY_CD",
+    "GEN_VAT_CD"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "command_port": 8080,
+  "upstream": {
+    "port": 5000,
+    "framing": {
+      "header_hex": "",
+      "length_field_type": "ASCII",
+      "length_field_bytes": 4
+    }
+  },
+  "downstream": {
+    "host": "localhost",
+    "port": 5001,
+    "framing": {
+      "header_hex": "",
+      "length_field_type": "BIG_ENDIAN",
+      "length_field_bytes": 4
+    }
+  },
+  "crypto": {
+    "host": "localhost",
+    "port": 5002
+  },
+  "iso_spec": "../test_spec.json"
+}

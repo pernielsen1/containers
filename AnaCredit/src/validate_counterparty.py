@@ -49,6 +49,13 @@ VALID_ENTERPRISE_SIZES        = _load('enterprise_sizes.json')
 VALID_CP_ID_TYPES             = _load('cp_id_types.json')
 VALID_ACCOUNTING_STANDARDS    = _load('accounting_standards.json')
 REPORTING_MEMBER_STATES       = _load('reporting_member_states.json')
+VALID_LEGAL_FORMS             = _load('legal_forms.json')
+
+# National identifier types per country — loaded from national_id_types.json (ECB v3.5)
+_NAT_ID_TYPES_DATA = json.load(open(_CODELISTS_DIR / 'national_id_types.json', encoding='utf-8'))
+_COUNTRY_ALLOWED_ID_TYPES: dict = _NAT_ID_TYPES_DATA.get('country_types', {})
+_NAT_ID_FORMATS: dict            = _NAT_ID_TYPES_DATA.get('formats', {})
+_GEN_ID_CODES: set               = set(_NAT_ID_TYPES_DATA.get('gen_codes', []))
 
 # Non-applicable sentinel value
 NOT_APPL = 'NOT_APPL'
@@ -299,22 +306,51 @@ def validate_record(rec: dict, row_num: int) -> list[ValidationResult]:
             add(pv.rule, pv.message, 'ERROR', 'postal_code', postal_code)
 
     # -----------------------------------------------------------------------
+    # CY0011_TYPE / CY0011_FMT: type and format of national identifier
+    # Placed here so that the validated `country` value is available.
+    # -----------------------------------------------------------------------
+    nat_id      = rec.get('national_id', '').strip()
+    nat_id_type = rec.get('national_id_type', '').strip()
+
+    if is_present(nat_id) and not is_not_applicable(nat_id):
+        if not is_present(nat_id_type):
+            add('CY0011_TYPE',
+                'National identifier is present but type of national identifier '
+                'is missing. Both must be reported together.',
+                'ERROR', 'national_id_type', nat_id_type)
+        else:
+            is_generic     = nat_id_type in _GEN_ID_CODES
+            country_types  = _COUNTRY_ALLOWED_ID_TYPES.get(country, [])
+            if not is_generic and country_types and nat_id_type not in country_types:
+                allowed = ', '.join(country_types)
+                add('CY0011_TYPE',
+                    f'National identifier type "{nat_id_type}" is not valid for '
+                    f'country "{country}". Allowed types: {allowed}.',
+                    'ERROR', 'national_id_type', nat_id_type)
+            if nat_id_type in _NAT_ID_FORMATS:
+                pattern = _NAT_ID_FORMATS[nat_id_type]
+                try:
+                    if not re.fullmatch(pattern, nat_id):
+                        add('CY0011_FMT',
+                            f'National identifier "{nat_id}" does not match the '
+                            f'expected format for type "{nat_id_type}".',
+                            'ERROR', 'national_id', nat_id)
+                except re.error:
+                    pass  # malformed pattern in codelist — skip format check
+
+    # -----------------------------------------------------------------------
     # CY0120: Legal form - required (most conditions, especially CC0010)
     # Must be a valid code from the LGL_FRM codelist.
-    # We perform a format check here; a full codelist load can be enabled
-    # via --codelist flag (see load_codelists()).
     # -----------------------------------------------------------------------
     legal_form = rec.get('legal_form', '').strip()
     if not is_present(legal_form) and not is_not_applicable(legal_form):
         add('CY0120',
             'Legal form (Rechtsform) is mandatory for most counterparty types.',
             'ERROR', 'legal_form', legal_form)
-    elif is_present(legal_form) and _VALID_LEGAL_FORMS:
-        # Only validate against full codelist if it was loaded
-        if legal_form not in _VALID_LEGAL_FORMS and legal_form != NOT_APPL:
-            add('CY0120',
-                f'Legal form value "{legal_form}" is not a valid LGL_FRM code.',
-                'ERROR', 'legal_form', legal_form)
+    elif is_present(legal_form) and legal_form not in VALID_LEGAL_FORMS:
+        add('CY0120',
+            f'Legal form value "{legal_form}" is not a valid LGL_FRM code.',
+            'ERROR', 'legal_form', legal_form)
 
     # -----------------------------------------------------------------------
     # CY0130: Institutional sector - required (most conditions)
@@ -543,34 +579,6 @@ def validate_record(rec: dict, row_num: int) -> list[ValidationResult]:
 
 
 # ---------------------------------------------------------------------------
-# Codelist loader (optional - loads full LGL_FRM from Excel)
-# ---------------------------------------------------------------------------
-_VALID_LEGAL_FORMS: set = set()
-
-
-def load_codelists(excel_path: str):
-    """Load full legal form codelist from the AnaCredit codelist Excel."""
-    global _VALID_LEGAL_FORMS
-    try:
-        import openpyxl
-        wb = openpyxl.load_workbook(excel_path, read_only=True)
-        ws = wb['LGL_FRM']
-        rows = list(ws.iter_rows(values_only=True))
-        _VALID_LEGAL_FORMS = {
-            str(r[0]).strip()
-            for r in rows[1:]
-            if r[0] is not None
-            and str(r[0]).strip() not in ('', 'Zusätzlicher Wert')
-        }
-        # Also add NOT_APPL as a valid value
-        _VALID_LEGAL_FORMS.add('NOT_APPL')
-        print(f"Loaded {len(_VALID_LEGAL_FORMS)} legal form codes from {excel_path}")
-    except Exception as e:
-        print(f"Warning: Could not load codelists from {excel_path}: {e}",
-              file=sys.stderr)
-
-
-# ---------------------------------------------------------------------------
 # CSV reader
 # ---------------------------------------------------------------------------
 
@@ -690,6 +698,9 @@ Validation rules implemented:
   CY0010        LEI presence (WARNING if missing for EU resident counterparty)
   CY0010_FORMAT LEI format: must be 20 alphanumeric chars
   CY0011        National identifier: mandatory (ERROR -> record rejection)
+  CY0011_TYPE   National identifier type: must be valid for the counterparty's country
+                (generic codes such as GEN_TAX_CD are accepted for any country)
+  CY0011_FMT    National identifier: format must match the ECB regex for the type
   CY0030_DE     Head office identifier and type: must be paired
   CY0040_DE     Immediate parent identifier and type: must be paired
   CY0050_DE     Ultimate parent identifier and type: must be paired
@@ -698,7 +709,7 @@ Validation rules implemented:
   CY0080        City: mandatory
   CY0100        Postal code: mandatory
   CY0110        Country: mandatory, must be ISO 3166-1 alpha-2
-  CY0120        Legal form: mandatory, validated against LGL_FRM codelist
+  CY0120        Legal form: mandatory, validated against full LGL_FRM codelist
   CY0130        Institutional sector: mandatory, validated against INSTTTNL_SCTR
   CY0140_DE     Economic activity OR customer classification: at least one required
   CY0150        Status of legal proceedings: LGL_PRCDNG_STTS codelist check
@@ -726,10 +737,6 @@ def main():
                         help='Path to input CSV file (semicolon-delimited)')
     parser.add_argument('--output', '-o', metavar='FILE',
                         help='Save validation report as CSV to this path')
-    parser.add_argument('--codelist', metavar='EXCEL',
-                        help='Path to anacredit-codelist-*.xlsx for full '
-                             'legal form validation '
-                             '(default: auto-detect in docs/ folder)')
     parser.add_argument('--no-warnings', action='store_true',
                         help='Suppress WARNING findings, show only ERRORs')
     parser.add_argument('--summary', action='store_true',
@@ -740,23 +747,6 @@ def main():
     if args.input is None:
         parser.print_help()
         sys.exit(0)
-
-    # Locate codelist Excel (auto-detect if not specified)
-    codelist_path = args.codelist
-    if not codelist_path:
-        # Try to auto-detect relative to this script
-        script_dir = Path(__file__).parent
-        candidates = list((script_dir.parent / 'docs').glob(
-            'anacredit-codelist-*.xlsx'))
-        if candidates:
-            codelist_path = str(candidates[0])
-
-    if codelist_path:
-        load_codelists(codelist_path)
-    else:
-        print("Note: No codelist Excel found. Legal form codes will not be "
-              "validated against the full LGL_FRM list.",
-              file=sys.stderr)
 
     # Read input
     try:

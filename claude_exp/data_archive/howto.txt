@@ -5,36 +5,75 @@ PREREQUISITES
   pip install filelock
 
 DIRECTORY STRUCTURE
-  input/      Drop JSON files here before running
-  committed/  Files successfully archived (moved here after processing)
-  error/      Files that failed (moved here after processing)
-  output/     archive.csv — the resulting archive
+  input/              Drop JSON files here before running pass 1
+  committed/          Files successfully archived (moved here after pass 1)
+  error/              Files that failed validation (moved here after pass 1)
+  output/
+    pass1/
+      archive.csv     Compressed archive produced by pass 1
+    pass2/
+      extracted.csv   Flat field extraction produced by pass 2
+  to_be_extracted.csv Field extraction rules (edit to control pass 2 output)
 
 INPUT FILE NAMING
   Files must follow the pattern:  key_type_<anything>.json
-  Examples:  account_loan_20240101.json
-             entity_company_ts1234.json
-  key and type must not contain underscores.
+  Examples:  duns_company_350575093_20260412_195712.json
+             duns_company_350575093_20260419_080000.json
+  key and type must not contain underscores. Everything after the second
+  underscore is free-form (typically a dunsNumber, timestamp, or version).
 
-RUN
+VERSIONING
+  archive.csv is append-only. Running pass 1 multiple times with different
+  versions of the same entity (same key/type, different suffix) produces
+  multiple rows — all versions are kept. Pass 2 outputs one row per archive
+  entry, preserving all versions. Consumers choose which version to use.
+
+PASS 1 — Compress and archive
+  ./pass1.sh
   python3 run.py
 
-  Optionally pass a different base directory:
-  python3 run.py /path/to/base
-
+  Reads *.json from input/, compresses each to base64+gzip, appends to
+  output/pass1/archive.csv, then moves the file to committed/ or error/.
   Output: "Done: N committed, N errors, N skipped"
 
-EXTRACT A RECORD
-  python3 -m src.extractor <key> <type>
-  python3 -m src.extractor <key> <type> /path/to/archive.csv
+PASS 2 — Extract fields
+  ./pass2.sh
+  python3 fields.py
+
+  Reads output/pass1/archive.csv and to_be_extracted.csv, traverses each
+  JSON using the configured paths, and writes flat rows to
+  output/pass2/extracted.csv. One output row per archive entry.
+
+TO_BE_EXTRACTED.CSV FORMAT
+  Semicolon-separated, columns: key;type;path;output_col
+  key and type must match exactly (no wildcards).
+  path uses dot notation with array indexing:
+    companies[0].address.town
+  Missing paths produce an empty string in the output.
 
   Example:
-  python3 -m src.extractor account loan
+    duns;company;companies[0].dunsNumber;duns_number
+    duns;company;companies[0].address.town;town
 
-  Prints the original JSON to stdout. Exits with error if not found.
+EXTRACT A SINGLE RECORD
+  python3 extract.py <key> <type> [--version latest|all] [--csv path/to/archive.csv]
+
+  --version latest (default)
+    Writes one file to extract/ using the entry with the lexicographically
+    highest suffix. For a single entity with multiple versions (e.g.
+    350575093 vs 350575093._v1), this returns the most recent version.
+
+  --version all
+    Writes one file per matching entry to extract/, each named
+    key_type_suffix.json (or key_type.json if suffix is empty).
+
+  Examples:
+    python3 extract.py duns company
+    python3 extract.py duns company --version all
+    python3 extract.py duns company --csv /other/path/archive.csv
 
 RESILIENCE
-  The processor uses a file lock (output/archive.csv.lock) so concurrent
+  Pass 1 uses a file lock (output/pass1/archive.csv.lock) so concurrent
   runs do not corrupt the CSV. If a run crashes mid-write, the next run
   automatically truncates any partial last line before continuing.
 

@@ -1,0 +1,5 @@
+﻿key;type;duns_number;company_name;country;reg_number;active;is_headquarter;legal_form;street;town;postal_code
+duns;company;350575093;Test No 3 mining enterprise;SE;5562000116;True;True;LIMITED_COMPANY;Vägen 6;Umeå;12345
+duns;company;350575101;Test Tourism bank;SE;5563035798;True;True;LIMITED_COMPANY;Vägen 8;Helsingborg;12345
+duns;company;350575119;ÁàèôÑ ÅäöáàéèÔÑ AB;SE;5562187129;True;True;LIMITED_COMPANY;Vägen 7;Gävle;12345
+duns;company;354394793;Skuldman & Son, TEST AB;SE;5561234567;True;True;LIMITED_COMPANY;Rosenborgsgatan 4-6;Solna;16974

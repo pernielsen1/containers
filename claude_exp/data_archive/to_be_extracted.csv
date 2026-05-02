@@ -1,0 +1,11 @@
+key;type;path;output_col
+duns;company;companies[0].dunsNumber;duns_number
+duns;company;companies[0].name;company_name
+duns;company;companies[0].country;country
+duns;company;companies[0].registrationNumber;reg_number
+duns;company;companies[0].active;active
+duns;company;companies[0].headQuarter;is_headquarter
+duns;company;companies[0].legalForm;legal_form
+duns;company;companies[0].address.street;street
+duns;company;companies[0].address.town;town
+duns;company;companies[0].address.postalCode;postal_code

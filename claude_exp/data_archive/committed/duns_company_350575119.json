@@ -1,0 +1,23 @@
+{
+  "companies": [
+    {
+      "name": "ÁàèôÑ ÅäöáàéèÔÑ AB",
+      "country": "SE",
+      "registrationNumber": "5562187129",
+      "dunsNumber": "350575119",
+      "active": true,
+      "headQuarter": true,
+      "address": {
+        "street": "Vägen 7",
+        "town": "Gävle",
+        "postalCode": "12345"
+      },
+      "legalForm": "LIMITED_COMPANY"
+    }
+  ],
+  "_paging": {
+    "resultCount": 1,
+    "limit": 20,
+    "offset": 0
+  }
+}

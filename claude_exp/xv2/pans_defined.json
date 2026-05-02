@@ -1,0 +1,6 @@
+{
+  "4111111111111111": {"crypto_result": true},
+  "4222222222222222": {"crypto_result": false},
+  "5111111111111111": {"crypto_result": true},
+  "5222222222222222": {"crypto_result": true}
+}

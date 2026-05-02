@@ -3,6 +3,7 @@
   {"verbose": "Counterparty identifier",                           "internal": "cp_id"},
   {"verbose": "Legal entity identifier (LEI)",                     "internal": "lei"},
   {"verbose": "National identifier",                               "internal": "national_id"},
+  {"verbose": "Type of national identifier",                       "internal": "national_id_type"},
   {"verbose": "Other identifier",                                  "internal": "other_id"},
   {"verbose": "Type of head office undertaking identifier",        "internal": "head_office_id_type"},
   {"verbose": "Head office undertaking identifier",                "internal": "head_office_id"},

@@ -30,10 +30,10 @@ def ensure_csv_intact(csv_path: Path) -> None:
 def write_header_if_needed(csv_path: Path) -> None:
     if not csv_path.exists() or csv_path.stat().st_size == 0:
         with open(csv_path, 'w', encoding='utf-8-sig') as f:
-            f.write('key;type;base64_json\n')
+            f.write('run_id;key;type;suffix;base64_json\n')
 
 
-def append_to_csv(csv_path: Path, key: str, type_: str, b64: str) -> None:
+def append_to_csv(csv_path: Path, run_id: str, key: str, type_: str, suffix: str, b64: str) -> None:
     with open(csv_path, 'a', encoding='utf-8') as f:
-        f.write(f'{key};{type_};{b64}\n')
+        f.write(f'{run_id};{key};{type_};{suffix};{b64}\n')
         f.flush()

@@ -1,0 +1,15 @@
+do not code - let's plan first
+the anacredit counterparty validator has done some of the validations but not all 
+an example is that the validator should include validation of national identifier
+
+the official validation lists are here
+https://www.ecb.europa.eu/stats/ecb_statistics/anacredit/html/index.en.html
+
+National identifiers found here:
+https://www.ecb.europa.eu/stats/money/aggregates/anacredit/shared/pdf/List_of_national_identifiers.en.xlsx
+
+objective:
+validator has tests for national identifiers as described in the references
+the validator already has rules for postal code
+the validator should also have validation rules for "legal form"
+test data should reflect the national variations with full coverage in Europe, US, Canada, Mexico. Rest of world can be ignored

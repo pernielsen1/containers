@@ -9,7 +9,7 @@ from src.archiver import (
     append_to_csv,
 )
 
-HEADER = 'key;type;base64_json\n'
+HEADER = 'run_id;key;type;suffix;base64_json\n'
 
 
 def test_compress_decompress_roundtrip():
@@ -34,16 +34,16 @@ def test_compress_no_semicolons():
 
 def test_ensure_csv_intact_clean_file(tmp_path):
     csv = tmp_path / 'archive.csv'
-    csv.write_bytes(b'key;type;base64_json\nfoo;bar;abc\n')
+    csv.write_bytes(b'key;type;suffix;base64_json\nfoo;bar;s;abc\n')
     ensure_csv_intact(csv)
-    assert csv.read_bytes() == b'key;type;base64_json\nfoo;bar;abc\n'
+    assert csv.read_bytes() == b'key;type;suffix;base64_json\nfoo;bar;s;abc\n'
 
 
 def test_ensure_csv_intact_partial_line(tmp_path):
     csv = tmp_path / 'archive.csv'
-    csv.write_bytes(b'key;type;base64_json\nfoo;bar;abc\nbaz;qux;PARTIAL')
+    csv.write_bytes(b'key;type;suffix;base64_json\nfoo;bar;s;abc\nbaz;qux;s;PARTIAL')
     ensure_csv_intact(csv)
-    assert csv.read_bytes() == b'key;type;base64_json\nfoo;bar;abc\n'
+    assert csv.read_bytes() == b'key;type;suffix;base64_json\nfoo;bar;s;abc\n'
 
 
 def test_ensure_csv_intact_empty_file(tmp_path):
@@ -74,16 +74,24 @@ def test_write_header_no_op_if_exists(tmp_path):
 def test_append_to_csv(tmp_path):
     csv = tmp_path / 'archive.csv'
     write_header_if_needed(csv)
-    append_to_csv(csv, 'mykey', 'mytype', 'b64data')
+    append_to_csv(csv, 'run1', 'mykey', 'mytype', 'mysuffix', 'b64data')
     lines = csv.read_text(encoding='utf-8-sig').splitlines()
     assert lines[0] == HEADER.strip()
-    assert lines[1] == 'mykey;mytype;b64data'
+    assert lines[1] == 'run1;mykey;mytype;mysuffix;b64data'
+
+
+def test_append_to_csv_empty_suffix(tmp_path):
+    csv = tmp_path / 'archive.csv'
+    write_header_if_needed(csv)
+    append_to_csv(csv, 'run1', 'mykey', 'mytype', '', 'b64data')
+    lines = csv.read_text(encoding='utf-8-sig').splitlines()
+    assert lines[1] == 'run1;mykey;mytype;;b64data'
 
 
 def test_append_multiple_entries(tmp_path):
     csv = tmp_path / 'archive.csv'
     write_header_if_needed(csv)
     for i in range(5):
-        append_to_csv(csv, f'k{i}', f't{i}', f'b{i}')
+        append_to_csv(csv, 'run1', f'k{i}', f't{i}', f's{i}', f'b{i}')
     lines = csv.read_text(encoding='utf-8-sig').splitlines()
     assert len(lines) == 6  # header + 5 entries

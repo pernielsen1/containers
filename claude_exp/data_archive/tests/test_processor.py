@@ -8,7 +8,7 @@ import pytest
 from src.processor import process_input
 from src.archiver import decompress_from_base64
 
-HEADER = 'key;type;base64_json'
+HEADER = 'run_id;key;type;suffix;base64_json'
 
 
 def make_input(base: Path, name: str, content: str) -> Path:
@@ -20,7 +20,7 @@ def make_input(base: Path, name: str, content: str) -> Path:
 
 
 def csv_data_lines(base: Path) -> list[str]:
-    csv = base / 'output' / 'archive.csv'
+    csv = base / 'output' / 'pass1' / 'archive.csv'
     lines = csv.read_text(encoding='utf-8-sig').splitlines()
     assert lines[0] == HEADER
     return lines[1:]
@@ -42,9 +42,11 @@ def test_valid_file_csv_entry(tmp_path):
     process_input(tmp_path)
     lines = csv_data_lines(tmp_path)
     assert len(lines) == 1
-    key, type_, b64 = lines[0].split(';')
+    run_id, key, type_, suffix, b64 = lines[0].split(';')
+    assert run_id  # non-empty
     assert key == 'account'
     assert type_ == 'loan'
+    assert suffix == '001'
     assert decompress_from_base64(b64) == payload
 
 
@@ -81,6 +83,15 @@ def test_multiple_files_all_processed(tmp_path):
     assert stats['committed'] == 10
     lines = csv_data_lines(tmp_path)
     assert len(lines) == 10
+
+
+def test_run_id_same_across_all_rows_in_one_run(tmp_path):
+    for i in range(5):
+        make_input(tmp_path, f'k_t_{i:04d}.json', f'{{"i": {i}}}')
+    process_input(tmp_path)
+    lines = csv_data_lines(tmp_path)
+    run_ids = [line.split(';')[0] for line in lines]
+    assert len(set(run_ids)) == 1  # all rows share the same run_id
 
 
 def test_mixed_valid_and_invalid(tmp_path):
@@ -121,7 +132,7 @@ def test_partial_line_recovered_on_next_run(tmp_path):
     process_input(tmp_path)
 
     # Simulate crash: append partial line to CSV
-    csv = tmp_path / 'output' / 'archive.csv'
+    csv = tmp_path / 'output' / 'pass1' / 'archive.csv'
     with open(csv, 'ab') as f:
         f.write(b'incomplete;entry;NO_NEWLINE')
 
@@ -138,7 +149,7 @@ def test_all_lines_end_with_newline(tmp_path):
     for i in range(20):
         make_input(tmp_path, f'k_t_{i:04d}.json', f'{{"n": {i}}}')
     process_input(tmp_path)
-    csv = tmp_path / 'output' / 'archive.csv'
+    csv = tmp_path / 'output' / 'pass1' / 'archive.csv'
     raw = csv.read_bytes()
     assert raw.endswith(b'\n'), "CSV must end with newline"
     # Every line must be complete
@@ -162,7 +173,7 @@ def test_large_volume_csv_integrity(tmp_path):
     stats = process_input(tmp_path)
     assert stats['committed'] == n
 
-    csv = tmp_path / 'output' / 'archive.csv'
+    csv = tmp_path / 'output' / 'pass1' / 'archive.csv'
     raw = csv.read_bytes()
     assert raw.endswith(b'\n')
 
@@ -172,7 +183,8 @@ def test_large_volume_csv_integrity(tmp_path):
 
     # Spot-check 10 entries for round-trip correctness
     for line in lines[1:11]:
-        key, type_, b64 = line.split(';')
+        run_id, key, type_, suffix, b64 = line.split(';')
+        assert run_id
         assert key == 'entity'
         assert type_ == 'record'
         recovered = json.loads(decompress_from_base64(b64))

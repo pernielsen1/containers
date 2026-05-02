@@ -1,0 +1,185 @@
+Conversation: xv2 Architecture Planning
+Date: 2026-05-02
+Participants: User, Claude (claude-sonnet-4-6)
+
+================================================================================
+
+USER: the open file contains the brief - may have inconsistencies - read, plan and
+ask questions before we go into coding mode
+
+CLAUDE: [Read brief.md]
+
+Inconsistencies spotted:
+1. 0110 source: Brief says "0110 received from upstream_host" — should be
+   downstream_host based on the flow.
+2. validate_0119 vs validate_0110: crypto endpoint named validate_0119 but
+   response message type is 0110. ISO 8583 0119 is a reversal advice confirm.
+3. EBCDUC typo: should be EBCDIC.
+4. Field 47 key mismatch: crypto_host returns key "crypto_result" but
+   downstream_host checks for key "c".
+
+Clarifying questions:
+A. validate_0119 vs validate_0110 — intentional or typo?
+B. Field 47 "c" vs "crypto_result" — deliberate shorthand or typo?
+C. Downstream message protocol — what framing does router use to connect to
+   downstream_host?
+D. ASCII framing — does "ASCII length field" match TCP_framing_FFFF_nnnn
+   (0xFFFFFFFF marker + 4 ASCII digits), or plain N-byte ASCII number?
+E. Confirm 0110 source is downstream_host (typo)?
+
+--------------------------------------------------------------------------------
+
+USER: valid inconsistencies - a lot may be solved by invoking the iso8583 skills
+which should be in the skills folder
+
+CLAUDE: [Read /home/perni/.claude/skills/iso8583.md]
+[Read xv2 directory — only brief.md exists, greenfield project]
+
+Resolved by iso8583 skill:
+- EBCDUC → EBCDIC confirmed (cp500 encoding)
+- Library: pyiso8583 (import iso8583) — already available
+- Field specs: reuse test_spec.json / mc_spec.json from auth_test/
+- ASCII length framing: existing TCP_framing_FFFF_nnnn uses 0xFFFFFFFF marker +
+  4 ASCII digit length — needs confirmation
+- Message correlation: existing code uses field 63; ISO standard uses STAN
+  field 11 — which should router use?
+
+Still open (A–E as above, plus):
+- Downstream framing
+- asyncio vs threading
+- ISO spec file (reuse or new?)
+- CSV upload: immediate send or queue until /start command?
+
+--------------------------------------------------------------------------------
+
+USER: A: typo error should be 0110
+      B: Typo should be crypto_result
+      C: ASCII means the length field is ascii encoded i.e. a length of 42 bytes
+         would be written in 4 bytes as X'30303042'
+      D: see answer for C
+      E: Correct typo — should be from downstream_host
+
+--------------------------------------------------------------------------------
+
+CLAUDE: Architecture Plan presented:
+
+File structure:
+  xv2/
+  ├── shared/
+  │   ├── framing.py          async read/write: header + length field + data
+  │   ├── stats.py            rolling-window counters (30/60/180/1800s)
+  │   ├── command_server.py   HTTP command server (/stop, /stats)
+  │   └── iso_utils.py        field 47 JSON encode/decode, spec loading
+  ├── router/
+  │   ├── config.json
+  │   └── main.py
+  ├── downstream_host/
+  │   ├── config.json
+  │   └── main.py
+  ├── crypto_host/
+  │   ├── config.json
+  │   └── main.py
+  ├── upstream_host/
+  │   ├── config.json
+  │   └── main.py
+  └── pans_defined.json
+
+Message flow (router):
+  upstream_host --0100--> router --POST /validate_0100--> crypto_host
+                                 <--{crypto_result in f47}--
+                          router --0100 (f47 updated)--> downstream_host
+                          router <--0110-- downstream_host
+                          router --POST /validate_0110--> crypto_host
+                                 <--{crypto_result in f47}--
+  upstream_host <--0110-- router (f47 enhanced)
+
+Correlation: STAN (field 11) as key in pending-requests dict.
+
+Build order (tests-first):
+  1. shared/framing.py + tests
+  2. shared/stats.py + tests
+  3. shared/command_server.py + tests
+  4. crypto_host
+  5. downstream_host
+  6. upstream_host
+  7. router
+
+Remaining questions:
+  1. Downstream framing?
+  2. asyncio vs threading?
+  3. ISO spec file — reuse test_spec.json?
+  4. CSV upload: immediate or queue until /start?
+
+--------------------------------------------------------------------------------
+
+USER: 1: go BIG_ENDIAN
+      2: Let's discuss
+      3: Please reuse
+      4: Nice touch - implement upload and start
+
+--------------------------------------------------------------------------------
+
+CLAUDE: Concurrency discussion:
+
+Option A — asyncio:
+  - Non-blocking crypto calls expressed naturally with await
+  - No locks needed on shared state (single event loop)
+  - Command server runs as coroutine in same loop via aiohttp
+  - Downside: async/await is infectious; everything must be async
+
+Option B — threading (matches auth_test style):
+  - One thread per upstream connection
+  - Flask handles command server in daemon thread
+  - pyiso8583 is synchronous — fits without wrappers
+  - Need threading.Lock on pending dict and stats counters
+  - Downside: explicit locking everywhere shared state is touched
+
+Recommendation: asyncio — the router's core constraint ("don't block upstream
+while waiting for crypto") writes itself naturally with await.
+
+--------------------------------------------------------------------------------
+
+USER: OK add into the discussion that we are currently working in python - what
+happens to your recommendation if I ask you to port this application to c++?
+
+CLAUDE: Portability analysis:
+
+asyncio → C++:
+  asyncio's async/await is Python-specific syntax. C++ equivalent (C++20
+  coroutines or Boost.Asio coroutines) has completely different syntax and
+  semantics — would require a conceptual rewrite, not a port. Code doesn't
+  serve as a useful blueprint.
+
+threading → C++:
+  Maps almost 1:1:
+    threading.Thread        →  std::thread
+    threading.Lock          →  std::mutex
+    blocking socket read    →  recv()
+    queue.Queue             →  std::queue + std::condition_variable
+
+  A Python threading implementation is essentially executable pseudocode
+  for the C++ version.
+
+REVISED RECOMMENDATION: Threading.
+  If a C++ port is a realistic future (even a maybe), the threading model gives
+  a working Python reference implementation that doubles as a design document
+  for C++. asyncio gives nothing portable. The cost — explicit locks on the
+  pending-requests dict and stats counters — is manageable and good practice
+  for the C++ version anyway.
+
+================================================================================
+END OF CONVERSATION
+================================================================================
+
+Decisions recorded:
+- Framing library: generic header + length_field (BIG_ENDIAN/LITTLE_ENDIAN/ASCII/EBCDIC) + data
+- Downstream framing: BIG_ENDIAN 4-byte length field
+- Upstream framing: ASCII 4-byte length field (e.g. 42 bytes → X'30303042')
+- Concurrency model: threading (portability to C++ is a factor)
+- ISO spec: reuse test_spec.json from auth_test/ (ASCII encoding)
+- Field 47: JSON string container; key is "crypto_result"
+- Crypto endpoints: /validate_0100 and /validate_0110
+- CSV upload: upload command queues file; separate /start command triggers sending
+- Correlation key: STAN (field 11)
+- Stats windows: 30, 60, 180, 1800 seconds
+- pans_defined.json: shared file at xv2 root, path in each actor's config.json

@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 BASE_DIR = Path(__file__).parent
-SRC = BASE_DIR / 'output' / 'archive.csv'
+SRC = BASE_DIR / 'output' / 'pass1' / 'archive.csv'
 BACKUP_DIR = BASE_DIR / 'backups'
 
 
