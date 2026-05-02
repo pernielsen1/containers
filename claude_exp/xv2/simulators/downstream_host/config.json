@@ -1,4 +1,5 @@
 {
+  "log_level": "INFO",
   "port": 5001,
   "command_port": 8081,
   "framing": {

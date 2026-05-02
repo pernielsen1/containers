@@ -1,4 +1,5 @@
 import json
+import logging
 
 
 def load_spec(path):
@@ -8,6 +9,11 @@ def load_spec(path):
 
 def f47_encode(data):
     return json.dumps(data, separators=(",", ":"))
+
+
+def hex_dump(label, data, logger):
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug("%s [%d bytes] %s", label, len(data), data.hex(" "))
 
 
 def f47_decode(value):

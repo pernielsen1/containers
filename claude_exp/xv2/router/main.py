@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from shared.framing import read_message, write_message
 from shared.stats import Stats
 from shared.command_server import CommandServer
-from shared.iso_utils import load_spec, f47_decode, f47_encode
+from shared.iso_utils import load_spec, f47_decode, f47_encode, hex_dump
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,6 +55,7 @@ def _handle_upstream(up_conn, up_addr, ds_conn, ds_framing, up_framing,
                 return
 
             stats.record_recv()
+            hex_dump(f"RECV upstream {up_addr}", data, log)
             try:
                 req, _ = iso8583.decode(data, spec=spec)
             except Exception as e:
@@ -104,6 +105,7 @@ def _downstream_receiver(ds_conn, ds_framing, up_framing, spec,
             return
 
         stats.record_recv()
+        hex_dump("RECV downstream", data, log)
         try:
             resp, _ = iso8583.decode(data, spec=spec)
         except Exception as e:
@@ -159,6 +161,10 @@ def run(cfg=None, stop_event=None, stats=None):
         stop_event = threading.Event()
     if stats is None:
         stats = Stats()
+
+    logging.getLogger().setLevel(
+        getattr(logging, cfg.get("log_level", "INFO").upper(), logging.INFO)
+    )
 
     base = os.path.dirname(os.path.abspath(__file__))
     spec = load_spec(os.path.join(base, cfg["iso_spec"]))

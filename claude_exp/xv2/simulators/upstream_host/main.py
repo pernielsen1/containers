@@ -17,7 +17,7 @@ from flask import Flask, jsonify, request as flask_request
 from shared.framing import read_message, write_message
 from shared.stats import Stats
 from shared.command_server import CommandServer
-from shared.iso_utils import load_spec
+from shared.iso_utils import load_spec, hex_dump
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,6 +40,10 @@ def run(cfg=None, stop_event=None, stats=None):
         stop_event = threading.Event()
     if stats is None:
         stats = Stats()
+
+    logging.getLogger().setLevel(
+        getattr(logging, cfg.get("log_level", "INFO").upper(), logging.INFO)
+    )
 
     base = os.path.dirname(os.path.abspath(__file__))
     spec = load_spec(os.path.join(base, cfg["iso_spec"]))
@@ -81,6 +85,7 @@ def run(cfg=None, stop_event=None, stats=None):
                 log.info("upstream_host: router disconnected")
                 return
             stats.record_recv()
+            hex_dump("RECV router", data, log)
             try:
                 resp, _ = iso8583.decode(data, spec=spec)
             except Exception as e:

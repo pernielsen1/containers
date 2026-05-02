@@ -50,6 +50,10 @@ def run(cfg=None, stop_event=None, stats=None):
     if stats is None:
         stats = Stats()
 
+    logging.getLogger().setLevel(
+        getattr(logging, cfg.get("log_level", "INFO").upper(), logging.INFO)
+    )
+
     pans = load_pans(cfg)
     app = Flask(__name__)
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
