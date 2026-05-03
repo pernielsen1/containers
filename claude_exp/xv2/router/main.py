@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+import queue
 import socket
 import threading
 
@@ -14,6 +15,7 @@ from shared.framing import read_message, write_message
 from shared.stats import Stats
 from shared.command_server import CommandServer
 from shared.iso_utils import load_spec, f47_decode, f47_encode, hex_dump
+from shared import ims_connect
 
 logging.basicConfig(
     level=logging.INFO,
@@ -43,8 +45,54 @@ def _crypto_call(endpoint, crypto_cfg, pan, f47_str):
         return f47_str
 
 
-def _handle_upstream(up_conn, up_addr, ds_conn, ds_framing, up_framing,
-                     spec, crypto_cfg, pending, pending_lock, stats):
+def _process_request(req, up_conn, up_addr, to_sock, ims_cfg, spec,
+                     crypto_cfg, pending, pending_lock, ds_write_lock, stats):
+    pan = req.get("2", "")
+    upstream_stan = req.get("11", "")
+    router_stan = _next_stan()
+
+    f47 = _crypto_call("validate_0100", crypto_cfg, pan, req.get("47", ""))
+
+    fwd = dict(req)
+    fwd["11"] = router_stan
+    if f47:
+        fwd["47"] = f47
+
+    with pending_lock:
+        pending[router_stan] = {"up_conn": up_conn, "upstream_stan": upstream_stan}
+
+    try:
+        encoded, _ = iso8583.encode(fwd, spec=spec)
+        frame = ims_connect.build_frame(
+            0x00, ims_cfg["irm_id"], ims_cfg["client_id"], fwd["t"], encoded
+        )
+        with ds_write_lock:
+            to_sock.sendall(frame)
+        stats.record_sent()
+        log.debug("router: forwarded 0100 STAN %s→%s pan=%s", upstream_stan, router_stan, pan)
+    except Exception as e:
+        log.warning("router: downstream send error: %s", e)
+        with pending_lock:
+            pending.pop(router_stan, None)
+
+
+def _worker(work_queue, to_sock, ims_cfg, spec, crypto_cfg,
+            pending, pending_lock, ds_write_lock, stats):
+    while True:
+        item = work_queue.get()
+        if item is None:
+            break
+        req, up_conn, up_addr = item
+        try:
+            _process_request(req, up_conn, up_addr, to_sock, ims_cfg, spec,
+                             crypto_cfg, pending, pending_lock, ds_write_lock, stats)
+        except Exception as e:
+            log.warning("router: worker error for %s: %s", up_addr, e)
+        finally:
+            work_queue.task_done()
+
+
+def _handle_upstream(up_conn, up_addr, up_framing, spec, work_queue, stats):
     log.info("router: upstream connected %s", up_addr)
     try:
         while True:
@@ -66,40 +114,17 @@ def _handle_upstream(up_conn, up_addr, ds_conn, ds_framing, up_framing,
                 log.warning("router: unexpected MTI %s from %s", req.get("t"), up_addr)
                 continue
 
-            pan = req.get("2", "")
-            upstream_stan = req.get("11", "")
-            router_stan = _next_stan()
-
-            # call crypto synchronously in this thread (non-blocking across connections)
-            f47 = _crypto_call("validate_0100", crypto_cfg, pan, req.get("47", ""))
-
-            fwd = dict(req)
-            fwd["11"] = router_stan
-            if f47:
-                fwd["47"] = f47
-
-            with pending_lock:
-                pending[router_stan] = {"up_conn": up_conn, "upstream_stan": upstream_stan}
-
-            try:
-                encoded, _ = iso8583.encode(fwd, spec=spec)
-                write_message(ds_conn, encoded, ds_framing)
-                stats.record_sent()
-                log.debug("router: forwarded 0100 STAN %s→%s pan=%s", upstream_stan, router_stan, pan)
-            except Exception as e:
-                log.warning("router: downstream send error: %s", e)
-                with pending_lock:
-                    pending.pop(router_stan, None)
+            work_queue.put((req, up_conn, up_addr))
     finally:
         up_conn.close()
 
 
-def _downstream_receiver(ds_conn, ds_framing, up_framing, spec,
+def _downstream_receiver(from_sock, up_framing, spec,
                          crypto_cfg, pending, pending_lock, stats):
     log.info("router: downstream receiver started")
     while True:
         try:
-            data = read_message(ds_conn, ds_framing)
+            data = ims_connect.read_response(from_sock)
         except ConnectionError:
             log.info("router: downstream disconnected")
             return
@@ -136,16 +161,28 @@ def _downstream_receiver(ds_conn, ds_framing, up_framing, spec,
             encoded, _ = iso8583.encode(fwd, spec=spec)
             write_message(entry["up_conn"], encoded, up_framing)
             stats.record_sent()
-            log.debug("router: forwarded 0110 STAN %s→%s rc=%s", router_stan, entry["upstream_stan"], resp.get("39"))
+            log.debug("router: forwarded 0110 STAN %s→%s rc=%s",
+                      router_stan, entry["upstream_stan"], resp.get("39"))
         except Exception as e:
             log.warning("router: upstream reply error: %s", e)
 
 
-def _connect_downstream(ds_cfg):
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((ds_cfg["host"], ds_cfg["port"]))
-    log.info("router: connected to downstream %s:%d", ds_cfg["host"], ds_cfg["port"])
-    return s
+def _connect_downstream_ims(ds_cfg, ims_cfg):
+    host = ds_cfg["host"]
+
+    to_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    to_sock.connect((host, ds_cfg["to_downstream_port"]))
+    log.info("router: connected to downstream to_port=%d", ds_cfg["to_downstream_port"])
+
+    from_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    from_sock.connect((host, ds_cfg["from_downstream_port"]))
+    log.info("router: connected to downstream from_port=%d", ds_cfg["from_downstream_port"])
+
+    resume = ims_connect.build_frame(0x80, ims_cfg["irm_id"], ims_cfg["client_id"])
+    from_sock.sendall(resume)
+    log.info("router: sent resume TPIPE")
+
+    return to_sock, from_sock
 
 
 def load_config():
@@ -170,19 +207,36 @@ def run(cfg=None, stop_event=None, stats=None):
     spec = load_spec(os.path.join(base, cfg["iso_spec"]))
 
     up_framing = cfg["upstream"]["framing"]
-    ds_framing = cfg["downstream"]["framing"]
     crypto_cfg = cfg["crypto"]
+
+    ims_cfg = {
+        "irm_id":    ims_connect.to_ebcdic(cfg["downstream"]["irm_id"], 8),
+        "client_id": ims_connect.to_ebcdic(cfg["downstream"]["client_id"], 8),
+    }
 
     pending = {}
     pending_lock = threading.Lock()
+    ds_write_lock = threading.Lock()
+    work_queue = queue.Queue()
 
-    ds_conn = _connect_downstream(cfg["downstream"])
+    to_sock, from_sock = _connect_downstream_ims(cfg["downstream"], ims_cfg)
     threading.Thread(
         target=_downstream_receiver,
-        args=(ds_conn, ds_framing, up_framing, spec, crypto_cfg, pending, pending_lock, stats),
+        args=(from_sock, up_framing, spec, crypto_cfg, pending, pending_lock, stats),
         name="ds-receiver",
         daemon=True,
     ).start()
+
+    n_workers = cfg.get("worker_threads", 8)
+    for i in range(n_workers):
+        threading.Thread(
+            target=_worker,
+            args=(work_queue, to_sock, ims_cfg, spec, crypto_cfg,
+                  pending, pending_lock, ds_write_lock, stats),
+            name=f"worker-{i}",
+            daemon=True,
+        ).start()
+    log.info("router: started %d worker threads", n_workers)
 
     cmd = CommandServer(cfg["command_port"], stats, stop_event)
     cmd.start()
@@ -202,14 +256,16 @@ def run(cfg=None, stop_event=None, stats=None):
                 continue
             threading.Thread(
                 target=_handle_upstream,
-                args=(up_conn, up_addr, ds_conn, ds_framing, up_framing,
-                      spec, crypto_cfg, pending, pending_lock, stats),
+                args=(up_conn, up_addr, up_framing, spec, work_queue, stats),
                 name=f"up-{up_addr}",
                 daemon=True,
             ).start()
     finally:
+        for _ in range(n_workers):
+            work_queue.put(None)
         srv_sock.close()
-        ds_conn.close()
+        to_sock.close()
+        from_sock.close()
         log.info("router stopped")
 
 

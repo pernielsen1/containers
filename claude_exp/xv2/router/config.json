@@ -1,5 +1,5 @@
 {
-  "log_level": "INFO",
+  "log_level": "DEBUG",
   "command_port": 8080,
   "upstream": {
     "port": 5000,
@@ -11,16 +11,15 @@
   },
   "downstream": {
     "host": "localhost",
-    "port": 5001,
-    "framing": {
-      "header_hex": "",
-      "length_field_type": "BIG_ENDIAN",
-      "length_field_bytes": 4
-    }
+    "to_downstream_port": 5001,
+    "from_downstream_port": 5003,
+    "irm_id": "IRM_ID01",
+    "client_id": "CLIENT01"
   },
   "crypto": {
     "host": "localhost",
     "port": 5002
   },
-  "iso_spec": "../test_spec.json"
+  "iso_spec": "../test_spec.json",
+  "worker_threads": 8
 }

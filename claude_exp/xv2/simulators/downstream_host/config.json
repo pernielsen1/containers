@@ -1,12 +1,8 @@
 {
   "log_level": "INFO",
-  "port": 5001,
+  "to_downstream_port": 5001,
+  "from_downstream_port": 5003,
   "command_port": 8081,
-  "framing": {
-    "header_hex": "",
-    "length_field_type": "BIG_ENDIAN",
-    "length_field_bytes": 4
-  },
   "iso_spec": "../../test_spec.json",
   "pans_defined": "../../pans_defined.json"
 }
