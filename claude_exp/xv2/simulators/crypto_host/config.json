@@ -1,6 +1,7 @@
 {
-  "log_level": "INFO",
+  "log_level": "DEBUG",
   "port": 5002,
   "command_port": 8082,
-  "pans_defined": "../../pans_defined.json"
+  "pans_defined": "../../pans_defined.json",
+  "iso_spec": "../../test_spec.json"
 }

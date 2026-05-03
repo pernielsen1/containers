@@ -1,11 +1,21 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-usage() { echo "Usage: $0 <csv_file>" >&2; exit 1; }
-[[ $# -lt 1 ]] && usage
+usage() { echo "Usage: $0 [--manual] <csv_file>" >&2; exit 1; }
 
-CSV_FILE="$(realpath "$1")"
-[[ -f "$CSV_FILE" ]] || { echo "Error: file not found: $1" >&2; exit 1; }
+MANUAL=0
+ARGS=()
+for arg in "$@"; do
+    if [[ "$arg" == "--manual" ]]; then
+        MANUAL=1
+    else
+        ARGS+=("$arg")
+    fi
+done
+
+[[ ${#ARGS[@]} -lt 1 ]] && usage
+CSV_FILE="$(realpath "${ARGS[0]}")"
+[[ -f "$CSV_FILE" ]] || { echo "Error: file not found: ${ARGS[0]}" >&2; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -17,6 +27,9 @@ US_CMD=8083
 PIDS=()
 
 cleanup() {
+    if [[ $MANUAL -eq 1 ]]; then
+        return
+    fi
     echo ""
     echo "Stopping actors..."
     curl -sf -X POST "http://localhost:$US_CMD/stop"     >/dev/null 2>&1 || true
@@ -43,18 +56,22 @@ wait_for() {
 
 cd "$SCRIPT_DIR"
 
-echo "=== Starting actors ==="
-python3 simulators/crypto_host/main.py    &  PIDS+=($!)
-wait_for "http://localhost:$CRYPTO_CMD/stats" "crypto_host"
+if [[ $MANUAL -eq 0 ]]; then
+    echo "=== Starting actors ==="
+    python3 simulators/crypto_host/main.py    &  PIDS+=($!)
+    wait_for "http://localhost:$CRYPTO_CMD/stats" "crypto_host"
 
-python3 simulators/downstream_host/main.py & PIDS+=($!)
-wait_for "http://localhost:$DS_CMD/stats" "downstream_host"
+    python3 simulators/downstream_host/main.py & PIDS+=($!)
+    wait_for "http://localhost:$DS_CMD/stats" "downstream_host"
 
-python3 router/main.py                     & PIDS+=($!)
-wait_for "http://localhost:$ROUTER_CMD/stats" "router"
+    python3 router/main.py                     & PIDS+=($!)
+    wait_for "http://localhost:$ROUTER_CMD/stats" "router"
 
-python3 simulators/upstream_host/main.py   & PIDS+=($!)
-wait_for "http://localhost:$US_CMD/stats" "upstream_host"
+    python3 simulators/upstream_host/main.py   & PIDS+=($!)
+    wait_for "http://localhost:$US_CMD/stats" "upstream_host"
+else
+    echo "=== Manual mode: using already-running actors ==="
+fi
 
 echo ""
 echo "=== Uploading CSV: $(basename "$CSV_FILE") ==="

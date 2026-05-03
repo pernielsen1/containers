@@ -11,3 +11,13 @@ propose another solution pattern
 
 round three:
 looks good - let no of workers be configurable 
+
+after ims_connect:
+running run_text_manually.sh with parameter test_one.csv I get nothing happening and end up with an error. 
+all servers are up and running at this point (started manually)
+what is wrong 
+
+## minor patch
+all actors should have an entry in config.json stating iso8583 spec to use - initial value is test_spec.json
+
+

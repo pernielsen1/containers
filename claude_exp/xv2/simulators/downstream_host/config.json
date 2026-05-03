@@ -1,5 +1,5 @@
 {
-  "log_level": "INFO",
+  "log_level": "DEBUG",
   "to_downstream_port": 5001,
   "from_downstream_port": 5003,
   "command_port": 8081,

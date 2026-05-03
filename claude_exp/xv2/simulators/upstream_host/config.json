@@ -1,5 +1,5 @@
 {
-  "log_level": "INFO",
+  "log_level": "DEBUG",
   "command_port": 8083,
   "router": {
     "host": "localhost",

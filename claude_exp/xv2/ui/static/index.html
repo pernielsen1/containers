@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Router Control</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #0f1117; color: #d1d5db; min-height: 100vh; font-size: 14px; }
+
+/* header */
+header { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px;
+         background: #161b27; border-bottom: 1px solid #21283a; gap: 12px; flex-wrap: wrap; }
+header h1 { font-size: 1rem; font-weight: 600; color: #f3f4f6; letter-spacing: .02em; }
+.hdr-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#start-msg { font-size: .8rem; color: #60a5fa; }
+
+/* buttons */
+.btn { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; border: none;
+       border-radius: 6px; cursor: pointer; font-size: .82rem; font-weight: 500;
+       transition: filter .15s; white-space: nowrap; }
+.btn:hover:not(:disabled) { filter: brightness(1.15); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-green  { background: #166534; color: #bbf7d0; }
+.btn-red    { background: #7f1d1d; color: #fecaca; }
+.btn-blue   { background: #1e3a5f; color: #bfdbfe; }
+.btn-amber  { background: #78350f; color: #fde68a; }
+.btn-sm     { padding: 4px 10px; font-size: .76rem; }
+
+/* actor grid */
+.actors { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+          gap: 14px; padding: 20px 24px 8px; }
+.card { background: #161b27; border: 1px solid #21283a; border-radius: 10px; padding: 14px; }
+.card-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: #374151; flex-shrink: 0;
+       transition: background .3s, box-shadow .3s; }
+.dot.up   { background: #22c55e; box-shadow: 0 0 7px #22c55e99; }
+.dot.down { background: #ef4444; box-shadow: none; }
+.card-name { font-size: .88rem; font-weight: 600; color: #f3f4f6; }
+.stat-grid { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px;
+             font-size: .78rem; margin-bottom: 12px; }
+.sl { color: #6b7280; }
+.sv { text-align: right; font-variant-numeric: tabular-nums; color: #d1d5db; }
+.card-foot { display: flex; justify-content: flex-end; }
+
+/* runner panel */
+.runner { margin: 8px 24px 24px; background: #161b27; border: 1px solid #21283a;
+          border-radius: 10px; padding: 18px; }
+.runner h2 { font-size: .9rem; font-weight: 600; color: #93c5fd; margin-bottom: 14px; }
+.runner-ctrl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.file-btn { display: inline-flex; align-items: center; gap: 5px; padding: 7px 12px;
+            background: #1e3a5f; color: #bfdbfe; border-radius: 6px; cursor: pointer;
+            font-size: .82rem; font-weight: 500; transition: filter .15s; }
+.file-btn:hover { filter: brightness(1.15); }
+#file-name { font-size: .78rem; color: #6b7280; }
+input[type=file] { display: none; }
+select { background: #1e293b; color: #d1d5db; border: 1px solid #374151; border-radius: 6px;
+         padding: 7px 10px; font-size: .82rem; cursor: pointer; min-width: 200px; }
+select:focus { outline: 2px solid #3b82f6; outline-offset: 1px; }
+.or-sep { font-size: .75rem; color: #4b5563; padding: 0 2px; }
+.toggle { display: flex; align-items: center; gap: 6px; margin-left: auto;
+          font-size: .82rem; color: #9ca3af; cursor: pointer; user-select: none; }
+.toggle input { width: 15px; height: 15px; cursor: pointer; accent-color: #3b82f6; }
+#run-msg { font-size: .78rem; color: #60a5fa; min-height: 18px; margin-bottom: 8px; }
+
+/* results */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+thead tr { background: #1e293b; }
+th { padding: 8px 10px; text-align: left; color: #93c5fd; font-weight: 600;
+     border-bottom: 1px solid #21283a; white-space: nowrap; }
+td { padding: 6px 10px; border-bottom: 1px solid #1a2030; vertical-align: top; }
+tr:last-child td { border-bottom: none; }
+.ok   { color: #22c55e; font-weight: 600; }
+.fail { color: #ef4444; font-weight: 600; }
+.f47  { font-size: .72rem; color: #9ca3af; word-break: break-all; max-width: 300px; }
+.empty { padding: 20px; text-align: center; color: #4b5563; }
+
+/* spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { display: inline-block; width: 12px; height: 12px; border: 2px solid #374151;
+        border-top-color: #60a5fa; border-radius: 50%; animation: spin .7s linear infinite; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ISO 8583 Router Control</h1>
+  <div class="hdr-right">
+    <span id="start-msg"></span>
+    <button class="btn btn-green" id="btn-start-all" onclick="startAll()">▶ Start All</button>
+    <button class="btn btn-red"   id="btn-stop-all"  onclick="stopAll()">■ Stop All</button>
+  </div>
+</header>
+
+<div class="actors" id="actors-grid"></div>
+
+<div class="runner" id="runner" style="display:none">
+  <h2>upstream_host — Test Runner</h2>
+  <div class="runner-ctrl">
+    <select id="csv-select" onchange="onSelectChosen(this)">
+      <option value="">— project CSV files —</option>
+    </select>
+    <button class="btn btn-blue btn-sm" onclick="loadCsvList()" title="Rescan project files">↻</button>
+    <div class="or-sep">or</div>
+    <label class="file-btn" for="csv-input" title="Browse local (Windows) filesystem">📂 Browse…</label>
+    <input type="file" id="csv-input" accept=".csv" onchange="onFileChosen(this)">
+    <span id="file-name" style="display:none"></span>
+    <button class="btn btn-blue"  id="btn-upload"    onclick="uploadCsv()"  disabled>Upload</button>
+    <button class="btn btn-green" id="btn-start-run" onclick="startRun()"   disabled>▶ Start</button>
+    <button class="btn btn-blue btn-sm" onclick="fetchResults()">↻ Refresh</button>
+    <label class="toggle" title="Automatically refresh results every second">
+      <input type="checkbox" id="auto-refresh" onchange="onAutoRefreshChange(this)">
+      Auto-refresh
+    </label>
+  </div>
+  <div id="run-msg"></div>
+  <div class="tbl-wrap">
+    <table id="results-table" style="display:none">
+      <thead><tr><th>PAN</th><th>RC</th><th>Auth</th><th>Field 47</th></tr></thead>
+      <tbody id="results-body"></tbody>
+    </table>
+    <div id="no-results" class="empty">No results yet.</div>
+  </div>
+</div>
+
+<script>
+// ── state ──────────────────────────────────────────────────────────────────
+let actors = [];
+let pollTimer = null;
+let resultsTimer = null;
+let autoRefresh = true;
+
+// ── init ───────────────────────────────────────────────────────────────────
+async function init() {
+  const saved = localStorage.getItem('autoRefresh');
+  autoRefresh = saved === null ? true : saved === 'true';
+  document.getElementById('auto-refresh').checked = autoRefresh;
+
+  const r = await fetch('/api/actors');
+  actors = await r.json();
+  renderCards();
+  startStatusPoll();
+  loadCsvList();
+}
+
+// ── actor cards ────────────────────────────────────────────────────────────
+function renderCards() {
+  const grid = document.getElementById('actors-grid');
+  grid.innerHTML = '';
+  let hasUpstream = false;
+  for (const a of actors) {
+    if (a.type === 'upstream_host') hasUpstream = true;
+    const d = document.createElement('div');
+    d.className = 'card'; d.id = `card-${a.name}`;
+    d.innerHTML = `
+      <div class="card-hdr">
+        <div class="dot" id="dot-${a.name}"></div>
+        <div class="card-name">${a.name}</div>
+      </div>
+      <div class="stat-grid">
+        <span class="sl">sent 30s</span><span class="sv" id="s30-${a.name}">—</span>
+        <span class="sl">recv 30s</span><span class="sv" id="r30-${a.name}">—</span>
+        <span class="sl">sent 60s</span><span class="sv" id="s60-${a.name}">—</span>
+        <span class="sl">recv 60s</span><span class="sv" id="r60-${a.name}">—</span>
+      </div>
+      <div class="card-foot">
+        <button class="btn btn-amber btn-sm" onclick="stopActor('${a.name}')">Stop</button>
+      </div>`;
+    grid.appendChild(d);
+  }
+  if (hasUpstream) document.getElementById('runner').style.display = 'block';
+}
+
+// ── status polling ─────────────────────────────────────────────────────────
+function startStatusPoll() {
+  clearInterval(pollTimer);
+  pollOnce();
+  pollTimer = setInterval(pollOnce, 2000);
+}
+
+async function pollOnce() {
+  try {
+    const [statusRes, startingRes] = await Promise.all([
+      fetch('/api/status'),
+      fetch('/api/starting'),
+    ]);
+    const status   = await statusRes.json();
+    const starting = (await startingRes.json()).starting;
+
+    const msg = document.getElementById('start-msg');
+    if (starting) {
+      if (!msg.querySelector('.spin')) msg.innerHTML = '<span class="spin"></span> Starting actors…';
+    } else if (msg.querySelector('.spin')) {
+      msg.textContent = '';
+    }
+
+    for (const [name, up] of Object.entries(status)) {
+      const dot = document.getElementById(`dot-${name}`);
+      if (dot) dot.className = 'dot ' + (up ? 'up' : 'down');
+      if (up) fetchStats(name); else clearStats(name);
+    }
+  } catch (_) {}
+}
+
+async function fetchStats(name) {
+  try {
+    const r = await fetch(`/api/actor/${name}/stats`);
+    if (!r.ok) return;
+    const s = await r.json();
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ?? '—'; };
+    set(`s30-${name}`, s.sent_30s);
+    set(`r30-${name}`, s.recv_30s);
+    set(`s60-${name}`, s.sent_60s);
+    set(`r60-${name}`, s.recv_60s);
+  } catch (_) {}
+}
+
+function clearStats(name) {
+  ['s30', 'r30', 's60', 'r60'].forEach(p => {
+    const el = document.getElementById(`${p}-${name}`);
+    if (el) el.textContent = '—';
+  });
+}
+
+// ── global controls ────────────────────────────────────────────────────────
+async function startAll() {
+  const btn = document.getElementById('btn-start-all');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/start_all', { method: 'POST' });
+    if (r.status === 409) {
+      document.getElementById('start-msg').textContent = 'Already starting…';
+      setTimeout(() => { document.getElementById('start-msg').textContent = ''; }, 3000);
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function stopAll() {
+  if (!confirm('Stop all actors?')) return;
+  await fetch('/api/stop_all', { method: 'POST' }).catch(() => {});
+}
+
+async function stopActor(name) {
+  await fetch(`/api/actor/${name}/stop`, { method: 'POST' }).catch(() => {});
+}
+
+// ── test runner ────────────────────────────────────────────────────────────
+async function loadCsvList() {
+  const sel = document.getElementById('csv-select');
+  try {
+    const r     = await fetch('/api/csv_files');
+    const files = await r.json();
+    const prev  = sel.value;
+    sel.innerHTML = '<option value="">— project CSV files —</option>';
+    for (const f of files) {
+      const opt = document.createElement('option');
+      opt.value = f; opt.textContent = f;
+      if (f === prev) opt.selected = true;
+      sel.appendChild(opt);
+    }
+    if (sel.value) document.getElementById('btn-upload').disabled = false;
+  } catch (_) {}
+}
+
+function onSelectChosen(sel) {
+  const hasFile = !!sel.value;
+  document.getElementById('btn-upload').disabled = !hasFile;
+  if (hasFile) {
+    // deselect the local file picker
+    document.getElementById('csv-input').value = '';
+    document.getElementById('file-name').style.display = 'none';
+  }
+}
+
+function onFileChosen(input) {
+  const name = input.files[0]?.name;
+  const fn = document.getElementById('file-name');
+  fn.textContent = name ?? '';
+  fn.style.display = name ? 'inline' : 'none';
+  document.getElementById('btn-upload').disabled = !input.files[0];
+  if (input.files[0]) document.getElementById('csv-select').value = '';
+}
+
+async function uploadCsv() {
+  const msg    = document.getElementById('run-msg');
+  const selVal = document.getElementById('csv-select').value;
+  const input  = document.getElementById('csv-input');
+
+  try {
+    let r;
+    if (selVal) {
+      // server-side read — no Windows dialog path
+      r = await fetch('/api/actor/upstream_host/upload_path', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: selVal }),
+      });
+    } else if (input.files[0]) {
+      const form = new FormData();
+      form.append('file', input.files[0]);
+      r = await fetch('/api/actor/upstream_host/upload', { method: 'POST', body: form });
+    } else {
+      msg.textContent = '✗ No file selected'; return;
+    }
+    const data = await r.json();
+    if (r.ok) {
+      msg.textContent = `✓ Uploaded — ${data.status ?? 'ok'}`;
+      document.getElementById('btn-start-run').disabled = false;
+    } else {
+      msg.textContent = `✗ Upload error: ${data.error ?? r.status}`;
+    }
+  } catch (e) {
+    msg.textContent = '✗ ' + e.message;
+  }
+}
+
+async function startRun() {
+  const msg = document.getElementById('run-msg');
+  clearResults();
+  try {
+    const r    = await fetch('/api/actor/upstream_host/start');
+    const data = await r.json();
+    if (r.ok) {
+      msg.textContent = `▶ Run started — ${data.rows} messages`;
+      if (autoRefresh) startResultsPoll();
+    } else {
+      msg.textContent = `✗ Start error: ${data.error ?? r.status}`;
+    }
+  } catch (e) {
+    msg.textContent = '✗ ' + e.message;
+  }
+}
+
+// ── results ────────────────────────────────────────────────────────────────
+function startResultsPoll() {
+  clearInterval(resultsTimer);
+  fetchResults();
+  resultsTimer = setInterval(fetchResults, 1000);
+}
+
+async function fetchResults() {
+  try {
+    const r = await fetch('/api/actor/upstream_host/results');
+    if (!r.ok) return;
+    renderResults(await r.json());
+  } catch (_) {}
+}
+
+function clearResults() {
+  document.getElementById('results-body').innerHTML = '';
+  document.getElementById('results-table').style.display = 'none';
+  document.getElementById('no-results').style.display  = 'block';
+}
+
+function renderResults(rows) {
+  const tbody = document.getElementById('results-body');
+  const table = document.getElementById('results-table');
+  const empty = document.getElementById('no-results');
+  if (!rows || rows.length === 0) {
+    table.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+  table.style.display = 'table';
+  empty.style.display = 'none';
+
+  // sort by PAN for stable display
+  const sorted = [...rows].sort((a, b) => (a['2'] ?? '').localeCompare(b['2'] ?? ''));
+  tbody.innerHTML = '';
+  for (const row of sorted) {
+    const rc  = row.resp_39 ?? '?';
+    const f47 = row.resp_47 ?? '';
+    const tr  = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${row['2'] ?? ''}</td>
+      <td class="${rc === '00' ? 'ok' : 'fail'}">${rc}</td>
+      <td>${row.resp_38 ?? ''}</td>
+      <td class="f47">${escHtml(f47)}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function onAutoRefreshChange(cb) {
+  autoRefresh = cb.checked;
+  localStorage.setItem('autoRefresh', autoRefresh);
+  if (!autoRefresh) { clearInterval(resultsTimer); resultsTimer = null; }
+}
+
+init();
+</script>
+</body>
+</html>
