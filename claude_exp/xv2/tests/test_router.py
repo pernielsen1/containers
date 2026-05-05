@@ -18,8 +18,7 @@ BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PORTS = {
     "crypto_port":    15002,
     "crypto_cmd":     18082,
-    "ds_to_port":     15001,
-    "ds_from_port":   15003,
+    "ds_port":        15001,
     "ds_cmd":         18081,
     "router_up_port": 15000,
     "router_cmd":     18080,
@@ -46,8 +45,7 @@ def _make_cfg():
         "pans_defined": os.path.join(BASE, "pans_defined.json"),
     }
     ds_cfg = {
-        "to_downstream_port": PORTS["ds_to_port"],
-        "from_downstream_port": PORTS["ds_from_port"],
+        "port": PORTS["ds_port"],
         "command_port": PORTS["ds_cmd"],
         "iso_spec": os.path.join(BASE, "test_spec.json"),
         "pans_defined": os.path.join(BASE, "pans_defined.json"),
@@ -60,8 +58,7 @@ def _make_cfg():
         },
         "downstream": {
             "host": "localhost",
-            "to_downstream_port": PORTS["ds_to_port"],
-            "from_downstream_port": PORTS["ds_from_port"],
+            "port": PORTS["ds_port"],
             "irm_id": "IRM_ID01",
             "client_id": "CLIENT01",
         },

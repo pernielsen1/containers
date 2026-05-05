@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import atexit
 import json
 import os
 import subprocess
@@ -11,38 +12,46 @@ import requests
 from flask import Flask, jsonify, request as flask_request, send_from_directory
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-UI_DIR = os.path.dirname(os.path.abspath(__file__))
+MONITOR_DIR = os.path.dirname(os.path.abspath(__file__))
 
-ACTOR_SCRIPTS = {
-    "router":          "router/main.py",
-    "crypto_host":     "simulators/crypto_host/main.py",
-    "downstream_host": "simulators/downstream_host/main.py",
-    "upstream_host":   "simulators/upstream_host/main.py",
+SCRIPTS_BY_TYPE = {
+    "router":     "router/main.py",
+    "upstream":   "simulators/upstream_host/main.py",
+    "downstream": "simulators/downstream_host/main.py",
+    "crypto":     "simulators/crypto_host/main.py",
 }
-STARTUP_ORDER = ["crypto_host", "downstream_host", "router", "upstream_host"]
+TYPE_ORDER = {"crypto": 0, "downstream": 1, "router": 2, "upstream": 3}
+NEEDS_CONFIG_ARG = {"router", "upstream"}
 
 
 def discover_actors():
     actors = {}
     for root, _dirs, files in os.walk(BASE):
-        if os.path.relpath(root, BASE).startswith("ui"):
+        if os.path.relpath(root, BASE).startswith("monitor"):
             continue
-        if "config.json" in files:
-            name = os.path.basename(root)
-            if name not in ACTOR_SCRIPTS:
+        if "config.json" not in files:
+            continue
+        try:
+            with open(os.path.join(root, "config.json")) as f:
+                cfg = json.load(f)
+            name = cfg.get("name")
+            atype = cfg.get("type")
+            if not name or atype not in SCRIPTS_BY_TYPE:
                 continue
-            try:
-                with open(os.path.join(root, "config.json")) as f:
-                    cfg = json.load(f)
-                actors[name] = {
-                    "name": name,
-                    "command_port": cfg["command_port"],
-                    "script": ACTOR_SCRIPTS[name],
-                    "type": name,
-                }
-            except Exception as e:
-                print(f"Warning: could not read config for {name}: {e}")
+            actors[name] = {
+                "name":         name,
+                "type":         atype,
+                "command_port": cfg["command_port"],
+                "script":       SCRIPTS_BY_TYPE[atype],
+                "config_path":  os.path.join(root, "config.json"),
+            }
+        except Exception as e:
+            print(f"Warning: could not read config in {root}: {e}")
     return actors
+
+
+def _startup_order():
+    return sorted(ACTORS, key=lambda n: (TYPE_ORDER.get(ACTORS[n]["type"], 99), n))
 
 
 ACTORS = discover_actors()
@@ -51,7 +60,7 @@ _proc_lock = threading.Lock()
 _starting = False
 _starting_lock = threading.Lock()
 
-app = Flask(__name__, static_folder=os.path.join(UI_DIR, "static"))
+app = Flask(__name__, static_folder=os.path.join(MONITOR_DIR, "static"))
 
 
 def _actor_url(name, path):
@@ -71,6 +80,15 @@ def _wait_ready(name, timeout=10):
     return False
 
 
+# ── monitor stop ──────────────────────────────────────────────────────────────
+
+@app.route("/stop", methods=["POST"])
+def stop_monitor():
+    _atexit_cleanup()
+    threading.Timer(0.3, os._exit, args=[0]).start()
+    return jsonify({"status": "stopping"})
+
+
 # ── static ────────────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -83,10 +101,9 @@ def index():
 @app.route("/api/actors")
 def api_actors():
     result = []
-    for name in STARTUP_ORDER:
-        if name in ACTORS:
-            a = {k: v for k, v in ACTORS[name].items() if k != "script"}
-            result.append(a)
+    for name in _startup_order():
+        a = ACTORS[name]
+        result.append({"name": a["name"], "type": a["type"], "command_port": a["command_port"]})
     return jsonify(result)
 
 
@@ -125,13 +142,13 @@ def api_is_starting():
 def api_csv_files():
     import glob
     found = []
-    patterns = [
-        os.path.join(BASE, "test_csv_files", "*.csv"),
-        os.path.join(BASE, "simulators", "upstream_host", "input", "*.csv"),
-    ]
-    for pattern in patterns:
-        for path in sorted(glob.glob(pattern)):
-            found.append(os.path.relpath(path, BASE))
+    for path in sorted(glob.glob(os.path.join(BASE, "test_csv_files", "*.csv"))):
+        found.append(os.path.relpath(path, BASE))
+    for name, a in ACTORS.items():
+        if a["type"] == "upstream":
+            cfg_dir = os.path.dirname(a["config_path"])
+            for path in sorted(glob.glob(os.path.join(cfg_dir, "input", "*.csv"))):
+                found.append(os.path.relpath(path, BASE))
     return jsonify(found)
 
 
@@ -153,6 +170,23 @@ def api_upload_path(name):
 
 
 # ── per-actor proxy ───────────────────────────────────────────────────────────
+
+@app.route("/api/actor/<name>/launch", methods=["POST"])
+def api_launch(name):
+    a = ACTORS.get(name)
+    if not a:
+        return jsonify({"error": "unknown actor"}), 404
+    with _proc_lock:
+        existing = _processes.get(name)
+        if existing and existing.poll() is None:
+            return jsonify({"status": "already running"}), 200
+        cmd = [sys.executable, os.path.join(BASE, a["script"])]
+        if a["type"] in NEEDS_CONFIG_ARG:
+            cmd += ["--config", a["config_path"]]
+        proc = subprocess.Popen(cmd, cwd=BASE)
+        _processes[name] = proc
+    return jsonify({"status": "started"})
+
 
 @app.route("/api/actor/<name>/stats")
 def api_stats(name):
@@ -230,17 +264,16 @@ def api_start_all():
     def _do_start():
         global _starting
         try:
-            for name in STARTUP_ORDER:
-                if name not in ACTORS:
-                    continue
+            for name in _startup_order():
+                a = ACTORS[name]
                 with _proc_lock:
                     existing = _processes.get(name)
                     if existing and existing.poll() is None:
                         continue
-                    proc = subprocess.Popen(
-                        [sys.executable, os.path.join(BASE, ACTORS[name]["script"])],
-                        cwd=BASE,
-                    )
+                    cmd = [sys.executable, os.path.join(BASE, a["script"])]
+                    if a["type"] in NEEDS_CONFIG_ARG:
+                        cmd += ["--config", a["config_path"]]
+                    proc = subprocess.Popen(cmd, cwd=BASE)
                     _processes[name] = proc
                 _wait_ready(name, timeout=10)
         finally:
@@ -250,12 +283,21 @@ def api_start_all():
     return jsonify({"status": "starting"})
 
 
+def _terminate_proc(proc, timeout=5):
+    if proc and proc.poll() is None:
+        proc.terminate()
+    if proc:
+        try:
+            proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+
+
 @app.route("/api/stop_all", methods=["POST"])
 def api_stop_all():
     results = {}
-    for name in reversed(STARTUP_ORDER):
-        if name not in ACTORS:
-            continue
+    for name in reversed(_startup_order()):
         try:
             requests.post(_actor_url(name, "/stop"), timeout=2)
             results[name] = "stopped"
@@ -263,9 +305,19 @@ def api_stop_all():
             results[name] = "not reachable"
         with _proc_lock:
             proc = _processes.pop(name, None)
-        if proc and proc.poll() is None:
-            proc.terminate()
+        _terminate_proc(proc)
     return jsonify(results)
+
+
+def _atexit_cleanup():
+    with _proc_lock:
+        procs = list(_processes.values())
+        _processes.clear()
+    for proc in procs:
+        _terminate_proc(proc, timeout=3)
+
+
+atexit.register(_atexit_cleanup)
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
@@ -274,5 +326,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8090)
     args = parser.parse_args()
+    import logging as _logging
+    _logging.getLogger("werkzeug").setLevel(_logging.ERROR)
     print(f"UI → http://localhost:{args.port}")
     app.run(host="0.0.0.0", port=args.port, debug=False)

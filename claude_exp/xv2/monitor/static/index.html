@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Router Control</title>
+<title>Monitor</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: system-ui, -apple-system, sans-serif; background: #0f1117; color: #d1d5db; min-height: 100vh; font-size: 14px; }
@@ -27,9 +27,14 @@ header h1 { font-size: 1rem; font-weight: 600; color: #f3f4f6; letter-spacing: .
 .btn-amber  { background: #78350f; color: #fde68a; }
 .btn-sm     { padding: 4px 10px; font-size: .76rem; }
 
+/* sections */
+.section { padding: 20px 24px 0; }
+.section-hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.section-hdr h2 { font-size: .82rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6b7280; }
+.section-hdr::after { content: ''; flex: 1; height: 1px; background: #21283a; }
+
 /* actor grid */
-.actors { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-          gap: 14px; padding: 20px 24px 8px; }
+.actors { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
 .card { background: #161b27; border: 1px solid #21283a; border-radius: 10px; padding: 14px; }
 .card-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .dot { width: 9px; height: 9px; border-radius: 50%; background: #374151; flex-shrink: 0;
@@ -44,10 +49,11 @@ header h1 { font-size: 1rem; font-weight: 600; color: #f3f4f6; letter-spacing: .
 .card-foot { display: flex; justify-content: flex-end; }
 
 /* runner panel */
-.runner { margin: 8px 24px 24px; background: #161b27; border: 1px solid #21283a;
+.runner { margin: 20px 24px 24px; background: #161b27; border: 1px solid #21283a;
           border-radius: 10px; padding: 18px; }
 .runner h2 { font-size: .9rem; font-weight: 600; color: #93c5fd; margin-bottom: 14px; }
-.runner-ctrl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.runner-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.runner-label { font-size: .78rem; color: #6b7280; white-space: nowrap; }
 .file-btn { display: inline-flex; align-items: center; gap: 5px; padding: 7px 12px;
             background: #1e3a5f; color: #bfdbfe; border-radius: 6px; cursor: pointer;
             font-size: .82rem; font-weight: 500; transition: filter .15s; }
@@ -55,8 +61,9 @@ header h1 { font-size: 1rem; font-weight: 600; color: #f3f4f6; letter-spacing: .
 #file-name { font-size: .78rem; color: #6b7280; }
 input[type=file] { display: none; }
 select { background: #1e293b; color: #d1d5db; border: 1px solid #374151; border-radius: 6px;
-         padding: 7px 10px; font-size: .82rem; cursor: pointer; min-width: 200px; }
+         padding: 7px 10px; font-size: .82rem; cursor: pointer; }
 select:focus { outline: 2px solid #3b82f6; outline-offset: 1px; }
+select:disabled { opacity: .45; cursor: not-allowed; }
 .or-sep { font-size: .75rem; color: #4b5563; padding: 0 2px; }
 .toggle { display: flex; align-items: center; gap: 6px; margin-left: auto;
           font-size: .82rem; color: #9ca3af; cursor: pointer; user-select: none; }
@@ -85,35 +92,52 @@ tr:last-child td { border-bottom: none; }
 <body>
 
 <header>
-  <h1>ISO 8583 Router Control</h1>
+  <h1>ISO 8583 Monitor</h1>
   <div class="hdr-right">
     <span id="start-msg"></span>
-    <button class="btn btn-green" id="btn-start-all" onclick="startAll()">▶ Start All</button>
-    <button class="btn btn-red"   id="btn-stop-all"  onclick="stopAll()">■ Stop All</button>
+    <button class="btn btn-green" id="btn-start-all" onclick="startAll()">&#9654; Start All</button>
+    <button class="btn btn-red"   id="btn-stop-all"  onclick="stopAll()">&#9632; Stop All</button>
   </div>
 </header>
 
-<div class="actors" id="actors-grid"></div>
+<div class="section" id="section-routers" style="display:none">
+  <div class="section-hdr"><h2>Routers</h2></div>
+  <div class="actors" id="routers-grid"></div>
+</div>
+
+<div class="section" id="section-simulators" style="display:none">
+  <div class="section-hdr"><h2>Simulators</h2></div>
+  <div class="actors" id="simulators-grid"></div>
+</div>
 
 <div class="runner" id="runner" style="display:none">
-  <h2>upstream_host — Test Runner</h2>
-  <div class="runner-ctrl">
-    <select id="csv-select" onchange="onSelectChosen(this)">
+  <h2>Test Runner</h2>
+
+  <div class="runner-row">
+    <span class="runner-label">Upstream</span>
+    <select id="upstream-select" onchange="onUpstreamChosen(this)">
+      <option value="">— select upstream —</option>
+    </select>
+  </div>
+
+  <div class="runner-row">
+    <select id="csv-select" onchange="onSelectChosen(this)" disabled>
       <option value="">— project CSV files —</option>
     </select>
-    <button class="btn btn-blue btn-sm" onclick="loadCsvList()" title="Rescan project files">↻</button>
+    <button class="btn btn-blue btn-sm" onclick="loadCsvList()" title="Rescan project files">&#8635;</button>
     <div class="or-sep">or</div>
-    <label class="file-btn" for="csv-input" title="Browse local (Windows) filesystem">📂 Browse…</label>
-    <input type="file" id="csv-input" accept=".csv" onchange="onFileChosen(this)">
+    <label class="file-btn" for="csv-input" title="Browse local filesystem">&#128194; Browse&#8230;</label>
+    <input type="file" id="csv-input" accept=".csv" onchange="onFileChosen(this)" disabled>
     <span id="file-name" style="display:none"></span>
     <button class="btn btn-blue"  id="btn-upload"    onclick="uploadCsv()"  disabled>Upload</button>
-    <button class="btn btn-green" id="btn-start-run" onclick="startRun()"   disabled>▶ Start</button>
-    <button class="btn btn-blue btn-sm" onclick="fetchResults()">↻ Refresh</button>
+    <button class="btn btn-green" id="btn-start-run" onclick="startRun()"   disabled>&#9654; Start</button>
+    <button class="btn btn-blue btn-sm" onclick="fetchResults()">&#8635; Refresh</button>
     <label class="toggle" title="Automatically refresh results every second">
       <input type="checkbox" id="auto-refresh" onchange="onAutoRefreshChange(this)">
       Auto-refresh
     </label>
   </div>
+
   <div id="run-msg"></div>
   <div class="tbl-wrap">
     <table id="results-table" style="display:none">
@@ -127,6 +151,7 @@ tr:last-child td { border-bottom: none; }
 <script>
 // ── state ──────────────────────────────────────────────────────────────────
 let actors = [];
+let selectedUpstream = null;
 let pollTimer = null;
 let resultsTimer = null;
 let autoRefresh = true;
@@ -139,18 +164,43 @@ async function init() {
 
   const r = await fetch('/api/actors');
   actors = await r.json();
-  renderCards();
+  renderSections();
   startStatusPoll();
   loadCsvList();
 }
 
-// ── actor cards ────────────────────────────────────────────────────────────
-function renderCards() {
-  const grid = document.getElementById('actors-grid');
+// ── sections ───────────────────────────────────────────────────────────────
+function renderSections() {
+  const routers    = actors.filter(a => a.type === 'router');
+  const simulators = actors.filter(a => a.type !== 'router');
+  const upstreams  = actors.filter(a => a.type === 'upstream');
+
+  if (routers.length) {
+    document.getElementById('section-routers').style.display = 'block';
+    renderCards(document.getElementById('routers-grid'), routers);
+  }
+  if (simulators.length) {
+    document.getElementById('section-simulators').style.display = 'block';
+    renderCards(document.getElementById('simulators-grid'), simulators);
+  }
+  if (upstreams.length) {
+    document.getElementById('runner').style.display = 'block';
+    const sel = document.getElementById('upstream-select');
+    for (const a of upstreams) {
+      const opt = document.createElement('option');
+      opt.value = a.name; opt.textContent = a.name;
+      sel.appendChild(opt);
+    }
+    if (upstreams.length === 1) {
+      sel.value = upstreams[0].name;
+      onUpstreamChosen(sel);
+    }
+  }
+}
+
+function renderCards(grid, list) {
   grid.innerHTML = '';
-  let hasUpstream = false;
-  for (const a of actors) {
-    if (a.type === 'upstream_host') hasUpstream = true;
+  for (const a of list) {
     const d = document.createElement('div');
     d.className = 'card'; d.id = `card-${a.name}`;
     d.innerHTML = `
@@ -159,17 +209,19 @@ function renderCards() {
         <div class="card-name">${a.name}</div>
       </div>
       <div class="stat-grid">
-        <span class="sl">sent 30s</span><span class="sv" id="s30-${a.name}">—</span>
-        <span class="sl">recv 30s</span><span class="sv" id="r30-${a.name}">—</span>
-        <span class="sl">sent 60s</span><span class="sv" id="s60-${a.name}">—</span>
-        <span class="sl">recv 60s</span><span class="sv" id="r60-${a.name}">—</span>
+        <span class="sl">sent 30s</span><span class="sv" id="s30-${a.name}">&#8212;</span>
+        <span class="sl">recv 30s</span><span class="sv" id="r30-${a.name}">&#8212;</span>
+        <span class="sl">sent 60s</span><span class="sv" id="s60-${a.name}">&#8212;</span>
+        <span class="sl">recv 60s</span><span class="sv" id="r60-${a.name}">&#8212;</span>
+        <span class="sl">sent total</span><span class="sv" id="stot-${a.name}">&#8212;</span>
+        <span class="sl">recv total</span><span class="sv" id="rtot-${a.name}">&#8212;</span>
       </div>
-      <div class="card-foot">
+      <div class="card-foot" style="gap:6px">
+        <button class="btn btn-green btn-sm" onclick="launchActor('${a.name}')">Start</button>
         <button class="btn btn-amber btn-sm" onclick="stopActor('${a.name}')">Stop</button>
       </div>`;
     grid.appendChild(d);
   }
-  if (hasUpstream) document.getElementById('runner').style.display = 'block';
 }
 
 // ── status polling ─────────────────────────────────────────────────────────
@@ -213,11 +265,13 @@ async function fetchStats(name) {
     set(`r30-${name}`, s.recv_30s);
     set(`s60-${name}`, s.sent_60s);
     set(`r60-${name}`, s.recv_60s);
+    set(`stot-${name}`, s.sent_total);
+    set(`rtot-${name}`, s.recv_total);
   } catch (_) {}
 }
 
 function clearStats(name) {
-  ['s30', 'r30', 's60', 'r60'].forEach(p => {
+  ['s30', 'r30', 's60', 'r60', 'stot', 'rtot'].forEach(p => {
     const el = document.getElementById(`${p}-${name}`);
     if (el) el.textContent = '—';
   });
@@ -243,8 +297,25 @@ async function stopAll() {
   await fetch('/api/stop_all', { method: 'POST' }).catch(() => {});
 }
 
+async function launchActor(name) {
+  await fetch(`/api/actor/${name}/launch`, { method: 'POST' }).catch(() => {});
+}
+
 async function stopActor(name) {
   await fetch(`/api/actor/${name}/stop`, { method: 'POST' }).catch(() => {});
+}
+
+// ── upstream selection ─────────────────────────────────────────────────────
+function onUpstreamChosen(sel) {
+  selectedUpstream = sel.value || null;
+  const hasSel = !!selectedUpstream;
+  document.getElementById('csv-select').disabled = !hasSel;
+  document.getElementById('csv-input').disabled  = !hasSel;
+  if (hasSel) loadCsvList();
+  clearResults();
+  document.getElementById('btn-upload').disabled    = true;
+  document.getElementById('btn-start-run').disabled = true;
+  document.getElementById('run-msg').textContent    = '';
 }
 
 // ── test runner ────────────────────────────────────────────────────────────
@@ -254,22 +325,21 @@ async function loadCsvList() {
     const r     = await fetch('/api/csv_files');
     const files = await r.json();
     const prev  = sel.value;
-    sel.innerHTML = '<option value="">— project CSV files —</option>';
+    sel.innerHTML = '<option value="">&#8212; project CSV files &#8212;</option>';
     for (const f of files) {
       const opt = document.createElement('option');
       opt.value = f; opt.textContent = f;
       if (f === prev) opt.selected = true;
       sel.appendChild(opt);
     }
-    if (sel.value) document.getElementById('btn-upload').disabled = false;
+    if (sel.value && selectedUpstream) document.getElementById('btn-upload').disabled = false;
   } catch (_) {}
 }
 
 function onSelectChosen(sel) {
   const hasFile = !!sel.value;
-  document.getElementById('btn-upload').disabled = !hasFile;
+  document.getElementById('btn-upload').disabled = !(hasFile && selectedUpstream);
   if (hasFile) {
-    // deselect the local file picker
     document.getElementById('csv-input').value = '';
     document.getElementById('file-name').style.display = 'none';
   }
@@ -280,11 +350,12 @@ function onFileChosen(input) {
   const fn = document.getElementById('file-name');
   fn.textContent = name ?? '';
   fn.style.display = name ? 'inline' : 'none';
-  document.getElementById('btn-upload').disabled = !input.files[0];
+  document.getElementById('btn-upload').disabled = !(input.files[0] && selectedUpstream);
   if (input.files[0]) document.getElementById('csv-select').value = '';
 }
 
 async function uploadCsv() {
+  if (!selectedUpstream) return;
   const msg    = document.getElementById('run-msg');
   const selVal = document.getElementById('csv-select').value;
   const input  = document.getElementById('csv-input');
@@ -292,8 +363,7 @@ async function uploadCsv() {
   try {
     let r;
     if (selVal) {
-      // server-side read — no Windows dialog path
-      r = await fetch('/api/actor/upstream_host/upload_path', {
+      r = await fetch(`/api/actor/${selectedUpstream}/upload_path`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: selVal }),
@@ -301,7 +371,7 @@ async function uploadCsv() {
     } else if (input.files[0]) {
       const form = new FormData();
       form.append('file', input.files[0]);
-      r = await fetch('/api/actor/upstream_host/upload', { method: 'POST', body: form });
+      r = await fetch(`/api/actor/${selectedUpstream}/upload`, { method: 'POST', body: form });
     } else {
       msg.textContent = '✗ No file selected'; return;
     }
@@ -318,10 +388,11 @@ async function uploadCsv() {
 }
 
 async function startRun() {
+  if (!selectedUpstream) return;
   const msg = document.getElementById('run-msg');
   clearResults();
   try {
-    const r    = await fetch('/api/actor/upstream_host/start');
+    const r    = await fetch(`/api/actor/${selectedUpstream}/start`);
     const data = await r.json();
     if (r.ok) {
       msg.textContent = `▶ Run started — ${data.rows} messages`;
@@ -342,8 +413,9 @@ function startResultsPoll() {
 }
 
 async function fetchResults() {
+  if (!selectedUpstream) return;
   try {
-    const r = await fetch('/api/actor/upstream_host/results');
+    const r = await fetch(`/api/actor/${selectedUpstream}/results`);
     if (!r.ok) return;
     renderResults(await r.json());
   } catch (_) {}
@@ -367,7 +439,6 @@ function renderResults(rows) {
   table.style.display = 'table';
   empty.style.display = 'none';
 
-  // sort by PAN for stable display
   const sorted = [...rows].sort((a, b) => (a['2'] ?? '').localeCompare(b['2'] ?? ''));
   tbody.innerHTML = '';
   for (const row of sorted) {

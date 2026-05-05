@@ -1,2 +1,2 @@
 #!/bin/bash
-cp ~/containers/exported_skills/* ~/.claude/skills
+cp ~/.claude/skills/* ~/containers/exported_skills

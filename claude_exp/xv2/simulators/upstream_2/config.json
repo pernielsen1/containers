@@ -1,0 +1,15 @@
+{
+  "name": "upstream_2",
+  "type": "upstream",
+  "mode": "server",
+  "log_level": "DEBUG",
+  "port": 5010,
+  "command_port": 8086,
+  "framing": {
+    "header_hex": "",
+    "length_field_type": "ASCII",
+    "length_field_bytes": 4
+  },
+  "iso_spec": "../../test_spec.json",
+  "input_dir": "input"
+}

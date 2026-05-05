@@ -13,17 +13,21 @@ class Stats:
         self._lock = threading.Lock()
         self._sent = deque()
         self._recv = deque()
+        self._sent_total = 0
+        self._recv_total = 0
 
     def record_sent(self):
         with self._lock:
             now = time_func()
             self._sent.append(now)
+            self._sent_total += 1
             self._prune(self._sent, now)
 
     def record_recv(self):
         with self._lock:
             now = time_func()
             self._recv.append(now)
+            self._recv_total += 1
             self._prune(self._recv, now)
 
     def _prune(self, d, now):
@@ -34,7 +38,7 @@ class Stats:
     def snapshot(self):
         with self._lock:
             now = time_func()
-            result = {}
+            result = {"sent_total": self._sent_total, "recv_total": self._recv_total}
             for w in _WINDOWS:
                 cutoff = now - w
                 result[f"sent_{w}s"] = sum(1 for t in self._sent if t >= cutoff)

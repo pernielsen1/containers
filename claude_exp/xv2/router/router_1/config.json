@@ -1,4 +1,6 @@
 {
+  "name": "router_1",
+  "type": "router",
   "log_level": "DEBUG",
   "command_port": 8080,
   "upstream": {
@@ -11,8 +13,7 @@
   },
   "downstream": {
     "host": "localhost",
-    "to_downstream_port": 5001,
-    "from_downstream_port": 5003,
+    "port": 5001,
     "irm_id": "IRM_ID01",
     "client_id": "CLIENT01"
   },
@@ -20,6 +21,6 @@
     "host": "localhost",
     "port": 5002
   },
-  "iso_spec": "../test_spec.json",
+  "iso_spec": "../../test_spec.json",
   "worker_threads": 8
 }

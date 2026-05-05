@@ -23,8 +23,14 @@ def _recv_exact(sock, n):
     return bytes(buf)
 
 
-def build_frame(irm_f0, irm_id, client_id, mti=None, data=b""):
-    """Build a complete IMS Connect wire frame (llll + IMS header + optional TRANS_CODE + data)."""
+PING_TRANSCODE = to_ebcdic("PING0001", _TRANS_CODE_LEN)
+
+
+def build_frame(irm_f0, irm_id, client_id, mti=None, data=b"", transcode=None):
+    """Build a complete IMS Connect wire frame (llll + IMS header + optional TRANS_CODE + data).
+
+    transcode: 8-byte EBCDIC override; defaults to b'TRAN'+mti when data is present.
+    """
     payload_len = IRM_HEADER_LEN + (_TRANS_CODE_LEN + len(data) if data else 0)
     header = (
         struct.pack(">H", IRM_HEADER_LEN)
@@ -34,7 +40,11 @@ def build_frame(irm_f0, irm_id, client_id, mti=None, data=b""):
         + bytes([0x00, 0x15, 0x10, 0x01])  # IRM_F5, IRM_TIMER, IRM_SOCT, IRM_ES
         + client_id
     )
-    body = (to_ebcdic(f"TRAN{mti}", _TRANS_CODE_LEN) + data) if data else b""
+    if data:
+        tc = transcode if transcode is not None else to_ebcdic(f"TRAN{mti}", _TRANS_CODE_LEN)
+        body = tc + data
+    else:
+        body = b""
     return struct.pack(">I", payload_len) + header + body
 
 
@@ -51,11 +61,16 @@ def read_response(sock):
 
 
 def read_request(sock):
-    """Read an IMS Connect request frame. Returns (irm_f0, client_id_bytes, iso_data_bytes)."""
+    """Read an IMS Connect request frame. Returns (irm_f0, client_id_bytes, transcode_bytes, iso_data_bytes)."""
     raw = _recv_exact(sock, 4)
     length = struct.unpack(">I", raw)[0]
     payload = _recv_exact(sock, length)
     irm_f0 = payload[3]
     client_id = payload[_CLIENTID_OFFSET: _CLIENTID_OFFSET + 8]
-    iso_data = payload[IRM_HEADER_LEN + _TRANS_CODE_LEN:] if length > IRM_HEADER_LEN else b""
-    return irm_f0, client_id, iso_data
+    if length > IRM_HEADER_LEN:
+        transcode = payload[IRM_HEADER_LEN: IRM_HEADER_LEN + _TRANS_CODE_LEN]
+        iso_data = payload[IRM_HEADER_LEN + _TRANS_CODE_LEN:]
+    else:
+        transcode = b""
+        iso_data = b""
+    return irm_f0, client_id, transcode, iso_data

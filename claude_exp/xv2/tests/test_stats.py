@@ -85,4 +85,5 @@ def test_snapshot_keys():
     s = Stats()
     snap = s.snapshot()
     expected = {f"{d}_{w}s" for d in ("sent", "recv") for w in (30, 60, 180, 1800)}
+    expected |= {"sent_total", "recv_total"}
     assert set(snap.keys()) == expected

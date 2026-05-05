@@ -18,3 +18,5 @@ cleaning a bit - create directory test_csv_files and move all csv files used to 
 ## regression test
 we have moved files around etc - please make a regression test of the whole solution excluding the ui part.
 
+# ui part two
+when running ui.sh - I get a lot of messages in my console GET /api/status HTTP etc... how can I avoid that when i have sent ui.sh to run in the back ground 

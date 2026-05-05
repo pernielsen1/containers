@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import json
 import logging
 import os
@@ -131,6 +132,11 @@ def _downstream_receiver(from_sock, up_framing, spec,
 
         stats.record_recv()
         hex_dump("RECV downstream", data, log)
+
+        if data[:4] == "PING".encode("cp500"):
+            log.info("router: pipe-cleaner response: %s", data.hex())
+            continue
+
         try:
             resp, _ = iso8583.decode(data, spec=spec)
         except Exception as e:
@@ -167,33 +173,65 @@ def _downstream_receiver(from_sock, up_framing, spec,
             log.warning("router: upstream reply error: %s", e)
 
 
+def _client_upstream_loop(up_cfg, up_framing, spec, work_queue, stats, stop_event):
+    host = up_cfg["host"]
+    port = up_cfg["port"]
+    retry = up_cfg.get("retry_seconds", 5)
+    while not stop_event.is_set():
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect((host, port))
+            log.info("router: connected to upstream %s:%d", host, port)
+            _handle_upstream(sock, (host, port), up_framing, spec, work_queue, stats)
+            log.info("router: upstream %s:%d disconnected", host, port)
+        except OSError as e:
+            log.info("router: upstream %s:%d unavailable (%s), retrying in %ds",
+                     host, port, e, retry)
+        if not stop_event.is_set():
+            stop_event.wait(timeout=retry)
+
+
 def _connect_downstream_ims(ds_cfg, ims_cfg):
     host = ds_cfg["host"]
+    port = ds_cfg["port"]
 
     to_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    to_sock.connect((host, ds_cfg["to_downstream_port"]))
-    log.info("router: connected to downstream to_port=%d", ds_cfg["to_downstream_port"])
+    to_sock.connect((host, port))
+    log.info("router: connected to downstream port=%d (to)", port)
 
     from_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    from_sock.connect((host, ds_cfg["from_downstream_port"]))
-    log.info("router: connected to downstream from_port=%d", ds_cfg["from_downstream_port"])
+    from_sock.connect((host, port))
+    log.info("router: connected to downstream port=%d (from)", port)
 
     resume = ims_connect.build_frame(0x80, ims_cfg["irm_id"], ims_cfg["client_id"])
     from_sock.sendall(resume)
     log.info("router: sent resume TPIPE")
 
+    ping_data = "1234 clean the pipes".encode("cp500")
+    ping_frame = ims_connect.build_frame(
+        0x00, ims_cfg["irm_id"], ims_cfg["client_id"],
+        transcode=ims_connect.PING_TRANSCODE, data=ping_data,
+    )
+    to_sock.sendall(ping_frame)
+    log.info("router: sent pipe-cleaner ping")
+
     return to_sock, from_sock
 
 
-def load_config():
-    base = os.path.dirname(os.path.abspath(__file__))
-    with open(os.path.join(base, "config.json")) as f:
-        return json.load(f)
+def load_config(path=None):
+    if path is None:
+        here = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(here, "router_1", "config.json")
+    config_base = os.path.dirname(os.path.abspath(path))
+    with open(path) as f:
+        return json.load(f), config_base
 
 
-def run(cfg=None, stop_event=None, stats=None):
+def run(cfg=None, stop_event=None, stats=None, _config_base=None):
     if cfg is None:
-        cfg = load_config()
+        cfg, _config_base = load_config()
+    if _config_base is None:
+        _config_base = os.path.dirname(os.path.abspath(__file__))
     if stop_event is None:
         stop_event = threading.Event()
     if stats is None:
@@ -203,8 +241,7 @@ def run(cfg=None, stop_event=None, stats=None):
         getattr(logging, cfg.get("log_level", "INFO").upper(), logging.INFO)
     )
 
-    base = os.path.dirname(os.path.abspath(__file__))
-    spec = load_spec(os.path.join(base, cfg["iso_spec"]))
+    spec = load_spec(os.path.join(_config_base, cfg["iso_spec"]))
 
     up_framing = cfg["upstream"]["framing"]
     crypto_cfg = cfg["crypto"]
@@ -241,33 +278,57 @@ def run(cfg=None, stop_event=None, stats=None):
     cmd = CommandServer(cfg["command_port"], stats, stop_event)
     cmd.start()
 
-    srv_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    srv_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    srv_sock.bind(("", cfg["upstream"]["port"]))
-    srv_sock.listen(10)
-    log.info("router: upstream on :%d  command on :%d", cfg["upstream"]["port"], cfg["command_port"])
+    up_mode = cfg["upstream"].get("mode", "server")
 
-    try:
-        while not stop_event.is_set():
-            srv_sock.settimeout(1)
-            try:
-                up_conn, up_addr = srv_sock.accept()
-            except socket.timeout:
-                continue
-            threading.Thread(
-                target=_handle_upstream,
-                args=(up_conn, up_addr, up_framing, spec, work_queue, stats),
-                name=f"up-{up_addr}",
-                daemon=True,
-            ).start()
-    finally:
-        for _ in range(n_workers):
-            work_queue.put(None)
-        srv_sock.close()
-        to_sock.close()
-        from_sock.close()
-        log.info("router stopped")
+    if up_mode == "client":
+        threading.Thread(
+            target=_client_upstream_loop,
+            args=(cfg["upstream"], up_framing, spec, work_queue, stats, stop_event),
+            name="up-client",
+            daemon=True,
+        ).start()
+        log.info("router: upstream client → %s:%d  command on :%d",
+                 cfg["upstream"]["host"], cfg["upstream"]["port"], cfg["command_port"])
+        try:
+            stop_event.wait()
+        finally:
+            for _ in range(n_workers):
+                work_queue.put(None)
+            to_sock.close()
+            from_sock.close()
+            log.info("router stopped")
+    else:
+        srv_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        srv_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv_sock.bind(("", cfg["upstream"]["port"]))
+        srv_sock.listen(10)
+        log.info("router: upstream server on :%d  command on :%d",
+                 cfg["upstream"]["port"], cfg["command_port"])
+        try:
+            while not stop_event.is_set():
+                srv_sock.settimeout(1)
+                try:
+                    up_conn, up_addr = srv_sock.accept()
+                except socket.timeout:
+                    continue
+                threading.Thread(
+                    target=_handle_upstream,
+                    args=(up_conn, up_addr, up_framing, spec, work_queue, stats),
+                    name=f"up-{up_addr}",
+                    daemon=True,
+                ).start()
+        finally:
+            for _ in range(n_workers):
+                work_queue.put(None)
+            srv_sock.close()
+            to_sock.close()
+            from_sock.close()
+            log.info("router stopped")
 
 
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default=None, help="Path to config.json")
+    args = parser.parse_args()
+    cfg, config_base = load_config(args.config)
+    run(cfg=cfg, _config_base=config_base)

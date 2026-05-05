@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import csv
 import io
 import json
@@ -27,15 +28,20 @@ log = logging.getLogger(__name__)
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
 
-def load_config():
-    base = os.path.dirname(os.path.abspath(__file__))
-    with open(os.path.join(base, "config.json")) as f:
-        return json.load(f)
+def load_config(path=None):
+    if path is None:
+        here = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(here, "..", "upstream_1", "config.json")
+    config_base = os.path.dirname(os.path.abspath(path))
+    with open(path) as f:
+        return json.load(f), config_base
 
 
-def run(cfg=None, stop_event=None, stats=None):
+def run(cfg=None, stop_event=None, stats=None, _config_base=None):
     if cfg is None:
-        cfg = load_config()
+        cfg, _config_base = load_config()
+    if _config_base is None:
+        _config_base = os.path.dirname(os.path.abspath(__file__))
     if stop_event is None:
         stop_event = threading.Event()
     if stats is None:
@@ -45,8 +51,7 @@ def run(cfg=None, stop_event=None, stats=None):
         getattr(logging, cfg.get("log_level", "INFO").upper(), logging.INFO)
     )
 
-    base = os.path.dirname(os.path.abspath(__file__))
-    spec = load_spec(os.path.join(base, cfg["iso_spec"]))
+    spec = load_spec(os.path.join(_config_base, cfg["iso_spec"]))
     framing = cfg["framing"]
     binary_fields = frozenset(k for k, v in spec.items() if v.get("data_enc") == "b")
     auto_fields = frozenset({"h", "p", "1"}) | binary_fields
@@ -67,6 +72,8 @@ def run(cfg=None, stop_event=None, stats=None):
         with state["stan_lock"]:
             state["stan_seq"] += 1
             return str(state["stan_seq"]).zfill(6)
+
+    mode = cfg.get("mode", "client")
 
     def connect():
         rcfg = cfg["router"]
@@ -138,7 +145,7 @@ def run(cfg=None, stop_event=None, stats=None):
         f = flask_request.files.get("file")
         if f is None:
             return jsonify({"error": "no file"}), 400
-        dest = os.path.join(base, cfg.get("input_dir", "input"), "test_cases.csv")
+        dest = os.path.join(_config_base, cfg.get("input_dir", "input"), "test_cases.csv")
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         f.save(dest)
         state["csv_path"] = dest
@@ -155,11 +162,17 @@ def run(cfg=None, stop_event=None, stats=None):
             rows = list(reader)
         if not rows:
             return jsonify({"error": "CSV is empty"}), 400
-        try:
-            conn = connect()
-        except OSError as e:
-            return jsonify({"error": str(e)}), 503
-        threading.Thread(target=receive_loop, args=(conn,), daemon=True).start()
+        if mode == "server":
+            with state["conn_lock"]:
+                conn = state["conn"]
+            if conn is None:
+                return jsonify({"error": "router not connected yet"}), 503
+        else:
+            try:
+                conn = connect()
+            except OSError as e:
+                return jsonify({"error": str(e)}), 503
+            threading.Thread(target=receive_loop, args=(conn,), daemon=True).start()
         threading.Thread(target=send_loop, args=(conn, rows), daemon=True).start()
         return jsonify({"status": "started", "rows": len(rows)})
 
@@ -171,6 +184,37 @@ def run(cfg=None, stop_event=None, stats=None):
     cmd.start()
     log.info("upstream_host command server on :%d", cfg["command_port"])
 
+    if mode == "server":
+        srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.bind(("", cfg["port"]))
+        srv.listen(5)
+        log.info("upstream_host: server mode, listening on :%d", cfg["port"])
+
+        def _accept_loop():
+            while not stop_event.is_set():
+                srv.settimeout(1)
+                try:
+                    conn, addr = srv.accept()
+                except socket.timeout:
+                    continue
+                except OSError:
+                    return
+                log.info("upstream_host: router connected from %s", addr)
+                with state["conn_lock"]:
+                    old = state["conn"]
+                    if old:
+                        try:
+                            old.close()
+                        except OSError:
+                            pass
+                    state["conn"] = conn
+                with state["results_lock"]:
+                    state["results"] = []
+                threading.Thread(target=receive_loop, args=(conn,), daemon=True).start()
+
+        threading.Thread(target=_accept_loop, daemon=True, name="srv-acceptor").start()
+
     stop_event.wait()
     with state["conn_lock"]:
         if state["conn"]:
@@ -179,4 +223,8 @@ def run(cfg=None, stop_event=None, stats=None):
 
 
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default=None, help="Path to config.json")
+    args = parser.parse_args()
+    cfg, config_base = load_config(args.config)
+    run(cfg=cfg, _config_base=config_base)

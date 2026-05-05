@@ -58,26 +58,13 @@ def _process_0100(req, pans):
     return resp
 
 
-def _handle_from_conn(conn, addr, from_connections, from_lock, stats):
-    """Read resume TPIPE, register send queue, then stream responses back to router."""
-    try:
-        irm_f0, client_id, _ = ims_connect.read_request(conn)
-    except ConnectionError as e:
-        log.warning("downstream_host: from_conn %s handshake failed: %s", addr, e)
-        conn.close()
-        return
-
-    if irm_f0 != 0x80:
-        log.warning("downstream_host: expected resume TPIPE from %s, got IRM_F0=0x%02x", addr, irm_f0)
-        conn.close()
-        return
-
+def _handle_from_conn(conn, addr, client_id, from_connections, from_lock, stats):
+    """Register send queue for this client, then stream responses back to router."""
     send_q = queue.Queue()
     with from_lock:
         from_connections[client_id] = send_q
     log.info("downstream_host: from_conn registered client=%s addr=%s",
              client_id.decode("cp500", errors="replace").rstrip(), addr)
-
     try:
         while True:
             item = send_q.get()
@@ -93,51 +80,85 @@ def _handle_from_conn(conn, addr, from_connections, from_lock, stats):
         conn.close()
 
 
-def _handle_to_conn(conn, addr, spec, pans, from_connections, from_lock, stats):
-    """Read IMS-framed 0100 messages, process, route encoded 0110 to the matching from_conn."""
+def _route_frame(client_id, transcode, iso_data, addr, spec, pans,
+                 from_connections, from_lock, stats):
+    """Process one request frame and put the encoded response on the matching from_conn queue."""
+    if transcode == ims_connect.PING_TRANSCODE:
+        log.info("downstream_host: PING received from %s, sending PIPES cleaned", addr)
+        ping_resp = "PING".encode("cp500") + "PIPES cleaned".encode("cp500")
+        with from_lock:
+            send_q = from_connections.get(client_id)
+        if send_q is not None:
+            send_q.put(ping_resp)
+        return
+
+    if not iso_data:
+        return
+
+    stats.record_recv()
+    hex_dump(f"RECV {addr}", iso_data, log)
+
     try:
+        req, _ = iso8583.decode(iso_data, spec=spec)
+    except Exception as e:
+        log.warning("Decode error from %s: %s", addr, e)
+        return
+
+    if req.get("t") != "0100":
+        log.warning("Unexpected MTI %s from %s", req.get("t"), addr)
+        return
+
+    resp = _process_0100(req, pans)
+
+    try:
+        encoded, _ = iso8583.encode(resp, spec=spec)
+    except Exception as e:
+        log.warning("Encode error: %s", e)
+        return
+
+    with from_lock:
+        send_q = from_connections.get(client_id)
+
+    if send_q is None:
+        log.warning("downstream_host: no from_conn for client_id=%s",
+                    client_id.decode("cp500", errors="replace").rstrip())
+        return
+
+    send_q.put(encoded)
+
+
+def _handle_to_conn(conn, addr, client_id, first_transcode, first_iso_data,
+                    spec, pans, from_connections, from_lock, stats):
+    """Process IMS-framed 0100 messages; first frame already read by dispatcher."""
+    try:
+        _route_frame(client_id, first_transcode, first_iso_data, addr,
+                     spec, pans, from_connections, from_lock, stats)
         while True:
             try:
-                irm_f0, client_id, iso_data = ims_connect.read_request(conn)
+                _, cid, transcode, iso_data = ims_connect.read_request(conn)
             except ConnectionError:
                 log.info("downstream_host: to_conn %s disconnected", addr)
                 return
-
-            if not iso_data:
-                continue
-
-            stats.record_recv()
-            hex_dump(f"RECV {addr}", iso_data, log)
-
-            try:
-                req, _ = iso8583.decode(iso_data, spec=spec)
-            except Exception as e:
-                log.warning("Decode error from %s: %s", addr, e)
-                continue
-
-            if req.get("t") != "0100":
-                log.warning("Unexpected MTI %s from %s", req.get("t"), addr)
-                continue
-
-            resp = _process_0100(req, pans)
-
-            try:
-                encoded, _ = iso8583.encode(resp, spec=spec)
-            except Exception as e:
-                log.warning("Encode error: %s", e)
-                continue
-
-            with from_lock:
-                send_q = from_connections.get(client_id)
-
-            if send_q is None:
-                log.warning("downstream_host: no from_conn for client_id=%s",
-                            client_id.decode("cp500", errors="replace").rstrip())
-                continue
-
-            send_q.put(encoded)
+            _route_frame(cid, transcode, iso_data, addr,
+                         spec, pans, from_connections, from_lock, stats)
     finally:
         conn.close()
+
+
+def _handle_new_conn(conn, addr, spec, pans, from_connections, from_lock, stats):
+    """Dispatcher: first IMS frame determines whether this is a from-conn or to-conn."""
+    try:
+        irm_f0, client_id, transcode, iso_data = ims_connect.read_request(conn)
+    except ConnectionError as e:
+        log.warning("downstream_host: %s handshake failed: %s", addr, e)
+        conn.close()
+        return
+
+    if irm_f0 == 0x80:
+        _handle_from_conn(conn, addr, client_id, from_connections, from_lock, stats)
+    else:
+        _handle_to_conn(conn, addr, client_id, transcode, iso_data,
+                        spec, pans, from_connections, from_lock, stats)
 
 
 def _accept_loop(srv_sock, stop_event, handler, *args):
@@ -149,7 +170,7 @@ def _accept_loop(srv_sock, stop_event, handler, *args):
             continue
         except OSError:
             return
-        log.info("downstream_host: accepted %s on %s", addr, srv_sock.getsockname())
+        log.info("downstream_host: accepted %s", addr)
         threading.Thread(target=handler, args=(conn, addr) + args, daemon=True).start()
 
 
@@ -188,37 +209,23 @@ def run(cfg=None, stop_event=None, stats=None):
     cmd = CommandServer(cfg["command_port"], stats, stop_event)
     cmd.start()
 
-    to_srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    to_srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    to_srv.bind(("", cfg["to_downstream_port"]))
-    to_srv.listen(5)
-
-    from_srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    from_srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    from_srv.bind(("", cfg["from_downstream_port"]))
-    from_srv.listen(5)
-
-    log.info("downstream_host: to_port=%d from_port=%d command=%d",
-             cfg["to_downstream_port"], cfg["from_downstream_port"], cfg["command_port"])
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind(("", cfg["port"]))
+    srv.listen(10)
+    log.info("downstream_host: port=%d command=%d", cfg["port"], cfg["command_port"])
 
     threading.Thread(
         target=_accept_loop,
-        args=(to_srv, stop_event, _handle_to_conn, spec, pans, from_connections, from_lock, stats),
-        name="to-acceptor",
-        daemon=True,
-    ).start()
-    threading.Thread(
-        target=_accept_loop,
-        args=(from_srv, stop_event, _handle_from_conn, from_connections, from_lock, stats),
-        name="from-acceptor",
+        args=(srv, stop_event, _handle_new_conn, spec, pans, from_connections, from_lock, stats),
+        name="acceptor",
         daemon=True,
     ).start()
 
     try:
         stop_event.wait()
     finally:
-        to_srv.close()
-        from_srv.close()
+        srv.close()
         log.info("downstream_host stopped")
 
 

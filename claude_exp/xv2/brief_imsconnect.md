@@ -48,3 +48,12 @@ return messages from downstream_host to router are just encoded with the llll fo
 messages from 
 
 
+# IMS_CONNECT part two
+## The pipe cleaner
+use skill router.md and make a plan for the following
+when router starts up and connects to downstream host it will start with a resume TPIPE on from_downstream_socket. 
+then to make sure nothing is waiting it should send a "pipe-cleaner" message - this is a message which it will send on to_downstream_socket where transcode should be PING0001 (in EBCDIC) and the data should be the message "1234 clean the pipes" in EBCDIC.
+when downstream host receives the PING0001 transaction code it should just return the message not in an iso message but just "PING" in EBCDIC followed by the "PIPES cleaned" in EBCDIC. 
+the router should understand that if first 4 bytes received from downstream_host then it is not an iso8583 message - and it should just display the data in hex and not send it further on to upstream_host.
+
+

@@ -1,4 +1,6 @@
 {
+  "name": "upstream_1",
+  "type": "upstream",
   "log_level": "DEBUG",
   "command_port": 8083,
   "router": {

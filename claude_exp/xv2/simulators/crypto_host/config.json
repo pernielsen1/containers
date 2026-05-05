@@ -1,4 +1,6 @@
 {
+  "name": "crypto_host",
+  "type": "crypto",
   "log_level": "DEBUG",
   "port": 5002,
   "command_port": 8082,

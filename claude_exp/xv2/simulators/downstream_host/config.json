@@ -1,7 +1,8 @@
 {
+  "name": "downstream_host",
+  "type": "downstream",
   "log_level": "DEBUG",
-  "to_downstream_port": 5001,
-  "from_downstream_port": 5003,
+  "port": 5001,
   "command_port": 8081,
   "iso_spec": "../../test_spec.json",
   "pans_defined": "../../pans_defined.json"
