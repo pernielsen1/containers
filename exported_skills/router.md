@@ -42,8 +42,9 @@ xv2/
 │   ├── framing.py                  ← generic TCP framing (header + length + data)
 │   ├── ims_connect.py              ← IMS Connect protocol (build/parse frames)
 │   ├── stats.py                    ← rolling-window + lifetime message counters
-│   ├── command_server.py           ← Flask HTTP command server base
-│   └── iso_utils.py                ← field 47 JSON helpers, spec loader, hex_dump
+│   ├── command_server.py           ← Flask HTTP command server base; installs LogBuffer automatically
+│   ├── log_buffer.py               ← logging.Handler subclass; 2000-line deque, used by CommandServer
+│   └── iso_utils.py                ← field 47 JSON helpers, spec loader, hex_dump, build_0800/0810
 ├── router/                         ← PRIMARY DELIVERABLE
 │   ├── main.py                     ← shared code, --config selects instance
 │   ├── router_1/
@@ -101,7 +102,83 @@ upstream_1 ◄──0110── router_1
 
 router_2   ──connects──► upstream_2 (router_2 is TCP client here)
 upstream_2 ──0100──► router_2 ──IMS 0100 (CLIENT02)──► downstream_host :5001
+
+Keep-alive (0800/0810):
+upstream_host ──0800──► router ──IMS 0800──► downstream_host
+upstream_host ◄──0810── router ◄──IMS 0810── downstream_host
 ```
+
+---
+
+## Keep-Alive & Reconnection
+
+### 0800/0810 Network Management
+
+- **upstream_host** always initiates 0800 keep-alive (regardless of server/client mode)
+- Interval: `ping_0800_seconds` in upstream config (default 30)
+- Router is a pure **pass-through**: forwards 0800 to downstream via IMS Connect (bypassing workers/STAN/crypto), then routes the 0810 reply back to upstream_host
+- downstream_host handles 0800 by replying 0810 (echoing F24)
+- upstream_host handles inbound 0810 by logging it
+
+### Session Loop & Reconnection
+
+`run()` has an outer **session loop** — each iteration is one full session:
+
+```python
+while not stop_event.is_set():
+    reconnect_event = threading.Event()
+    upstream_ref = {"conn": None, "lock": None}  # current upstream socket + write lock
+
+    to_sock, from_sock = _connect_downstream_ims(...)   # may retry on OSError
+
+    # start workers, ds-receiver, upstream accept/connect thread
+
+    while not reconnect_event.is_set() and not stop_event.is_set():
+        stop_event.wait(timeout=1)
+
+    # teardown: close upstream_ref["conn"], poison workers, close downstream sockets
+    # wait reestablish_seconds, then loop
+```
+
+`reconnect_event` is set by:
+- `_handle_upstream` on upstream disconnect
+- `_downstream_receiver` on downstream disconnect
+- `_worker` on OSError writing to downstream (`to_sock`)
+- `_handle_upstream` on OSError forwarding 0800 to downstream
+
+Config: `reestablish_seconds` (default 10) at top level of router config.
+
+### One upstream at a time (server mode)
+
+`_upstream_accept_loop` **joins** the handler thread before accepting the next connection — strictly one active upstream per session:
+
+```python
+while not reconnect_event.is_set() and not stop_event.is_set():
+    up_conn, up_addr = srv_sock.accept()          # 1s timeout loop
+    upstream_ref["conn"] = up_conn
+    upstream_ref["lock"] = threading.Lock()
+    t = threading.Thread(target=_handle_upstream, ...)
+    t.start()
+    t.join()   # blocks — one connection at a time
+```
+
+`srv_sock` is created once before the session loop and **never closed between sessions** — the OS queues incoming connections during the reconnect delay.
+
+### Client mode reconnection
+
+`_client_upstream_loop` retries connecting within a session until connected. Once connected and then disconnected, sets `reconnect_event` and exits (no silent retry within session — outer session loop handles the full reconnect after `reestablish_seconds`).
+
+---
+
+## upstream_ref — shared upstream connection handle
+
+Per session, `upstream_ref = {"conn": None, "lock": None}` is a mutable dict shared between:
+- `_handle_upstream`: sets on connect, clears on exit
+- `_upstream_accept_loop` / `_client_upstream_loop`: sets when connection established
+- `_downstream_receiver`: reads to route 0810 replies back to upstream
+- session teardown: reads to close the socket
+
+The `lock` is a `threading.Lock()` per connection used to serialise concurrent writes to the upstream socket (0110 from `_downstream_receiver` and any future writes).
 
 ---
 
@@ -112,7 +189,8 @@ The `upstream` config section has an optional `"mode"` field:
 ### `"mode": "server"` (default — router listens, upstream connects)
 
 ```python
-# run() binds srv_sock, accept loop, spawns _handle_upstream per connection
+# run() binds srv_sock once (before session loop), reuses across sessions
+# _upstream_accept_loop: accept one → join → accept next (one at a time)
 ```
 
 Config: `upstream.port` is the listen port. No `host` or `retry_seconds` needed.
@@ -120,22 +198,12 @@ Config: `upstream.port` is the listen port. No `host` or `retry_seconds` needed.
 ### `"mode": "client"` (router connects out to upstream_host)
 
 ```python
-def _client_upstream_loop(up_cfg, up_framing, spec, work_queue, stats, stop_event):
-    # loop: connect → _handle_upstream → on disconnect or OSError → wait retry_seconds → retry
+def _client_upstream_loop(up_cfg, ..., reconnect_event, stop_event):
+    # loop: connect → _handle_upstream → on disconnect set reconnect_event, break
+    # on OSError connecting: wait retry_seconds, retry (within session)
 ```
 
-Config: `upstream.host`, `upstream.port` (target), `upstream.retry_seconds` (default 5). No `srv_sock` created.
-
-In `run()`:
-```python
-up_mode = cfg["upstream"].get("mode", "server")
-if up_mode == "client":
-    threading.Thread(target=_client_upstream_loop, ..., name="up-client", daemon=True).start()
-    stop_event.wait()
-    # cleanup: workers + downstream sockets
-else:
-    # existing accept loop
-```
+Config: `upstream.host`, `upstream.port` (target), `upstream.retry_seconds` (default 5).
 
 ---
 
@@ -145,7 +213,7 @@ The upstream_host config has an optional top-level `"mode"` field:
 
 ### `"mode": "client"` (default — upstream connects to router on /start)
 
-`/start` calls `connect()` → starts receive loop + send loop.
+`/start` calls `connect()` → starts receive loop + keepalive sender + send loop.
 
 ### `"mode": "server"` (upstream listens, router connects)
 
@@ -153,12 +221,12 @@ On `run()` startup: bind on `cfg["port"]`, start `_accept_loop` thread that:
 - Accepts each incoming router connection
 - Closes any previous connection
 - Stores conn in `state["conn"]`, clears `state["results"]`
-- Starts `receive_loop` in a daemon thread
+- Starts `receive_loop` + `_keepalive_sender` as daemon threads
 
 `/start`:
 - Reads CSV as usual
 - Checks `state["conn"]` — if `None`, returns `503 "router not connected yet"`
-- Otherwise starts send loop on the existing connection (receive loop already running)
+- Otherwise starts send loop on the existing connection
 
 ---
 
@@ -261,7 +329,8 @@ All configs include `"name"` and `"type"` — used by the monitor for discovery.
   "upstream": { "port": 5000, "framing": { … } },
   "downstream": { "host": "localhost", "port": 5001, "irm_id": "IRM_ID01", "client_id": "CLIENT01" },
   "crypto": { "host": "localhost", "port": 5002 },
-  "iso_spec": "../../test_spec.json", "worker_threads": 8
+  "iso_spec": "../../test_spec.json", "worker_threads": 8,
+  "reestablish_seconds": 10
 }
 ```
 
@@ -273,7 +342,8 @@ All configs include `"name"` and `"type"` — used by the monitor for discovery.
   "upstream": { "mode": "client", "host": "localhost", "port": 5010, "retry_seconds": 5, "framing": { … } },
   "downstream": { "host": "localhost", "port": 5001, "irm_id": "IRM_ID01", "client_id": "CLIENT02" },
   "crypto": { "host": "localhost", "port": 5002 },
-  "iso_spec": "../../test_spec.json", "worker_threads": 8
+  "iso_spec": "../../test_spec.json", "worker_threads": 8,
+  "reestablish_seconds": 10
 }
 ```
 
@@ -283,7 +353,8 @@ All configs include `"name"` and `"type"` — used by the monitor for discovery.
   "name": "upstream_1", "type": "upstream",
   "log_level": "DEBUG", "command_port": 8083,
   "router": { "host": "localhost", "port": 5000 },
-  "framing": { … }, "iso_spec": "../../test_spec.json", "input_dir": "input"
+  "framing": { … }, "iso_spec": "../../test_spec.json", "input_dir": "input",
+  "ping_0800_seconds": 30
 }
 ```
 
@@ -293,7 +364,8 @@ All configs include `"name"` and `"type"` — used by the monitor for discovery.
   "name": "upstream_2", "type": "upstream",
   "mode": "server",
   "log_level": "DEBUG", "command_port": 8086, "port": 5010,
-  "framing": { … }, "iso_spec": "../../test_spec.json", "input_dir": "input"
+  "framing": { … }, "iso_spec": "../../test_spec.json", "input_dir": "input",
+  "ping_0800_seconds": 30
 }
 ```
 
@@ -338,19 +410,31 @@ def upload(): ...
 cmd.start()   # daemon thread; Flask on 0.0.0.0:port
 ```
 
-Built-in endpoints: `GET /stats`, `GET|POST /stop`.
+Built-in endpoints (all actors get these for free — no actor code changes needed):
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `GET /stats` | GET | Rolling-window + lifetime message counts |
+| `GET\|POST /stop` | GET/POST | Graceful shutdown |
+| `GET /log_level` | GET | Current root-logger level e.g. `{"level": "DEBUG"}` |
+| `POST /log_level` | POST | Change level: `{"level": "WARNING"}` → 400 on unknown level |
+| `GET /logs` | GET | Last 2000 log lines as JSON array; `?format=text` for plain text |
+
+`CommandServer.__init__` installs a `LogBuffer` handler on the root logger with the standard format (`%(asctime)s [%(threadName)s] %(levelname)s %(message)s`). The buffer is shared with the `/logs` endpoint.
 
 ---
 
 ## ISO Utilities (`shared/iso_utils.py`)
 
 ```python
-from shared.iso_utils import load_spec, f47_encode, f47_decode, hex_dump
+from shared.iso_utils import load_spec, f47_encode, f47_decode, hex_dump, build_0800, build_0810
 spec    = load_spec("path/to/test_spec.json")
 f47_str = f47_encode({"crypto_result": True})
 data    = f47_decode(f47_str)
 data    = f47_decode("")   # → {}  (never raises)
 hex_dump("RECV upstream", raw_bytes, log)   # no-op unless DEBUG
+encoded = build_0800(spec)          # ISO-encoded 0800 with F24="100"
+encoded = build_0810("100", spec)   # ISO-encoded 0810 echoing F24
 ```
 
 ---
@@ -410,6 +494,18 @@ Flask app (port 8090) that proxies to all actor command ports and manages actor 
 - `POST /api/actor/<name>/stop` — proxy to actor's `/stop`
 - `POST /api/start_all` / `POST /api/stop_all`
 - Per-actor: `/api/actor/<name>/stats|upload|upload_path|start|results`
+- `GET|POST /api/actor/<name>/log_level` — proxy to actor's `/log_level`
+- `GET /api/actor/<name>/logs` — proxy to actor's `/logs`; passes `?format=text` through
+
+**Monitor UI — actor cards:**
+- **Log level dropdown** (DEBUG/INFO/WARNING/ERROR): disabled when actor is down; current level fetched once on first successful heartbeat; changes POST immediately to the actor.
+- **Logs button**: opens a modal log viewer for that actor.
+
+**Monitor UI — log viewer modal:**
+- Scrollable monospace `<pre>` (green tint, max 420px, auto-scrolls if at bottom)
+- Auto-refresh every 2s (default on); manual Refresh button
+- Scroll-to-bottom button
+- Export button: fetches `?format=text`, downloads as `<name>_<timestamp>.log`
 
 **`run/kill_monitor.sh`:** POSTs to `/stop`, captures monitor PID first, polls `kill -0` for up to 30s, then `kill -9` if still alive.
 
@@ -442,10 +538,11 @@ curl -X POST http://localhost:<command_port>/stop
 ## Resilience
 
 - All server sockets use `SO_REUSEADDR`
-- Accept loops use `settimeout(1)` to poll `stop_event`
+- Accept loops use `settimeout(1)` to poll `stop_event` / `reconnect_event`
 - All sockets closed in `finally` blocks
 - Daemon threads — clean exit when `stop_event.wait()` returns
 - Monitor: `atexit` + `_terminate_proc` (terminate → wait → kill) prevents zombie processes
+- Router session loop: automatic reconnect on any disconnect (upstream or downstream), `reestablish_seconds` delay between sessions
 
 ---
 
@@ -453,11 +550,15 @@ curl -X POST http://localhost:<command_port>/stop
 
 Threading. Chosen over asyncio for C++ portability.
 
-**Upstream path:** One reader thread per upstream connection → `queue.Queue` → fixed pool of `worker_threads` (default 8). Workers call crypto (blocking HTTP) then write to `to_sock`. `ds_write_lock` serialises concurrent writes.
+**Upstream path:** One reader thread per upstream connection (one at a time per session) → `queue.Queue` → fixed pool of `worker_threads` (default 8). Workers call crypto (blocking HTTP) then write to `to_sock`. `ds_write_lock` serialises concurrent writes. OSError on write sets `reconnect_event`.
 
-**Downstream path:** Single `ds-receiver` thread reads `from_sock`, calls crypto, writes reply to originating upstream socket.
+**Downstream path:** Single `ds-receiver` thread reads `from_sock`, calls crypto for 0110, writes reply via `entry["up_write_lock"]` to originating upstream socket. Routes 0810 directly via `upstream_ref`.
 
-Shared state: `pending` dict + `Stats` counters, both protected by `threading.Lock`.
+**0800 pass-through:** `_handle_upstream` forwards 0800 directly to `to_sock` (bypasses queue/STAN/crypto). `_downstream_receiver` routes 0810 back via `upstream_ref["conn"]`.
+
+**Keepalive sender (upstream_host):** one daemon thread per connection, sleeps `ping_0800_seconds`, sends 0800, exits on socket exception.
+
+Shared state: `pending` dict (STAN→entry) + `upstream_ref` dict + `Stats` counters, all protected by `threading.Lock`. Fresh `pending` and `upstream_ref` created each session.
 
 ---
 

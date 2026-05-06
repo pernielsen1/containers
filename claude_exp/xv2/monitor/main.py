@@ -251,6 +251,37 @@ def api_results(name):
         return jsonify({"error": str(e)}), 503
 
 
+@app.route("/api/actor/<name>/log_level", methods=["GET", "POST"])
+def api_log_level(name):
+    url = _actor_url(name, "/log_level")
+    if not url:
+        return jsonify({"error": "unknown actor"}), 404
+    try:
+        if flask_request.method == "POST":
+            r = requests.post(url, json=flask_request.json, timeout=2)
+        else:
+            r = requests.get(url, timeout=2)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 503
+
+
+@app.route("/api/actor/<name>/logs")
+def api_logs(name):
+    url = _actor_url(name, "/logs")
+    if not url:
+        return jsonify({"error": "unknown actor"}), 404
+    fmt = flask_request.args.get("format", "")
+    try:
+        r = requests.get(url, params={"format": fmt} if fmt else {}, timeout=5)
+        if fmt == "text":
+            from flask import Response
+            return Response(r.text, mimetype="text/plain")
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 503
+
+
 # ── global start / stop ───────────────────────────────────────────────────────
 
 @app.route("/api/start_all", methods=["POST"])

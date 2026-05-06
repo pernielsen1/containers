@@ -13,5 +13,6 @@
     "length_field_bytes": 4
   },
   "iso_spec": "../../test_spec.json",
-  "input_dir": "input"
+  "input_dir": "input",
+  "ping_0800_seconds": 30
 }

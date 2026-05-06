@@ -18,7 +18,7 @@ from flask import Flask, jsonify, request as flask_request
 from shared.framing import read_message, write_message
 from shared.stats import Stats
 from shared.command_server import CommandServer
-from shared.iso_utils import load_spec, hex_dump
+from shared.iso_utils import load_spec, hex_dump, build_0800
 
 logging.basicConfig(
     level=logging.INFO,
@@ -84,6 +84,19 @@ def run(cfg=None, stop_event=None, stats=None, _config_base=None):
         log.info("upstream_host: connected to router %s:%d", rcfg["host"], rcfg["port"])
         return s
 
+    ping_interval = cfg.get("ping_0800_seconds", 30)
+
+    def _keepalive_sender(conn, stop_evt):
+        while not stop_evt.is_set():
+            stop_evt.wait(timeout=ping_interval)
+            if stop_evt.is_set():
+                break
+            try:
+                write_message(conn, build_0800(spec), framing)
+                log.debug("upstream_host: sent 0800 keepalive")
+            except Exception:
+                break
+
     def receive_loop(conn):
         while not stop_event.is_set():
             try:
@@ -97,6 +110,14 @@ def run(cfg=None, stop_event=None, stats=None, _config_base=None):
                 resp, _ = iso8583.decode(data, spec=spec)
             except Exception as e:
                 log.warning("upstream_host decode error: %s", e)
+                continue
+            mti = resp.get("t")
+            if mti == "0810":
+                log.debug("upstream_host: received 0810 keepalive response F24=%s",
+                          resp.get("24"))
+                continue
+            if mti != "0110":
+                log.warning("upstream_host: unexpected MTI %s", mti)
                 continue
             stan = resp.get("11", "")
             with state["pending_lock"]:
@@ -173,6 +194,8 @@ def run(cfg=None, stop_event=None, stats=None, _config_base=None):
             except OSError as e:
                 return jsonify({"error": str(e)}), 503
             threading.Thread(target=receive_loop, args=(conn,), daemon=True).start()
+            threading.Thread(target=_keepalive_sender, args=(conn, stop_event),
+                             daemon=True).start()
         threading.Thread(target=send_loop, args=(conn, rows), daemon=True).start()
         return jsonify({"status": "started", "rows": len(rows)})
 
@@ -212,6 +235,8 @@ def run(cfg=None, stop_event=None, stats=None, _config_base=None):
                 with state["results_lock"]:
                     state["results"] = []
                 threading.Thread(target=receive_loop, args=(conn,), daemon=True).start()
+                threading.Thread(target=_keepalive_sender, args=(conn, stop_event),
+                                 daemon=True).start()
 
         threading.Thread(target=_accept_loop, daemon=True, name="srv-acceptor").start()
 

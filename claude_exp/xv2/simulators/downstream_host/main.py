@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from shared.stats import Stats
 from shared.command_server import CommandServer
-from shared.iso_utils import load_spec, f47_decode, hex_dump
+from shared.iso_utils import load_spec, f47_decode, hex_dump, build_0810
 from shared import ims_connect
 
 logging.basicConfig(
@@ -104,8 +104,23 @@ def _route_frame(client_id, transcode, iso_data, addr, spec, pans,
         log.warning("Decode error from %s: %s", addr, e)
         return
 
-    if req.get("t") != "0100":
-        log.warning("Unexpected MTI %s from %s", req.get("t"), addr)
+    mti = req.get("t")
+
+    if mti == "0800":
+        try:
+            encoded = build_0810(req.get("24", "100"), spec)
+        except Exception as e:
+            log.warning("downstream_host: encode 0810 error: %s", e)
+            return
+        with from_lock:
+            send_q = from_connections.get(client_id)
+        if send_q is not None:
+            send_q.put(encoded)
+        log.debug("downstream_host: replied 0810 to %s", addr)
+        return
+
+    if mti != "0100":
+        log.warning("Unexpected MTI %s from %s", mti, addr)
         return
 
     resp = _process_0100(req, pans)

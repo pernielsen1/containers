@@ -87,6 +87,31 @@ tr:last-child td { border-bottom: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid #374151;
         border-top-color: #60a5fa; border-radius: 50%; animation: spin .7s linear infinite; }
+
+/* log level select on cards */
+.log-level-sel { background: #1e293b; color: #d1d5db; border: 1px solid #374151;
+                 border-radius: 5px; padding: 3px 6px; font-size: .72rem; cursor: pointer; }
+.log-level-sel:disabled { opacity: .4; cursor: not-allowed; }
+
+/* modal */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65);
+                 z-index: 100; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: #161b27; border: 1px solid #21283a; border-radius: 12px;
+         width: min(860px, 95vw); max-height: 90vh; display: flex; flex-direction: column; }
+.modal-hdr { display: flex; align-items: center; justify-content: space-between;
+             padding: 14px 18px; border-bottom: 1px solid #21283a; }
+.modal-title { font-size: .9rem; font-weight: 600; color: #93c5fd; }
+.modal-close { background: none; border: none; color: #6b7280; font-size: 1.2rem;
+               cursor: pointer; line-height: 1; padding: 2px 6px; border-radius: 4px; }
+.modal-close:hover { color: #d1d5db; background: #21283a; }
+.log-pre { flex: 1; overflow-y: auto; margin: 0; padding: 12px 16px;
+           font-family: 'Cascadia Code', 'Fira Mono', monospace; font-size: .72rem;
+           line-height: 1.5; color: #86efac; background: #0b0f18;
+           white-space: pre-wrap; word-break: break-all; min-height: 120px; max-height: 420px; }
+.modal-foot { display: flex; align-items: center; gap: 8px; padding: 12px 18px;
+              border-top: 1px solid #21283a; flex-wrap: wrap; }
+.modal-foot .toggle { font-size: .78rem; color: #9ca3af; }
 </style>
 </head>
 <body>
@@ -145,6 +170,26 @@ tr:last-child td { border-bottom: none; }
       <tbody id="results-body"></tbody>
     </table>
     <div id="no-results" class="empty">No results yet.</div>
+  </div>
+</div>
+
+<!-- log viewer modal -->
+<div class="modal-overlay" id="log-modal" onclick="closeLogModal(event)">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-title" id="log-modal-title">Logs</span>
+      <button class="modal-close" onclick="closeLogModal()">&#x2715;</button>
+    </div>
+    <pre class="log-pre" id="log-pre"></pre>
+    <div class="modal-foot">
+      <button class="btn btn-blue btn-sm" onclick="refreshLogs()">&#8635; Refresh</button>
+      <button class="btn btn-blue btn-sm" onclick="scrollLogsBottom()">&#8681; Bottom</button>
+      <button class="btn btn-blue btn-sm" onclick="exportLogs()">&#8659; Export</button>
+      <label class="toggle" style="margin-left:auto">
+        <input type="checkbox" id="log-auto-refresh" checked onchange="onLogAutoRefreshChange(this)">
+        Auto-refresh
+      </label>
+    </div>
   </div>
 </div>
 
@@ -216,7 +261,14 @@ function renderCards(grid, list) {
         <span class="sl">sent total</span><span class="sv" id="stot-${a.name}">&#8212;</span>
         <span class="sl">recv total</span><span class="sv" id="rtot-${a.name}">&#8212;</span>
       </div>
-      <div class="card-foot" style="gap:6px">
+      <div class="card-foot" style="gap:6px;flex-wrap:wrap">
+        <select class="log-level-sel" id="lvl-${a.name}" disabled
+                onchange="setLogLevel('${a.name}', this.value)">
+          <option>DEBUG</option><option>INFO</option>
+          <option>WARNING</option><option>ERROR</option>
+        </select>
+        <button class="btn btn-blue btn-sm" onclick="openLogModal('${a.name}')" disabled
+                id="btn-logs-${a.name}">Logs</button>
         <button class="btn btn-green btn-sm" onclick="launchActor('${a.name}')">Start</button>
         <button class="btn btn-amber btn-sm" onclick="stopActor('${a.name}')">Stop</button>
       </div>`;
@@ -255,6 +307,8 @@ async function pollOnce() {
   } catch (_) {}
 }
 
+const _levelFetched = new Set();
+
 async function fetchStats(name) {
   try {
     const r = await fetch(`/api/actor/${name}/stats`);
@@ -267,6 +321,19 @@ async function fetchStats(name) {
     set(`r60-${name}`, s.recv_60s);
     set(`stot-${name}`, s.sent_total);
     set(`rtot-${name}`, s.recv_total);
+
+    // enable log controls; fetch current level once per session
+    const sel = document.getElementById(`lvl-${name}`);
+    const btn = document.getElementById(`btn-logs-${name}`);
+    if (sel) sel.disabled = false;
+    if (btn) btn.disabled = false;
+    if (!_levelFetched.has(name)) {
+      _levelFetched.add(name);
+      fetch(`/api/actor/${name}/log_level`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.level && sel) sel.value = d.level; })
+        .catch(() => {});
+    }
   } catch (_) {}
 }
 
@@ -275,6 +342,11 @@ function clearStats(name) {
     const el = document.getElementById(`${p}-${name}`);
     if (el) el.textContent = '—';
   });
+  _levelFetched.delete(name);
+  const sel = document.getElementById(`lvl-${name}`);
+  const btn = document.getElementById(`btn-logs-${name}`);
+  if (sel) sel.disabled = true;
+  if (btn) btn.disabled = true;
 }
 
 // ── global controls ────────────────────────────────────────────────────────
@@ -462,6 +534,83 @@ function onAutoRefreshChange(cb) {
   autoRefresh = cb.checked;
   localStorage.setItem('autoRefresh', autoRefresh);
   if (!autoRefresh) { clearInterval(resultsTimer); resultsTimer = null; }
+}
+
+// ── log level ──────────────────────────────────────────────────────────────
+async function setLogLevel(name, level) {
+  try {
+    await fetch(`/api/actor/${name}/log_level`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ level }),
+    });
+  } catch (_) {}
+}
+
+// ── log viewer modal ───────────────────────────────────────────────────────
+let _logActor = null;
+let _logTimer = null;
+
+async function openLogModal(name) {
+  _logActor = name;
+  document.getElementById('log-modal-title').textContent = `Logs — ${name}`;
+  document.getElementById('log-pre').textContent = 'Loading…';
+  document.getElementById('log-modal').classList.add('open');
+  await refreshLogs();
+  if (document.getElementById('log-auto-refresh').checked) startLogPoll();
+}
+
+function closeLogModal(event) {
+  if (event && event.target !== document.getElementById('log-modal')) return;
+  stopLogPoll();
+  _logActor = null;
+  document.getElementById('log-modal').classList.remove('open');
+}
+
+function startLogPoll() {
+  stopLogPoll();
+  _logTimer = setInterval(refreshLogs, 2000);
+}
+
+function stopLogPoll() {
+  if (_logTimer) { clearInterval(_logTimer); _logTimer = null; }
+}
+
+async function refreshLogs() {
+  if (!_logActor) return;
+  try {
+    const r = await fetch(`/api/actor/${_logActor}/logs`);
+    if (!r.ok) return;
+    const lines = await r.json();
+    const pre = document.getElementById('log-pre');
+    const atBottom = pre.scrollHeight - pre.scrollTop <= pre.clientHeight + 4;
+    pre.textContent = lines.join('\n');
+    if (atBottom) pre.scrollTop = pre.scrollHeight;
+  } catch (_) {}
+}
+
+function scrollLogsBottom() {
+  const pre = document.getElementById('log-pre');
+  pre.scrollTop = pre.scrollHeight;
+}
+
+async function exportLogs() {
+  if (!_logActor) return;
+  try {
+    const r = await fetch(`/api/actor/${_logActor}/logs?format=text`);
+    const text = await r.text();
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const blob = new Blob([text], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${_logActor}_${ts}.log`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (_) {}
+}
+
+function onLogAutoRefreshChange(cb) {
+  if (cb.checked) startLogPoll(); else stopLogPoll();
 }
 
 init();
