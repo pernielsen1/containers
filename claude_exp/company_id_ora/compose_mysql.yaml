@@ -1,0 +1,18 @@
+services:
+  company-id-mysql:
+    image: mysql:8.0
+    container_name: company_id_ora-mysql-1
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${PN_MYSQL_PASSWORD}
+      - MYSQL_USER=${PN_MYSQL_USER}
+      - MYSQL_PASSWORD=${PN_MYSQL_PASSWORD}
+    volumes:
+      - ./setup-scripts-mysql:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s

@@ -528,9 +528,9 @@ BEGIN
         WHEN 'LV' THEN
             IF v_len = 11 AND v_before = '' AND v_after = '' THEN SET p_result = 1; END IF;
 
-        -- MT: C + 3-5 digits
+        -- MT: C or OC + 3-6 digits
         WHEN 'MT' THEN
-            IF v_len BETWEEN 3 AND 5 AND UPPER(v_before) = 'C' AND v_after = '' THEN SET p_result = 1; END IF;
+            IF v_len BETWEEN 3 AND 6 AND UPPER(v_before) IN ('C','OC') AND v_after = '' THEN SET p_result = 1; END IF;
 
         -- NL: 8 digits
         WHEN 'NL' THEN
@@ -551,6 +551,18 @@ BEGIN
         -- US: 9 digits (EIN)
         WHEN 'US' THEN
             IF v_len = 9 AND v_before = '' AND v_after = '' THEN SET p_result = 1; END IF;
+
+        -- IM: exactly 6 digits, no prefix, suffix allowed
+        WHEN 'IM' THEN
+            IF v_len = 6 AND v_before = '' THEN SET p_result = 1; END IF;
+
+        -- JE: 4-7 digits, no prefix, no suffix
+        WHEN 'JE' THEN
+            IF v_len BETWEEN 4 AND 7 AND v_before = '' AND v_after = '' THEN SET p_result = 1; END IF;
+
+        -- GY: 1-6 digits, no prefix, no suffix
+        WHEN 'GY' THEN
+            IF v_len BETWEEN 1 AND 6 AND v_before = '' AND v_after = '' THEN SET p_result = 1; END IF;
 
         -- Unknown country → return 0 (already set)
         ELSE BEGIN END;

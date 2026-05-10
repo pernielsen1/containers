@@ -9,10 +9,9 @@ ORA_USER     = os.environ["PN_MYSQL_USER"]
 ORA_PASSWORD = os.environ["PN_MYSQL_PASSWORD"]
 DSN          = "localhost:1521/XEPDB1"
 
-_DIR       = os.path.dirname(__file__)
-_SQL_DIR   = os.path.join(_DIR, '..', 'company_id_sql')
-CSV_FILE   = os.path.join(_SQL_DIR, 'company_ids.csv')
-XJUSTIZ_JSON = os.path.join(_SQL_DIR, 'snippets_copy', 'XJustiz.json')
+_DIR         = os.path.dirname(__file__)
+CSV_FILE     = os.path.join(_DIR, 'company_ids.csv')
+XJUSTIZ_JSON = os.path.join(_DIR, 'XJustiz.json')
 
 _arg = sys.argv[1].upper() if len(sys.argv) > 1 else None
 if _arg not in (None, 'CID', 'VAT', 'XJUSTIZ'):
