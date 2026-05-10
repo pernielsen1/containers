@@ -85,5 +85,23 @@ def test_snapshot_keys():
     s = Stats()
     snap = s.snapshot()
     expected = {f"{d}_{w}s" for d in ("sent", "recv") for w in (30, 60, 180, 1800)}
-    expected |= {"sent_total", "recv_total"}
+    expected |= {"sent_total", "recv_total", "seconds_since_last_recv"}
     assert set(snap.keys()) == expected
+
+
+def test_snapshot_yellow_threshold():
+    s = Stats(yellow_threshold_seconds=40)
+    snap = s.snapshot()
+    assert snap["yellow_threshold_seconds"] == 40
+    assert snap["seconds_since_last_recv"] is None
+    s.record_recv()
+    snap2 = s.snapshot()
+    assert snap2["seconds_since_last_recv"] is not None
+    assert snap2["seconds_since_last_recv"] < 1
+
+
+def test_snapshot_no_yellow_threshold():
+    s = Stats()
+    snap = s.snapshot()
+    assert "yellow_threshold_seconds" not in snap
+    assert snap["seconds_since_last_recv"] is None

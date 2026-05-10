@@ -40,6 +40,7 @@ header h1 { font-size: 1rem; font-weight: 600; color: #f3f4f6; letter-spacing: .
 .dot { width: 9px; height: 9px; border-radius: 50%; background: #374151; flex-shrink: 0;
        transition: background .3s, box-shadow .3s; }
 .dot.up   { background: #22c55e; box-shadow: 0 0 7px #22c55e99; }
+.dot.idle { background: #f59e0b; box-shadow: 0 0 7px #f59e0b99; }
 .dot.down { background: #ef4444; box-shadow: none; }
 .card-name { font-size: .88rem; font-weight: 600; color: #f3f4f6; }
 .stat-grid { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px;
@@ -299,10 +300,11 @@ async function pollOnce() {
       msg.textContent = '';
     }
 
-    for (const [name, up] of Object.entries(status)) {
+    for (const [name, status] of Object.entries(status)) {
       const dot = document.getElementById(`dot-${name}`);
-      if (dot) dot.className = 'dot ' + (up ? 'up' : 'down');
-      if (up) fetchStats(name); else clearStats(name);
+      const cls = status === 'green' ? 'up' : status === 'yellow' ? 'idle' : 'down';
+      if (dot) dot.className = 'dot ' + cls;
+      if (status !== 'red') fetchStats(name); else clearStats(name);
     }
   } catch (_) {}
 }

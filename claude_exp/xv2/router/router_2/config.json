@@ -26,5 +26,6 @@
   },
   "iso_spec": "../../test_spec.json",
   "worker_threads": 8,
-  "reestablish_seconds": 10
+  "reestablish_seconds": 10,
+  "yellow_threshold_seconds": 40
 }

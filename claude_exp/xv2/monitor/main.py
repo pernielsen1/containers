@@ -116,12 +116,18 @@ def api_status():
 
     def check(name):
         try:
-            requests.get(_actor_url(name, "/stats"), timeout=0.5)
-            with lock:
-                result[name] = True
+            r = requests.get(_actor_url(name, "/stats"), timeout=0.5)
+            data = r.json()
+            threshold = data.get("yellow_threshold_seconds")
+            if threshold is None:
+                status = "green"
+            else:
+                age = data.get("seconds_since_last_recv")
+                status = "yellow" if (age is None or age > threshold) else "green"
         except Exception:
-            with lock:
-                result[name] = False
+            status = "red"
+        with lock:
+            result[name] = status
 
     threads = [threading.Thread(target=check, args=(n,)) for n in ACTORS]
     for t in threads:

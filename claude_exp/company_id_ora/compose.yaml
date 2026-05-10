@@ -1,0 +1,14 @@
+services:
+  oracle-db:
+    image: container-registry.oracle.com/database/express:latest
+    container_name: company_id_ora-db-1
+    shm_size: '1gb'
+    ports:
+      - "1521:1521"
+    environment:
+      - ORACLE_PASSWORD=${PN_MYSQL_PASSWORD}
+      - APP_USER=${PN_MYSQL_USER}
+      - APP_USER_PASSWORD=${PN_MYSQL_PASSWORD}
+    volumes:
+      - ${HOME}/db_data/oracle:/opt/oracle/oradata
+      - ./setup-scripts:/opt/oracle/scripts/startup
