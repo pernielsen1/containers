@@ -76,9 +76,9 @@ class company_identifiers:
             "ES_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus10, "country":"ES",
                           "name":"Spanish NIF", "len":8,
                         "before_list_TBD": ['ESA', 'ESB', 'ESC', 'ESF', 'ESG', 'ESN', 'ESW']}, 
-            "EU_VAT_ID": {"algorithm":self.validate_just_numeric,  
-                          "country":"EU", "name":"EU vat", "min_len":1, "len":4, 
-                          "before_list":"EU"},
+        #    "EU_VAT_ID": {"algorithm":self.validate_just_numeric,  
+        #                  "country":"EU", "name":"EU vat", "min_len":1, "len":4, 
+        #                  "before_list":"EU"},
             "FI_COMPANY_ID" : {"algorithm":self.validate_modulus11,"country":"FI", "name":"LY - business ID", "len":8,
                         "zfill_len":8,  "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ],
                         "mask":"%s%s%s%s%s%s%s-%s"},
@@ -345,8 +345,8 @@ class company_identifiers:
     def validate_vat_std(self, s, variant):
         """ vat std i.e. the name of the country followed by the normal number for company ID
         """
-        if s[0:2] == 'EU':
-            return self.validate_VAT_ID(s, 'EU')
+        # if s[0:2] == 'EU':
+        #    return self.validate_VAT_ID(s, 'EU')
         
         result = self.get_before_number_after(s, variant)
         result['var_cntry'] = variant['country']
