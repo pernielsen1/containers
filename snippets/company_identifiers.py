@@ -61,6 +61,11 @@ class company_identifiers:
                               "country":"DE", "min_len":1, "len":6, 
                               "before_list": ['HRA', 'HRB', 'GnR', 'GsR', 'VR', 'PR'], 'after_allowed':True},
             "DE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"DE", "name":"Germany VAT", "len":9},
+            "EE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, 
+                          "country":"EE", "name":"Estonian", "len":9},
+            "LT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, 
+                          "country":"LT", "name":"Lithuanian VAT", "min_len":9, "len": 12},
+                
             "DK_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"DK", "name":"CVR" ,
                         "weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},
             "EE_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"EE", "name":"Legal identity code", "len":8, 
