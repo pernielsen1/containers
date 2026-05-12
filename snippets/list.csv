@@ -1,0 +1,199 @@
+"STATUS 
+(v3.6 vs the previous version)";"Identifier type 
+(item to be reported, together with the corresponding identifier value)";Applicable to counterparties resident in;"Macro class / category
+(standardised classification; only for information)";Reporting format: RegEx specification
+;AE_BL_CD;United Arab Emirates ;Business register number;
+;AR_CUIT_CD;Argentina ;Tax code;\d{2}-\d{8}-\d{1}
+;AT_IDENT_CD;Austria;NCB identifier;\d{1,8}
+;AT_FB_CD;Austria;Business register number;\d{1,6}[A-Za-z]\d{0,3}
+;AT_ZVR_CD;Austria;Register of associations;\d{1,10}
+;AT_GEM_CD;Austria;Public sector entity identifier;\d{5}
+;AT_LAE_CD;Austria;Public sector entity identifier;\d
+;AT_NOTAP_CD;Austria;;
+;AU_ABN_CD;Australia;Business register number;\d{2} \d{3} \d{3} \d{3}
+;AU_ACN_CD;Australia;Business register number;\d{3} \d{3} \d{3}
+;BA_MBS_CD;Bosnia and Herzegovina;Business register number;\d{1,2}-\d{3,5}|\d{1}-\d{2,5}-\d{2}|\d{2}-\d{2}-\d{4}-\d{2}|\d-\d{3}-\d|\d-\d{2}
+;BA_JIB_CD;Bosnia and Herzegovina;Trade register number;\d{13}
+;BA_PIB_CD;Bosnia and Herzegovina;Tax code;\d{12}
+;BE_OND_CD;Belgium;Business register number;[0,1]\d{9}
+;BG_BULSTAT_CD;Bulgaria;Public registry identification number;\d{13}|\d{10}|\d{9}
+;BG_UIC_CD;Bulgaria;Trade register number;\d{13}|\d{9}
+;BG_VAT_CD;Bulgaria;VAT number;(BG)\d{9,10}
+;BH_CR_CD;Bahrain;Business register number;\d{5}-\d{1}
+;BM_RN_CD;Bermuda;Business register number;
+;BR_CNPJ_CD;Brazil;Identification number;\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}
+;BS_NBR_CD;Bahamas ;Business register number;\d{5,7}
+;BY_NBR_CD;Belarus ;Business register number;\d{9}
+;BZ_TIN_CD;Belize ;Tax code;\d{6}
+;CA_BN_CD;Canada;Tax code;\d{9}
+RegEx update;CA_REG_ID_CD;Canada ;Business register number;(\d{6,10})|(BC\d{7})
+;CH_UID_CD;Switzerland;Tax code;(CHE)-\d{3}\.\d{3}\.\d{3}
+;CH_ID_CD;Switzerland;Business register number;(CH)\-\d{3}\-\d{7}-\d{1}
+;CH_FINMA_CD;Switzerland;Fund identifier;F\d{8}
+;CL_RUT_CD;Chile ;Tax code;\d{2}\.\d{3}\.\d{3}-[K0-9]|\d{8}-[K0-9]
+;CN_CC_CD;China;Tax code;[A-Z0-9]{18}
+;CO_NIT_CD;Colombia ;Tax code;\d{9}-\d{1}
+;CR_NITE_CD;Costa-Rica;Business register number;\d{1}-\d{3}-\d{6} 
+;CW_TAX_CD;Curaçao;Tax code;\d{9}
+;CY_CBCID_CD;Cyprus;NCB identifier;[A-Z]{2}\d{1,8}
+;CY_DRCOR_CD;Cyprus;Business register number;(C|O|P)\d{1,8}
+;CY_GG_CD;Cyprus;General Government Unit identifier;(S13)\d{8}
+;CY_PF_CD;Cyprus;Pension Fund identifier;(PF)\d{1,4}
+;CY_IF_CD;Cyprus;Investment Fund identifier ;(IF)\d{4}
+;CY_VAT_CD;Cyprus;VAT number;(0|1|3|4|5|9)\d{7}[A-Z]
+;CY_TIC_CD;Cyprus;Tax code;\d{8}[A-Z]
+;CY_OTHER_CD;Cyprus;;
+;CZ_ICO_CD;Czech Republic;Business register number;\d{8}
+;CZ_NID_CD;Czech Republic;Investment/Pension fund identifier;\d{10}|\d{8}
+;DE_TRD_RGSTR_CD;Germany;Trade register number;"((HRA)|(G(n|N)R)|(HRB)|(PR)|(VR)|(G(s|S)R))[1-9]\d{0,5}[A-Z]{0,5}-[A-Z]\d{4}
+"
+;DE_VAT_CD;Germany;VAT number;DE\d{9}
+;DE_TAX_CD;Germany;Tax code;[1-9]\d{3}0\d{8}
+;DE_PS_CD;Germany;Public sector entity identifier;\d{14}|\d{15}
+;DE_NOTAP_CD;Germany;;
+;DK_CVR_CD;Denmark;Business register number;\d{8}
+;DK_FT_CD;Denmark;National Supervisory Authority code;[1-9]((\d{2,4})|(\d{4}-\d{3}))
+;DK_SE_CD;Denmark;VAT number;\d{8}
+;DK_NOTAP_CD;Denmark;;
+;DO_RNC_CD;Dominican Republic;Tax code;\d{3}-\d{5}-\d{1}
+;EC_RUC_CD;Ecuador ;Tax code;\d{13}
+;EE_FON_CD;Estonia;Investment/Pension fund identifier;\d{1,4}
+;EE_RG_CD;Estonia;Business register number;\d{8}
+;ES_NIF_CD;Spain;Tax code;[A-Z0-9]{9}
+;FI_Y_CD;Finland;Business register number;\d{7}-\d{1}
+;FI_ALV_CD;Finland;VAT number;(FI)\d{8}
+;FI_SIRA_CD;Finland;Investment/Pension fund identifier;\d{8}(#)\d{3}
+;FI_NOTAP_CD;Finland;-;
+;FR_CIB;France;National Supervisory Authority code;\d{5}
+;FR_IF_CD;France;Investment Fund identifier ;(FR)[A-Z0-9]{10}
+;FR_RNA_CD;France;Association register number;[A-Z]\d{9}
+;FR_SIREN_CD;France;Business register number;\d{9}
+;GB_CRN_CD;United Kingdom;Business register number;(\d{8})|(([A-EG-NP-Z][A-Z]|F[A-BD-Z]|O[A-DF-Z])\d{6})|([R]\d{7})|(IP\d{5}R)
+;GB_FSR_CD;United Kingdom;National Supervisory Authority code;\d{6,7}
+;GB_VAT_CD;United Kingdom;VAT number;(GB)\d{9}|(GB)\d{12}|(GBGD)\d{3}|(GBHA)\d{3}
+;GB_CHRTY_CD;United Kingdom;Charity register number;^[0-9]{6,7}$|^SC[0-9]{6}$
+;GB_UTR_CD;United Kingdom;Tax code;\d{10}|\d{9}(K)
+RegEx update;GG_RN_CD;Bailiwick of Guernsey ;Business register number;[A-Z]{2,3}\d{1,6}
+;GL_CVR_CD;Greenland ;Business register number;\d{8}
+;GR_AFM_CD;Greece;Tax code;\d{9}
+;GR_IMO_CD;Greece;Trade register number;\d{7}
+;GT_NIT_CD;Guatemala;Tax code;\d{7}-\d{1}
+;HK_CR_CD;Hong Kong;Business register number;[A-Z]{2}\d{7}|[A-Z]{1}\d{7}|\d{7}
+;HK_BR_CD;Hong Kong;Business register number;\d{8}|(C)\d{7}
+;HR_OIB_CD;Croatia;Tax code;\d{11}
+;HR_MB_CD;Croatia;Business register number;\d{8}
+;HR_MBS_CD;Croatia;Trade register number;[0-1]\d{8}
+;HU_CEG_CD;Hungary;Trade register number;\d{2}(-)\d{2}(-)\d{6}
+;HU_FB_CD;Hungary;Investment fund identifier;(FB)\d{6}|(FB)\d{3}[A-Z]\d{2}
+;HU_KOZ_CD;Hungary;VAT number;(HU)\d{8}
+;HU_TOR_CD;Hungary;Tax code;\d{8}
+;ID_NPWP_CD;Indonesia ;Tax code;\d{2}\.\d{3}\.\d{3}\.\d{1}-\d{3}\.\d{3}
+;IE_CRO_CD;Ireland;Trade register number;[1-9]\d{1,6}
+;IE_GOV_CD;Ireland;-;(GV)\d{4}|(LA)\d{3}
+;IE_VAT_CD;Ireland;VAT number;(IE)[A-Z0-9]{1,9}
+;IE_NOTAP_CD;Ireland;-;
+;IL_TAX_CD;Israel ;Tax code;\d{9}
+;IM_RN_CD;Isle of Man ;Trade register number;\d{6}[A-Z]
+;IM_TAX_CD;Isle of Man ;Tax code;[H,C,X]\d{6}-\d{2}
+;IN_CIN_CD;India;Business register number;[A-Z0-9]{21}
+;IN_PAN_CD;India;Tax code;[A-Z0-9]{10}
+RegEx update;IS_K_CD;Iceland;Tax code;\d{6}-?\d{4}
+;IS_VAT_CD ;Iceland;Tax code;\d{5,6}
+;IT_CF_CD;Italy;Tax code;\d{11}
+;IT_UCITS_CD;Italy;Investment/Pension fund identifier;\d{1,7}
+;IT_CCIAA_CD;Italy;Trade register number;[A-Z]{2}\d{7}
+RegEx update;JE_TAX_CD;Jersey;Tax code;([A-Z]{2}\d{5})|(\d{3}-\d{3}-\d{4})
+New Identifier;JE_FSC_CD;Jersey;National Supervisory Authority code;[A-Z]{2,3}\d{1,6}|\d{1,6}
+;JP_CN_CD;Japan;Business register number;\d{13}
+;KR_TIN_CD;South Korea ;Business register number;\d{3}-\d{2}-\d{5}
+;KZ_BIN_CD;Kazakhstan;Business register number;\d{12}
+;LB_TAX_CD;Lebanon;Tax code;\d{3}
+;LI_FL_CD;Liechtenstein ;Business register number;(FL)-\d{4}\.\d{3}\.\d{3}-\d{1}
+;LT_JAR_CD;Lithuania;Business register number;\d{9}
+;LT_INV_CD;Lithuania;Investment/Pension fund identifier;[A-Z]\d{3}|(SF)\d{3}|[A-Z]{3}-\d{2}\/\d{2}|[A-Z]{3}-[A-Z]{4}
+;LU_RCS_CD;Luxembourg;Trade register number;[B-Z]\d+
+;LU_VAT_CD;Luxembourg;VAT number;\d{8}
+RegEx update;LU_IF_CD;Luxembourg;Investment Fund identifier ;(LU[OK]\d{6}C\d{5}|LURCS[BKL]\d{7}(C(\d{4}[1-9]|\d{3}[1-9]\d|\d{2}[1-9]\d{2}|\d[1-9]\d{3}|[1-9]\d{4}))?)
+;LU_NOTAP_CD;Luxembourg;-;
+;LV_NBR_CD;Latvia;Business register number;\d{11}
+;LV_VAT_CD;Latvia;VAT number;(LV)\d{11}
+;LV_FON_CD;Latvia;NCB identifier;(LV)\d{11}|(LVAF)\d{3}(A|B|\d{1})\d{2}|(LVB)\d{6}|(LVIF)\d{3}(A|B|C|D|E|F|\d{1})\d{2}|(LVVF)\d{6}
+;MC_CIB;Monaco;National Supervisory Authority code;\d{5}
+;MC_RCI_CD;Monaco;Trade register number;\d{2}[A-Z]{1,3}\d{5}
+;MC_NIS_CD;Monaco;Business register number;\d{2,4}[A-Z]\d{5}
+;ME_BR_CD;Montenegro;Business register number;\d{8} 
+;ME_TAX_CD;Montenegro;Tax code;[0]\d{7}
+;MH_NBR_CD;Marshall Islands;Business register number;\d{1,6}
+;MK_EMBS_CD;Republic of North Macedonia;Business register number;\d{7}
+;MK_TAX_CD;Republic of North Macedonia;Tax code;\d{13}
+;MT_CNUM_CD;Malta;Malta Business Registry company registration number;
+;MT_VAT_CD;Malta;VAT number;\d{8}
+;MT_OLE_CD;Malta;Other Legal Identifier;
+;MU_TAN_CD;Mauritius;Tax code;\d{8}
+;MX_RFC_CD;Mexico;Tax code;[A-Z]{3}-\d{6}-[A-Z0-9]{3}
+;MY_CRN_CD;Malaysia ;Business register number;
+;MY_REG_ID_CD;Malaysia;Business register number;\d{12} 
+;NC_NBR_CD;New Caledonia ;Business register number;\d{7}
+;NL_KVK_CD;Netherlands;Trade register number;\d{8}
+;NL_RSIN_CD;Netherlands;Tax code;\d{9}
+;NO_NBR_CD;Norway;Business register number;\d{9}
+;NZ_NZBN_CD;New Zealand;Business register number;\d{13}
+;NZ_BR_CD;New Zealand;Business register number;\d{1,9}
+;OM_NBR_CD;Oman;;\d{7}
+;OM_TAX_CD;Oman;Tax code;\d{1,7}
+;PA_RUC_CD;Panama ;Tax code;
+;PE_RUC_CD;Peru ;Tax code;\d{11}
+;PL_REGON_CD;Poland;Business register number;\d{14}|\d{9}
+;PL_KRS_CD;Poland;Business register number;\d+
+;PL_NIP_CD;Poland;Tax code;\d{10}
+;PL_VAT_CD;Poland;VAT number;(PL)\d{10}
+;PT_NIF_CD;Portugal;Tax code;^[5-9]\d{8}$
+;PT_FSA_CD;Portugal;National Supervisory Authority code;\d{1,6}
+RegEx update;PT_IF_CD;Portugal;National Supervisory Authority code;^(?:\d{1,4}|\d{1,4}_\d{4})$
+;PT_ASF_CD;Portugal;National Supervisory Authority code;\d{1,4}
+;QA_TAX_CD;Qatar;Tax code;\d{10}
+;RO_CUI_CD;Romania;Tax code;(RO)\d{1,10}
+;RO_TAX_CD;Romania;VAT number;(RO)\d{1,10}
+RegEx update;RO_TRN_CD;Romania;Trade register number;(J|F|C)\d{2}\/\d{1,9}\/\d{4}|(J|F|C)\d{13}
+;RS_PIB_CD;Republic of Serbia ;Tax code;[1-9]\d{8}
+;RS_MB_CD;Republic of Serbia ;Business register number;\d{8}
+;RU_INN_CD;Russian Federation;Tax code;\d{10}
+;RU_OGRN_CD;Russian Federation;Business register number;\d{13}
+;SA_TAX_CD;Saudi Arabia;Tax code;\d{10}
+;SC_SBN_CD;Seychelles;Business register number;\d{6,7}
+;SC_TIN_CD;Seychelles;Tax code;\d{9}
+;SE_ORG_CD;Sweden;Business register number;\d{2}[2-9]\d{3}-?\d{4}
+;SE_FIN_CD;Sweden;National Supervisory Authority code;\d{5}
+;SE_MOM_CD;Sweden;VAT number;(SE)\d{12}
+;SE_NOTAP_CD;Sweden;-;
+;SG_ROB_CD;Singapore ;Tax code;(\d{8,9}[A-Z])|([A-Z]\d{2}[A-Z]{2}\d{4}[A-Z](-SF\d{3})?)
+;SI_MAT_CD;Slovenia;Business register number;\d{10}
+;SI_DAV_CD;Slovenia;Tax code;\d{8}
+;SI_DDV_CD;Slovenia;VAT number;(SI)\d{8}
+;SK_ICO_CD;Slovakia;Business register number;\d{8}[a-z]{0,1}
+;SK_IF_CD;Slovakia;Investment Fund identifier ;(SK)\d{8}[A-Z]{3}\d{2}
+;SK_IBD_CD;Slovakia;;\d{8}[A-Z]\d{6}
+;SM_COE_CD;San Marino ;Tax code;(SM)?\d{1,5}
+;TH_NBR_CD;Thailand ;Business register number;\d{13}
+;TN_BR_CD;Tunisia;Business register number;\d{7}[A-Z]
+;TR_VKN_CD;Turkey;Tax code;\d{10}
+;TW_TAX_CD;Taiwan ;Tax code;\d{8}
+;UA_REG_ID_CD;Ukraine;Business register number;\d{8}
+;US_CIK_CD;United States of America;;\d{10}
+;US_DSFN_CD;United States of America;Business register number;\d{5,8}
+;US_EIN_CD;United States of America;Tax code;\d{2}-\d{7}
+;UY_RUT_CD;Uruguay ;Tax code;\d{12}
+;VN_BR_CD;Vietnam;Business register number;\d{10}
+;ZA_TAX_CD;South Africa;Tax code;[01239]\d{9}
+;ZM_TPIN_CD;Zambia;Tax code;\d{10}
+;GEN_VAT_CD;Extra-EU;VAT number;
+;GEN_TAX_CD;Extra-EU;Tax code;
+;GEN_NBR_ENTTY_CD;Extra-EU;Business register number;
+;GEN_TRD_RGSTR_ENTTY_CD;Extra-EU;Trade register number;
+;GEN_NSI_ENTTY_CD;Extra-EU;National Statistical Institute number;
+;GEN_NCB_ENTTY_CD;Extra-EU;NCB identifier;
+;GEN_NSA_ENTTY_CD;Extra-EU;National Supervisory Authority code;
+;GEN_PS_CD;Extra-EU;Public sector entity identifier;
+;GEN_IPF_CD;Extra-EU;Investment/Pension fund identifier;
+;GEN_OTHER_CD;Extra-EU;-;
+;GEN_NOTAP_CD;Extra-EU;-;

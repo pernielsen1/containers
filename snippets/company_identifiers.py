@@ -9,6 +9,7 @@ import argparse
 import os
 import json
 from datetime import datetime
+import re
 
 class company_identifiers:
     """ company_identifiers - 
@@ -51,7 +52,7 @@ class company_identifiers:
                               "len":9},
             "CH_COMPANY_ID": {"algorithm":self.validate_switzerland, "country":"CH", "name":"CHE or CH", "min_len":9, "len":11,
                         "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ],   "before_list": ['CHE', 'CH'],
-                        "che_mask":"CHE-%s%s%s.%s%s%s.%s%s%s"},
+                        "che_mask":"CHE-%s%s%s.%s%s%s.%s%s%s", "ch_mask":"CH-%s%s%s-%s%s%s%s%s%s%s-%s"},
             "CH_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11,
                           "country":"CH","name":"Che", "len":9, "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ]},
             "CZ_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"CZ", "name":"ICO", "len":8, 
@@ -380,13 +381,13 @@ class company_identifiers:
         """
         result =  self.validate(s, country_code + '_COMPANY_ID') 
         if result['validation_result']: 
-            if result.get('edited_name', None) == None:
+            if result.get('edited_id', None) == None:
                 variant = self.definitions[country_code + '_COMPANY_ID']
                 mask = variant.get('mask', None)
                 if mask == None:
-                    result['edited_name'] = s
+                    result['edited_id'] = s
                 else:
-                    result['edited_name'] = mask % tuple(result['number'])
+                    result['edited_id'] = mask % tuple(result['number'])
 
         return result            
     def validate_VAT_ID(self, s, country_code):
@@ -437,9 +438,9 @@ class company_identifiers:
                 return self.create_result_error('AT01', result, 'check char not between a and z')
         # still her all good also return an edited name
         if result['before'].upper in  zvr_list:
-            result['edited_name'] = 'ZVR ' + result['number']
+            result['edited_id'] = 'ZVR ' + result['number']
         else:
-            result['edited_name'] =  result['before'] + ' ' + result['number'] + result['after'][0:1] 
+            result['edited_id'] =  result['before'] + ' ' + result['number'] + result['after'][0:1] 
         return self.create_result_ok(result)
     def validate_croatia(self, s, variant):
         result = self.get_before_number_after(s, variant)
@@ -498,7 +499,7 @@ class company_identifiers:
             return self.create_result_error('DE01', result, "Invalid XJustis code")
         else:
             # still here all good create an edited name also
-            result['edited_name'] = ( result['before'] + ' ' + result['number'] + ' ' +
+            result['edited_id'] = ( result['before'] + ' ' + result['number'] + ' ' +
                                      self.dict_xjustiz_to_name[result['XJustiz_code']] ) 
      
         return self.create_result_ok(result)
@@ -652,25 +653,42 @@ class company_identifiers:
             return result
 
         if result['before'] == 'CHE':
-            return self.validate_modulus11(s, variant)
+            res = self.validate_modulus11(s, variant)
+            res['mask']= variant['che_mask']
         else:  # it CH
             if len(result['number']) != 11:
-                return self.create_result_error("CH01", result, 'for CH number must be 10 long') 
+                res = self.create_result_error("CH01", result, 'for CH number must be 10 long') 
             else:
-                return self.create_result_ok(result)
-             
+                res = self.create_result_ok(result)
+                res['mask'] = variant['ch_mask']
+
+        return res
+
+    def test_and_edited(self, company_id, cntry):
+        r = self.validate_COMPANY_ID(company_id, cntry)
+        edited_id = r['edited_id'] 
+        print(edited_id)   
+        regexp = "(CHE)-\d{3}\.\d{3}\.\d{3}"
+        x=re.match(regexp, edited_id)
+        if x == None:
+            print("NO MATCH")
+        else:
+            print(x)
+        # ;CH_UID_CD;Switzerland;Tax code;(CHE)-\d{3}\.\d{3}\.\d{3}
+        # ;CH_ID_CD;Switzerland;Business register number;(CH)\-\d{3}\-\d{7}-\d{1}
+
 if __name__=="__main__":
     m_obj = company_identifiers()
-#    r = m_obj.validate_COMPANY_ID('CHE-123.456.788', 'CH') 
+    m_obj.test_and_edited('CHE-123.456.788', 'CH') 
 #    r = m_obj.validate_COMPANY_ID('CH-11123.456.788', 'CH') 
 #    r = m_obj.validate_VAT_ID('FR12345678901', 'MC') 
 #    r = m_obj.validate_COMPANY_ID('ZVR1234567890', 'AT') 
      #    r = m_obj.validate_COMPANY_ID('ZVR1234567890', 'AT') 
-    r = m_obj.validate_COMPANY_ID('J2010123456400', 'RO') 
+#    r = m_obj.validate_COMPANY_ID('J2010123456400', 'RO') 
 
 #    r = m_obj.validate_VAT_ID('EU1', 'BE') 
-    print(r)
-    print()
+#    print(r)
+#    print()
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--command", choices=['calculate', 'validate' ])
     parser.add_argument("-v", "--variant", choices=['standard', 'kvn',                                                    'cpr', 'cvr' ])
