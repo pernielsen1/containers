@@ -32,9 +32,9 @@ class company_identifiers:
         self.definitions = {
             "IM_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"IM", "name":"Isle of Man", 
                               "len":6, "after_allowed": True},
-            "JE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"IM", "name":"Jersey", 
+            "JE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"JE", "name":"Jersey", 
                               "min_len": 4, "len":7, "after_allowed": False},
-            "GY_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"IM", "name":"Guernsey", 
+            "GG_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"GG", "name":"Guernsey", 
                               "min_len":1, "len":6, "after_allowed": False},
                                 
             "AT_COMPANY_ID": {"algorithm":self.validate_austria,"country":"AT","name":"FN",  "min_len":1, "len":10,

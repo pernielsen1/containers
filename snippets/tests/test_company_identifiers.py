@@ -236,10 +236,8 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('123456C', 'IM'), True) 
   def test_je(self):
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('123456', 'JE'), True) 
-  def test_gy(self):
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('123456', 'GY'), True) 
-
-
+  def test_gg(self):
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('123456', 'GG'), True) 
 
   def test_monaco(self): 
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('FR12345678901', 'MC'), True) 
