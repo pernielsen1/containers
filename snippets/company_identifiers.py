@@ -32,17 +32,18 @@ class company_identifiers:
             
         self.definitions = {
             "IM_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"IM", "name":"Isle of Man", 
-                              "len":6, "after_allowed": True},
+                              "len":6, "after_allowed": True, "ac_code":"IM_RN_CD"},
             "JE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"JE", "name":"Jersey", 
-                              "min_len": 4, "len":7, "after_allowed": False},
+                              "min_len": 4, "len":7, "after_allowed": False, "ac_code":"JE_TAX_CD"},
             "GG_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"GG", "name":"Guernsey", 
-                              "min_len":1, "len":6, "after_allowed": False},
+                              "min_len":1, "len":6, "after_allowed": False, "ac_code":"GG_RN_CD"},
                                 
             "AT_COMPANY_ID": {"algorithm":self.validate_austria,"country":"AT","name":"FN",  "min_len":1, "len":10,
                               "before_list":["FB", "FN", "ZVR", "FNZVR", "FNZVRZAHL", "ZVRZAHL", ""], 'after_allowed':True},
             "AT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"AT","name":"ATU",  
                           "len":8, "before_list":["ATU", ""]},
-            "BE_COMPANY_ID": {"algorithm":self.validate_modulus97, "country":"BE","name":"Ondernemingsnummer", "len":10},
+            "BE_COMPANY_ID": {"algorithm":self.validate_modulus97, "country":"BE","name":"Ondernemingsnummer", 
+                              "len":10, "ac_code":"BE_OND_CD"},
             "BE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus97, 
                           "country":"BE", "name":"Ondernemingsnummer", "len":10},
             "BG_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"BG","name":"UIC", "len":9, 
@@ -52,6 +53,7 @@ class company_identifiers:
                               "len":9},
             "CH_COMPANY_ID": {"algorithm":self.validate_switzerland, "country":"CH", "name":"CHE or CH", "min_len":9, "len":11,
                         "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ],   "before_list": ['CHE', 'CH'],
+                        "mask":{"CHE": "CHE-%s%s%s.%s%s%s.%s%s%s", "CH":"CH-%s%s%s-%s%s%s%s%s%s%s-%s}"},
                         "che_mask":"CHE-%s%s%s.%s%s%s.%s%s%s", "ch_mask":"CH-%s%s%s-%s%s%s%s%s%s%s-%s"},
             "CH_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11,
                           "country":"CH","name":"Che", "len":9, "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ]},
@@ -101,7 +103,8 @@ class company_identifiers:
                         "weights": [  256, 128, 64, 32, 16, 8, 4, 2], "return_rest": True, "return_10":0},
             "HR_COMPANY_ID": {"algorithm":self.validate_croatia, "country":"HR","name":"OIB or MBS", 
                                "min_len":9, "len":11},
-            "HU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"HU","name":"Adoszam", "len":10},
+            "HU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"HU","name":"Adoszam", "len":10,
+                              "mask":"%s%s-%s%s-%s%s%s%s%s%s"},
             "IE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"IE", "name":"CRO", "min_len": 3, "len":6 },
             "IT_COMPANY_ID": {"algorithm":self.validate_italy, "country":"IT","name":"Partita IVA", "len":11} ,
             "LT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LT", "name":"Legal identity code", "len":9, 
@@ -384,6 +387,9 @@ class company_identifiers:
             if result.get('edited_id', None) == None:
                 variant = self.definitions[country_code + '_COMPANY_ID']
                 mask = variant.get('mask', None)
+                if isinstance(mask, dict):  # CH and CHE for Swiss as example
+                    mask = mask.get("result['before]", None)
+                
                 if mask == None:
                     result['edited_id'] = s
                 else:
@@ -580,6 +586,7 @@ class company_identifiers:
         return self.create_result_ok()
     def validate_spain(self, s, variant):
         result = self.get_before_number_after(s, variant)
+        result['edited_id'] = result['before'] + result['number']
         if result['validation_result'] != True:
             return result
         if len(result['number']) == 7:
@@ -654,21 +661,21 @@ class company_identifiers:
 
         if result['before'] == 'CHE':
             res = self.validate_modulus11(s, variant)
-            res['mask']= variant['che_mask']
+            res['id_type'] = 'CHE'
         else:  # it CH
+            result['id_type'] = 'CH'
             if len(result['number']) != 11:
                 res = self.create_result_error("CH01", result, 'for CH number must be 10 long') 
             else:
                 res = self.create_result_ok(result)
-                res['mask'] = variant['ch_mask']
-
+ 
         return res
 
     def test_and_edited(self, company_id, cntry):
         r = self.validate_COMPANY_ID(company_id, cntry)
         edited_id = r['edited_id'] 
         print(edited_id)   
-        regexp = "(CHE)-\d{3}\.\d{3}\.\d{3}"
+        regexp = "(CHE)-\\d{3}\\.\\d{3}\\.\\d{3}"
         x=re.match(regexp, edited_id)
         if x == None:
             print("NO MATCH")
@@ -679,6 +686,8 @@ class company_identifiers:
 
 if __name__=="__main__":
     m_obj = company_identifiers()
+    r=m_obj.validate_COMPANY_ID('1234567890', 'HU') 
+    print(r)
     m_obj.test_and_edited('CHE-123.456.788', 'CH') 
 #    r = m_obj.validate_COMPANY_ID('CH-11123.456.788', 'CH') 
 #    r = m_obj.validate_VAT_ID('FR12345678901', 'MC') 
