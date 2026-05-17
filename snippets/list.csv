@@ -116,7 +116,7 @@ New Identifier;JE_FSC_CD;Jersey;National Supervisory Authority code;[A-Z]{2,3}\d
 RegEx update;LU_IF_CD;Luxembourg;Investment Fund identifier ;(LU[OK]\d{6}C\d{5}|LURCS[BKL]\d{7}(C(\d{4}[1-9]|\d{3}[1-9]\d|\d{2}[1-9]\d{2}|\d[1-9]\d{3}|[1-9]\d{4}))?)
 ;LU_NOTAP_CD;Luxembourg;-;
 ;LV_NBR_CD;Latvia;Business register number;\d{11}
-;LV_VAT_CD;Latvia;VAT number;(LV)\d{11}
+;LV_VAT_CD;Latvia;VAT number
 ;LV_FON_CD;Latvia;NCB identifier;(LV)\d{11}|(LVAF)\d{3}(A|B|\d{1})\d{2}|(LVB)\d{6}|(LVIF)\d{3}(A|B|C|D|E|F|\d{1})\d{2}|(LVVF)\d{6}
 ;MC_CIB;Monaco;National Supervisory Authority code;\d{5}
 ;MC_RCI_CD;Monaco;Trade register number;\d{2}[A-Z]{1,3}\d{5}

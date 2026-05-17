@@ -39,7 +39,8 @@ class company_identifiers:
                               "min_len":1, "len":6, "after_allowed": False, "ac_code":"GG_RN_CD"},
                                 
             "AT_COMPANY_ID": {"algorithm":self.validate_austria,"country":"AT","name":"FN",  "min_len":1, "len":10,
-                              "before_list":["FB", "FN", "ZVR", "FNZVR", "FNZVRZAHL", "ZVRZAHL", ""], 'after_allowed':True},
+                              "before_list":["FB", "FN", "ZVR", "FNZVR", "FNZVRZAHL", "ZVRZAHL", ""],
+                               "ac_code": {"FB":"AT_FB_CD", "ZVR":"AT_ZVR_CD"}, 'after_allowed':True},
             "AT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"AT","name":"ATU",  
                           "len":8, "before_list":["ATU", ""]},
             "BE_COMPANY_ID": {"algorithm":self.validate_modulus97, "country":"BE","name":"Ondernemingsnummer", 
@@ -48,34 +49,40 @@ class company_identifiers:
                           "country":"BE", "name":"Ondernemingsnummer", "len":10},
             "BG_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"BG","name":"UIC", "len":9, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 10 ], 
-                         "return_rest": True },
+                         "return_rest": True, "ac_code":"BG_UIC_CD" },
             "CA_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"CA", "name":"BN business number", 
-                              "len":9},
+                              "len":9 ,  "ac_code":"CA_BN_CD" },
             "CH_COMPANY_ID": {"algorithm":self.validate_switzerland, "country":"CH", "name":"CHE or CH", "min_len":9, "len":11,
                         "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ],   "before_list": ['CHE', 'CH'],
-                        "mask":{"CHE": "CHE-%s%s%s.%s%s%s.%s%s%s", "CH":"CH-%s%s%s-%s%s%s%s%s%s%s-%s}"},
-                        "che_mask":"CHE-%s%s%s.%s%s%s.%s%s%s", "ch_mask":"CH-%s%s%s-%s%s%s%s%s%s%s-%s"},
+                        "ac_code": {"CHE":"CH_UID_CD", "CH":"CH_ID_CD"},
+                        "mask":{"CHE": "CHE-%s%s%s.%s%s%s.%s%s%s", "CH":"CH-%s%s%s-%s%s%s%s%s%s%s-%s}"}},
             "CH_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_modulus11,
                           "country":"CH","name":"Che", "len":9, "weights": [ 5, 4, 3, 2, 7, 6, 5, 4, 1 ]},
             "CZ_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"CZ", "name":"ICO", "len":8, 
-                        "weights": [ 8, 7, 6, 5, 4, 3, 2], "check_digit_for_0":1},
+                        "weights": [ 8, 7, 6, 5, 4, 3, 2], "check_digit_for_0":1,
+                        "ac_code":";CZ_ICO_CD"},
             "DE_COMPANY_ID": {"algorithm":self.validate_germany,"name":"Germany HRB, HRA etc", 
                               "comment":"Minimum length normally 4 but see audi in ingolstadt down to 1 exists",
                               "country":"DE", "min_len":1, "len":6, 
-                              "before_list": ['HRA', 'HRB', 'GnR', 'GsR', 'VR', 'PR'], 'after_allowed':True},
-            "DE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"DE", "name":"Germany VAT", "len":9},
+                              "before_list": ['HRA', 'HRB', 'GnR', 'GsR', 'VR', 'PR'], 'after_allowed':True,
+                              "ac_code":"DE_TRD_RGSTR_CD"},
+
+            "DE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, 
+               "country":"DE", "name":"Germany VAT", "len":9,
+                                          "ac_code":"DE_VAT_CD"},
             "EE_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, 
                           "country":"EE", "name":"Estonian", "len":9},
             "LT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, 
                           "country":"LT", "name":"Lithuanian VAT", "min_len":9, "len": 12},
                 
             "DK_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"DK", "name":"CVR" ,
-                        "weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8},
+                        "weights": [ 2, 7, 6, 5, 4, 3, 2, 1 ], "len":8, "ac_code":"DK_CVR_CD"},
             "EE_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"EE", "name":"Legal identity code", "len":8, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9 ], 
-                         "return_rest": True },
+                         "return_rest": True, "ac_code":"EE_RG_CD"},
             "ES_COMPANY_ID": {"algorithm":self.validate_spain, "country":"ES", "name":"Spanish NIF", "min_len":7, "len":8, 
-                        "before_list": ['A', 'B', 'C', 'F', 'G', 'N', 'W'], "after_allowed":True},
+                        "before_list": ['A', 'B', 'C', 'F', 'G', 'N', 'W'], "after_allowed":True,
+                        "ac_code":"ES_NIF_CD"},
             "ES_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus10, "country":"ES",
                           "name":"Spanish NIF", "len":8,
                         "before_list_TBD": ['ESA', 'ESB', 'ESC', 'ESF', 'ESG', 'ESN', 'ESW']}, 
@@ -84,9 +91,9 @@ class company_identifiers:
         #                  "before_list":"EU"},
             "FI_COMPANY_ID" : {"algorithm":self.validate_modulus11,"country":"FI", "name":"LY - business ID", "len":8,
                         "zfill_len":8,  "weights": [  7, 9, 10, 5, 8, 4, 2, 1 ],
-                        "mask":"%s%s%s%s%s%s%s-%s"},
+                        "mask":"%s%s%s%s%s%s%s-%s", "ac_code":"FI_Y_CD"},
             "FR_COMPANY_ID": {"algorithm":self.validate_france, "country":"FR","name":"Siren", 
-                              "min_len":9, "len":14, "after_allowed":True},   
+                              "min_len":9, "len":14, "after_allowed":True, "ac_code":"FR_SIREN_CD"},   
             "FR_VAT_ID": {"algorithm":self.validate_france_vat, "country":"FR","name":"NN + Siren", "len":11, 
                           "before_list":['FR'] },   
             "MC_VAT_ID": {"algorithm":self.validate_monaco_vat, "country":"MC","name":"FR ! + 11 digits", "len":11, 
@@ -96,58 +103,71 @@ class company_identifiers:
                               "country":"GB", "min_len":5, "len":8, 'after_allowed':True,
                               "before_list": ['SC', 'FC', 'BR', 'NI', 'OE', 'RC', 'OC', 'LP',
                                               'SE', 'SO', 'SP', 'IP', ''],
-                                "five_and_R": ['IP', 'SP']
+                                "five_and_R": ['IP', 'SP'], "ac_code":"GB_CRN_CD"
                             },
             "GB_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"GB", "name":"GB VAt", "len":9},
             "GR_COMPANY_ID" : {"algorithm":self.validate_modulus11,"country":"GR", "name":"AFM", "len": 9,
                         "weights": [  256, 128, 64, 32, 16, 8, 4, 2], "return_rest": True, "return_10":0},
             "HR_COMPANY_ID": {"algorithm":self.validate_croatia, "country":"HR","name":"OIB or MBS", 
-                               "min_len":9, "len":11},
+                               "min_len":9, "len":11,
+                                "ac_code": {"OIB":";HR_OIB_CD", "MB":"HR_MB_CD"}},
             "HU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"HU","name":"Adoszam", "len":10,
-                              "mask":"%s%s-%s%s-%s%s%s%s%s%s"},
-            "IE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"IE", "name":"CRO", "min_len": 3, "len":6 },
-            "IT_COMPANY_ID": {"algorithm":self.validate_italy, "country":"IT","name":"Partita IVA", "len":11} ,
+                              "mask":"%s%s-%s%s-%s%s%s%s%s%s", "ac_code":"HU_CEG_CD"},
+            "IE_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"IE", "name":"CRO", 
+                              "min_len": 3, "len":6, "ac_code":"IE_CRO_CD"},
+            "IT_COMPANY_ID": {"algorithm":self.validate_italy, "country":"IT","name":"Partita IVA", "len":11,
+                              "ac_code":"IT_CF_CD"} ,
             "LT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"LT", "name":"Legal identity code", "len":9, 
                         "weights": [  1, 2, 3, 4, 5, 6, 7, 8 ],  "weights_round2": [ 3, 4, 5, 6, 7, 8, 9, 1 ], 
-                         "return_rest": True },
+                         "return_rest": True, "ac_code":"LT_JAR_CD" },
             "LI_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LI", "name":"Like CH but with FL", "len":11, 
-                        "before_list": ['FL']},       
+                        "before_list": ['FL'], "ac_code":"Not Found"},       
             "LU_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LU", "name":"LU RCS", "min_len":1, "len":6, 
-                        "before_list": ['B','F', 'G', 'J', ''], "after_allowed":True},
+                        "before_list": ['B','F', 'G', 'J', ''], "after_allowed":True, 
+                        "ac_code":"LU_RCS_CD"},
             "LU_VAT_ID": {"algorithm":self.validate_just_numeric, "country":"LU", "name":"LU RCS", "len":8, 
-                        "before_list": ['LU'], "after_allowed":True},
-            "LV_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LV", "name":"", "len":11},
+                        "before_list": ['LU'], "after_allowed":True, 
+                        "ac_code":"LU_VAT_CD"},
+            "LV_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"LV", "name":"", "len":11,
+                              "ac_code":"V_NBR_CD"},
             "MT_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"MT","name":"ICO", 
-                              "before_list":['C', 'OC'], "min_len":3, "len":6},
-            "MX_COMPANY_ID": {"algorithm":self.validate_mexico, "country":"MX","name":"RFC",  "len":12},
+                              "before_list":['C', 'OC'], "min_len":3, "len":6,
+                              "ac_code":"MT_CNUM_CD"},
+            "MX_COMPANY_ID": {"algorithm":self.validate_mexico, "country":"MX","name":"RFC",  "len":12,
+                              "ac_code":"MX_RFC_CD"},
             "NL_VAT_ID": {"algorithm":self.validate_vat_nl, "country":"GB", "name":"GB VAt", "len":9},
-            "NL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"NL", "name":"KVN",  "len":8},
+            "NL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"NL", "name":"KVN",  "len":8,
+                              "ac_code":"NL_KVK_CD"},
             "NO_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"NO", "name":"Organisationsnummer", "len":9, 
-                        "weights": [ 3, 2, 7, 6, 5, 4, 3, 2, 1 ]},
-            "PL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"PL","name":"KRS", "len":10},
+                        "weights": [ 3, 2, 7, 6, 5, 4, 3, 2, 1 ], "ac_code":"NO_NBR_CD"},
+
+            "PL_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"PL","name":"KRS", "len":10,
+                              "ac_code":"PL_KRS_CD"},
             "PT_COMPANY_ID": {"algorithm":self.validate_modulus11, "country":"PT","name":"NIPC", "len":9, 
-                        "weights": [ 9, 8, 7, 6, 5, 4, 3, 2]},
+                        "weights": [ 9, 8, 7, 6, 5, 4, 3, 2], "ac_code":"PL_NIP_CD" },
             "PT_VAT_ID": {"algorithm":self.validate_vat_std, "number_algorithm":self.validate_modulus11, 
                           "country":"PT", "name":"NIPC", "len":9, 
                         "weights": [ 9, 8, 7, 6, 5, 4, 3, 2]},
             "RO_COMPANY_ID_CUI" : {"algorithm":self.validate_modulus11,"country":"RO", "name":"CUI/CIF", "len": 10,
                         "weights": [  7, 5, 3, 2, 1, 7, 5, 3, 2], "mult10": True, "zfill_len":10,
-                         "return_rest": True, "return_10":0},
+                         "return_rest": True, "return_10":0, "ac_code":"RO_CUI_CD"},
             "RO_COMPANY_ID" : {"algorithm":self.validate_romania,"country":"RO", "name":"Trade Register Number - J-number", 
-                               "len": 14},
+                               "len": 14, "ac_code":"RO_TRN_CD"},
             "RO_VAT_ID" : {"algorithm":self.validate_romania_vat,"country":"RO", "name":"Cod de inregistra de TVA", 
                                "min_len": 2, "len":10, "before_list":['RO']}, 
             "SE_COMPANY_ID": {"algorithm":self.validate_modulus10, "country":"SE","name":"Organisationsnummer", "len":10,
-                                "mask":"%s%s%s%s%s%s-%s%s%s%s"},  
+                                "mask":"%s%s%s%s%s%s-%s%s%s%s", "ac_code":"SE_ORG_CD"},  
             "SE_VAT_ID": {"algorithm":self.validate_sweden_vat, "country":"SE","name":"SE + orgno + 01", "len":12, 
-                          "before_list":['SE'] },   
+                          "before_list":['SE'], "ac_code":"SE_MOM_CD" },   
             "SI_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"SI","name":"dont know", "len":10 },
             "SI_COMPANY_ID_IDza": {"algorithm":self.validate_modulus11, "country":"SI","name":"ID za DDV", "len":8 ,
-                        "weights": [ 8, 7, 6, 5, 4, 3, 2 ]},
-            "SK_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"SK","name":"ICO", "len":8},
+                        "weights": [ 8, 7, 6, 5, 4, 3, 2 ], "ac_code":"SI_MAT_CD"},
+            "SK_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"SK","name":"ICO",
+                               "len":8, "ac_code":"SK_ICO_CD"},
             "SK_VAT_ID": {"algorithm":self.validate_just_numeric, "country":"SK","name":"VAT ID DPH", "len":10, 
                           "before_list":['SK']},
-            "US_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"UA","name":"EIN",  "len":9 },
+            "US_COMPANY_ID": {"algorithm":self.validate_just_numeric, "country":"UA","name":"EIN",  
+                              "len":9, "ac_code":"US_EIN_CD" },
             "US_VAT_ID": {"algorithm": self.validate_vat_std, "number_algorithm":self.validate_just_numeric, "country":"US","name":"EIN",  "len":9 },
             "SE_BG": {"algorithm":self.validate_modulus10, "country":"SE","name":"Bankgiro", "min_len":7, "len":8},
             "DK_NATURAL": {"algorithm":self.validate_modulus11, "country":"DK","name":"CPR",
@@ -384,11 +404,17 @@ class company_identifiers:
         """
         result =  self.validate(s, country_code + '_COMPANY_ID') 
         if result['validation_result']: 
+            variant=self.definitions.get(country_code + '_COMPANY_ID', None)
+            ac_code = result.get('ac_code', None)
+            if ac_code == None:
+                ac_code = variant.get('ac_code','')
+                if isinstance(ac_code, dict):
+                    ac_code = ac_code[result['id_type']]
             if result.get('edited_id', None) == None:
                 variant = self.definitions[country_code + '_COMPANY_ID']
                 mask = variant.get('mask', None)
                 if isinstance(mask, dict):  # CH and CHE for Swiss as example
-                    mask = mask.get("result['before]", None)
+                    mask = mask.get("result['id_type]", None)
                 
                 if mask == None:
                     result['edited_id'] = s
@@ -433,9 +459,11 @@ class company_identifiers:
             return result
         zvr_list = ['FNZVR', 'FNZVRZAHL', 'ZVR', 'ZVRZAHL']
         if result['before'].upper() in zvr_list:
+            result['id_type'] = 'ZVR'
             if len(result['number']) != 9 and len(result['number']) !=10:
                 return self.create_result_error('AT02', result, 'ZVR number should  be 9 or 10 long')
         else:
+            result['id_type'] = 'FB'
             if len(result['number']) > 6:
                 return self.create_result_error('AT03', result, 'FN number longer than 6')
             if len(result['after']) < 1:
@@ -453,9 +481,13 @@ class company_identifiers:
         if result['validation_result'] == False:
             return result
         if len(result['number']) == 11:  # it's the OIB number
-            return self.validate_iso7064_11_10(s, variant)
+            result= self.validate_iso7064_11_10(s, variant)
+            result['id_type'] = 'OIB'
+            return result
         if len(result['number']) == 9:  # it's the MBS number = OK
-            return self.create_result_ok(result)
+            result = self.create_result_ok(result)
+            result["id_type"] = 'MBS'
+            return result   
         # still here illegal length
         return self.create_result_error('HR01', result, 'Illegal length must be 9 or 11')
     def validate_france(self, s, variant):
