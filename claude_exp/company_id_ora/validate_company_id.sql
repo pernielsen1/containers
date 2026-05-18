@@ -537,8 +537,8 @@ CREATE OR REPLACE PACKAGE BODY COMPANY_ID_PKG AS
             -- JE: 4-7 digits, no prefix, no suffix
             WHEN 'JE' THEN
                 IF v_len BETWEEN 4 AND 7 AND v_before IS NULL AND v_after IS NULL THEN p_result := 1; END IF;
-            -- GY: 1-6 digits, no prefix, no suffix
-            WHEN 'GY' THEN
+            -- GG: 1-6 digits, no prefix, no suffix (Guernsey)
+            WHEN 'GG' THEN
                 IF v_len BETWEEN 1 AND 6 AND v_before IS NULL AND v_after IS NULL THEN p_result := 1; END IF;
 
             ELSE NULL;  -- unknown country → return 0

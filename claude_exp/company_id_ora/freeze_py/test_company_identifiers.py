@@ -89,7 +89,7 @@ class test_moudulus(unittest.TestCase):
   
   def test_france(self):  # France
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('784671695', 'FR'), True) # Unicef
-    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('784671695-12345', 'FR'), False) # Sirete  not accpeted
+    self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('784671695-12345', 'FR'), True) # Sirete  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('784671695 RCS Nantes', 'FR'), True) # Sirete  
     
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('005520135', 'FR'), True) # starts with zero 
@@ -223,6 +223,7 @@ class test_moudulus(unittest.TestCase):
     self.assertEqual(self.m_obj.validate_VAT_ID_bool('RO12345678', 'RO'), True) 
 
   def test_malta(self): 
+    print("test malta")
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('C 12345', 'MT'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('C 123', 'MT'), True)  
     self.assertEqual(self.m_obj.validate_COMPANY_ID_bool('1234567', 'MT'), False)  

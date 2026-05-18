@@ -190,6 +190,18 @@ CREATE OR REPLACE PACKAGE BODY VAT_ID_PKG AS
                     p_result := 1;
                 END IF;
 
+            -- EE: EE + exactly 9 digits, no check digit
+            WHEN 'EE' THEN
+                IF UPPER(v_before) = 'EE' AND v_len = 9 AND v_after IS NULL THEN
+                    p_result := 1;
+                END IF;
+
+            -- LT: LT + 9-12 digits, no check digit
+            WHEN 'LT' THEN
+                IF UPPER(v_before) = 'LT' AND v_len BETWEEN 9 AND 12 AND v_after IS NULL THEN
+                    p_result := 1;
+                END IF;
+
             -- Fallback: country-code prefix + company-ID number
             -- Strips the 2-char country prefix and delegates to company-ID validation.
             ELSE

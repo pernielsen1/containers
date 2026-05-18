@@ -505,9 +505,9 @@ class company_identifiers:
         result = self.get_before_number_after(s, variant)
         if result['validation_result'] == False:
             return result
-        # We don't accept sirete (14)
-        if len(result['number']) != 9 :
-            return self.create_result_error('FR01', result, "Siren only sirete (14 digits not accepted")
+        # OK we accept both 9 (SIREN) and 14 (SIRETE) as length
+        if len(result['number']) != 9 and len(result['number']) != 14:
+            return self.create_result_error('FR01', result, "Siren or Sitrete are either 9 or 14 long")
         # first 9 should be modulus 10 
         return  self.validate_modulus10(result['number'][0:9], variant)
     def validate_france_vat(self, s, variant):
