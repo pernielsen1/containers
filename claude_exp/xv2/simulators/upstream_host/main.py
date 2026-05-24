@@ -74,6 +74,7 @@ def run(cfg=None, stop_event=None, stats=None, _config_base=None):
             return str(state["stan_seq"]).zfill(6)
 
     mode = cfg.get("mode", "client")
+    reestablish_seconds = cfg.get("reestablish_seconds", 10)
 
     def connect():
         rcfg = cfg["router"]
@@ -86,23 +87,25 @@ def run(cfg=None, stop_event=None, stats=None, _config_base=None):
 
     ping_interval = cfg.get("ping_0800_seconds", 30)
 
-    def _keepalive_sender(conn, stop_evt):
-        while not stop_evt.is_set():
-            stop_evt.wait(timeout=ping_interval)
-            if stop_evt.is_set():
+    def _keepalive_sender(conn, stop_evt, disc_evt):
+        while not stop_evt.is_set() and not disc_evt.is_set():
+            disc_evt.wait(timeout=ping_interval)
+            if stop_evt.is_set() or disc_evt.is_set():
                 break
             try:
                 write_message(conn, build_0800(spec), framing)
                 log.debug("upstream_host: sent 0800 keepalive")
             except Exception:
+                disc_evt.set()
                 break
 
-    def receive_loop(conn):
-        while not stop_event.is_set():
+    def receive_loop(conn, disc_evt):
+        while not stop_event.is_set() and not disc_evt.is_set():
             try:
                 data = read_message(conn, framing)
             except ConnectionError:
                 log.info("upstream_host: router disconnected")
+                disc_evt.set()
                 return
             stats.record_recv()
             hex_dump("RECV router", data, log)
@@ -189,13 +192,10 @@ def run(cfg=None, stop_event=None, stats=None, _config_base=None):
             if conn is None:
                 return jsonify({"error": "router not connected yet"}), 503
         else:
-            try:
-                conn = connect()
-            except OSError as e:
-                return jsonify({"error": str(e)}), 503
-            threading.Thread(target=receive_loop, args=(conn,), daemon=True).start()
-            threading.Thread(target=_keepalive_sender, args=(conn, stop_event),
-                             daemon=True).start()
+            with state["conn_lock"]:
+                conn = state["conn"]
+            if conn is None:
+                return jsonify({"error": "router not connected yet"}), 503
         threading.Thread(target=send_loop, args=(conn, rows), daemon=True).start()
         return jsonify({"status": "started", "rows": len(rows)})
 
@@ -224,6 +224,7 @@ def run(cfg=None, stop_event=None, stats=None, _config_base=None):
                 except OSError:
                     return
                 log.info("upstream_host: router connected from %s", addr)
+                disc_evt = threading.Event()
                 with state["conn_lock"]:
                     old = state["conn"]
                     if old:
@@ -234,13 +235,48 @@ def run(cfg=None, stop_event=None, stats=None, _config_base=None):
                     state["conn"] = conn
                 with state["results_lock"]:
                     state["results"] = []
-                threading.Thread(target=receive_loop, args=(conn,), daemon=True).start()
-                threading.Thread(target=_keepalive_sender, args=(conn, stop_event),
+                threading.Thread(target=receive_loop, args=(conn, disc_evt),
+                                 daemon=True).start()
+                threading.Thread(target=_keepalive_sender, args=(conn, stop_event, disc_evt),
                                  daemon=True).start()
 
         threading.Thread(target=_accept_loop, daemon=True, name="srv-acceptor").start()
+        stop_event.wait()
 
-    stop_event.wait()
+    else:
+        # client mode: connect and reconnect on disconnect
+        rcfg = cfg["router"]
+        while not stop_event.is_set():
+            try:
+                conn = connect()
+            except OSError as e:
+                log.info("upstream_host: router %s:%d unavailable (%s), retrying in %ds",
+                         rcfg["host"], rcfg["port"], e, reestablish_seconds)
+                stop_event.wait(timeout=reestablish_seconds)
+                continue
+
+            disc_evt = threading.Event()
+            threading.Thread(target=receive_loop, args=(conn, disc_evt),
+                             daemon=True).start()
+            threading.Thread(target=_keepalive_sender, args=(conn, stop_event, disc_evt),
+                             daemon=True).start()
+
+            # wait until disconnected or stopped
+            while not disc_evt.is_set() and not stop_event.is_set():
+                stop_event.wait(timeout=1)
+
+            with state["conn_lock"]:
+                state["conn"] = None
+            try:
+                conn.close()
+            except OSError:
+                pass
+
+            if stop_event.is_set():
+                break
+            log.info("upstream_host: disconnected, reconnecting in %ds", reestablish_seconds)
+            stop_event.wait(timeout=reestablish_seconds)
+
     with state["conn_lock"]:
         if state["conn"]:
             state["conn"].close()

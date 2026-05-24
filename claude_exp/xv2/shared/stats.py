@@ -1,6 +1,7 @@
 import threading
 import time as _time
 from collections import deque
+from datetime import datetime
 
 time_func = _time.monotonic
 
@@ -16,7 +17,14 @@ class Stats:
         self._sent_total = 0
         self._recv_total = 0
         self._last_recv_time = None
+        self._last_recv_datetime = None
         self._yellow_threshold = yellow_threshold_seconds
+        self._connections: dict = {}  # name → bool; populated only by actors that track connections
+
+    def set_connection(self, name: str, connected: bool) -> None:
+        """Track a named connection state (e.g. 'upstream', 'downstream')."""
+        with self._lock:
+            self._connections[name] = connected
 
     def record_sent(self):
         with self._lock:
@@ -31,6 +39,7 @@ class Stats:
             self._recv.append(now)
             self._recv_total += 1
             self._last_recv_time = now
+            self._last_recv_datetime = datetime.now().strftime("%H:%M:%S")
             self._prune(self._recv, now)
 
     def _prune(self, d, now):
@@ -48,8 +57,12 @@ class Stats:
                 result[f"recv_{w}s"] = sum(1 for t in self._recv if t >= cutoff)
             if self._last_recv_time is not None:
                 result["seconds_since_last_recv"] = now - self._last_recv_time
+                result["last_recv_datetime"] = self._last_recv_datetime
             else:
                 result["seconds_since_last_recv"] = None
+                result["last_recv_datetime"] = None
             if self._yellow_threshold is not None:
                 result["yellow_threshold_seconds"] = self._yellow_threshold
+            if self._connections:
+                result["connections"] = dict(self._connections)
             return result

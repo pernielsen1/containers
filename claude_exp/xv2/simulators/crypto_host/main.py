@@ -48,7 +48,7 @@ def run(cfg=None, stop_event=None, stats=None):
     if stop_event is None:
         stop_event = threading.Event()
     if stats is None:
-        stats = Stats()
+        stats = Stats(yellow_threshold_seconds=cfg.get("yellow_threshold_seconds"))
 
     logging.getLogger().setLevel(
         getattr(logging, cfg.get("log_level", "INFO").upper(), logging.INFO)

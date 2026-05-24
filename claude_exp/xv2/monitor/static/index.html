@@ -94,6 +94,15 @@ tr:last-child td { border-bottom: none; }
                  border-radius: 5px; padding: 3px 6px; font-size: .72rem; cursor: pointer; }
 .log-level-sel:disabled { opacity: .4; cursor: not-allowed; }
 
+/* connection row (router cards only) */
+.conn-row { display: flex; gap: 18px; margin-bottom: 10px; }
+.conn-item { display: flex; align-items: center; gap: 5px;
+             font-size: .75rem; color: #6b7280; }
+.dot-sm { width: 7px; height: 7px; border-radius: 50%; background: #374151; flex-shrink: 0;
+          transition: background .3s, box-shadow .3s; }
+.dot-sm.up   { background: #22c55e; box-shadow: 0 0 6px #22c55e99; }
+.dot-sm.down { background: #ef4444; box-shadow: none; }
+
 /* modal */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65);
                  z-index: 100; align-items: center; justify-content: center; }
@@ -249,18 +258,20 @@ function renderCards(grid, list) {
   for (const a of list) {
     const d = document.createElement('div');
     d.className = 'card'; d.id = `card-${a.name}`;
+    const connRow = a.type === 'router' ? `
+      <div class="conn-row">
+        <span class="conn-item"><span class="dot-sm" id="upconn-${a.name}"></span>upstream</span>
+        <span class="conn-item"><span class="dot-sm" id="dsconn-${a.name}"></span>downstream</span>
+      </div>` : '';
     d.innerHTML = `
       <div class="card-hdr">
         <div class="dot" id="dot-${a.name}"></div>
         <div class="card-name">${a.name}</div>
       </div>
+      ${connRow}
       <div class="stat-grid">
-        <span class="sl">sent 30s</span><span class="sv" id="s30-${a.name}">&#8212;</span>
-        <span class="sl">recv 30s</span><span class="sv" id="r30-${a.name}">&#8212;</span>
-        <span class="sl">sent 60s</span><span class="sv" id="s60-${a.name}">&#8212;</span>
-        <span class="sl">recv 60s</span><span class="sv" id="r60-${a.name}">&#8212;</span>
-        <span class="sl">sent total</span><span class="sv" id="stot-${a.name}">&#8212;</span>
-        <span class="sl">recv total</span><span class="sv" id="rtot-${a.name}">&#8212;</span>
+        <span class="sl">30s/60s</span><span class="sv"><span id="s30-${a.name}">&#8212;</span>/<span id="r30-${a.name}">&#8212;</span> <span id="s60-${a.name}">&#8212;</span>/<span id="r60-${a.name}">&#8212;</span></span>
+        <span class="sl">total</span><span class="sv"><span id="stot-${a.name}">&#8212;</span>/<span id="rtot-${a.name}">&#8212;</span> <span id="age-${a.name}" style="color:#9ca3af">—</span></span>
       </div>
       <div class="card-foot" style="gap:6px;flex-wrap:wrap">
         <select class="log-level-sel" id="lvl-${a.name}" disabled
@@ -290,7 +301,7 @@ async function pollOnce() {
       fetch('/api/status'),
       fetch('/api/starting'),
     ]);
-    const status   = await statusRes.json();
+    const statuses = await statusRes.json();
     const starting = (await startingRes.json()).starting;
 
     const msg = document.getElementById('start-msg');
@@ -300,13 +311,15 @@ async function pollOnce() {
       msg.textContent = '';
     }
 
-    for (const [name, status] of Object.entries(status)) {
+    for (const [name, st] of Object.entries(statuses)) {
       const dot = document.getElementById(`dot-${name}`);
-      const cls = status === 'green' ? 'up' : status === 'yellow' ? 'idle' : 'down';
+      const cls = st === 'green' ? 'up' : st === 'yellow' ? 'idle' : 'down';
       if (dot) dot.className = 'dot ' + cls;
-      if (status !== 'red') fetchStats(name); else clearStats(name);
+      if (st !== 'red') fetchStats(name); else clearStats(name);
     }
-  } catch (_) {}
+  } catch (e) {
+    console.error('pollOnce error:', e);
+  }
 }
 
 const _levelFetched = new Set();
@@ -324,6 +337,17 @@ async function fetchStats(name) {
     set(`stot-${name}`, s.sent_total);
     set(`rtot-${name}`, s.recv_total);
 
+    // show actual time of last message
+    const el = document.getElementById(`age-${name}`);
+    if (el) el.textContent = s.last_recv_datetime || '—';
+
+    // connection dots (router cards only — elements absent for other actor types)
+    const connCls = (v) => 'dot-sm' + (v === true ? ' up' : v === false ? ' down' : '');
+    const upEl = document.getElementById(`upconn-${name}`);
+    const dsEl = document.getElementById(`dsconn-${name}`);
+    if (upEl) upEl.className = connCls(s.connections?.upstream);
+    if (dsEl) dsEl.className = connCls(s.connections?.downstream);
+
     // enable log controls; fetch current level once per session
     const sel = document.getElementById(`lvl-${name}`);
     const btn = document.getElementById(`btn-logs-${name}`);
@@ -340,9 +364,14 @@ async function fetchStats(name) {
 }
 
 function clearStats(name) {
-  ['s30', 'r30', 's60', 'r60', 'stot', 'rtot'].forEach(p => {
+  ['s30', 'r30', 's60', 'r60', 'stot', 'rtot', 'age'].forEach(p => {
     const el = document.getElementById(`${p}-${name}`);
     if (el) el.textContent = '—';
+  });
+  // reset connection dots to grey (unknown)
+  ['upconn', 'dsconn'].forEach(p => {
+    const el = document.getElementById(`${p}-${name}`);
+    if (el) el.className = 'dot-sm';
   });
   _levelFetched.delete(name);
   const sel = document.getElementById(`lvl-${name}`);
