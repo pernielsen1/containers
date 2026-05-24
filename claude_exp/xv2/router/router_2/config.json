@@ -1,6 +1,7 @@
 {
   "name": "router_2",
   "type": "router",
+  "partner_id": "partner_b",
   "log_level": "DEBUG",
   "command_port": 8085,
   "upstream": {

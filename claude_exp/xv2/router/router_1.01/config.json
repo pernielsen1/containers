@@ -1,11 +1,11 @@
 {
-  "name": "router_1",
+  "name": "router_1.01",
   "type": "router",
   "partner_id": "partner_a",
   "log_level": "DEBUG",
-  "command_port": 8080,
+  "command_port": 8084,
   "upstream": {
-    "port": 5000,
+    "port": 5003,
     "framing": {
       "header_hex": "",
       "length_field_type": "ASCII",
@@ -16,7 +16,7 @@
     "host": "localhost",
     "port": 5001,
     "irm_id": "IRM_ID01",
-    "client_id": "CLIENT01"
+    "client_id": "CLIENT03"
   },
   "crypto": {
     "host": "localhost",

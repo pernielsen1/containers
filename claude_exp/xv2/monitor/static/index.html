@@ -37,6 +37,7 @@ header h1 { font-size: 1rem; font-weight: 600; color: #f3f4f6; letter-spacing: .
 .actors { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
 .card { background: #161b27; border: 1px solid #21283a; border-radius: 10px; padding: 14px; }
 .card-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.card-hdr-compact { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .dot { width: 9px; height: 9px; border-radius: 50%; background: #374151; flex-shrink: 0;
        transition: background .3s, box-shadow .3s; }
 .dot.up   { background: #22c55e; box-shadow: 0 0 7px #22c55e99; }
@@ -45,9 +46,10 @@ header h1 { font-size: 1rem; font-weight: 600; color: #f3f4f6; letter-spacing: .
 .card-name { font-size: .88rem; font-weight: 600; color: #f3f4f6; }
 .stat-grid { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px;
              font-size: .78rem; margin-bottom: 12px; }
+.stat-grid-compact { margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #1a2030; }
 .sl { color: #6b7280; }
 .sv { text-align: right; font-variant-numeric: tabular-nums; color: #d1d5db; }
-.card-foot { display: flex; justify-content: flex-end; }
+.card-foot { display: flex; flex-direction: column; gap: 8px; width: 100%; }
 
 /* runner panel */
 .runner { margin: 20px 24px 24px; background: #161b27; border: 1px solid #21283a;
@@ -98,6 +100,8 @@ tr:last-child td { border-bottom: none; }
 .conn-row { display: flex; gap: 18px; margin-bottom: 10px; }
 .conn-item { display: flex; align-items: center; gap: 5px;
              font-size: .75rem; color: #6b7280; }
+.conn-row-compact { display: flex; gap: 12px; margin-bottom: 10px; align-items: center; }
+.conn-item-compact { display: flex; align-items: center; gap: 4px; font-size: .73rem; color: #6b7280; }
 .dot-sm { width: 7px; height: 7px; border-radius: 50%; background: #374151; flex-shrink: 0;
           transition: background .3s, box-shadow .3s; }
 .dot-sm.up   { background: #22c55e; box-shadow: 0 0 6px #22c55e99; }
@@ -122,6 +126,19 @@ tr:last-child td { border-bottom: none; }
 .modal-foot { display: flex; align-items: center; gap: 8px; padding: 12px 18px;
               border-top: 1px solid #21283a; flex-wrap: wrap; }
 .modal-foot .toggle { font-size: .78rem; color: #9ca3af; }
+
+/* partner groups */
+.partner-group { background: #161b27; border: 1px solid #21283a; border-radius: 10px;
+                 padding: 14px 16px; margin-bottom: 20px; }
+.partner-hdr-row { padding: 8px 0; border-bottom: 1px solid #21283a; margin-bottom: 14px; }
+.partner-hdr-row h3 { font-size: .9rem; font-weight: 600; color: #93c5fd; }
+.partner-routers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+                        gap: 14px; padding-top: 0; overflow-x: auto; padding-bottom: 8px; }
+.partner-routers-grid::-webkit-scrollbar { height: 6px; }
+.partner-routers-grid::-webkit-scrollbar-track { background: #0f1117; border-radius: 3px; }
+.partner-routers-grid::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+.partner-routers-grid::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+.partner-routers-grid .card { background: #0f1117; border: 1px solid #1a2030; flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -135,9 +152,9 @@ tr:last-child td { border-bottom: none; }
   </div>
 </header>
 
-<div class="section" id="section-routers" style="display:none">
-  <div class="section-hdr"><h2>Routers</h2></div>
-  <div class="actors" id="routers-grid"></div>
+<div class="section" id="section-partners" style="display:none">
+  <div class="section-hdr"><h2>Router Partners</h2></div>
+  <div id="partners-container"></div>
 </div>
 
 <div class="section" id="section-simulators" style="display:none">
@@ -206,6 +223,7 @@ tr:last-child td { border-bottom: none; }
 <script>
 // ── state ──────────────────────────────────────────────────────────────────
 let actors = [];
+let partnersData = {};
 let selectedUpstream = null;
 let pollTimer = null;
 let resultsTimer = null;
@@ -219,20 +237,26 @@ async function init() {
 
   const r = await fetch('/api/actors');
   actors = await r.json();
-  renderSections();
+  await renderSections();
   startStatusPoll();
   loadCsvList();
 }
 
 // ── sections ───────────────────────────────────────────────────────────────
-function renderSections() {
+async function renderSections() {
   const routers    = actors.filter(a => a.type === 'router');
   const simulators = actors.filter(a => a.type !== 'router');
   const upstreams  = actors.filter(a => a.type === 'upstream');
 
   if (routers.length) {
-    document.getElementById('section-routers').style.display = 'block';
-    renderCards(document.getElementById('routers-grid'), routers);
+    try {
+      const r = await fetch('/api/routers_by_partner');
+      const partners = await r.json();
+      if (Object.keys(partners).length > 0) {
+        document.getElementById('section-partners').style.display = 'block';
+        renderPartners(partners, routers);
+      }
+    } catch (_) {}
   }
   if (simulators.length) {
     document.getElementById('section-simulators').style.display = 'block';
@@ -288,6 +312,87 @@ function renderCards(grid, list) {
   }
 }
 
+function renderPartners(pdata, allRouters) {
+  partnersData = pdata;
+  const container = document.getElementById('partners-container');
+  container.innerHTML = '';
+  const partners = Object.keys(partnersData).sort();
+
+  for (const partnerId of partners) {
+    const partnerRouters = partnersData[partnerId];
+    const div = document.createElement('div');
+    div.className = 'partner-group';
+
+    const hdrDiv = document.createElement('div');
+    hdrDiv.className = 'partner-hdr-row';
+    const routerNames = partnerRouters.map(r => r.name).join(', ');
+    hdrDiv.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 24px; width: 100%;">
+        <h3 style="margin: 0; min-width: 120px;">${partnerId}</h3>
+        <div style="display: flex; gap: 40px; flex: 1; font-size: .82rem;">
+          <div style="display: flex; gap: 8px;">
+            <span style="color: #6b7280;">30s:</span>
+            <span style="font-variant-numeric: tabular-nums;"><span id="p-s30-${partnerId}">—</span>/<span id="p-r30-${partnerId}">—</span></span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <span style="color: #6b7280;">Total:</span>
+            <span style="font-variant-numeric: tabular-nums;"><span id="p-stot-${partnerId}">—</span>/<span id="p-rtot-${partnerId}">—</span></span>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const routersGrid = document.createElement('div');
+    routersGrid.className = 'partner-routers-grid';
+
+    const routersInPartner = allRouters.filter(r => partnerRouters.some(pr => pr.name === r.name));
+    for (const router of routersInPartner) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.id = `card-${router.name}`;
+
+      const connRow = `
+        <div class="conn-row-compact">
+          <span class="conn-item-compact"><span class="dot-sm" id="upconn-${router.name}"></span>up</span>
+          <span class="conn-item-compact"><span class="dot-sm" id="dsconn-${router.name}"></span>down</span>
+        </div>`;
+
+      card.innerHTML = `
+        <div class="card-hdr-compact">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="dot" id="dot-${router.name}"></div>
+            <div class="card-name">${router.name}</div>
+          </div>
+          ${connRow}
+        </div>
+        <div class="stat-grid-compact">
+          <div style="display: flex; gap: 20px; font-size: .78rem;">
+            <div><span style="color: #6b7280;">30s/60s:</span> <span style="font-variant-numeric: tabular-nums;"><span id="s30-${router.name}">—</span>/<span id="r30-${router.name}">—</span> <span id="s60-${router.name}">—</span>/<span id="r60-${router.name}">—</span></span></div>
+            <div><span style="color: #6b7280;">Total:</span> <span style="font-variant-numeric: tabular-nums;"><span id="stot-${router.name}">—</span>/<span id="rtot-${router.name}">—</span></span> <span id="age-${router.name}" style="color:#9ca3af; font-size:.7rem">—</span></div>
+          </div>
+        </div>
+        <div class="card-foot">
+          <div style="display: flex; gap: 6px; width: 100%; margin-bottom: 8px;">
+            <button class="btn btn-green btn-sm" onclick="launchActor('${router.name}')" style="flex: 1;">Start</button>
+            <button class="btn btn-amber btn-sm" onclick="stopActor('${router.name}')" style="flex: 1;">Stop</button>
+          </div>
+          <div style="width: 100%; display: flex; flex-direction: column; gap: 6px;">
+            <select class="log-level-sel" id="lvl-${router.name}" disabled onchange="setLogLevel('${router.name}', this.value)" style="width: 100%;">
+              <option>DEBUG</option><option>INFO</option>
+              <option>WARNING</option><option>ERROR</option>
+            </select>
+            <button class="btn btn-blue btn-sm" onclick="openLogModal('${router.name}')" disabled id="btn-logs-${router.name}" style="width: 100%;">📋 Logs</button>
+          </div>
+        </div>`;
+      routersGrid.appendChild(card);
+    }
+
+    div.appendChild(hdrDiv);
+    div.appendChild(routersGrid);
+    container.appendChild(div);
+  }
+}
+
 // ── status polling ─────────────────────────────────────────────────────────
 function startStatusPoll() {
   clearInterval(pollTimer);
@@ -316,9 +421,51 @@ async function pollOnce() {
       const cls = st === 'green' ? 'up' : st === 'yellow' ? 'idle' : 'down';
       if (dot) dot.className = 'dot ' + cls;
       if (st !== 'red') fetchStats(name); else clearStats(name);
+      const pdot = document.getElementById(`dot-p-${name}`);
+      if (pdot) pdot.className = 'dot ' + cls;
     }
+    updatePartnerStats();
   } catch (e) {
     console.error('pollOnce error:', e);
+  }
+}
+
+function updatePartnerStats() {
+  const partners = Object.keys(partnersData || {});
+  const routerStats = {};
+
+  const routers = actors.filter(a => a.type === 'router');
+  for (const router of routers) {
+    const name = router.name;
+    const s30 = document.getElementById(`s30-${name}`);
+    const r30 = document.getElementById(`r30-${name}`);
+    const stot = document.getElementById(`stot-${name}`);
+    const rtot = document.getElementById(`rtot-${name}`);
+    routerStats[name] = {
+      s30: parseInt(s30?.textContent) || 0,
+      r30: parseInt(r30?.textContent) || 0,
+      stot: parseInt(stot?.textContent) || 0,
+      rtot: parseInt(rtot?.textContent) || 0,
+    };
+  }
+
+  for (const partnerId of partners) {
+    const partnerRouters = (partnersData[partnerId] || []).map(r => r.name);
+    let ps30 = 0, pr30 = 0, pstot = 0, prtot = 0;
+    for (const routerName of partnerRouters) {
+      const stats = routerStats[routerName];
+      if (stats) {
+        ps30 += stats.s30;
+        pr30 += stats.r30;
+        pstot += stats.stot;
+        prtot += stats.rtot;
+      }
+    }
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v > 0 ? v : '—'; };
+    set(`p-s30-${partnerId}`, ps30);
+    set(`p-r30-${partnerId}`, pr30);
+    set(`p-stot-${partnerId}`, pstot);
+    set(`p-rtot-${partnerId}`, prtot);
   }
 }
 
@@ -342,11 +489,21 @@ async function fetchStats(name) {
     if (el) el.textContent = s.last_recv_datetime || '—';
 
     // connection dots (router cards only — elements absent for other actor types)
-    const connCls = (v) => 'dot-sm' + (v === true ? ' up' : v === false ? ' down' : '');
+    const connCls = (v) => {
+      if (v === true) return 'dot-sm up';
+      if (v === false) return 'dot-sm down';
+      return 'dot-sm';  // unknown state, gray
+    };
     const upEl = document.getElementById(`upconn-${name}`);
     const dsEl = document.getElementById(`dsconn-${name}`);
-    if (upEl) upEl.className = connCls(s.connections?.upstream);
-    if (dsEl) dsEl.className = connCls(s.connections?.downstream);
+    if (upEl) {
+      const upStatus = s.connections?.upstream;
+      upEl.className = connCls(upStatus);
+    }
+    if (dsEl) {
+      const dsStatus = s.connections?.downstream;
+      dsEl.className = connCls(dsStatus);
+    }
 
     // enable log controls; fetch current level once per session
     const sel = document.getElementById(`lvl-${name}`);
@@ -611,13 +768,23 @@ async function refreshLogs() {
   if (!_logActor) return;
   try {
     const r = await fetch(`/api/actor/${_logActor}/logs`);
-    if (!r.ok) return;
-    const lines = await r.json();
+    if (!r.ok) {
+      document.getElementById('log-pre').textContent = `Error: ${r.status}`;
+      return;
+    }
+    const data = await r.json();
+    const lines = Array.isArray(data) ? data : (data.error ? [data.error] : []);
+    if (lines.length === 0) {
+      document.getElementById('log-pre').textContent = '(no logs)';
+      return;
+    }
     const pre = document.getElementById('log-pre');
     const atBottom = pre.scrollHeight - pre.scrollTop <= pre.clientHeight + 4;
     pre.textContent = lines.join('\n');
     if (atBottom) pre.scrollTop = pre.scrollHeight;
-  } catch (_) {}
+  } catch (e) {
+    document.getElementById('log-pre').textContent = `Error: ${e.message}`;
+  }
 }
 
 function scrollLogsBottom() {

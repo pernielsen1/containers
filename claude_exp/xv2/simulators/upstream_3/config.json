@@ -1,0 +1,19 @@
+{
+  "name": "upstream_3",
+  "type": "upstream",
+  "log_level": "DEBUG",
+  "command_port": 8087,
+  "router": {
+    "host": "localhost",
+    "port": 5003
+  },
+  "framing": {
+    "header_hex": "",
+    "length_field_type": "ASCII",
+    "length_field_bytes": 4
+  },
+  "iso_spec": "../../test_spec.json",
+  "input_dir": "input",
+  "ping_0800_seconds": 30,
+  "yellow_threshold_seconds": 40
+}

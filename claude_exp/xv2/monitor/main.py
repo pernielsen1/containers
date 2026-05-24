@@ -38,13 +38,16 @@ def discover_actors():
             atype = cfg.get("type")
             if not name or atype not in SCRIPTS_BY_TYPE:
                 continue
-            actors[name] = {
+            actor = {
                 "name":         name,
                 "type":         atype,
                 "command_port": cfg["command_port"],
                 "script":       SCRIPTS_BY_TYPE[atype],
                 "config_path":  os.path.join(root, "config.json"),
             }
+            if atype == "router":
+                actor["partner_id"] = cfg.get("partner_id")
+            actors[name] = actor
         except Exception as e:
             print(f"Warning: could not read config in {root}: {e}")
     return actors
@@ -103,8 +106,26 @@ def api_actors():
     result = []
     for name in _startup_order():
         a = ACTORS[name]
-        result.append({"name": a["name"], "type": a["type"], "command_port": a["command_port"]})
+        actor_data = {"name": a["name"], "type": a["type"], "command_port": a["command_port"]}
+        if "partner_id" in a:
+            actor_data["partner_id"] = a["partner_id"]
+        result.append(actor_data)
     return jsonify(result)
+
+
+@app.route("/api/routers_by_partner")
+def api_routers_by_partner():
+    routers = {name: a for name, a in ACTORS.items() if a["type"] == "router"}
+    partners = {}
+    for name, router in routers.items():
+        partner_id = router.get("partner_id", "unassigned")
+        if partner_id not in partners:
+            partners[partner_id] = []
+        partners[partner_id].append({
+            "name": router["name"],
+            "command_port": router["command_port"],
+        })
+    return jsonify(partners)
 
 
 # ── batch status (single round-trip) ─────────────────────────────────────────

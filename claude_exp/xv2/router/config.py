@@ -58,6 +58,7 @@ class RouterConfig:
     downstream: DownstreamConfig
     crypto: CryptoConfig
     iso_spec: str                      # resolved absolute path
+    partner_id: str      = None
     log_level: str       = "INFO"
     worker_threads: int  = 8
     reestablish_seconds: int = 10
@@ -100,6 +101,7 @@ class RouterConfig:
             downstream=downstream,
             crypto=crypto,
             iso_spec=os.path.normpath(os.path.join(config_base, raw["iso_spec"])),
+            partner_id=raw.get("partner_id"),
             log_level=raw.get("log_level", "INFO"),
             worker_threads=raw.get("worker_threads", 8),
             reestablish_seconds=raw.get("reestablish_seconds", 10),
