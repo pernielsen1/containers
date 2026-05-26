@@ -41,3 +41,4 @@ so router_1.01 is handling traffic currently have total 13/10 - but there are no
 ## switched model
 switched model - the router_1.01 does not show the detailed traffic lights (up and down) even though traffic is flowing.
 haiku didn't find it - evaluate and find a solution
+
