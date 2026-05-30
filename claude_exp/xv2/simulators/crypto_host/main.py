@@ -11,6 +11,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from shared.stats import Stats
 from shared.command_server import CommandServer
 from shared.iso_utils import f47_decode, f47_encode
+from shared.crypto_utils import (
+    derive_udk,
+    derive_session_key,
+    verify_arqc,
+    calculate_arpc_method1,
+    verify_pin,
+    verify_cvv2,
+    verify_aav,
+)
+import base64
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,10 +45,58 @@ def load_pans(cfg):
 
 def _validate(pan, f47_str, pans):
     data = f47_decode(f47_str)
-    if pan in pans:
-        data["crypto_result"] = pans[pan]["crypto_result"]
-    else:
-        data["crypto_result"] = False
+    pan_data = pans.get(pan)
+    response_code = "00"
+
+    if pan_data is None:
+        data["response_code"] = "14"  # invalid card number
+        return f47_encode(data)
+
+    msg_type = data.get("message_type", "")
+
+    # PIN verification
+    if "f52" in data and data["f52"]:
+        ok = verify_pin(pan, data["f52"], pan_data["pek"], pan_data["pin"])
+        log.debug("PIN verify pan=%s ok=%s", pan, ok)
+        if not ok:
+            response_code = "55"
+
+    # ARQC verification (authorization request)
+    if "f55" in data and data["f55"] and msg_type == "0100" and response_code == "00":
+        f55 = data["f55"]
+        ok = verify_arqc(pan, pan_data["pan_seq"], pan_data["imk_ac"], f55)
+        log.debug("ARQC verify pan=%s ok=%s", pan, ok)
+        if not ok:
+            response_code = "82"
+
+    # ARPC calculation (authorization response)
+    if "f55" in data and data["f55"] and msg_type == "0110":
+        f55 = data["f55"]
+        atc = f55.get("atc", "0001")
+        udk = derive_udk(pan_data["imk_ac"], pan, pan_data["pan_seq"])
+        sk  = derive_session_key(udk, atc)
+        arqc_hex = f55.get("cryptogram", "0000000000000000")
+        # ARC is the 2-byte authorization response code (ASCII hex of response_code)
+        arc_hex = response_code.encode("ascii").hex()
+        arpc = calculate_arpc_method1(arqc_hex, arc_hex, sk)
+        data["f55"]["arpc"] = base64.b64encode(arpc).decode()
+        log.debug("ARPC calculated pan=%s arpc=%s", pan, data["f55"]["arpc"])
+
+    # CVV2 verification
+    if "cvv2" in data and data["cvv2"] and response_code == "00":
+        ok = verify_cvv2(pan, data.get("f14", ""), data["cvv2"], pan_data["cvk"])
+        log.debug("CVV2 verify pan=%s ok=%s", pan, ok)
+        if not ok:
+            response_code = "N7"
+
+    # AAV verification
+    if "aav" in data and data["aav"] and response_code == "00":
+        ok = verify_aav(data, pan_data["aav_key"], pan)
+        log.debug("AAV verify pan=%s ok=%s", pan, ok)
+        if not ok:
+            response_code = "82"
+
+    data["response_code"] = response_code
     return f47_encode(data)
 
 
