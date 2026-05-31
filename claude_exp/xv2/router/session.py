@@ -158,7 +158,7 @@ class RouterSession:
                     continue
 
                 mti = req.get("t")
-                if mti == "0100":
+                if mti in ("0100", "0120", "0420"):
                     self._dispatcher.submit(
                         RoutedMessage(req=req, up_conn=conn,
                                       up_write_lock=write_lock, up_addr=addr)

@@ -119,7 +119,7 @@ def run(cfg=None, stop_event=None, stats=None, _config_base=None):
                 log.debug("upstream_host: received 0810 keepalive response F24=%s",
                           resp.get("24"))
                 continue
-            if mti != "0110":
+            if mti not in ("0110", "0130", "0430"):
                 log.warning("upstream_host: unexpected MTI %s", mti)
                 continue
             stan = resp.get("11", "")
@@ -130,7 +130,7 @@ def run(cfg=None, stop_event=None, stats=None, _config_base=None):
                 row[f"resp_{k}"] = v
             with state["results_lock"]:
                 state["results"].append(row)
-            log.debug("upstream_host: response STAN=%s rc=%s", stan, resp.get("39", ""))
+            log.debug("upstream_host: response %s STAN=%s rc=%s", mti, stan, resp.get("39", ""))
 
     def send_loop(conn, rows):
         valid_cols = [c for c in rows[0].keys() if c in spec and c not in auto_fields]

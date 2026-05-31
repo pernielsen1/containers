@@ -99,7 +99,7 @@ class Dispatcher:
         self._queue.put(msg)
 
     def handle_response(self, resp: dict) -> None:
-        """Route a 0110 or 0810 response from downstream back to the correct upstream.
+        """Route a 0110/0130/0430 response from downstream back to the correct upstream.
 
         Called from the downstream-receiver thread.
         C++ equivalent: method called from ds_receiver std::thread.
@@ -112,7 +112,7 @@ class Dispatcher:
             # (upstream_ref is passed separately via handle_keepalive)
             return  # handled by session's ds-receiver directly
 
-        if mti != "0110":
+        if mti not in ("0110", "0130", "0430"):
             log.warning("router: unexpected MTI %s from downstream", mti)
             return
 
@@ -124,13 +124,14 @@ class Dispatcher:
             log.warning("router: no pending entry for STAN=%s", router_stan)
             return
 
-        pan = resp.get("2", "")
-        f47 = self._crypto.validate("validate_0110", pan, resp.get("47", ""))
-
         fwd = dict(resp)
         fwd["11"] = entry.upstream_stan
-        if f47:
-            fwd["47"] = f47
+
+        if mti == "0110":
+            pan = resp.get("2", "")
+            f47 = self._crypto.validate("validate_0110", pan, resp.get("47", ""))
+            if f47:
+                fwd["47"] = f47
 
         try:
             encoded, _ = iso8583.encode(fwd, spec=self._spec)
@@ -138,8 +139,8 @@ class Dispatcher:
                 from shared.framing import write_message
                 write_message(entry.up_conn, encoded, self._cfg.upstream.framing.to_dict())
             self._stats.record_sent()
-            log.debug("router: forwarded 0110 STAN %s→%s rc=%s",
-                      router_stan, entry.upstream_stan, resp.get("39"))
+            log.debug("router: forwarded %s STAN %s→%s rc=%s",
+                      mti, router_stan, entry.upstream_stan, resp.get("39"))
         except Exception as e:
             log.warning("router: upstream reply error: %s", e)
 
@@ -170,22 +171,25 @@ class Dispatcher:
                 self._queue.task_done()
 
     def _process(self, msg: RoutedMessage) -> None:
-        """Core routing logic for one 0100 message.
+        """Core routing logic for 0100/0120/0420 messages.
 
-        crypto → STAN rewrite → pending insert → downstream send.
+        0100: crypto → STAN rewrite → pending insert → downstream send.
+        0120/0420: STAN rewrite → pending insert → downstream send (no crypto).
         OSError on downstream send propagates to _worker → reconnect_event.
         C++ equivalent: method on Dispatcher called from thread pool.
         """
+        mti          = msg.req.get("t", "")
         pan          = msg.req.get("2", "")
         upstream_stan = msg.req.get("11", "")
         router_stan  = self._next_stan()
 
-        f47 = self._crypto.validate("validate_0100", pan, msg.req.get("47", ""))
-
         fwd = dict(msg.req)
         fwd["11"] = router_stan
-        if f47:
-            fwd["47"] = f47
+
+        if mti == "0100":
+            f47 = self._crypto.validate("validate_0100", pan, msg.req.get("47", ""))
+            if f47:
+                fwd["47"] = f47
 
         try:
             encoded, _ = iso8583.encode(fwd, spec=self._spec)
@@ -209,5 +213,5 @@ class Dispatcher:
         )
         self._downstream.send(frame)   # OSError → propagates → reconnect
         self._stats.record_sent()
-        log.debug("router: forwarded 0100 STAN %s→%s pan=%s",
-                  upstream_stan, router_stan, pan)
+        log.debug("router: forwarded %s STAN %s→%s pan=%s",
+                  mti, upstream_stan, router_stan, pan)

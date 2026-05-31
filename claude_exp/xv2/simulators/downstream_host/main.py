@@ -119,6 +119,42 @@ def _route_frame(client_id, transcode, iso_data, addr, spec, pans,
         log.debug("downstream_host: replied 0810 to %s", addr)
         return
 
+    if mti == "0120":
+        resp = {"t": "0130"}
+        for fld in ("2", "3", "4", "11", "37", "41", "42"):
+            if fld in req:
+                resp[fld] = req[fld]
+        resp["39"] = "00"
+        try:
+            encoded, _ = iso8583.encode(resp, spec=spec)
+        except Exception as e:
+            log.warning("downstream_host: encode 0130 error: %s", e)
+            return
+        with from_lock:
+            send_q = from_connections.get(client_id)
+        if send_q is not None:
+            send_q.put(encoded)
+        log.debug("downstream_host: replied 0130 to %s", addr)
+        return
+
+    if mti == "0420":
+        resp = {"t": "0430"}
+        for fld in ("2", "3", "4", "11", "37", "41", "42"):
+            if fld in req:
+                resp[fld] = req[fld]
+        resp["39"] = "00"
+        try:
+            encoded, _ = iso8583.encode(resp, spec=spec)
+        except Exception as e:
+            log.warning("downstream_host: encode 0430 error: %s", e)
+            return
+        with from_lock:
+            send_q = from_connections.get(client_id)
+        if send_q is not None:
+            send_q.put(encoded)
+        log.debug("downstream_host: replied 0430 to %s", addr)
+        return
+
     if mti != "0100":
         log.warning("Unexpected MTI %s from %s", mti, addr)
         return

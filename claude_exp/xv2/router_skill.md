@@ -5,9 +5,9 @@ Provide context and assistance for the ISO 8583 router project at `/home/perni/c
 ## What was built
 
 A multi-instance ISO 8583 message router with:
-- Two **routers** that accept upstream connections and forward 0100 auth requests downstream
-- Two **upstream_hosts** (simulators) that connect to routers and send 0100/0800 messages
-- One **downstream_host** (simulator) that processes 0100 auth requests and replies 0110
+- Two **routers** that accept upstream connections and forward 0100/0120/0420 requests downstream
+- Two **upstream_hosts** (simulators) that connect to routers and send 0100/0120/0420/0800 messages
+- One **downstream_host** (simulator) that processes auth/advice/reversal requests and replies 0110/0130/0430
 - One **crypto_host** (simulator) that validates PANs and signs field 47 (REST service)
 - A **monitor** web UI (Flask + vanilla JS) at `http://localhost:8090` that starts/stops/monitors all actors
 
@@ -27,6 +27,20 @@ upstream_2 ──→ router_2 ──→┤──→ downstream_host
 4. downstream_host replies `0110` back through router
 5. router calls `crypto_host /validate_0110` (REST) — validates field 47
 6. router returns `0110` to upstream
+
+### Message flow (0120 advice)
+
+1. upstream sends `0120` (decision already taken — F38/F39 pre-filled)
+2. router forwards to downstream_host as-is (no crypto call)
+3. downstream_host always replies `0130` with F39=00 (approved)
+4. router returns `0130` to upstream
+
+### Message flow (0420 reversal)
+
+1. upstream sends `0420` (command to revert a prior transaction)
+2. router forwards to downstream_host as-is (no crypto call)
+3. downstream_host always replies `0430` with F39=00 (accepted)
+4. router returns `0430` to upstream
 
 ### Keepalive (0800/0810)
 
@@ -193,3 +207,6 @@ Semicolon-separated, UTF-8 with BOM. Required column: `2` (PAN). Optional ISO 85
 - Monitor poll bug fixed: `status` variable was shadowed in `for...of` loop — renamed to `statuses`/`st`
 - Router refactored from single 454-line `main.py` into 7 typed modules (see `md/refactor_plan.md`)
 - Thread-per-connection + blocking I/O model is intentional — maps 1:1 to C++ `std::thread`
+- 0120 (advice) and 0420 (reversal) bypass crypto — decision already taken; simulator always returns F39=00
+- Dispatcher routes 0100/0120/0420 identically via STAN rewrite + pending map; crypto only runs for 0100
+- Dispatcher accepts 0110/0130/0430 responses; crypto validate_0110 only runs on 0110
