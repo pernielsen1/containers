@@ -1,0 +1,13 @@
+f2;message_type;f14;f52;f55;cvv2;aav;expected_rc
+5111111111111111;0100;1225;;;;;00
+5111111111111111;0100;1225;CZals52v8DQ=;;;;00
+5111111111111111;0100;1225;0GNcnFRMcw0=;;;;55
+5111111111111111;0100;1225;;{"atc":"0001","aip":"5800","amount_auth":"000000001000","amount_other":"000000000000","terminal_country":"0208","terminal_verification_results":"8480048000","currency_code":"0978","transaction_date":"260530","transaction_type":"00","unpredictable_number":"A1B2C3D4","cryptogram":"95DC3AD634756AFA"};;;00
+5111111111111111;0100;1225;;{"atc":"0001","aip":"5800","amount_auth":"000000001000","amount_other":"000000000000","terminal_country":"0208","terminal_verification_results":"8480048000","currency_code":"0978","transaction_date":"260530","transaction_type":"00","unpredictable_number":"A1B2C3D4","cryptogram":"DEADBEEFCAFEBABE"};;;82
+5222222222222222;0110;1225;;{"atc":"0001","aip":"5800","amount_auth":"000000001000","amount_other":"000000000000","terminal_country":"0208","terminal_verification_results":"8480048000","currency_code":"0978","transaction_date":"260530","transaction_type":"00","unpredictable_number":"A1B2C3D4","cryptogram":"1516194CACDFB330"};;;00
+5222222222222222;0100;1225;;;222;;00
+5222222222222222;0100;1225;;;223;;N7
+5111111111111111;0100;1225;;;;Q8tqhA5xxYeLhZgQctg2yXE7dvI=;00
+5111111111111111;0100;1225;;;;AAAAAAAAAAAAAAAAAAAAAAAAAAA=;82
+5111111111111111;0100;1225;CZals52v8DQ=;{"atc":"0002","aip":"5800","amount_auth":"000000001000","amount_other":"000000000000","terminal_country":"0208","terminal_verification_results":"8480048000","currency_code":"0978","transaction_date":"260530","transaction_type":"00","unpredictable_number":"A1B2C3D4","cryptogram":"9E50D9642C4BAF0F"};;;00
+5111111111111111;0100;1225;0GNcnFRMcw0=;{"atc":"0003","aip":"5800","amount_auth":"000000001000","amount_other":"000000000000","terminal_country":"0208","terminal_verification_results":"8480048000","currency_code":"0978","transaction_date":"260530","transaction_type":"00","unpredictable_number":"A1B2C3D4","cryptogram":"D94E55132538CEAE"};;;55

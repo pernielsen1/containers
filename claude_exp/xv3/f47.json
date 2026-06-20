@@ -1,0 +1,26 @@
+{
+  "f47": {
+    "message_type": "string (0100|0110)",
+    "f14": "string (expiry date, MMYY format)",
+    "f52": "string (PIN block encrypted with PEK, base64 encoded)",
+    "cvv2": "string (3-digit card verification value 2)",
+    "aav": "string (Application Authentication Value, base64 encoded — HMAC-SHA1)",
+    "response_code": "string (ISO 8583 response code, e.g. 00=OK, 55=wrong PIN, 82=bad ARQC, N7=bad CVV2)",
+    "f55": {
+      "cryptogram": "string (ARQC hex, 8 bytes)",
+      "arpc":       "string (ARPC base64, 8 bytes — present on 0110 response)",
+      "cid":        "string (Cryptogram Information Data, 1 byte hex)",
+      "atc":        "string (Application Transaction Counter, 2 bytes hex)",
+      "aip":        "string (Application Interchange Profile, 2 bytes hex)",
+      "iad":        "string (Issuer Application Data, variable hex)",
+      "amount_auth":                   "string (Amount Authorised, 6 bytes BCD hex, e.g. '000000001000')",
+      "amount_other":                  "string (Amount Other, 6 bytes BCD hex, e.g. '000000000000')",
+      "terminal_country":              "string (Terminal Country Code, 2 bytes hex, e.g. '0208')",
+      "terminal_verification_results": "string (TVR, 5 bytes hex, e.g. '8480048000')",
+      "currency_code":                 "string (Transaction Currency Code, 2 bytes hex, e.g. '0978')",
+      "transaction_date":              "string (Transaction Date YYMMDD, 3 bytes BCD hex, e.g. '260530')",
+      "transaction_type":              "string (Transaction Type, 1 byte hex, e.g. '00')",
+      "unpredictable_number":          "string (Unpredictable Number, 4 bytes hex, e.g. 'A1B2C3D4')"
+    }
+  }
+}
