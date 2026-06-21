@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ISO 8583 Router Monitor</title>
+<style>
+  :root {
+    --green: #2ecc71; --yellow: #f1c40f; --red: #e74c3c; --grey: #95a5a6;
+    --bg: #14181c; --panel: #1f262d; --panel2: #262e36; --border: #34404a;
+    --text: #e6e9ec; --muted: #9aa6b0;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--text); }
+  header { display: flex; align-items: center; gap: 16px; padding: 14px 20px; background: var(--panel); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+  header h1 { font-size: 18px; margin: 0; flex: 1; }
+  button { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+  button:hover { background: #323c46; }
+  button.primary { background: #2d6cdf; border-color: #2d6cdf; }
+  button.danger { background: #7a2d2d; border-color: #b53a3a; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  #spinner { color: var(--muted); font-size: 13px; }
+  main { padding: 20px; max-width: 1400px; margin: 0 auto; }
+  section { margin-bottom: 28px; }
+  section h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 10px; }
+  .partner-group { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+  .partner-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .partner-header h3 { margin: 0; font-size: 14px; }
+  .partner-agg { color: var(--muted); font-size: 12px; }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+  .card { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 12px; }
+  .card-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .card-head .name { font-weight: 600; font-size: 13px; flex: 1; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .dot.green { background: var(--green); } .dot.yellow { background: var(--yellow); }
+  .dot.red { background: var(--red); } .dot.grey { background: var(--grey); }
+  .conn-dots { display: flex; gap: 4px; font-size: 10px; color: var(--muted); align-items: center; }
+  .conn-dots span.dot { width: 7px; height: 7px; }
+  .stat-row { display: flex; justify-content: space-between; color: var(--muted); margin: 2px 0; }
+  .stat-row b { color: var(--text); }
+  .gauges { display: flex; gap: 10px; margin: 6px 0; color: var(--muted); }
+  .card-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .card-actions button { padding: 4px 8px; font-size: 11px; }
+  select.loglevel { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; padding: 2px; }
+  #testRunner { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+  #testRunner .row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  #testRunner select, #testRunner input[type=file] { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; }
+  table.results { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+  table.results th, table.results td { border-bottom: 1px solid var(--border); padding: 6px 8px; text-align: left; }
+  table.results td.rc-00 { color: var(--green); font-weight: 600; }
+  table.results td.rc-bad { color: var(--red); font-weight: 600; }
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: 80vw; height: 75vh; display: flex; flex-direction: column; padding: 14px; }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .modal pre { flex: 1; overflow: auto; background: #0c0f12; border-radius: 6px; padding: 10px; font-size: 11px; white-space: pre-wrap; }
+  .hidden { display: none !important; }
+  .truncate { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+  #toasts { position: fixed; bottom: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 200; }
+  .toast { background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; font-size: 13px; max-width: 360px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); animation: toast-in 0.15s ease-out; }
+  .toast.error { border-color: var(--red); }
+  .toast.success { border-color: var(--green); }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ISO 8583 Router Monitor</h1>
+  <span id="spinner" class="hidden">Starting actors…</span>
+  <button class="primary" id="btnStartAll">Start All</button>
+  <button class="danger" id="btnStopAll">Stop All</button>
+</header>
+
+<main>
+  <section>
+    <h2>Router Partners</h2>
+    <div id="partners"></div>
+  </section>
+
+  <section>
+    <h2>Simulators</h2>
+    <div class="card-grid" id="simulators"></div>
+  </section>
+
+  <section>
+    <h2>Test Runner</h2>
+    <div id="testRunner">
+      <div class="row">
+        <label>Upstream:</label>
+        <select id="upstreamSelect"></select>
+        <label>CSV:</label>
+        <select id="csvSelect"></select>
+        <input type="file" id="csvFile" accept=".csv">
+        <button id="btnUpload">Upload</button>
+        <button class="primary" id="btnStart">Start</button>
+      </div>
+      <table class="results" id="resultsTable">
+        <thead><tr><th>PAN</th><th>RC</th><th>Auth Code</th><th>Field 47</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<div id="toasts"></div>
+
+<div class="modal-backdrop hidden" id="logModal">
+  <div class="modal">
+    <div class="modal-head">
+      <strong id="logModalTitle">Logs</strong>
+      <div>
+        <button id="btnExportLogs">Export</button>
+        <button id="btnCloseLogs">Close</button>
+      </div>
+    </div>
+    <pre id="logContent"></pre>
+  </div>
+</div>
+
+<script>
+const POLL_MS = 2000;
+let actors = [];
+let routersByPartner = {};
+let logModalActor = null;
+let logPollTimer = null;
+
+async function api(path, opts) {
+  const resp = await fetch(path, opts);
+  let body = null;
+  try { body = await resp.json(); } catch (e) { body = null; }
+  return { ok: resp.ok, status: resp.status, body };
+}
+
+function toast(message, kind = "success") {
+  const container = document.getElementById("toasts");
+  const el = document.createElement("div");
+  el.className = `toast ${kind}`;
+  el.textContent = message;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+function rcClass(rc) {
+  return rc === "00" ? "rc-00" : "rc-bad";
+}
+
+function fmtCount(stats, key) {
+  if (!stats) return "-";
+  return stats[key] !== undefined ? stats[key] : "-";
+}
+
+async function loadActors() {
+  const res = await api("/api/actors");
+  actors = res.body || [];
+  const rb = await api("/api/routers_by_partner");
+  routersByPartner = rb.body || {};
+  renderSkeleton();
+  populateUpstreamSelect();
+}
+
+function renderSkeleton() {
+  const partnersDiv = document.getElementById("partners");
+  partnersDiv.innerHTML = "";
+  Object.keys(routersByPartner).sort().forEach(partnerId => {
+    const group = document.createElement("div");
+    group.className = "partner-group";
+    group.id = `partner-${partnerId}`;
+    group.innerHTML = `
+      <div class="partner-header">
+        <h3>${partnerId}</h3>
+        <span class="partner-agg" id="agg-${partnerId}"></span>
+      </div>
+      <div class="card-grid" id="cards-${partnerId}"></div>
+    `;
+    partnersDiv.appendChild(group);
+    const cardsDiv = group.querySelector(`#cards-${partnerId}`);
+    routersByPartner[partnerId].forEach(r => {
+      cardsDiv.appendChild(makeCard(r.name, "router"));
+    });
+  });
+
+  const simDiv = document.getElementById("simulators");
+  simDiv.innerHTML = "";
+  actors.filter(a => a.type !== "router").forEach(a => {
+    simDiv.appendChild(makeCard(a.name, a.type));
+  });
+}
+
+function makeCard(name, type) {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.id = `card-${name}`;
+  const connDots = type === "router"
+    ? `<div class="conn-dots">
+         <span class="dot grey" id="conn-upstream-${name}"></span>up
+         <span class="dot grey" id="conn-downstream-${name}"></span>down
+       </div>` : "";
+  const gauges = type === "router"
+    ? `<div class="gauges">
+         <span>queue: <b id="gauge-queue-${name}">-</b></span>
+         <span>pending: <b id="gauge-pending-${name}">-</b></span>
+       </div>` : "";
+  const purgeBtn = type === "router"
+    ? `<button data-action="purge" data-name="${name}">Purge Queue</button>` : "";
+  const startBtn = type === "upstream"
+    ? `<button data-action="start" data-name="${name}">Start</button>` : "";
+
+  card.innerHTML = `
+    <div class="card-head">
+      <span class="dot grey" id="dot-${name}"></span>
+      <span class="name">${name}</span>
+    </div>
+    ${connDots}
+    <div class="stat-row"><span>30s sent/recv</span><b id="s30-${name}">-/-</b></div>
+    <div class="stat-row"><span>60s sent/recv</span><b id="s60-${name}">-/-</b></div>
+    <div class="stat-row"><span>total sent/recv</span><b id="stotal-${name}">-/-</b></div>
+    <div class="stat-row"><span>last recv</span><b id="lastrecv-${name}">-</b></div>
+    ${gauges}
+    <div class="card-actions">
+      <select class="loglevel" data-name="${name}">
+        <option value="DEBUG">DEBUG</option>
+        <option value="INFO" selected>INFO</option>
+        <option value="WARNING">WARNING</option>
+        <option value="ERROR">ERROR</option>
+      </select>
+      <button data-action="logs" data-name="${name}">Logs</button>
+      ${startBtn}
+      <button data-action="launch" data-name="${name}">Launch</button>
+      <button data-action="stop" data-name="${name}">Stop</button>
+      ${purgeBtn}
+    </div>
+  `;
+  return card;
+}
+
+function populateUpstreamSelect() {
+  const sel = document.getElementById("upstreamSelect");
+  sel.innerHTML = "";
+  actors.filter(a => a.type === "upstream").forEach(a => {
+    const opt = document.createElement("option");
+    opt.value = a.name;
+    opt.textContent = a.name;
+    sel.appendChild(opt);
+  });
+}
+
+async function loadCsvFiles() {
+  const res = await api("/api/csv_files");
+  const sel = document.getElementById("csvSelect");
+  sel.innerHTML = "<option value=''>(choose project CSV)</option>";
+  (res.body || []).forEach(path => {
+    const opt = document.createElement("option");
+    opt.value = path;
+    opt.textContent = path;
+    sel.appendChild(opt);
+  });
+}
+
+async function pollStatusAndStats() {
+  const statusRes = await api("/api/status");
+  const status = statusRes.body || {};
+
+  const startingRes = await api("/api/starting");
+  const starting = (startingRes.body || {}).starting;
+  document.getElementById("spinner").classList.toggle("hidden", !starting);
+
+  for (const name of Object.keys(status)) {
+    const dot = document.getElementById(`dot-${name}`);
+    if (dot) dot.className = `dot ${status[name].status}`;
+  }
+
+  for (const actor of actors) {
+    if (!status[actor.name] || !status[actor.name].running) continue;
+    const statsRes = await api(`/api/actor/${actor.name}/stats`);
+    const stats = statsRes.body;
+    if (!stats) continue;
+    setText(`s30-${actor.name}`, `${fmtCount(stats, "sent_30s")}/${fmtCount(stats, "recv_30s")}`);
+    setText(`s60-${actor.name}`, `${fmtCount(stats, "sent_60s")}/${fmtCount(stats, "recv_60s")}`);
+    setText(`stotal-${actor.name}`, `${fmtCount(stats, "sent_total")}/${fmtCount(stats, "recv_total")}`);
+    setText(`lastrecv-${actor.name}`, stats.last_recv_datetime || "-");
+
+    if (stats.connections) {
+      setDot(`conn-upstream-${actor.name}`, stats.connections.upstream);
+      setDot(`conn-downstream-${actor.name}`, stats.connections.downstream);
+    }
+    if (stats.gauges) {
+      setText(`gauge-queue-${actor.name}`, stats.gauges.queue_depth ?? "-");
+      setText(`gauge-pending-${actor.name}`, stats.gauges.pending_count ?? "-");
+    }
+  }
+
+  for (const partnerId of Object.keys(routersByPartner)) {
+    let sent30 = 0, recv30 = 0, sentT = 0, recvT = 0;
+    for (const r of routersByPartner[partnerId]) {
+      const el30 = document.getElementById(`s30-${r.name}`);
+      if (!el30) continue;
+    }
+    const aggEl = document.getElementById(`agg-${partnerId}`);
+    if (aggEl) {
+      const names = routersByPartner[partnerId].map(r => r.name);
+      aggEl.textContent = `${names.length} router(s)`;
+    }
+  }
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function setDot(id, connected) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = `dot ${connected ? "green" : "red"}`;
+}
+
+async function handleCardAction(e) {
+  const btn = e.target.closest("button[data-action]");
+  if (!btn) return;
+  const action = btn.dataset.action;
+  const name = btn.dataset.name;
+
+  if (action === "launch") {
+    await api(`/api/actor/${name}/launch`, { method: "POST" });
+  } else if (action === "stop") {
+    await api(`/api/actor/${name}/stop`, { method: "POST" });
+  } else if (action === "start") {
+    await api(`/api/actor/${name}/start`);
+  } else if (action === "logs") {
+    openLogs(name);
+  } else if (action === "purge") {
+    if (confirm(`Purge in-flight queue for ${name}? This drops backlog without sending responses.`)) {
+      const res = await api(`/api/actor/${name}/dispatcher/purge`, { method: "POST" });
+      toast(res.ok ? `Purged ${name}: ${JSON.stringify(res.body)}` : `Purge failed: ${JSON.stringify(res.body)}`, res.ok ? "success" : "error");
+    }
+  }
+}
+
+document.addEventListener("click", handleCardAction);
+document.addEventListener("change", async (e) => {
+  if (e.target.classList.contains("loglevel")) {
+    const name = e.target.dataset.name;
+    await api(`/api/actor/${name}/log_level`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ level: e.target.value }),
+    });
+  }
+});
+
+function openLogs(name) {
+  logModalActor = name;
+  document.getElementById("logModalTitle").textContent = `Logs — ${name}`;
+  document.getElementById("logModal").classList.remove("hidden");
+  refreshLogs();
+  logPollTimer = setInterval(refreshLogs, 2000);
+}
+
+async function refreshLogs() {
+  if (!logModalActor) return;
+  const res = await api(`/api/actor/${logModalActor}/logs?format=text`);
+  const pre = document.getElementById("logContent");
+  if (res.ok) {
+    const text = await fetch(`/api/actor/${logModalActor}/logs?format=text`).then(r => r.text());
+    pre.textContent = text;
+    pre.scrollTop = pre.scrollHeight;
+  }
+}
+
+document.getElementById("btnCloseLogs").addEventListener("click", () => {
+  document.getElementById("logModal").classList.add("hidden");
+  logModalActor = null;
+  if (logPollTimer) clearInterval(logPollTimer);
+});
+
+document.getElementById("btnExportLogs").addEventListener("click", () => {
+  const text = document.getElementById("logContent").textContent;
+  const blob = new Blob([text], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${logModalActor || "logs"}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById("btnStartAll").addEventListener("click", async () => {
+  await api("/api/start_all", { method: "POST" });
+});
+document.getElementById("btnStopAll").addEventListener("click", async () => {
+  await api("/api/stop_all", { method: "POST" });
+});
+
+document.getElementById("btnUpload").addEventListener("click", async () => {
+  const name = document.getElementById("upstreamSelect").value;
+  const fileInput = document.getElementById("csvFile");
+  const csvPath = document.getElementById("csvSelect").value;
+
+  if (fileInput.files.length > 0) {
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+    const res = await fetch(`/api/actor/${name}/upload`, { method: "POST", body: formData });
+    toast(res.ok ? "Uploaded" : "Upload failed", res.ok ? "success" : "error");
+  } else if (csvPath) {
+    const res = await api(`/api/actor/${name}/upload_path`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: csvPath }),
+    });
+    toast(res.ok ? "Uploaded" : "Upload failed: " + JSON.stringify(res.body), res.ok ? "success" : "error");
+  } else {
+    toast("Choose a project CSV or pick a file to upload first.", "error");
+  }
+});
+
+document.getElementById("btnStart").addEventListener("click", async () => {
+  const name = document.getElementById("upstreamSelect").value;
+  // /start can 503 with "not connected to router" for a moment right after the actor is
+  // launched — its TCP handshake with the router hasn't finished yet even though the
+  // command server is already responding. Retry briefly instead of failing immediately.
+  let res;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    res = await api(`/api/actor/${name}/start`);
+    if (res.ok) break;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  if (!res.ok) {
+    toast("Start failed: " + JSON.stringify(res.body), "error");
+    return;
+  }
+  setTimeout(() => pollResults(name), 1000);
+});
+
+async function pollResults(name) {
+  const res = await api(`/api/actor/${name}/results`);
+  const rows = res.body || [];
+  const tbody = document.querySelector("#resultsTable tbody");
+  tbody.innerHTML = "";
+  rows.forEach(r => {
+    const pan = r["2"] || r["resp_2"] || "";
+    const rc = r["resp_39"] || "";
+    const authCode = r["resp_38"] || "";
+    const f47 = r["resp_47"] || "";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${pan}</td>
+      <td class="${rcClass(rc)}">${rc}</td>
+      <td>${authCode}</td>
+      <td><span class="truncate" title="${f47}">${f47}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function tick() {
+  try {
+    await pollStatusAndStats();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+(async function init() {
+  await loadActors();
+  await loadCsvFiles();
+  await tick();
+  setInterval(tick, POLL_MS);
+})();
+</script>
+
+</body>
+</html>
