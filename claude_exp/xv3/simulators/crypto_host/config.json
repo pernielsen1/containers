@@ -1,6 +1,7 @@
 {
   "name": "crypto_host",
   "type": "crypto",
+  "is_active": true,
   "port": 5002,
   "command_port": 8082,
   "pans_defined": "../../pans_defined.json",

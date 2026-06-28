@@ -1,0 +1,15 @@
+# you rewrote the spec and created a new application
+## unfortunately it does not work or I don't know how to make it work
+The build_router.md was a "building the bare bones" of our mutual router project for reference found in ../xv2
+I gave you the instruction to build from scratch and then manually invoked the run/monitor.sh
+script cheched it on a browser and it was responsive - HOWEVER when I try to start the actors - nothing seems to happen
+pls solve
+2
+## follow up 2
+I have started the monitor run/monitor.sh and started all the actors from the monitor interface
+looking at logs focused in router1 it seems automatic messages 0800 are forwarded but 0810 are not getting all the way back - the counters in the web UI seems only to be counting the outbound messages
+all actors are running now - feel free to shut them down and restart
+tip:  
+Let's reduce the complexity first and say that only the router_1 and it's associated simulators needs to be running
+i.e. start by implementing a is_active in the config.jsons and then "start all actors" only starts those who have "is_active" = True in their config.jsons.
+

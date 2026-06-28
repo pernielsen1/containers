@@ -84,7 +84,8 @@ class Dispatcher:
                 break
             try:
                 self._process(msg)
-            except OSError:
+            except OSError as e:
+                logger.warning("worker OSError, triggering reconnect: %s", e)
                 self.reconnect_event.set()
             except Exception:
                 logger.exception("worker failed to process message")

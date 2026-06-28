@@ -53,6 +53,8 @@
   .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
   .modal pre { flex: 1; overflow: auto; background: #0c0f12; border-radius: 6px; padding: 10px; font-size: 11px; white-space: pre-wrap; }
   .hidden { display: none !important; }
+  .card.inactive { opacity: 0.5; }
+  .badge-inactive { font-size: 10px; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; padding: 0 4px; margin-left: 4px; }
   .truncate { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
   #toasts { position: fixed; bottom: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 200; }
   .toast { background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; font-size: 13px; max-width: 360px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); animation: toast-in 0.15s ease-out; }
@@ -174,21 +176,23 @@ function renderSkeleton() {
     partnersDiv.appendChild(group);
     const cardsDiv = group.querySelector(`#cards-${partnerId}`);
     routersByPartner[partnerId].forEach(r => {
-      cardsDiv.appendChild(makeCard(r.name, "router"));
+      const rActor = actors.find(a => a.name === r.name);
+      cardsDiv.appendChild(makeCard(r.name, "router", rActor?.is_active !== false));
     });
   });
 
   const simDiv = document.getElementById("simulators");
   simDiv.innerHTML = "";
   actors.filter(a => a.type !== "router").forEach(a => {
-    simDiv.appendChild(makeCard(a.name, a.type));
+    simDiv.appendChild(makeCard(a.name, a.type, a.is_active !== false));
   });
 }
 
-function makeCard(name, type) {
+function makeCard(name, type, isActive = true) {
   const card = document.createElement("div");
-  card.className = "card";
+  card.className = isActive ? "card" : "card inactive";
   card.id = `card-${name}`;
+  const inactiveBadge = isActive ? "" : `<span class="badge-inactive">inactive</span>`;
   const connDots = type === "router"
     ? `<div class="conn-dots">
          <span class="dot grey" id="conn-upstream-${name}"></span>up
@@ -207,7 +211,7 @@ function makeCard(name, type) {
   card.innerHTML = `
     <div class="card-head">
       <span class="dot grey" id="dot-${name}"></span>
-      <span class="name">${name}</span>
+      <span class="name">${name}</span>${inactiveBadge}
     </div>
     ${connDots}
     <div class="stat-row"><span>30s sent/recv</span><b id="s30-${name}">-/-</b></div>

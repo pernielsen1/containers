@@ -71,6 +71,7 @@ def discover_actors():
                 "config_path": config_path,
                 "config": cfg,
                 "script": os.path.join(PROJECT_ROOT, SCRIPTS_BY_TYPE[actor_type]),
+                "is_active": cfg.get("is_active", True),
             }
         )
 
@@ -172,6 +173,7 @@ def api_actors():
                 "type": a["type"],
                 "command_port": a["command_port"],
                 "running": is_running(a["name"]),
+                "is_active": a["is_active"],
             }
             for a in get_actors()
         ]
@@ -393,6 +395,8 @@ def _start_all_worker():
     global _starting
     try:
         for actor in get_actors():
+            if not actor["is_active"]:
+                continue
             if not is_running(actor["name"]):
                 launch_actor(actor)
             wait_for_ready(actor, timeout=10)

@@ -111,10 +111,11 @@ class RouterSession:
             while True:
                 try:
                     data = read_upstream(conn, self.cfg.upstream)
-                except ConnectionError:
+                except ConnectionError as e:
                     # Covers both a remote disconnect and a local close racing this
                     # blocked read during teardown — _recv_exact normalizes any OSError
                     # (e.g. EBADF) from the latter into ConnectionError too.
+                    logger.warning("upstream connection lost: %s", e)
                     self.reconnect_event.set()
                     break
 
@@ -166,6 +167,7 @@ class RouterSession:
             with write_lock:
                 write_upstream(conn, bytes(encoded), self.cfg.upstream)
             self.stats.record_sent()
+            logger.debug("0810 forwarded to upstream")
         except OSError:
             # The upstream connection can be closed by session teardown out from under
             # this write (called from the ds-receiver thread).
@@ -175,10 +177,11 @@ class RouterSession:
         while True:
             try:
                 data = self.downstream.recv()
-            except ConnectionError:
+            except ConnectionError as e:
                 # Covers both a remote disconnect and a local close racing this blocked
                 # read during teardown — _recv_exact normalizes any OSError from the
                 # latter into ConnectionError too.
+                logger.warning("downstream connection lost: %s", e)
                 self.stats.set_connection("downstream", False)
                 self.reconnect_event.set()
                 break

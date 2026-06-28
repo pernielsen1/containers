@@ -1,6 +1,7 @@
 {
   "name": "upstream_2",
   "type": "upstream",
+  "is_active": false,
   "command_port": 8086,
   "mode": "server",
   "router": { "host": "0.0.0.0", "port": 5010 },

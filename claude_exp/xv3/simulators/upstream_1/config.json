@@ -1,6 +1,7 @@
 {
   "name": "upstream_1",
   "type": "upstream",
+  "is_active": true,
   "command_port": 8083,
   "router": { "host": "localhost", "port": 5000 },
   "framing": { "header_hex": "", "length_field_type": "ASCII", "length_field_bytes": 4 },

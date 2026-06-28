@@ -1,6 +1,7 @@
 {
   "name": "router_1",
   "type": "router",
+  "is_active": true,
   "partner_id": "partner_a",
   "log_level": "DEBUG",
   "command_port": 8080,
