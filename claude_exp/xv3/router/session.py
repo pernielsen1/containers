@@ -196,10 +196,13 @@ class RouterSession:
                 continue
             self.stats.record_recv()
 
-            if resp.get("t") == "0810":
-                self._forward_0810(resp)
-            else:
-                self.dispatcher.handle_response(resp)
+            try:
+                if resp.get("t") == "0810":
+                    self._forward_0810(resp)
+                else:
+                    self.dispatcher.handle_response(resp)
+            except Exception:
+                logger.exception("unexpected error dispatching downstream message mti=%s", resp.get("t"))
 
     def _teardown(self, up_thread):
         self.dispatcher.drain_and_stop()

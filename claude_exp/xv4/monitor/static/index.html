@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ISO 8583 Router Monitor</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: monospace; background: #1a1a1a; color: #e0e0e0; padding: 12px; font-size: 13px; }
+  h1 { font-size: 16px; color: #fff; margin-bottom: 12px; }
+  h2 { font-size: 13px; color: #aaa; margin: 14px 0 6px; text-transform: uppercase; letter-spacing: 1px; }
+  .header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .header h1 { margin: 0; }
+  button { background: #333; color: #e0e0e0; border: 1px solid #555; padding: 4px 10px; cursor: pointer; font-family: monospace; font-size: 12px; border-radius: 2px; }
+  button:hover { background: #444; }
+  button.danger { border-color: #c55; }
+  button.danger:hover { background: #522; }
+  .spinner { display: none; color: #aaa; font-size: 12px; }
+  .spinner.visible { display: inline; }
+  .cards { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .card { background: #252525; border: 1px solid #383838; padding: 8px 10px; min-width: 220px; border-radius: 2px; }
+  .card-title { display: flex; align-items: center; gap: 6px; font-weight: bold; margin-bottom: 4px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot.green { background: #4a4; }
+  .dot.yellow { background: #aa4; }
+  .dot.red { background: #a44; }
+  .dot.grey { background: #555; }
+  .conn-dots { display: flex; gap: 3px; margin-left: auto; }
+  .conn-dot { width: 6px; height: 6px; border-radius: 50%; background: #555; }
+  .conn-dot.on { background: #4a4; }
+  .stat-row { display: flex; gap: 8px; font-size: 11px; color: #888; margin-top: 3px; flex-wrap: wrap; }
+  .stat-val { color: #ccc; }
+  .gauge-row { font-size: 11px; color: #777; margin-top: 2px; }
+  .controls { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; align-items: center; }
+  .log-level { background: #333; color: #ccc; border: 1px solid #555; font-family: monospace; font-size: 11px; padding: 2px 4px; }
+  .partner-group { margin-bottom: 10px; }
+  .partner-header { font-size: 11px; color: #777; margin-bottom: 4px; }
+  .router-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .router-card { background: #222; border: 1px solid #333; padding: 6px 8px; min-width: 180px; border-radius: 2px; }
+  .test-panel { background: #222; border: 1px solid #383838; padding: 10px; margin-top: 14px; border-radius: 2px; }
+  .test-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  select { background: #333; color: #ccc; border: 1px solid #555; font-family: monospace; font-size: 12px; padding: 3px 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 8px; }
+  th { text-align: left; color: #888; border-bottom: 1px solid #333; padding: 3px 6px; }
+  td { padding: 3px 6px; border-bottom: 1px solid #2a2a2a; color: #ccc; }
+  .rc-ok { color: #4a4; }
+  .rc-fail { color: #a44; }
+  .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 100; }
+  .modal.open { display: flex; align-items: center; justify-content: center; }
+  .modal-box { background: #222; border: 1px solid #555; padding: 12px; width: 80vw; max-height: 80vh; display: flex; flex-direction: column; }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .log-content { overflow-y: auto; flex: 1; font-size: 11px; white-space: pre; color: #aaa; background: #1a1a1a; padding: 6px; }
+  .modal-controls { display: flex; gap: 6px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>ISO 8583 Router Monitor</h1>
+  <button onclick="startAll()">Start All</button>
+  <button onclick="stopAll()" class="danger">Stop All</button>
+  <span class="spinner" id="spinner">Starting actors…</span>
+</div>
+
+<div id="partners-section"></div>
+<div id="simulators-section"></div>
+
+<div class="test-panel">
+  <h2>Test Runner</h2>
+  <div class="test-controls">
+    <label>Upstream: <select id="upstream-select"></select></label>
+    <label>CSV: <select id="csv-select"></select></label>
+    <button onclick="uploadCSV()">Upload</button>
+    <button onclick="startTest()">Start</button>
+    <span id="test-status" style="color:#888;font-size:11px;"></span>
+  </div>
+  <table id="results-table">
+    <thead><tr><th>PAN</th><th>RC</th><th>Auth Code</th><th>F47</th></tr></thead>
+    <tbody id="results-body"></tbody>
+  </table>
+</div>
+
+<div class="modal" id="log-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span id="log-modal-title">Logs</span>
+      <button onclick="closeLogModal()">✕</button>
+    </div>
+    <div class="log-content" id="log-content"></div>
+    <div class="modal-controls">
+      <button onclick="exportLogs()">Export</button>
+      <button onclick="closeLogModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let statusData = {};
+let actorsData = [];
+let logRefreshInterval = null;
+let currentLogActor = null;
+
+async function api(path, opts) {
+  const r = await fetch('/api/' + path, opts);
+  if (!r.ok) throw new Error(r.status);
+  return r.json().catch(() => ({}));
+}
+
+async function poll() {
+  try {
+    [statusData, actorsData] = await Promise.all([
+      api('status'),
+      api('actors'),
+    ]);
+    const startingResp = await api('starting');
+    const spinner = document.getElementById('spinner');
+    spinner.className = startingResp.starting ? 'spinner visible' : 'spinner';
+    render();
+  } catch(e) {}
+}
+
+function statusDot(name) {
+  const s = statusData[name] || 'red';
+  return `<span class="dot ${s}"></span>`;
+}
+
+function connDots(stats) {
+  if (!stats || !stats.connections) return '';
+  return '<div class="conn-dots">' +
+    Object.entries(stats.connections).map(([k,v]) =>
+      `<span class="conn-dot ${v ? 'on' : ''}" title="${k}"></span>`
+    ).join('') + '</div>';
+}
+
+async function getStats(port) {
+  try {
+    const r = await fetch(`http://localhost:${port}/stats`);
+    return r.ok ? r.json() : null;
+  } catch { return null; }
+}
+
+async function renderCard(actor) {
+  const stats = await getStats(actor.command_port);
+  const s30 = stats ? `${stats.sent_30s || 0}↑ ${stats.recv_30s || 0}↓` : '—';
+  const stot = stats ? `${stats.sent_total || 0}↑ ${stats.recv_total || 0}↓` : '—';
+  const lastRecv = stats ? (stats.last_recv_datetime || '—') : '—';
+  const conns = stats ? connDots(stats) : '';
+  const isRouter = actor.type === 'router';
+  const gauges = stats && stats.gauges ? stats.gauges : {};
+
+  return `
+    <div class="card">
+      <div class="card-title">
+        ${statusDot(actor.name)}
+        ${actor.name}
+        ${conns}
+      </div>
+      <div class="stat-row">
+        <span>30s:</span><span class="stat-val">${s30}</span>
+        <span>total:</span><span class="stat-val">${stot}</span>
+        <span>last:</span><span class="stat-val">${lastRecv}</span>
+      </div>
+      ${isRouter ? `<div class="gauge-row">queue: <b>${gauges.queue_depth ?? '—'}</b>  pending: <b>${gauges.pending_count ?? '—'}</b></div>` : ''}
+      <div class="controls">
+        <select class="log-level" onchange="setLogLevel('${actor.name}', this.value)">
+          ${['DEBUG','INFO','WARNING','ERROR'].map(l => `<option${stats && stats.level === l ? ' selected' : ''}>${l}</option>`).join('')}
+        </select>
+        <button onclick="openLogs('${actor.name}')">Logs</button>
+        ${actor.type === 'upstream' ? `<button onclick="actorStart('${actor.name}')">Start</button>` : ''}
+        <button onclick="actorStop('${actor.name}')" class="danger">Stop</button>
+        ${isRouter ? `<button onclick="purgeQueue('${actor.name}')" class="danger">Purge</button>` : ''}
+      </div>
+    </div>`;
+}
+
+async function render() {
+  const partners = {};
+  const simulators = [];
+
+  for (const a of actorsData) {
+    if (a.type === 'router') {
+      // group by partner
+    }
+  }
+
+  // Routers by partner
+  let partnerHtml = '';
+  try {
+    const byPartner = await api('routers_by_partner');
+    for (const [pid, routers] of Object.entries(byPartner)) {
+      partnerHtml += `<div class="partner-group"><div class="partner-header">Partner: ${pid}</div><div class="router-grid">`;
+      for (const r of routers) {
+        const actor = actorsData.find(a => a.name === r.name);
+        if (actor) partnerHtml += await renderCard(actor);
+      }
+      partnerHtml += '</div></div>';
+    }
+  } catch(e) {}
+
+  document.getElementById('partners-section').innerHTML = `<h2>Router Partners</h2>${partnerHtml}`;
+
+  // Simulators
+  let simHtml = '<div class="cards">';
+  for (const a of actorsData) {
+    if (a.type !== 'router') {
+      simHtml += await renderCard(a);
+    }
+  }
+  simHtml += '</div>';
+  document.getElementById('simulators-section').innerHTML = `<h2>Simulators</h2>${simHtml}`;
+
+  // Populate upstream select
+  const upSelect = document.getElementById('upstream-select');
+  const upstreamActors = actorsData.filter(a => a.type === 'upstream');
+  if (upSelect.options.length === 0) {
+    upstreamActors.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.name;
+      opt.text = a.name;
+      upSelect.add(opt);
+    });
+  }
+
+  // Populate CSV select
+  try {
+    const csvFiles = await api('csv_files');
+    const csvSelect = document.getElementById('csv-select');
+    const current = csvSelect.value;
+    csvSelect.innerHTML = csvFiles.map(f => `<option value="${f}">${f}</option>`).join('');
+    if (current && csvFiles.includes(current)) csvSelect.value = current;
+  } catch(e) {}
+}
+
+async function startAll() {
+  await fetch('/api/start_all', { method: 'POST' });
+  poll();
+}
+
+async function stopAll() {
+  await fetch('/api/stop_all', { method: 'POST' });
+  setTimeout(poll, 1000);
+}
+
+async function actorStop(name) {
+  await fetch(`/api/actor/${name}/stop`, { method: 'POST' });
+  setTimeout(poll, 500);
+}
+
+async function actorStart(name) {
+  const r = await fetch(`/api/actor/${name}/start`);
+  const data = await r.json().catch(() => ({}));
+  document.getElementById('test-status').textContent = r.ok ? `Sent ${data.rows} rows` : (data.error || 'error');
+}
+
+async function setLogLevel(name, level) {
+  await fetch(`/api/actor/${name}/log_level`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ level }),
+  });
+}
+
+async function purgeQueue(name) {
+  if (!confirm(`Purge all pending + queued messages for ${name}?`)) return;
+  const r = await fetch(`/api/actor/${name}/dispatcher/purge`, { method: 'POST' });
+  const data = await r.json().catch(() => ({}));
+  alert(`Purged: ${data.dropped_pending ?? 0} pending, ${data.dropped_queue ?? 0} queued`);
+}
+
+function openLogs(name) {
+  currentLogActor = name;
+  document.getElementById('log-modal-title').textContent = `Logs: ${name}`;
+  document.getElementById('log-modal').className = 'modal open';
+  fetchLogs();
+  logRefreshInterval = setInterval(fetchLogs, 2000);
+}
+
+async function fetchLogs() {
+  if (!currentLogActor) return;
+  try {
+    const r = await fetch(`/api/actor/${currentLogActor}/logs?format=text`);
+    const text = await r.text();
+    const el = document.getElementById('log-content');
+    el.textContent = text;
+    el.scrollTop = el.scrollHeight;
+  } catch(e) {}
+}
+
+function closeLogModal() {
+  document.getElementById('log-modal').className = 'modal';
+  clearInterval(logRefreshInterval);
+  currentLogActor = null;
+}
+
+function exportLogs() {
+  const text = document.getElementById('log-content').textContent;
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${currentLogActor}-logs.txt`;
+  a.click();
+}
+
+async function uploadCSV() {
+  const name = document.getElementById('upstream-select').value;
+  const csvPath = document.getElementById('csv-select').value;
+  if (!name || !csvPath) return;
+  const r = await fetch(`/api/actor/${name}/upload_path`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: csvPath }),
+  });
+  const data = await r.json().catch(() => ({}));
+  document.getElementById('test-status').textContent = r.ok ? 'Uploaded' : (data.error || 'upload failed');
+}
+
+async function startTest() {
+  const name = document.getElementById('upstream-select').value;
+  if (!name) return;
+  const r = await fetch(`/api/actor/${name}/start`);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    document.getElementById('test-status').textContent = data.error || 'error';
+    return;
+  }
+  document.getElementById('test-status').textContent = `Started — ${data.rows} rows`;
+  document.getElementById('results-body').innerHTML = '';
+  pollResults(name);
+}
+
+async function pollResults(name) {
+  for (let i = 0; i < 60; i++) {
+    await new Promise(r => setTimeout(r, 1000));
+    try {
+      const data = await api(`actor/${name}/results`);
+      renderResults(data);
+    } catch(e) {}
+  }
+}
+
+function renderResults(rows) {
+  const tbody = document.getElementById('results-body');
+  tbody.innerHTML = rows.map(row => {
+    const pan = row['2'] || row['resp_2'] || '';
+    const rc = row['resp_39'] || '';
+    const auth = row['resp_38'] || '';
+    const f47 = (row['resp_47'] || '').substring(0, 60);
+    const rcClass = rc === '00' ? 'rc-ok' : 'rc-fail';
+    return `<tr><td>${pan}</td><td class="${rcClass}">${rc}</td><td>${auth}</td><td>${f47}</td></tr>`;
+  }).join('');
+}
+
+poll();
+setInterval(poll, 2000);
+</script>
+</body>
+</html>

@@ -165,17 +165,17 @@ class UpstreamHostSim:
 
     def _keepalive_loop(self, conn, disc_evt: threading.Event):
         while not disc_evt.is_set() and not self.stop_event.is_set():
+            try:
+                write_message(conn, build_0800(self.spec), self.framing)
+                self.stats.record_sent()
+            except OSError:
+                return
             elapsed = 0.0
             while elapsed < self.ping_0800_seconds:
                 if disc_evt.is_set() or self.stop_event.is_set():
                     return
                 time.sleep(min(1.0, self.ping_0800_seconds - elapsed))
                 elapsed += 1.0
-            try:
-                write_message(conn, build_0800(self.spec), self.framing)
-                self.stats.record_sent()
-            except OSError:
-                return
 
     def _run_connection(self, sock):
         with self._conn_lock:
@@ -207,6 +207,7 @@ class UpstreamHostSim:
         while not self.stop_event.is_set():
             try:
                 sock = socket.create_connection((router_cfg["host"], router_cfg["port"]), timeout=5)
+                sock.settimeout(None)  # switch to blocking; timeout=5 above is connect-only
             except OSError:
                 self.stop_event.wait(retry_seconds)
                 continue

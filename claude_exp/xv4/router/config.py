@@ -1,8 +1,6 @@
-from __future__ import annotations
-
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from shared.ims_connect import to_ebcdic
 
@@ -67,23 +65,40 @@ class RouterConfig:
 
     @classmethod
     def from_file(cls, path: str) -> "RouterConfig":
-        with open(path, "r") as f:
+        with open(path) as f:
             data = json.load(f)
 
         base_dir = os.path.dirname(os.path.abspath(path))
 
-        upstream_data = dict(data["upstream"])
-        upstream_data["framing"] = Framing(**upstream_data["framing"])
-        upstream = UpstreamConfig(**upstream_data)
+        framing_data = data["upstream"].get("framing", {})
+        framing = Framing(
+            header_hex=framing_data.get("header_hex", ""),
+            length_field_type=framing_data["length_field_type"],
+            length_field_bytes=framing_data["length_field_bytes"],
+        )
+        upstream = UpstreamConfig(
+            port=data["upstream"]["port"],
+            framing=framing,
+            mode=data["upstream"].get("mode", "server"),
+            host=data["upstream"].get("host", "localhost"),
+            retry_seconds=data["upstream"].get("retry_seconds", 5),
+        )
 
-        downstream_data = dict(data["downstream"])
-        downstream_data["irm_id"] = to_ebcdic(downstream_data["irm_id"], 8)
-        downstream_data["client_id"] = to_ebcdic(downstream_data["client_id"], 8)
-        downstream = DownstreamConfig(**downstream_data)
+        ds = data["downstream"]
+        downstream = DownstreamConfig(
+            host=ds["host"],
+            port=ds["port"],
+            irm_id=to_ebcdic(ds["irm_id"], 8),
+            client_id=to_ebcdic(ds["client_id"], 8),
+        )
 
-        crypto = CryptoConfig(**data["crypto"])
+        crypto = CryptoConfig(
+            host=data["crypto"]["host"],
+            port=data["crypto"]["port"],
+        )
 
-        iso_spec = os.path.normpath(os.path.join(base_dir, data["iso_spec"]))
+        iso_spec_rel = data["iso_spec"]
+        iso_spec = os.path.normpath(os.path.join(base_dir, iso_spec_rel))
 
         extra_kwargs = {
             k: v
