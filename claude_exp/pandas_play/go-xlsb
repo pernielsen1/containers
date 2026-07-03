@@ -1,0 +1,15 @@
+import os
+import pandas as pd
+ONE_DRIVE = '/mnt/c/users/perni/OneDrive/Documents/'
+IN_DIR = os.path.join(ONE_DRIVE, 'wsl_input')
+for file in os.listdir(IN_DIR):
+    print(file)
+INFILE = os.path.join(IN_DIR, 'test_xlsb/test_xlsb_file.xlsb')
+print(INFILE)
+sheets_dict = pd.read_excel(INFILE, sheet_name=None)
+for name, sheet in sheets_dict.items():
+    print(f"name: {name}")
+
+    
+       
+

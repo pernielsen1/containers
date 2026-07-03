@@ -1,0 +1,11 @@
+{
+    "version": "0.1",
+    "file_patterns": [
+        {
+            "pattern": "*test_xlsb_file.xlsb",
+            "area_field_name": "area",
+            "key_columns": ["area", "attrib"],
+            "value_columns": ["rel"]
+        }
+    ]
+}
