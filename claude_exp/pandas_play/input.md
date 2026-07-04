@@ -39,3 +39,14 @@ it shoud read input from same ONE_DRIVE as found in 0_xlsb_to_csv.py
 but input directory should be found in test_xlsb/test_multi_sheet
 the excel files here has one sheet per area there are also sheets which should not be loaded.
 the json multi_sheets.json has the sheet names to be loaded as key and the area name as attribue. after loading the excel a CSV file should be created in similar pattern as from 0_xlsb_to_csv.py to same output directory i.e. will also be input to next session for comparing the ACPT and PROD environment.
+
+## optimizing a bit 
+add a config.json where the ONE_DRIVE are stored and 
+the relative input paths for both 0_xlsb_multi_sto_csv and 0_xlsb_to_csv are stored
+
+## and making sure of csv permanent csv skill
+when writing csv files it is important that they are also readable in Excel with
+special characters thing I'm in scandinava meaning ä, å and even in germany with ü and funny double ss-es like ß (sharfes s)
+let's discuss adjust and make sure this is a global preference
+
+

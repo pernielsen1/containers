@@ -4,7 +4,8 @@ import os
 import pandas as pd
 from pyxlsb import open_workbook
 
-from xlsb_common import check_no_upcast, clean_value, find_source_files, safe_filename
+from config_utils import get_input_dir, load_config
+from xlsb_common import check_no_upcast, clean_value, find_source_files, safe_filename, write_csv
 
 
 class XlsbMultiSheetToCSV:
@@ -62,19 +63,12 @@ class XlsbMultiSheetToCSV:
         if first_write:
             written_files.add(filepath)
 
-        df.to_csv(
-            filepath,
-            mode="w" if first_write else "a",
-            header=first_write,
-            index=False,
-            sep=";",
-            encoding="utf-8-sig",
-        )
+        write_csv(df, filepath, mode="w" if first_write else "a", header=first_write)
 
 
 if __name__ == "__main__":
-    ONE_DRIVE = "/mnt/c/users/perni/OneDrive/Documents/"
-    IN_DIR = os.path.join(ONE_DRIVE, "wsl_input", "test_multi_sheet")
+    config = load_config()
+    IN_DIR = get_input_dir(config, "xlsb_multi_sto_csv")
 
     with open("multi_sheets.json", "r", encoding="utf-8") as f:
         sheet_area_map = json.load(f)

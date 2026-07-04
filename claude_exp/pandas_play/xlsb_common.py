@@ -2,6 +2,20 @@ import os
 
 import pandas as pd
 
+# utf-8-sig writes a BOM so Excel renders non-ASCII (ä, ö, ü, ß, å, etc.)
+# correctly instead of as mojibake; semicolon avoids clashing with the comma
+# decimal separator used in European locales.
+CSV_SEP = ";"
+CSV_ENCODING = "utf-8-sig"
+
+
+def write_csv(df: pd.DataFrame, filepath: str, mode: str = "w", header: bool = True) -> None:
+    df.to_csv(filepath, mode=mode, header=header, index=False, sep=CSV_SEP, encoding=CSV_ENCODING)
+
+
+def read_csv(filepath: str, dtype=str) -> pd.DataFrame:
+    return pd.read_csv(filepath, sep=CSV_SEP, encoding=CSV_ENCODING, dtype=dtype)
+
 
 def clean_value(value):
     if isinstance(value, float) and value.is_integer():

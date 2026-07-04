@@ -1,5 +1,10 @@
 {
     "version": "0.1",
+    "one_drive": "/mnt/c/users/perni/OneDrive/Documents/",
+    "input_paths": {
+        "xlsb_to_csv": "wsl_input/test_xlsb",
+        "xlsb_multi_sto_csv": "wsl_input/test_multi_sheet"
+    },
     "file_patterns": [
         {
             "pattern": "*test_xlsb_file.xlsb",

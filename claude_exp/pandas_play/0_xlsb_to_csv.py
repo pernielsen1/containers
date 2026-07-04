@@ -2,8 +2,8 @@ import os
 import pandas as pd
 from pyxlsb import open_workbook
 
-from config_utils import load_config, match_pattern_config
-from xlsb_common import check_no_upcast, clean_value, find_source_files, safe_filename, to_str
+from config_utils import get_input_dir, load_config, match_pattern_config
+from xlsb_common import check_no_upcast, clean_value, find_source_files, safe_filename, to_str, write_csv
 
 
 class XlsbToCSV:
@@ -66,21 +66,13 @@ class XlsbToCSV:
             if first_write:
                 written_files.add(filepath)
 
-            group.to_csv(
-                filepath,
-                mode="w" if first_write else "a",
-                header=first_write,
-                index=False,
-                sep=";",
-                encoding="utf-8-sig",
-            )
+            write_csv(group, filepath, mode="w" if first_write else "a", header=first_write)
 
 
 if __name__ == "__main__":
-    ONE_DRIVE = "/mnt/c/users/perni/OneDrive/Documents/"
-    IN_DIR = os.path.join(ONE_DRIVE, "wsl_input", "test_xlsb")
-
     config = load_config()
+    IN_DIR = get_input_dir(config, "xlsb_to_csv")
+
     source_files = find_source_files(IN_DIR)
 
     for source_label, input_file in source_files.items():

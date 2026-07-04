@@ -3,6 +3,8 @@ import os
 
 import pandas as pd
 
+from xlsb_common import read_csv, write_csv
+
 OUTPUT_DIR = "output"
 ACPT_DIR = os.path.join(OUTPUT_DIR, "compare", "ACPT")
 PROD_DIR = os.path.join(OUTPUT_DIR, "compare", "PROD")
@@ -18,14 +20,14 @@ def load_schema(path: str = "schema.json") -> dict:
 
 
 def _read_csv(path: str) -> pd.DataFrame:
-    return pd.read_csv(path, sep=";", encoding="utf-8-sig", dtype=str)
+    return read_csv(path, dtype=str)
 
 
 def _write_csv(df: pd.DataFrame, out_dir: str, filename: str) -> None:
     if df.empty:
         return
     os.makedirs(out_dir, exist_ok=True)
-    df.to_csv(os.path.join(out_dir, filename), sep=";", encoding="utf-8-sig", index=False)
+    write_csv(df, os.path.join(out_dir, filename))
 
 
 def _split_matched(acpt_df: pd.DataFrame, prod_df: pd.DataFrame, key_columns: list) -> tuple:
