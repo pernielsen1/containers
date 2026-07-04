@@ -9,3 +9,33 @@ in the example file it will be the column called 'area'
 the values in one sheet may be in the same area as the next sheet.
 the solution needs to be able to handle files of let's say 30 million rows in total divided by excel only allowing one million per sheet
 ## after plan - let's discuss and then implement
+
+## minor tweak to 0_xlsb_to_csv.py
+the output csv should not have ACPT or PROD in their filenames but rather be moved into the folders ACPT or PROD
+Then we will end up having the same file names in ACPT and PROD which will serve as input for the next process - the compare
+## the compare
+produce plan for building a pything file 1_compare.py which will read all files from 
+output/compare/ACPT and for each file find a file with the same name in output/compare/PROD
+the file pair should then be read into pandas dataframes and the dataframes compared with respect to the key fields.
+for each filename the keyfields should be defined in an external json struct stored in keyfields.json.
+those records which are in both ACPT and PROD should be written as csv  to output/BOTH
+those which are only in the ACPT should be written to output/ONLY_ACPT
+those which are onlyn in the PROD should be written to output/ONLY_PROD
+
+
+## update to compare 
+as usual give me a plan before building .. I have some changes
+the keyfield.json is now named schema.json
+the original key fields are now found per file in subpath keys 
+there is also a subpath which is a list of columns to ignore.
+all fields not in keys or ignore are attributes.
+so if we have situation where keys are in both ACPT and PROD but if attributes are change these should be stored in output directory output/BOTH_cHANGED.
+in this output we should see first all keys and then the ACPT and PROD values paired in the output CSV
+
+## moving on to a different kind of input
+plan before build
+we need a new 0_xlsb_multi_sto_csv.py
+it shoud read input from same ONE_DRIVE as found in 0_xlsb_to_csv.py
+but input directory should be found in test_xlsb/test_multi_sheet
+the excel files here has one sheet per area there are also sheets which should not be loaded.
+the json multi_sheets.json has the sheet names to be loaded as key and the area name as attribue. after loading the excel a CSV file should be created in similar pattern as from 0_xlsb_to_csv.py to same output directory i.e. will also be input to next session for comparing the ACPT and PROD environment.

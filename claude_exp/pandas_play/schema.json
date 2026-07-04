@@ -1,0 +1,21 @@
+{
+    "1234.csv": {
+        "keys": ["area", "attrib", "rel"],
+        "ignore": ["ign_01"]
+    },
+    "1235.csv": {
+        "keys": ["area", "attrib", "rel"],
+        "ignore": ["ign_01"]
+    },
+    "1236.csv": {
+        "keys": ["area", "attrib", "rel"],
+        "ignore": ["ign_01"]
+    },
+    "XYZ_.csv": {
+        "keys": ["account", "rel"]
+    },
+    "ABC.csv": {
+        "keys": ["konto"]
+    }
+
+}
