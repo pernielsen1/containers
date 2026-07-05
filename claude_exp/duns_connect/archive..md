@@ -27,3 +27,25 @@ we wants to:
 - move all processed files from "input_dir" to "done_dir" 
 and if process is interrupted just a simple restart of the script should achieve the end result
 claude
+
+## update 
+I think the application is working - but I'm not sure it has the necessary "resilience"
+
+Questions: what happens if 
+inside archive.py: 
+the process fails in this row:
+ pd.DataFrame(rows, columns=INDEX_COLUMNS).to_csv(temp_index_path, index=False, **CSV_KWARGS)
+during these rows:
+    os.remove(temp_index_path)
+
+    for name in valid_files:
+        shutil.move(os.path.join(input_dir, name), os.path.join(done_dir, name))
+
+## optimize 
+probably a lot of unclarities in the text below so ask questiosn.
+good I think the pattern looks good now - let's package it into a archive class
+the archive class then takes the config file as input
+
+## gold plating
+our Archiver class currently accepts a config.json file
+let there be two options either a json file or a dict with the same structure i.e. contains smae fields "input_dir", "done_dir"... etc

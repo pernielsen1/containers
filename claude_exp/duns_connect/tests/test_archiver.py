@@ -8,7 +8,7 @@ import pytest
 
 ARCHIVE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "archive")
 sys.path.insert(0, ARCHIVE_DIR)
-import archiver  # noqa: E402
+from archiver import Archiver  # noqa: E402
 
 
 @pytest.mark.parametrize(
@@ -21,12 +21,12 @@ import archiver  # noqa: E402
     ],
 )
 def test_parse_filename_well_formed(name, expected):
-    assert archiver.parse_filename(name) == expected
+    assert Archiver.parse_filename(name) == expected
 
 
 @pytest.mark.parametrize("name", ["nounderscore.txt", "only_one.txt"])
 def test_parse_filename_malformed(name):
-    assert archiver.parse_filename(name) is None
+    assert Archiver.parse_filename(name) is None
 
 
 @pytest.fixture
@@ -64,7 +64,7 @@ def write_input_file(input_dir, name, content="data"):
 
 
 def read_master_index(archive_index_dir):
-    path = archive_index_dir / archiver.MASTER_INDEX_FILENAME
+    path = archive_index_dir / Archiver.MASTER_INDEX_FILENAME
     return pd.read_csv(path, sep=";", encoding="utf-8-sig", dtype=str)
 
 
@@ -72,7 +72,7 @@ def test_main_zips_indexes_and_moves_files(project):
     write_input_file(project["input_dir"], "companyinfo_111_20260705_100000.txt")
     write_input_file(project["input_dir"], "companyinfo_222_20260705_100001.txt")
 
-    archiver.main(project["config_path"])
+    Archiver(project["config_path"]).run()
 
     assert not any(project["input_dir"].glob("*.txt"))
     assert len(list(project["done_dir"].glob("*.txt"))) == 2
@@ -88,12 +88,30 @@ def test_main_zips_indexes_and_moves_files(project):
     index_df = read_master_index(project["archive_index_dir"])
     assert len(index_df) == 2
     assert set(index_df["key"]) == {"111", "222"}
-    assert not (project["archive_index_dir"] / archiver.TEMP_INDEX_FILENAME).exists()
+    assert not (project["archive_index_dir"] / Archiver.TEMP_INDEX_FILENAME).exists()
+
+
+def test_main_accepts_config_dict_in_place_of_json_file(project):
+    """Passing a dict skips file loading and project-root resolution, so paths
+    are used exactly as given (here, already-absolute, from the fixture)."""
+    write_input_file(project["input_dir"], "companyinfo_666_20260705_100005.txt")
+
+    config = {
+        "input_dir": str(project["input_dir"]),
+        "done_dir": str(project["done_dir"]),
+        "archive_index": str(project["archive_index_dir"]),
+        "archive_data": str(project["archive_data_dir"]),
+    }
+    Archiver(config).run()
+
+    assert (project["done_dir"] / "companyinfo_666_20260705_100005.txt").exists()
+    index_df = read_master_index(project["archive_index_dir"])
+    assert list(index_df["key"]) == ["666"]
 
 
 def test_main_with_no_input_files_is_a_noop(project):
-    archiver.main(project["config_path"])
-    assert not (project["archive_index_dir"] / archiver.MASTER_INDEX_FILENAME).exists()
+    Archiver(project["config_path"]).run()
+    assert not (project["archive_index_dir"] / Archiver.MASTER_INDEX_FILENAME).exists()
     assert not list(project["archive_data_dir"].glob("*.zip"))
 
 
@@ -101,7 +119,7 @@ def test_malformed_filenames_are_skipped_and_left_in_place(project):
     write_input_file(project["input_dir"], "nounderscore.txt")
     write_input_file(project["input_dir"], "companyinfo_333_20260705_100002.txt")
 
-    archiver.main(project["config_path"])
+    Archiver(project["config_path"]).run()
 
     assert (project["input_dir"] / "nounderscore.txt").exists()
     assert not (project["input_dir"] / "companyinfo_333_20260705_100002.txt").exists()
@@ -126,14 +144,30 @@ def test_restart_after_crash_before_move_does_not_duplicate_index_rows(project):
         "zip_archive_filename": "archive_prior_run.zip",
     }])
     existing_row.to_csv(
-        project["archive_index_dir"] / archiver.MASTER_INDEX_FILENAME,
+        project["archive_index_dir"] / Archiver.MASTER_INDEX_FILENAME,
         sep=";", encoding="utf-8-sig", index=False,
     )
 
-    archiver.main(project["config_path"])
+    Archiver(project["config_path"]).run()
 
     index_df = read_master_index(project["archive_index_dir"])
     assert len(index_df) == 1
     assert index_df.iloc[0]["zip_archive_filename"] == "archive_prior_run.zip"
     # file still gets moved to done despite the index already knowing about it
     assert (project["done_dir"] / name).exists()
+
+
+def test_leftover_tmp_file_from_interrupted_write_is_harmless(project):
+    """Simulates a crash mid-write of master_archive_index.csv.tmp (before the
+    atomic os.replace happened). The garbage .tmp file must not affect the
+    next run and should be replaced/cleaned up once that run itself updates
+    the index."""
+    tmp_leftover = project["archive_index_dir"] / (Archiver.MASTER_INDEX_FILENAME + ".tmp")
+    tmp_leftover.write_text("garbage;not;a;valid;csv\nfoo", encoding="utf-8")
+
+    write_input_file(project["input_dir"], "companyinfo_555_20260705_100004.txt")
+    Archiver(project["config_path"]).run()
+
+    index_df = read_master_index(project["archive_index_dir"])
+    assert list(index_df["key"]) == ["555"]
+    assert not tmp_leftover.exists()  # consumed by the atomic rename, not left behind
