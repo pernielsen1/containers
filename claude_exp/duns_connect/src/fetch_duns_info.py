@@ -4,7 +4,7 @@ fetch_duns_info.py
 Orchestrates company data retrieval:
   1. Reads duns_to_collect.csv
   2. For each row, checks the cache before hitting the API
-  3. Writes results to output/<identifier>_<timestamp>.txt
+  3. Writes results to output/companyinfo_<identifier>_<timestamp>.txt
 
 If DUNS_NO is -1, the search uses registrationNumber + CNTRY_CD instead.
 The returned dunsNumber is then used as the output file identifier.
@@ -42,7 +42,7 @@ def read_csv(path: str) -> pd.DataFrame:
 def write_output(identifier: str, data: dict | None) -> str:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    path = os.path.join(OUTPUT_DIR, f"{identifier}_{timestamp}.txt")
+    path = os.path.join(OUTPUT_DIR, f"companyinfo_{identifier}_{timestamp}.txt")
     with open(path, "w", encoding="utf-8") as fh:
         if data is not None:
             json.dump(data, fh, ensure_ascii=False, indent=2)

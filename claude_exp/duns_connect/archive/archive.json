@@ -1,0 +1,6 @@
+{
+    "input_dir": "output",
+    "done_dir": "output/done",
+    "archive_index": "archive",
+    "archive_data": "archive_data"
+}
