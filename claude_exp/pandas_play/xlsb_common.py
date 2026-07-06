@@ -46,11 +46,17 @@ def check_no_upcast(df: pd.DataFrame) -> None:
                 )
 
 
-def find_source_files(input_dir: str) -> dict:
+def find_source_files(input_dir: str, mode: str = "both") -> dict:
     acpt = [f for f in os.listdir(input_dir) if "acpt" in f.lower()]
     prod = [f for f in os.listdir(input_dir) if "prod" in f.lower()]
-    if len(acpt) != 1:
-        raise ValueError(f"Expected exactly one ACPT file in {input_dir}, found {acpt}")
-    if len(prod) != 1:
-        raise ValueError(f"Expected exactly one PROD file in {input_dir}, found {prod}")
-    return {"ACPT": os.path.join(input_dir, acpt[0]), "PROD": os.path.join(input_dir, prod[0])}
+
+    result = {}
+    if mode in ("acpt", "both"):
+        if len(acpt) != 1:
+            raise ValueError(f"Expected exactly one ACPT file in {input_dir}, found {acpt}")
+        result["ACPT"] = os.path.join(input_dir, acpt[0])
+    if mode in ("prod", "both"):
+        if len(prod) != 1:
+            raise ValueError(f"Expected exactly one PROD file in {input_dir}, found {prod}")
+        result["PROD"] = os.path.join(input_dir, prod[0])
+    return result

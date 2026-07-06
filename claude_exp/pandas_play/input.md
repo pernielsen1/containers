@@ -62,3 +62,9 @@ observed the following
 2: progress - bar 
 write a dot on same line for each chunk (50000) write a number for each million produced and make newline for a milliom
 
+## optimize two
+the current version will expect to have a acpt and prod file.
+implement a commmand line parameter can be 
+acpt (only load acpt)
+prod (only load prod)
+both (the default - i.e. as it works today expect and load both)

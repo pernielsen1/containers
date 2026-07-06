@@ -1,3 +1,4 @@
+import argparse
 import os
 import pandas as pd
 from pyxlsb import open_workbook
@@ -88,10 +89,14 @@ class XlsbToCSV:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("mode", nargs="?", choices=["acpt", "prod", "both"], default="both")
+    args = parser.parse_args()
+
     config = load_config()
     IN_DIR = get_input_dir(config, "xlsb_to_csv")
 
-    source_files = find_source_files(IN_DIR)
+    source_files = find_source_files(IN_DIR, mode=args.mode)
 
     for source_label, input_file in source_files.items():
         pattern_cfg = match_pattern_config(input_file, config)
