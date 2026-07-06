@@ -10,7 +10,7 @@
             "pattern": "*test_xlsb_file.xlsb",
             "area_field_name": "area",
             "key_columns": ["area", "attrib"],
-            "value_columns": ["rel"]
+            "value_columns": ["rel", "keep_me"]
         }
     ]
 }

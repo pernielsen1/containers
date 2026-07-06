@@ -24,6 +24,8 @@ def clean_value(value):
 
 
 def to_str(value) -> str:
+    if value is None:
+        return ""
     return str(clean_value(value))
 
 

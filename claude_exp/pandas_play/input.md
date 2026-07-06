@@ -49,4 +49,16 @@ when writing csv files it is important that they are also readable in Excel with
 special characters thing I'm in scandinava meaning ä, å and even in germany with ü and funny double ss-es like ß (sharfes s)
 let's discuss adjust and make sure this is a global preference
 
+## corrective input to 0_xlsb_to_csv.py
+only accept sheet names starting with 'v' (lowercase)read ope
+in the output only have columns named in key_columns or value_columns
+I have run the utility on production data and sometimes the check_no_upcast creates problems which is really not needed.
+treat all values read as strings - the main purpose of this exercise is to compare two datasets - not calculating on them
+
+## optimize performance
+ran the utity against large data set (13 million rows) all in all.
+observed the following
+1: handling in chunks - fine - but input data may be unordered - probably an idea to sort a chunk before ejecting to csv's
+2: progress - bar 
+write a dot on same line for each chunk (50000) write a number for each million produced and make newline for a milliom
 
