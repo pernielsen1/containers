@@ -1,5 +1,10 @@
 # 99_extract
-see mail
+manually load the it is in same as gbc_indir (DUNS( hunt_duplicates/duplicates_gbc.csv
+df_duplicates.gbc.
+take the df_duplicates.gbc and let it only contain two fields CUST_ID and is_selected.
+after the df_gbc has been read - do a merge to df_duplicates gbc left on CUST_ID.
+make a field has_duplicates which should 1 if the cust_id exists in df_duplicates.gbc and df_gbc else 0
+
 
 # new fields search
 in 0_search_harvest.py extract 
