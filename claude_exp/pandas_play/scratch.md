@@ -48,3 +48,11 @@ create new script 0_search_update_duns.py
 select from output/0_search/buckets.csv
 for rows with platinum, platinum_plus, gold, gold_plus
 copy the row and write to output/0_search/update_duns.csv  
+
+## update duns to mdm 
+create new script 3_update_duns.py
+in init create use the "to_object".. 
+read output/0_search/update_duns.csv 
+for each call method with
+this returns a text line write it to 
+output/3_to_xx 
