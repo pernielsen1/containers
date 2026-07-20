@@ -34,3 +34,17 @@ input_data for the key from search_input.csv the result field and the informatio
 4. silver write the via_nat_id row
 5. bronze write all rows fulfilling the bronze criterias
 6. other write all rows for the key.
+
+# no_duns_confirmed
+new input file input/confirmed_no_duns.csv has two columns key and comment - I have created the first input for both test and prod.
+
+current selection priority rules for result starts with duplicate, platinum_plus but there is a new rule with higher priority
+if key exists in input/confirmed_no_duns.csv then the winner is "confirmed_no_duns"
+for confirmed_no_duns - 
+if the result is "confirmed_no_duns" then write all rows to buckets.csv with result "confirmed_no_duns"
+
+## update duns
+create new script 0_search_update_duns.py
+select from output/0_search/buckets.csv
+for rows with platinum, platinum_plus, gold, gold_plus
+copy the row and write to output/0_search/update_duns.csv  
