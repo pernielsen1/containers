@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ISO 8583 Router Monitor</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, Segoe UI, Arial, sans-serif; margin: 0; padding: 0 1.5rem 3rem; background: #f4f5f7; color: #1a1a1a; }
+  header { display: flex; align-items: center; gap: 1rem; padding: 1rem 0; position: sticky; top: 0; background: #f4f5f7; z-index: 5; }
+  header h1 { font-size: 1.25rem; margin: 0; flex: 1; }
+  button { cursor: pointer; border: 1px solid #ccc; background: #fff; border-radius: 6px; padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+  button:hover { background: #eee; }
+  button.danger { border-color: #c0392b; color: #c0392b; }
+  #spinner { font-size: 0.85rem; color: #888; }
+  section { margin-bottom: 1.5rem; }
+  section h2 { font-size: 1rem; margin: 0 0 0.5rem; }
+  .partner-block { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 0.75rem; }
+  .partner-title { font-weight: 600; margin-bottom: 0.5rem; }
+  .cards { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 0.75rem 1rem; min-width: 220px; flex: 1 1 220px; }
+  .card-title { display: flex; align-items: center; gap: 0.4rem; font-weight: 600; margin-bottom: 0.4rem; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: #999; }
+  .dot.green { background: #2ecc71; }
+  .dot.yellow { background: #f1c40f; }
+  .dot.red { background: #e74c3c; }
+  .conn-dots { display: flex; gap: 0.3rem; margin-bottom: 0.3rem; font-size: 0.75rem; }
+  .conn-dots span { display: flex; align-items: center; gap: 0.2rem; }
+  .stats-row { font-size: 0.75rem; color: #444; margin: 0.15rem 0; }
+  .gauges { font-size: 0.75rem; color: #666; margin-top: 0.3rem; }
+  .card-actions { margin-top: 0.5rem; display: flex; gap: 0.35rem; flex-wrap: wrap; }
+  .card-actions button, .card-actions select { font-size: 0.75rem; padding: 0.2rem 0.5rem; }
+  #test-runner { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 0.75rem 1rem; }
+  #test-runner .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.8rem; }
+  th, td { border-bottom: 1px solid #eee; text-align: left; padding: 0.3rem 0.5rem; }
+  td.rc-ok { color: #2ecc71; font-weight: 600; }
+  td.rc-bad { color: #e74c3c; font-weight: 600; }
+  #log-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 20; }
+  #log-modal .box { background: #111; color: #ddd; width: min(900px, 92vw); height: 80vh; margin: 4vh auto; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
+  #log-modal .box header { position: static; background: #1a1a1a; color: #fff; padding: 0.6rem 1rem; }
+  #log-modal pre { flex: 1; overflow: auto; margin: 0; padding: 0.75rem 1rem; font-size: 0.75rem; white-space: pre-wrap; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #16181d; color: #e6e6e6; }
+    header { background: #16181d; }
+    .card, .partner-block, #test-runner { background: #20232b; border-color: #333; }
+    button { background: #2a2d36; border-color: #444; color: #e6e6e6; }
+    button:hover { background: #343844; }
+    th, td { border-color: #333; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>ISO 8583 Router Monitor</h1>
+  <span id="spinner"></span>
+  <button id="start-all">Start All</button>
+  <button id="stop-all">Stop All</button>
+</header>
+
+<section>
+  <h2>Router Partners</h2>
+  <div id="partners"></div>
+</section>
+
+<section>
+  <h2>Simulators</h2>
+  <div class="cards" id="simulators"></div>
+</section>
+
+<section id="test-runner">
+  <h2>Test Runner</h2>
+  <div class="row">
+    <label>Upstream: <select id="tr-upstream"></select></label>
+    <label>CSV: <select id="tr-csv"></select></label>
+    <button id="tr-upload">Upload</button>
+    <input type="file" id="tr-file" style="display:none">
+    <button id="tr-upload-file">Upload file...</button>
+    <button id="tr-start">Start</button>
+  </div>
+  <table id="tr-results">
+    <thead><tr><th>PAN</th><th>RC</th><th>Auth Code</th><th>Field 47</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</section>
+
+<div id="log-modal">
+  <div class="box">
+    <header style="display:flex; justify-content:space-between; align-items:center;">
+      <span id="log-modal-title">Logs</span>
+      <span>
+        <button id="log-export">Export</button>
+        <button id="log-close">Close</button>
+      </span>
+    </header>
+    <pre id="log-modal-body"></pre>
+  </div>
+</div>
+
+<script>
+const POLL_MS = 2000;
+let actorsCache = [];
+let partnersCache = {};
+let logModalActor = null;
+let logModalTimer = null;
+
+async function getJSON(url, opts) {
+  const resp = await fetch(url, opts);
+  return resp.json();
+}
+
+function fmtSeconds(s) {
+  if (s === null || s === undefined) return "-";
+  return s.toFixed(1) + "s";
+}
+
+function connDot(name, ok) {
+  const cls = ok ? "green" : "red";
+  return `<span><span class="dot ${cls}"></span>${name}</span>`;
+}
+
+function renderCard(actor, stats, status) {
+  stats = stats || {};
+  const conns = stats.connections || {};
+  const gauges = stats.gauges || {};
+  const connHtml = Object.keys(conns).map((k) => connDot(k, conns[k])).join("");
+
+  let gaugeHtml = "";
+  if (actor.type === "router") {
+    gaugeHtml = `<div class="gauges">queue_depth=${gauges.queue_depth ?? "-"} pending_count=${gauges.pending_count ?? "-"}</div>`;
+  }
+
+  return `
+  <div class="card" data-actor="${actor.name}">
+    <div class="card-title"><span class="dot ${status || 'red'}"></span>${actor.name} <small style="font-weight:400;color:#888;">(${actor.type})</small></div>
+    <div class="conn-dots">${connHtml}</div>
+    <div class="stats-row">sent 30s/60s: ${stats.sent_30s ?? '-'} / ${stats.sent_60s ?? '-'} &nbsp; total: ${stats.sent_total ?? '-'}</div>
+    <div class="stats-row">recv 30s/60s: ${stats.recv_30s ?? '-'} / ${stats.recv_60s ?? '-'} &nbsp; total: ${stats.recv_total ?? '-'}</div>
+    <div class="stats-row">last recv: ${stats.last_recv_datetime ?? '-'} (${fmtSeconds(stats.seconds_since_last_recv)} ago)</div>
+    ${gaugeHtml}
+    <div class="card-actions">
+      <select class="log-level-select" data-actor="${actor.name}">
+        <option value="DEBUG">DEBUG</option>
+        <option value="INFO" selected>INFO</option>
+        <option value="WARNING">WARNING</option>
+        <option value="ERROR">ERROR</option>
+      </select>
+      <button class="btn-logs" data-actor="${actor.name}">Logs</button>
+      <button class="btn-launch" data-actor="${actor.name}">Start</button>
+      <button class="btn-stop danger" data-actor="${actor.name}">Stop</button>
+      ${actor.type === "router" ? `<button class="btn-purge danger" data-actor="${actor.name}">Purge Queue</button>` : ""}
+    </div>
+  </div>`;
+}
+
+async function refreshLists() {
+  actorsCache = await getJSON("/api/actors");
+  partnersCache = await getJSON("/api/routers_by_partner");
+
+  const upstreamSelect = document.getElementById("tr-upstream");
+  const currentUpstream = upstreamSelect.value;
+  upstreamSelect.innerHTML = actorsCache
+    .filter((a) => a.type === "upstream")
+    .map((a) => `<option value="${a.name}">${a.name}</option>`)
+    .join("");
+  if (currentUpstream) upstreamSelect.value = currentUpstream;
+
+  const csvFiles = await getJSON("/api/csv_files");
+  const csvSelect = document.getElementById("tr-csv");
+  const currentCsv = csvSelect.value;
+  csvSelect.innerHTML = csvFiles.map((f) => `<option value="${f}">${f}</option>`).join("");
+  if (currentCsv) csvSelect.value = currentCsv;
+}
+
+async function poll() {
+  try {
+    const [status, startingInfo] = await Promise.all([
+      getJSON("/api/status"),
+      getJSON("/api/starting"),
+    ]);
+    document.getElementById("spinner").textContent = startingInfo.starting ? "Starting actors..." : "";
+
+    const statsByName = {};
+    await Promise.all(
+      actorsCache.map(async (a) => {
+        try {
+          statsByName[a.name] = await getJSON(`/api/actor/${a.name}/stats`);
+        } catch (e) {
+          statsByName[a.name] = {};
+        }
+      })
+    );
+
+    const partnersDiv = document.getElementById("partners");
+    let partnerHtml = "";
+    for (const [partnerId, routers] of Object.entries(partnersCache)) {
+      let total30 = 0, totalAll = 0;
+      const cardsHtml = routers
+        .map((r) => {
+          const actor = actorsCache.find((a) => a.name === r.name) || { name: r.name, type: "router" };
+          const stats = statsByName[r.name] || {};
+          total30 += stats.recv_30s || 0;
+          totalAll += stats.recv_total || 0;
+          return renderCard(actor, stats, status[r.name]);
+        })
+        .join("");
+      partnerHtml += `<div class="partner-block">
+        <div class="partner-title">${partnerId} - recv_30s=${total30} recv_total=${totalAll}</div>
+        <div class="cards">${cardsHtml}</div>
+      </div>`;
+    }
+    partnersDiv.innerHTML = partnerHtml;
+
+    const simDiv = document.getElementById("simulators");
+    simDiv.innerHTML = actorsCache
+      .filter((a) => a.type !== "router")
+      .map((a) => renderCard(a, statsByName[a.name], status[a.name]))
+      .join("");
+
+    attachCardHandlers();
+
+    if (logModalActor) {
+      refreshLogModal();
+    }
+  } catch (e) {
+    console.error("poll failed", e);
+  }
+}
+
+function attachCardHandlers() {
+  document.querySelectorAll(".btn-launch").forEach((btn) => {
+    btn.onclick = () => fetch(`/api/actor/${btn.dataset.actor}/launch`, { method: "POST" });
+  });
+  document.querySelectorAll(".btn-stop").forEach((btn) => {
+    btn.onclick = () => fetch(`/api/actor/${btn.dataset.actor}/stop`, { method: "POST" });
+  });
+  document.querySelectorAll(".btn-purge").forEach((btn) => {
+    btn.onclick = () => {
+      if (confirm(`Purge in-flight queue/pending for ${btn.dataset.actor}?`)) {
+        fetch(`/api/actor/${btn.dataset.actor}/dispatcher/purge`, { method: "POST" });
+      }
+    };
+  });
+  document.querySelectorAll(".btn-logs").forEach((btn) => {
+    btn.onclick = () => openLogModal(btn.dataset.actor);
+  });
+  document.querySelectorAll(".log-level-select").forEach((sel) => {
+    sel.onchange = () => {
+      fetch(`/api/actor/${sel.dataset.actor}/log_level`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ level: sel.value }),
+      });
+    };
+  });
+}
+
+function openLogModal(name) {
+  logModalActor = name;
+  document.getElementById("log-modal-title").textContent = `Logs: ${name}`;
+  document.getElementById("log-modal").style.display = "block";
+  refreshLogModal();
+}
+
+async function refreshLogModal() {
+  if (!logModalActor) return;
+  try {
+    const lines = await getJSON(`/api/actor/${logModalActor}/logs`);
+    document.getElementById("log-modal-body").textContent = lines.join("\n");
+  } catch (e) {
+    // actor may be stopped; leave existing content
+  }
+}
+
+document.getElementById("log-close").onclick = () => {
+  logModalActor = null;
+  document.getElementById("log-modal").style.display = "none";
+};
+document.getElementById("log-export").onclick = () => {
+  if (!logModalActor) return;
+  window.open(`/api/actor/${logModalActor}/logs?format=text`, "_blank");
+};
+
+document.getElementById("start-all").onclick = () => fetch("/api/start_all", { method: "POST" });
+document.getElementById("stop-all").onclick = () => fetch("/api/stop_all", { method: "POST" });
+
+document.getElementById("tr-upload").onclick = async () => {
+  const upstream = document.getElementById("tr-upstream").value;
+  const path = document.getElementById("tr-csv").value;
+  if (!upstream || !path) return;
+  await fetch(`/api/actor/${upstream}/upload_path`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+  });
+};
+
+document.getElementById("tr-upload-file").onclick = () => document.getElementById("tr-file").click();
+document.getElementById("tr-file").onchange = async (e) => {
+  const upstream = document.getElementById("tr-upstream").value;
+  const file = e.target.files[0];
+  if (!upstream || !file) return;
+  const form = new FormData();
+  form.append("file", file);
+  await fetch(`/api/actor/${upstream}/upload`, { method: "POST", body: form });
+};
+
+document.getElementById("tr-start").onclick = async () => {
+  const upstream = document.getElementById("tr-upstream").value;
+  if (!upstream) return;
+  await fetch(`/api/actor/${upstream}/start`);
+  pollResults(upstream);
+};
+
+async function pollResults(upstream) {
+  for (let i = 0; i < 30; i++) {
+    const rows = await getJSON(`/api/actor/${upstream}/results`);
+    renderResults(rows);
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+}
+
+function renderResults(rows) {
+  const tbody = document.querySelector("#tr-results tbody");
+  tbody.innerHTML = rows
+    .map((r) => {
+      const rc = r.resp_39 || "";
+      const rcClass = rc === "00" ? "rc-ok" : "rc-bad";
+      const f47 = (r.resp_47 || "").slice(0, 40);
+      return `<tr><td>${r["2"] || ""}</td><td class="${rcClass}">${rc}</td><td>${r.resp_38 || ""}</td><td>${f47}</td></tr>`;
+    })
+    .join("");
+}
+
+(async function init() {
+  await refreshLists();
+  await poll();
+  setInterval(async () => {
+    await refreshLists();
+    await poll();
+  }, POLL_MS);
+})();
+</script>
+</body>
+</html>

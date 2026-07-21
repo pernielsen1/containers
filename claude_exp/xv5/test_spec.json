@@ -1,0 +1,20 @@
+{
+  "h": {"data_enc": "ascii", "len_enc": "ascii", "len_type": 0, "max_len": 0, "desc": "Message Header"},
+  "t": {"data_enc": "ascii", "len_enc": "ascii", "len_type": 0, "max_len": 4, "desc": "Message Type"},
+  "p": {"data_enc": "b", "len_enc": "ascii", "len_type": 0, "max_len": 8, "desc": "Primary Bitmap"},
+  "1": {"data_enc": "b", "len_enc": "ascii", "len_type": 0, "max_len": 8, "desc": "Secondary Bitmap"},
+  "2": {"data_enc": "ascii", "len_enc": "ascii", "len_type": 2, "max_len": 19, "desc": "PAN"},
+  "3": {"data_enc": "ascii", "len_enc": "ascii", "len_type": 0, "max_len": 6, "desc": "Processing Code"},
+  "4": {"data_enc": "ascii", "len_enc": "ascii", "len_type": 0, "max_len": 12, "desc": "Amount"},
+  "11": {"data_enc": "ascii", "len_enc": "ascii", "len_type": 0, "max_len": 6, "desc": "STAN"},
+  "14": {"data_enc": "ascii", "len_enc": "ascii", "len_type": 0, "max_len": 4, "desc": "Expiry Date (MMYY)"},
+  "24": {"data_enc": "ascii", "len_enc": "ascii", "len_type": 0, "max_len": 3, "desc": "Network International ID"},
+  "37": {"data_enc": "ascii", "len_enc": "ascii", "len_type": 0, "max_len": 12, "desc": "Retrieval Reference Number"},
+  "38": {"data_enc": "ascii", "len_enc": "ascii", "len_type": 0, "max_len": 6, "desc": "Authorization Code"},
+  "39": {"data_enc": "ascii", "len_enc": "ascii", "len_type": 0, "max_len": 2, "desc": "Response Code"},
+  "41": {"data_enc": "ascii", "len_enc": "ascii", "len_type": 0, "max_len": 8, "desc": "Terminal ID"},
+  "42": {"data_enc": "ascii", "len_enc": "ascii", "len_type": 0, "max_len": 15, "desc": "Merchant ID"},
+  "47": {"data_enc": "ascii", "len_enc": "ascii", "len_type": 3, "max_len": 999, "desc": "Additional Data (JSON f47 blob)"},
+  "52": {"data_enc": "b", "len_enc": "ascii", "len_type": 0, "max_len": 8, "desc": "PIN Data Block"},
+  "55": {"data_enc": "b", "len_enc": "ascii", "len_type": 3, "max_len": 255, "desc": "ICC Data"}
+}

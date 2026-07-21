@@ -1,0 +1,10 @@
+{
+  "name": "downstream_host",
+  "type": "downstream",
+  "is_active": true,
+  "port": 5001,
+  "command_port": 8081,
+  "iso_spec": "../../test_spec.json",
+  "pans_defined": "../../pans_defined.json",
+  "yellow_threshold_seconds": 40
+}

@@ -1,0 +1,32 @@
+{
+  "name": "router_2",
+  "type": "router",
+  "is_active": false,
+  "partner_id": "partner_b",
+  "log_level": "INFO",
+  "command_port": 8085,
+  "upstream": {
+    "port": 5010,
+    "mode": "client",
+    "host": "localhost",
+    "framing": {
+      "header_hex": "",
+      "length_field_type": "ASCII",
+      "length_field_bytes": 4
+    }
+  },
+  "downstream": {
+    "host": "localhost",
+    "port": 5001,
+    "irm_id": "IRM_ID01",
+    "client_id": "CLIENT03"
+  },
+  "crypto": {
+    "host": "localhost",
+    "port": 5002
+  },
+  "iso_spec": "../../test_spec.json",
+  "worker_threads": 8,
+  "reestablish_seconds": 10,
+  "yellow_threshold_seconds": 40
+}

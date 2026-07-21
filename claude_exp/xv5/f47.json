@@ -1,0 +1,26 @@
+{
+  "f47": {
+    "message_type": "string (0100|0110)",
+    "f14": "string (expiry date, MMYY)",
+    "f52": "string (PIN block encrypted with PEK, base64)",
+    "cvv2": "string (3-digit CVV2)",
+    "aav": "string (AAV, base64 - HMAC-SHA1)",
+    "response_code": "string (00=OK, 55=wrong PIN, 82=bad ARQC, N7=bad CVV2)",
+    "f55": {
+      "cryptogram": "ARQC hex (8 bytes)",
+      "arpc": "ARPC base64 (8 bytes - present on 0110 response)",
+      "cid": "Cryptogram Information Data, 1 byte hex",
+      "atc": "Application Transaction Counter, 2 bytes hex",
+      "aip": "Application Interchange Profile, 2 bytes hex",
+      "iad": "Issuer Application Data, variable hex",
+      "amount_auth": "6 bytes BCD hex",
+      "amount_other": "6 bytes BCD hex",
+      "terminal_country": "2 bytes hex",
+      "terminal_verification_results": "5 bytes hex",
+      "currency_code": "2 bytes hex",
+      "transaction_date": "YYMMDD, 3 bytes BCD hex",
+      "transaction_type": "1 byte hex",
+      "unpredictable_number": "4 bytes hex"
+    }
+  }
+}
