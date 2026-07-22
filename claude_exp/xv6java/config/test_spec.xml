@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  j8583 ConfigParser XML config: https://j8583.sourceforge.net/xmlconf.html
+
+  Unlike xv5's test_spec.json (one flat field list shared by every message, because pyiso8583
+  just encodes whatever keys are present in a message dict), j8583 requires one <parse> block per
+  incoming message type (MTI), each listing only the fields that MTI can carry. There is no
+  <header>/<template>/bitmap declaration here: this project doesn't use ISO headers, and j8583
+  computes the primary/secondary bitmap itself from whichever fields are actually set on an
+  IsoMessage - fields "p"/"1" from the Python spec have no equivalent here and are intentionally
+  absent.
+
+  Fields 52 (PIN block) and 55 (ICC data) are declared on 0100/0110 for parity with xv5's
+  test_spec.json (which lists them as part of its global field vocabulary) even though nothing
+  in this project actually sets them on the wire - all PIN/ICC data travels inside field 47's
+  JSON blob (see f47.json), not as separate top-level ISO fields.
+-->
+<j8583-config>
+
+    <parse type="0100">
+        <field num="2" type="LLVAR" />
+        <field num="3" type="ALPHA" length="6" />
+        <field num="4" type="ALPHA" length="12" />
+        <field num="11" type="ALPHA" length="6" />
+        <field num="14" type="ALPHA" length="4" />
+        <field num="24" type="ALPHA" length="3" />
+        <field num="37" type="ALPHA" length="12" />
+        <field num="41" type="ALPHA" length="8" />
+        <field num="42" type="ALPHA" length="15" />
+        <field num="47" type="LLLVAR" />
+        <field num="52" type="BINARY" length="8" />
+        <field num="55" type="LLLBIN" />
+    </parse>
+
+    <parse type="0110">
+        <field num="2" type="LLVAR" />
+        <field num="3" type="ALPHA" length="6" />
+        <field num="4" type="ALPHA" length="12" />
+        <field num="11" type="ALPHA" length="6" />
+        <field num="14" type="ALPHA" length="4" />
+        <field num="24" type="ALPHA" length="3" />
+        <field num="37" type="ALPHA" length="12" />
+        <field num="38" type="ALPHA" length="6" />
+        <field num="39" type="ALPHA" length="2" />
+        <field num="41" type="ALPHA" length="8" />
+        <field num="42" type="ALPHA" length="15" />
+        <field num="47" type="LLLVAR" />
+        <field num="52" type="BINARY" length="8" />
+        <field num="55" type="LLLBIN" />
+    </parse>
+
+    <parse type="0120">
+        <field num="3" type="ALPHA" length="6" />
+        <field num="4" type="ALPHA" length="12" />
+        <field num="11" type="ALPHA" length="6" />
+        <field num="24" type="ALPHA" length="3" />
+        <field num="37" type="ALPHA" length="12" />
+        <field num="41" type="ALPHA" length="8" />
+        <field num="42" type="ALPHA" length="15" />
+    </parse>
+
+    <parse type="0130">
+        <field num="3" type="ALPHA" length="6" />
+        <field num="4" type="ALPHA" length="12" />
+        <field num="11" type="ALPHA" length="6" />
+        <field num="24" type="ALPHA" length="3" />
+        <field num="37" type="ALPHA" length="12" />
+        <field num="39" type="ALPHA" length="2" />
+        <field num="41" type="ALPHA" length="8" />
+        <field num="42" type="ALPHA" length="15" />
+    </parse>
+
+    <parse type="0420">
+        <field num="3" type="ALPHA" length="6" />
+        <field num="4" type="ALPHA" length="12" />
+        <field num="11" type="ALPHA" length="6" />
+        <field num="24" type="ALPHA" length="3" />
+        <field num="37" type="ALPHA" length="12" />
+        <field num="41" type="ALPHA" length="8" />
+        <field num="42" type="ALPHA" length="15" />
+    </parse>
+
+    <parse type="0430">
+        <field num="3" type="ALPHA" length="6" />
+        <field num="4" type="ALPHA" length="12" />
+        <field num="11" type="ALPHA" length="6" />
+        <field num="24" type="ALPHA" length="3" />
+        <field num="37" type="ALPHA" length="12" />
+        <field num="39" type="ALPHA" length="2" />
+        <field num="41" type="ALPHA" length="8" />
+        <field num="42" type="ALPHA" length="15" />
+    </parse>
+
+    <parse type="0800">
+        <field num="24" type="ALPHA" length="3" />
+    </parse>
+
+    <parse type="0810">
+        <field num="24" type="ALPHA" length="3" />
+    </parse>
+
+</j8583-config>
