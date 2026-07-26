@@ -2,7 +2,7 @@ package com.xv6.router;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-/** Port of xv5's router/config.py CryptoConfig dataclass. */
+/** Fortanix-shaped crypto service config: POST /sys/v1/plugins/{plugin_id} with bearer auth. */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record CryptoConfig(String host, int port) {
+public record CryptoConfig(String host, int port, String plugin_id, String bearer_token) {
 }

@@ -65,10 +65,15 @@ class RouterFullStackTest {
 
     @BeforeAll
     static void startStack() throws Exception {
+        String pluginId = "test-plugin-id";
+        String bearerToken = "test-bearer-token";
+
         Map<String, Object> cryptoCfg = new LinkedHashMap<>();
         cryptoCfg.put("port", CRYPTO_REST);
         cryptoCfg.put("command_port", CRYPTO_CMD);
         cryptoCfg.put("pans_defined", PANS_PATH);
+        cryptoCfg.put("plugin_id", pluginId);
+        cryptoCfg.put("bearer_token", bearerToken);
         CryptoHostMain crypto = new CryptoHostMain(cryptoCfg);
         cryptoStop = stopEventOf(crypto);
         crypto.start();
@@ -90,7 +95,7 @@ class RouterFullStackTest {
                 "test_router", ROUTER_CMD,
                 new UpstreamConfig(ROUTER_UPSTREAM_PORT, framing, "server", "localhost", 5),
                 new DownstreamConfig("localhost", DS_PORT, ImsConnect.toEbcdic("IRM_ID01", 8), ImsConnect.toEbcdic("CLIENT01", 8)),
-                new CryptoConfig("localhost", CRYPTO_REST),
+                new CryptoConfig("localhost", CRYPTO_REST, pluginId, bearerToken),
                 SPEC_PATH, null, "DEBUG", 8, 10, 40, 1000, 30, 5, 30, 2.0, "127.0.0.1", null);
         routerStop = new StopEvent();
         Thread routerThread = new Thread(() -> {

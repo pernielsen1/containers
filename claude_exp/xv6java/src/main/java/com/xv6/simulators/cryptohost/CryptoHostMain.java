@@ -20,6 +20,7 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /** Stateless HTTP service for cryptographic validation. Port of xv5's
@@ -54,7 +55,10 @@ public final class CryptoHostMain {
 
         Object yellow = cfg.get("yellow_threshold_seconds");
         this.stats = new Stats(yellow == null ? null : ((Number) yellow).intValue());
-        this.cmd = new CommandServer((Integer) cfg.get("command_port"), stats, stopEvent, "127.0.0.1", null);
+        Object cmdPort = cfg.get("command_port");
+        this.cmd = new CommandServer(
+                cmdPort == null ? 8082 : ((Number) cmdPort).intValue(),
+                stats, stopEvent, "127.0.0.1", null);
     }
 
     @SuppressWarnings("unchecked")
@@ -111,28 +115,60 @@ public final class CryptoHostMain {
     }
 
     @SuppressWarnings("unchecked")
-    private void registerValidateRoute(HttpServer server, String path) {
-        server.createContext(path, exchange -> {
+    private void registerFortanixRoute(HttpServer server, String pluginId, String bearerToken) {
+        server.createContext("/sys/v1/plugins/" + pluginId, exchange -> {
             if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
                 CommandServer.sendText(exchange, 405, "Method Not Allowed");
                 return;
             }
-            stats.recordRecv();
-            Map<String, Object> body = MAPPER.readValue(exchange.getRequestBody().readAllBytes(), Map.class);
-            String pan = String.valueOf(body.getOrDefault("f2", ""));
-            String f47 = String.valueOf(body.getOrDefault("f47", ""));
-            String result = validate(pan, f47);
-            stats.recordSent();
-            CommandServer.sendJson(exchange, 200, Map.of("f47", result));
+
+            String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
+            if (authHeader == null || !authHeader.equals("Bearer " + bearerToken)) {
+                CommandServer.sendJson(exchange, 401, Map.of("error", "unauthorized"));
+                return;
+            }
+
+            try {
+                stats.recordRecv();
+                Map<String, Object> body = MAPPER.readValue(exchange.getRequestBody().readAllBytes(), Map.class);
+                String operation = String.valueOf(body.getOrDefault("operation", ""));
+                String pan = String.valueOf(body.getOrDefault("f2", ""));
+                String f47 = String.valueOf(body.getOrDefault("f47", ""));
+
+                if (!operation.equals("validate_0100") && !operation.equals("validate_0110")) {
+                    CommandServer.sendJson(exchange, 400, Map.of("error", "unknown operation: " + operation));
+                    return;
+                }
+
+                String result = validate(pan, f47);
+                Map<String, Object> responseData = Map.of("f47", result);
+                String responseJson = MAPPER.writeValueAsString(responseData);
+                String base64Encoded = Base64.getEncoder().encodeToString(responseJson.getBytes(StandardCharsets.UTF_8));
+
+                stats.recordSent();
+                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, 0);
+                exchange.getResponseBody().write(("\"" + base64Encoded + "\"").getBytes(StandardCharsets.UTF_8));
+                exchange.close();
+            } catch (Exception e) {
+                logger.log(Level.WARNING, "Error processing request: " + e.getMessage());
+                try {
+                    CommandServer.sendJson(exchange, 500, Map.of("error", "internal error"));
+                } catch (IOException ioe) {
+                    logger.log(Level.WARNING, "Failed to send error response: " + ioe.getMessage());
+                }
+            }
         });
     }
 
     public void start() throws IOException {
         cmd.start();
 
-        HttpServer validateServer = HttpServer.create(new InetSocketAddress("127.0.0.1", (Integer) cfg.get("port")), 0);
-        registerValidateRoute(validateServer, "/validate_0100");
-        registerValidateRoute(validateServer, "/validate_0110");
+        String pluginId = String.valueOf(cfg.getOrDefault("plugin_id", "default-plugin-id"));
+        String bearerToken = String.valueOf(cfg.getOrDefault("bearer_token", "default-bearer-token"));
+
+        HttpServer validateServer = HttpServer.create(new InetSocketAddress("127.0.0.1", ((Number) cfg.get("port")).intValue()), 0);
+        registerFortanixRoute(validateServer, pluginId, bearerToken);
         validateServer.setExecutor(Executors.newCachedThreadPool(runnable -> {
             Thread t = new Thread(runnable);
             t.setDaemon(true);

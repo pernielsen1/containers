@@ -6,5 +6,7 @@
   "command_port": 8082,
   "pans_defined": "pans_defined.json",
   "iso_spec": "test_spec.xml",
-  "yellow_threshold_seconds": 60
+  "yellow_threshold_seconds": 60,
+  "plugin_id": "a53c0b4e-2f7e-4c1e-9c58-1e6f2b6d7a10",
+  "bearer_token": "dev-fortanix-bearer-token"
 }

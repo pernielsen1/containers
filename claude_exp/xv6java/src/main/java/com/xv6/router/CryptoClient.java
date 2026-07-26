@@ -7,19 +7,22 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/** Port of xv5's router/crypto_client.py. {@link HttpClient} is thread-safe, like Python's
- * requests.Session(), so one instance is shared across dispatcher worker threads. */
+/** Fortanix-shaped crypto client: POST /sys/v1/plugins/{plugin_id}, bearer auth, base64 response.
+ * Wired this way so swapping in a real Fortanix DSM tenant is a config/URL change, not a rewrite. */
 public class CryptoClient {
 
     private static final Logger logger = Logger.getLogger(CryptoClient.class.getName());
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final String baseUrl;
+    private final String bearerToken;
     private final HttpClient client = HttpClient.newHttpClient();
     private final int breakerThreshold;
     private final int breakerCooldownSeconds;
@@ -28,7 +31,8 @@ public class CryptoClient {
     private long openUntilMillis = 0;
 
     public CryptoClient(CryptoConfig cfg, int breakerThreshold, int breakerCooldownSeconds) {
-        this.baseUrl = "http://" + cfg.host() + ":" + cfg.port();
+        this.baseUrl = "http://" + cfg.host() + ":" + cfg.port() + "/sys/v1/plugins/" + cfg.plugin_id();
+        this.bearerToken = cfg.bearer_token();
         this.breakerThreshold = breakerThreshold;
         this.breakerCooldownSeconds = breakerCooldownSeconds;
     }
@@ -36,7 +40,9 @@ public class CryptoClient {
     /**
      * Returns the enriched f47 on success, or "" on any failure (breaker open or HTTP error) -
      * callers only overwrite their working f47 when this return value is non-empty, so any
-     * failure path leaves the original f47 untouched.
+     * failure path leaves the original f47 untouched. Handles Fortanix PluginOutput envelope:
+     * response body is a JSON string literal (base64 "format":"byte"), which we decode to reach
+     * the inner {"f47": ...} object.
      */
     public String validate(String endpoint, String pan, String f47) {
         synchronized (lock) {
@@ -46,18 +52,27 @@ public class CryptoClient {
         }
 
         try {
-            String json = MAPPER.writeValueAsString(Map.of("f2", pan, "f47", f47));
+            String json = MAPPER.writeValueAsString(Map.of("operation", endpoint, "f2", pan, "f47", f47));
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(baseUrl + "/" + endpoint))
+                    .uri(URI.create(baseUrl))
                     .timeout(Duration.ofSeconds(5))
                     .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + bearerToken)
                     .POST(HttpRequest.BodyPublishers.ofString(json))
                     .build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 400) {
                 throw new IOException("HTTP " + response.statusCode());
             }
-            Map<?, ?> parsed = MAPPER.readValue(response.body(), Map.class);
+
+            String body = response.body();
+            if (body == null || body.isEmpty()) {
+                throw new IOException("empty response body");
+            }
+
+            String base64String = MAPPER.readValue(body, String.class);
+            String decodedJson = new String(Base64.getDecoder().decode(base64String), StandardCharsets.UTF_8);
+            Map<?, ?> parsed = MAPPER.readValue(decodedJson, Map.class);
             Object result = parsed.get("f47");
 
             synchronized (lock) {

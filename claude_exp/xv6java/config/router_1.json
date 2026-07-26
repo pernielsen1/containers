@@ -21,7 +21,9 @@
   },
   "crypto": {
     "host": "localhost",
-    "port": 5002
+    "port": 5002,
+    "plugin_id": "a53c0b4e-2f7e-4c1e-9c58-1e6f2b6d7a10",
+    "bearer_token": "dev-fortanix-bearer-token"
   },
   "iso_spec": "test_spec.xml",
   "worker_threads": 8,

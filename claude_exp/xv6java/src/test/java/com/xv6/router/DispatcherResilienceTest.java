@@ -55,7 +55,7 @@ class DispatcherResilienceTest {
         UpstreamConfig upstream = new UpstreamConfig(15000, framing, "server", "localhost", 5);
         DownstreamConfig downstream = new DownstreamConfig(
                 "localhost", 15001, ImsConnect.toEbcdic("IRM0001", 8), ImsConnect.toEbcdic("CLIENT01", 8));
-        CryptoConfig crypto = new CryptoConfig("localhost", 15002);
+        CryptoConfig crypto = new CryptoConfig("localhost", 15002, "test-plugin-id", "test-bearer-token");
         return new RouterConfig(
                 "test_router", 19100, upstream, downstream, crypto, SPEC_PATH, null, "INFO",
                 workerThreads, 10, 40, queueMaxsize, pendingTtlSeconds, 5, 30, 2.0, "127.0.0.1", null);
@@ -117,7 +117,7 @@ class DispatcherResilienceTest {
     /** Mirrors xv5's FakeCrypto test double: always returns "" without any network I/O. */
     private static final class NoOpCrypto extends CryptoClient {
         NoOpCrypto() {
-            super(new CryptoConfig("localhost", 1), 5, 30);
+            super(new CryptoConfig("localhost", 1, "test-plugin-id", "test-bearer-token"), 5, 30);
         }
 
         @Override

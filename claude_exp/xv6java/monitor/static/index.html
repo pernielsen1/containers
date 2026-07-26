@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>ISO 8583 Router Monitor</title>
+<title>ISO 8583 Router Monitor (Java)</title>
 <style>
   :root { color-scheme: light dark; }
   body { font-family: -apple-system, Segoe UI, Arial, sans-serif; margin: 0; padding: 0 1.5rem 3rem; background: #f4f5f7; color: #1a1a1a; }
@@ -39,6 +39,15 @@
   #log-modal .box { background: #111; color: #ddd; width: min(900px, 92vw); height: 80vh; margin: 4vh auto; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
   #log-modal .box header { position: static; background: #1a1a1a; color: #fff; padding: 0.6rem 1rem; }
   #log-modal pre { flex: 1; overflow: auto; margin: 0; padding: 0.75rem 1rem; font-size: 0.75rem; white-space: pre-wrap; }
+  #cmd-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 20; }
+  #cmd-modal .box { background: #fff; color: #1a1a1a; width: min(700px, 92vw); margin: 10vh auto; border-radius: 8px; overflow: hidden; }
+  #cmd-modal .box header { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 1rem; border-bottom: 1px solid #ddd; }
+  #cmd-modal-body { padding: 0.75rem 1rem; }
+  .cmd-row { margin-bottom: 1rem; }
+  .cmd-row:last-child { margin-bottom: 0; }
+  .cmd-row-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem; }
+  .cmd-label { font-size: 0.8rem; color: #666; }
+  .cmd-text { margin: 0; background: #111; color: #ddd; padding: 0.5rem 0.6rem; border-radius: 6px; font-size: 0.78rem; overflow-x: auto; white-space: pre; }
   @media (prefers-color-scheme: dark) {
     body { background: #16181d; color: #e6e6e6; }
     header { background: #16181d; }
@@ -46,13 +55,17 @@
     button { background: #2a2d36; border-color: #444; color: #e6e6e6; }
     button:hover { background: #343844; }
     th, td { border-color: #333; }
+    #cmd-modal .box { background: #20232b; color: #e6e6e6; }
+    #cmd-modal .box header { border-color: #333; }
+    .cmd-label { color: #999; }
   }
 </style>
 </head>
 <body>
 <header>
-  <h1>ISO 8583 Router Monitor</h1>
+  <h1>ISO 8583 Router Monitor (Java backend)</h1>
   <span id="spinner"></span>
+  <button id="attach-shell">Attach Shell</button>
   <button id="start-all">Start All</button>
   <button id="stop-all">Stop All</button>
 </header>
@@ -93,6 +106,16 @@
       </span>
     </header>
     <pre id="log-modal-body"></pre>
+  </div>
+</div>
+
+<div id="cmd-modal">
+  <div class="box">
+    <header>
+      <span id="cmd-modal-title">Commands</span>
+      <button id="cmd-close">Close</button>
+    </header>
+    <div id="cmd-modal-body"></div>
   </div>
 </div>
 
@@ -153,6 +176,7 @@ function renderCard(actor, stats, status, currentLevel) {
         ${levelOptions}
       </select>
       <button class="btn-logs" data-actor="${actor.name}">Logs</button>
+      <button class="btn-commands" data-actor="${actor.name}">Commands</button>
       <button class="btn-launch" data-actor="${actor.name}">Start</button>
       <button class="btn-stop danger" data-actor="${actor.name}">Stop</button>
       ${actor.type === "router" ? `<button class="btn-purge danger" data-actor="${actor.name}">Purge Queue</button>` : ""}
@@ -272,6 +296,9 @@ function attachCardHandlers() {
   document.querySelectorAll(".btn-logs").forEach((btn) => {
     btn.onclick = () => openLogModal(btn.dataset.actor);
   });
+  document.querySelectorAll(".btn-commands").forEach((btn) => {
+    btn.onclick = () => openCmdModal(btn.dataset.actor);
+  });
   document.querySelectorAll(".log-level-select").forEach((sel) => {
     sel.onchange = () => {
       fetch(`/api/actor/${sel.dataset.actor}/log_level`, {
@@ -307,6 +334,113 @@ document.getElementById("log-close").onclick = () => {
 document.getElementById("log-export").onclick = () => {
   if (!logModalActor) return;
   window.open(`/api/actor/${logModalActor}/logs?format=text`, "_blank");
+};
+
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function flashButton(btn, label) {
+  const original = btn.textContent;
+  btn.textContent = label;
+  setTimeout(() => { btn.textContent = original; }, 1500);
+}
+
+// Fallback for when the async Clipboard API is unavailable (non-secure context - e.g. the
+// dashboard reached via a plain-http hostname/IP rather than localhost) or rejects (e.g. the
+// click's transient user-activation already expired, which can happen if a fetch runs between
+// the click and the writeText() call). document.execCommand("copy") is deprecated but still
+// works synchronously in this situation in most browsers; if even that fails, fall back to a
+// prompt() with the text pre-selected so the user can still copy it by hand (Ctrl+C).
+function legacyCopy(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch (e) {
+    ok = false;
+  }
+  document.body.removeChild(ta);
+  return ok;
+}
+
+function copyToClipboard(text, btn) {
+  const fallback = () => {
+    if (legacyCopy(text)) {
+      flashButton(btn, "Copied!");
+    } else {
+      window.prompt("Copy this command (Ctrl+C):", text);
+    }
+  };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(() => flashButton(btn, "Copied!")).catch(fallback);
+  } else {
+    fallback();
+  }
+}
+
+function renderCmdRow(label, text) {
+  return `<div class="cmd-row">
+    <div class="cmd-row-header">
+      <span class="cmd-label">${label}</span>
+      <button class="cmd-copy">Copy</button>
+    </div>
+    <pre class="cmd-text">${escapeHtml(text)}</pre>
+  </div>`;
+}
+
+async function openCmdModal(name) {
+  document.getElementById("cmd-modal-title").textContent = `Commands: ${name}`;
+  document.getElementById("cmd-modal").style.display = "block";
+  const body = document.getElementById("cmd-modal-body");
+  body.textContent = "Loading...";
+  try {
+    const cmds = await getJSON(`/api/actor/${name}/commands`);
+    body.innerHTML =
+      renderCmdRow("Force-kill (if Stop doesn't respond)", cmds.kill) +
+      renderCmdRow("Tail live console output", cmds.tail);
+    body.querySelectorAll(".cmd-copy").forEach((btn) => {
+      btn.onclick = () => {
+        const text = btn.closest(".cmd-row").querySelector(".cmd-text").textContent;
+        copyToClipboard(text, btn);
+      };
+    });
+  } catch (e) {
+    body.textContent = "Failed to load commands.";
+  }
+}
+
+document.getElementById("cmd-close").onclick = () => {
+  document.getElementById("cmd-modal").style.display = "none";
+};
+
+// Fetched once at load and cached rather than on click: an `await` between the click and the
+// clipboard write can outlive the click's transient user-activation window in some browsers,
+// which makes navigator.clipboard.writeText() silently reject with no visible effect. The
+// command itself is a fixed constant (doesn't depend on live actor state), so there's no
+// freshness reason to refetch it per click anyway.
+let shellCommandCache = null;
+getJSON("/api/commands").then((data) => { shellCommandCache = data.shell; }).catch((err) => {
+  console.error("failed to prefetch shell command", err);
+});
+
+document.getElementById("attach-shell").onclick = (e) => {
+  const btn = e.currentTarget;
+  if (shellCommandCache) {
+    copyToClipboard(shellCommandCache, btn);
+  } else {
+    // Prefetch hasn't resolved yet (e.g. clicked immediately on page load) - fall back to
+    // fetching now, accepting the transient-activation risk this path normally avoids.
+    getJSON("/api/commands")
+      .then((data) => { shellCommandCache = data.shell; copyToClipboard(data.shell, btn); })
+      .catch((err) => console.error("failed to fetch shell command", err));
+  }
 };
 
 document.getElementById("start-all").onclick = () => fetch("/api/start_all", { method: "POST" });

@@ -13,7 +13,11 @@ if docker info >/dev/null 2>&1; then
 fi
 
 echo "Docker daemon not running; trying 'service docker start'..."
-service docker start >/dev/null 2>&1 || true
+# dockerd manages network namespaces/cgroups/iptables, which requires root - being in the
+# `docker` group only lets the *client* talk to an already-running daemon without sudo. `sudo`
+# here will prompt for a password when this script is run interactively; if there's no
+# password prompt available (e.g. a non-interactive session), it fails fast rather than hanging.
+sudo service docker start >/dev/null 2>&1 || true
 
 for _ in $(seq 1 10); do
   docker info >/dev/null 2>&1 && { echo "Docker daemon is up."; exit 0; }
@@ -21,7 +25,7 @@ for _ in $(seq 1 10); do
 done
 
 echo "'service docker start' didn't bring it up; starting dockerd directly..."
-nohup dockerd >/tmp/dockerd.log 2>&1 &
+sudo nohup dockerd >/tmp/dockerd.log 2>&1 &
 disown
 
 for _ in $(seq 1 30); do

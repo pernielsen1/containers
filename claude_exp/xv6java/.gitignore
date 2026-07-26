@@ -2,3 +2,5 @@ target/
 dependency-reduced-pom.xml
 .ccr-optional/
 config/upstream_1_input/
+.monitor.pid
+logs/
