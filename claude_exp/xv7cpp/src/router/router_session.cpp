@@ -103,6 +103,7 @@ void RouterSession::handle_upstream(int fd, const sockaddr_storage& addr,
             stats_.record_recv();
 
             std::string mti = req.at("t");
+            LOG_DEBUG("upstream recv mti=" + mti);
             if (mti == "0100" || mti == "0120" || mti == "0420") {
                 dispatcher_->submit(RoutedMessage{req, fd, write_lock, addr});
             } else if (mti == "0800") {
@@ -130,6 +131,7 @@ void RouterSession::forward_0800(const std::map<std::string, std::string>& req) 
                                     cfg_.downstream.client_id, "0800", frame);
         downstream_.send(ims_frame);
         stats_.record_sent();
+        LOG_DEBUG("forwarded 0800 to downstream");
     } catch (const std::exception& e) {
         LOG_ERROR(std::string("0800 forward error: ") + e.what());
     }
@@ -151,6 +153,7 @@ void RouterSession::forward_0810(const std::map<std::string, std::string>& resp)
             write_message(upstream_fd_, frame, cfg_.upstream.framing);
         }
         stats_.record_sent();
+        LOG_DEBUG("forwarded 0810 to upstream");
     } catch (const std::exception& e) {
         LOG_ERROR(std::string("0810 forward error: ") + e.what());
     }
@@ -164,12 +167,14 @@ void RouterSession::downstream_receiver() {
             if (frame.size() >= 4) {
                 auto ping_ebcdic = to_ebcdic("PING", 4);
                 if (std::equal(frame.begin(), frame.begin() + 4, ping_ebcdic.begin())) {
+                    LOG_DEBUG("downstream PING pipe-cleaner received, skipping");
                     continue;
                 }
             }
 
             auto resp = iso_codec::decode(frame);
             stats_.record_recv();
+            LOG_DEBUG("downstream recv mti=" + resp.at("t"));
 
             try {
                 if (resp.at("t") == "0810") {

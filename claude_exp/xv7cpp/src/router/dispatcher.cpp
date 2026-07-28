@@ -30,11 +30,13 @@ std::string Dispatcher::next_stan() {
 }
 
 void Dispatcher::submit(RoutedMessage msg) {
+    std::string mti = msg.req.count("t") ? msg.req.at("t") : "";
     std::unique_lock<std::mutex> lock(queue_mutex_);
     queue_cv_not_full_.wait(lock, [this] { return queue_.size() < static_cast<size_t>(cfg_.queue_maxsize); });
     queue_.push_back(std::move(msg));
     stats_.set_gauge("queue_depth", static_cast<int>(queue_.size()));
     queue_cv_not_empty_.notify_one();
+    LOG_DEBUG("dispatcher: queued mti=" + mti + " (queue_depth=" + std::to_string(queue_.size()) + ")");
 }
 
 void Dispatcher::worker_loop() {
@@ -94,6 +96,8 @@ void Dispatcher::process(RoutedMessage& msg) {
         xv6::shared::build_frame(0x00, cfg_.downstream.irm_id, cfg_.downstream.client_id, fwd.at("t"), encoded);
     downstream_.send(frame);
     stats_.record_sent();
+    LOG_DEBUG("dispatcher: forwarded mti=" + mti + " to downstream, upstream_stan=" + upstream_stan +
+              " router_stan=" + router_stan);
 }
 
 void Dispatcher::handle_response(const std::map<std::string, std::string>& resp) {
@@ -135,6 +139,8 @@ void Dispatcher::handle_response(const std::map<std::string, std::string>& resp)
             xv6::shared::write_message(entry.up_fd, encoded, cfg_.upstream.framing);
         }
         stats_.record_sent();
+        LOG_DEBUG("dispatcher: forwarded mti=" + mti + " to upstream, router_stan=" + router_stan +
+                  " upstream_stan=" + entry.upstream_stan);
     } catch (const std::exception& e) {
         // Races session teardown closing the upstream socket from a different thread -- must
         // not propagate as an uncaught exception on the ds-receiver thread.

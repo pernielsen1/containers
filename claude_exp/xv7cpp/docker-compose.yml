@@ -3,6 +3,7 @@ services:
     build: .
     container_name: xv7cpp
     network_mode: host
+    init: true
     volumes:
       - ./src:/src/src
       - ./config:/config
@@ -15,5 +16,6 @@ services:
         /src/build/crypto_host --config /config/router_1.json &
         /src/build/downstream_host --config /config/router_1.json &
         /src/build/upstream_host --config /config/router_1.json &
-        exec /src/build/router_main --config /config/router_1.json
+        /src/build/router_main --config /config/router_1.json &
+        sleep infinity
     depends_on: []

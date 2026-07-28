@@ -57,44 +57,39 @@ every concurrency decision here.
 ```
 project/
 ├── CMakeLists.txt                 # single CMake project, four actor executables + shared libs
-├── Dockerfile                     # Ubuntu + g++/clang (C++20) + CMake + OpenSSL dev + Node/Claude Code CLI
-├── start.sh / stop.sh             # container lifecycle (bind-mount + docker exec, no devcontainer.json)
-├── dockerstart.sh                 # ensures the Docker daemon itself is running
-├── terminal.sh                    # interactive shell into the running container
-├── run_test.sh                    # end-to-end CLI driver, run on the HOST
-├── monitor_start.sh / monitor_stop.sh   # dashboard lifecycle, run on the HOST
+├── Dockerfile                     # ubuntu:22.04 + cmake/g++/git/libssl-dev/pkg-config; builds at image-build time
+├── docker-compose.yml             # one service, network_mode: host, launches all four actors
+├── start.sh                       # docker compose up -d --build, then polls localhost:8080/stats
+├── stop.sh                        # docker compose down
+├── monitor.sh                     # runs the dashboard (Flask, port 8090) on the HOST
+├── .gitignore                     # build/, logs/, upstream_1_input/, *.log, __pycache__/
 ├── config/
-│   ├── pans_defined.json          # card + key data for simulators and crypto host
-│   ├── f47.json                   # documents the field-47 JSON schema (reference only)
-│   ├── router_1.json
-│   ├── crypto_host.json
-│   ├── downstream_host.json
-│   ├── upstream_1.json
-│   └── upstream_1_input/          # gitignored; test_cases.csv lives here at runtime
-├── test_csv_files/
-│   └── test.csv
-├── monitor/                       # Python, runs on the HOST — unchanged from the Java project
+│   ├── router_1.json              # single shared config, read by all four binaries
+│   └── pans_defined.json          # card + key data for downstream_host and crypto_host
+├── test_csv_files/                # optional: host-side CSVs offered by the dashboard's CSV dropdown
+├── monitor/                       # Python + Flask, runs on the HOST -- never bundled into the container
 │   ├── main.py
 │   └── static/index.html
 ├── src/
 │   ├── shared/         framing.{h,cpp}, ebcdic.{h,cpp}, ims_connect.{h,cpp}, iso_codec.{h,cpp},
 │   │                   stats.{h,cpp}, stop_event.h, log.{h,cpp}, command_server.{h,cpp},
-│   │                   crypto_utils.{h,cpp}
+│   │                   crypto_utils.{h,cpp}, pans_defined.{h,cpp}, base64.{h,cpp}, hex.{h,cpp}
 │   ├── router/         router_config.{h,cpp}, upstream.{h,cpp}, downstream_connection.{h,cpp},
 │   │                   crypto_client.{h,cpp}, dispatcher.{h,cpp}, router_session.{h,cpp},
 │   │                   router_main.cpp
-│   └── simulators/{crypto_host,downstream_host,upstream_host}/*.cpp
-├── test/               Catch2 unit + integration tests
-├── third_party/        FetchContent cache dir for vendored headers (gitignored)
-└── logs/               gitignored; per-actor console logs written at runtime
+│   └── simulators/{crypto_host,downstream_host,upstream_host}/*_main.cpp
+└── test/               Catch2 unit + integration tests
 ```
+
+`build/`, `logs/`, and `upstream_1_input/` (the CSV upload landing directory `upstream_host` creates
+at its own working directory at runtime) are all gitignored, not part of the tracked layout above.
 
 Every actor is its own executable, all linking a common static library for shared code (`xv6_shared`)
 and the router-specific pieces linking `xv6_router` as well. There is no single "jar with many
 main classes" equivalent here — CMake's natural idiom is one executable target per actor:
 
 ```
-router          <- xv6_router, xv6_shared
+router_main     <- xv6_router, xv6_shared
 crypto_host     <- xv6_shared
 downstream_host <- xv6_shared
 upstream_host   <- xv6_shared
@@ -124,7 +119,13 @@ fetch on every build once the FetchContent cache is warm). OpenSSL is a system d
 
 ---
 
-## `CMakeLists.txt` (shape)
+## `CMakeLists.txt`
+
+Every simulator links `xv6_router` as well as `xv6_shared` (not just `xv6_shared`) — all three of
+them decode/encode ISO 8583 messages, and `downstream_host`/`crypto_host` both need
+`shared/pans_defined.h`, so it's simplest for every actor to see the same include path
+(`target_include_directories(... PRIVATE src)`) and link the same two static libraries rather than
+carving out a narrower dependency graph per actor for marginal build-time savings.
 
 ```cmake
 cmake_minimum_required(VERSION 3.20)
@@ -132,6 +133,11 @@ project(xv7cpp CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE RelWithDebInfo)
+endif()
 
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
@@ -143,35 +149,64 @@ FetchContent_Declare(catch2  GIT_REPOSITORY https://github.com/catchorg/Catch2.g
 FetchContent_MakeAvailable(httplib json catch2)
 
 add_library(xv6_shared STATIC
-    src/shared/framing.cpp src/shared/ebcdic.cpp src/shared/ims_connect.cpp
-    src/shared/iso_codec.cpp src/shared/stats.cpp src/shared/log.cpp
-    src/shared/command_server.cpp src/shared/crypto_utils.cpp)
+    src/shared/hex.cpp
+    src/shared/base64.cpp
+    src/shared/ebcdic.cpp
+    src/shared/framing.cpp
+    src/shared/ims_connect.cpp
+    src/shared/iso_codec.cpp
+    src/shared/stats.cpp
+    src/shared/log.cpp
+    src/shared/crypto_utils.cpp
+    src/shared/command_server.cpp
+    src/shared/pans_defined.cpp
+)
+target_include_directories(xv6_shared PUBLIC src)
 target_link_libraries(xv6_shared PUBLIC httplib nlohmann_json::nlohmann_json
                                           OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
 
 add_library(xv6_router STATIC
-    src/router/router_config.cpp src/router/upstream.cpp src/router/downstream_connection.cpp
-    src/router/crypto_client.cpp src/router/dispatcher.cpp src/router/router_session.cpp)
+    src/router/router_config.cpp
+    src/router/upstream.cpp
+    src/router/downstream_connection.cpp
+    src/router/crypto_client.cpp
+    src/router/dispatcher.cpp
+    src/router/router_session.cpp
+)
+target_include_directories(xv6_router PUBLIC src)
 target_link_libraries(xv6_router PUBLIC xv6_shared)
 
-add_executable(router               src/router/router_main.cpp)
-add_executable(crypto_host          src/simulators/crypto_host/main.cpp)
-add_executable(downstream_host      src/simulators/downstream_host/main.cpp)
-add_executable(upstream_host        src/simulators/upstream_host/main.cpp)
-target_link_libraries(router          PRIVATE xv6_router)
-target_link_libraries(crypto_host     PRIVATE xv6_shared)
-target_link_libraries(downstream_host PRIVATE xv6_shared)
-target_link_libraries(upstream_host   PRIVATE xv6_shared)
+add_executable(router_main src/router/router_main.cpp)
+target_include_directories(router_main PRIVATE src)
+target_link_libraries(router_main PRIVATE xv6_router xv6_shared)
+
+add_executable(crypto_host src/simulators/crypto_host/crypto_host_main.cpp)
+target_include_directories(crypto_host PRIVATE src)
+target_link_libraries(crypto_host PRIVATE xv6_router xv6_shared)
+
+add_executable(downstream_host src/simulators/downstream_host/downstream_host_main.cpp)
+target_include_directories(downstream_host PRIVATE src)
+target_link_libraries(downstream_host PRIVATE xv6_router xv6_shared)
+
+add_executable(upstream_host src/simulators/upstream_host/upstream_host_main.cpp)
+target_include_directories(upstream_host PRIVATE src)
+target_link_libraries(upstream_host PRIVATE xv6_router xv6_shared)
 
 enable_testing()
-add_executable(xv6_tests test/*.cpp)
+file(GLOB TEST_SOURCES CONFIGURE_DEPENDS test/*.cpp)
+add_executable(xv6_tests ${TEST_SOURCES})
 target_link_libraries(xv6_tests PRIVATE xv6_router xv6_shared Catch2::Catch2WithMain)
 include(CTest)
 include(Catch)
 catch_discover_tests(xv6_tests)
 ```
 
-Build: `cmake -S . -B build && cmake --build build -j` produces `build/router`,
+Each simulator's source file is named `<name>_main.cpp` (`crypto_host_main.cpp`, not `main.cpp`) —
+three separate files that would otherwise all be called `main.cpp` living in different directories
+works fine on disk, but named per-actor avoids any ambiguity in error messages, `#include` guards,
+or an IDE's "which main.cpp is this" when several are open at once.
+
+Build: `cmake -S . -B build && cmake --build build -j` produces `build/router_main`,
 `build/crypto_host`, `build/downstream_host`, `build/upstream_host`, `build/xv6_tests`.
 
 ---
@@ -890,6 +925,17 @@ upstream write, the pending reaper after its decline write) *and* in `RouterSess
 same trap the Java doc calls out: `/stats` still returns 200 with totals stuck at 0, and the monitor
 shows the actor as permanently yellow regardless of real traffic.
 
+**DEBUG-level message tracing (new to this port — neither this doc's earlier drafts nor the Java doc
+ever had a single call site at `LogLevel::Debug`/`Level.FINE`)**: the `DEBUG` level was fully plumbed
+end-to-end (settable via `/log_level`, persisted, correctly displayed by the monitor once the
+dropdown bug above was fixed) but had nothing to actually show — a user switching an actor to `DEBUG`
+expecting to see per-message activity (e.g. periodic `0800` network-management pings) saw nothing new
+at all, silently, with no error. `process()` and `handle_response()` each log one `LOG_DEBUG` line
+per message: `"dispatcher: queued mti=<mti> (queue_depth=<n>)"` on submit, `"dispatcher: forwarded
+mti=<mti> to downstream, upstream_stan=<x> router_stan=<y>"` after the downstream write, and
+`"dispatcher: forwarded mti=<mti> to upstream, router_stan=<y> upstream_stan=<x>"` after the upstream
+write.
+
 ### `RouterSession` — one live connection session
 
 Owns the ds-receiver thread and the up-server/up-client thread. Direct port of the Java class;
@@ -944,7 +990,8 @@ public:
 **`handle_upstream(fd, addr, write_lock)`** (the upstream read loop):
 - `stats.set_connection("upstream", true)`; stash `(fd, write_lock)` as the session's live upstream
   reference under its own mutex (read by `forward_0810`).
-- Loop: `framing::read_message(fd, cfg.upstream.framing)` → `iso_codec::decode` → `stats.record_recv()`.
+- Loop: `framing::read_message(fd, cfg.upstream.framing)` → `iso_codec::decode` → `stats.record_recv()`
+  → `LOG_DEBUG("upstream recv mti=" + mti)` (see the DEBUG-tracing note under `Dispatcher` above).
   - MTI `0100`/`0120`/`0420` → `dispatcher_.submit({req, fd, write_lock, addr})`.
   - MTI `0800` → `forward_0800(req)`.
   - anything else → log a warning.
@@ -954,12 +1001,19 @@ public:
   still points at this connection.
 
 **`forward_0800(req)`**: re-encode, wrap in an IMS frame, `downstream.send(frame)`,
-`stats.record_sent()` — wrapped in try/catch since teardown on another thread can close the
-downstream connection out from under this write.
+`stats.record_sent()`, `LOG_DEBUG("forwarded 0800 to downstream")` — wrapped in try/catch since
+teardown on another thread can close the downstream connection out from under this write.
 
 **`forward_0810(resp)`**: reads the stashed upstream reference under its lock; if none, log a
 warning and return. Otherwise re-encode, acquire the upstream write lock, write, release,
-`stats.record_sent()` — wrapped in try/catch, racing the same teardown.
+`stats.record_sent()`, `LOG_DEBUG("forwarded 0810 to upstream")` — wrapped in try/catch, racing the
+same teardown.
+
+**`downstream_receiver()`** (the ds-receiver thread, not shown above): on each frame, if its first 4
+bytes are the EBCDIC `"PING"` pipe-cleaner marker, `LOG_DEBUG("downstream PING pipe-cleaner received,
+skipping")` and `continue` — otherwise decode, `stats.record_recv()`, `LOG_DEBUG("downstream recv
+mti=" + mti)`, then dispatch to `forward_0810` (MTI `0810`) or `dispatcher_.handle_response` (anything
+else).
 
 **`downstream_receiver()`**:
 - Loop: `downstream.recv()`.
@@ -1013,6 +1067,7 @@ int main(int argc, char** argv) {
         send_json(res, 200, active_dispatcher->purge());
     });
     cmd.start();
+    LOG_INFO("router command API listening on port " + std::to_string(cfg.command_port));
 
     std::unique_ptr<UpstreamServer> srv_sock;
     if (cfg.upstream.mode == "server") srv_sock = std::make_unique<UpstreamServer>(cfg.upstream);
@@ -1027,10 +1082,16 @@ int main(int argc, char** argv) {
             wait_reestablish(stop_event, cfg);   // reestablish_seconds + random jitter
             continue;
         }
+        LOG_INFO("router connected to downstream, dispatcher active");
         { std::lock_guard lock(active_dispatcher_mutex); active_dispatcher = /* alias into session */; }
         session->run_until_disconnect(srv_sock.get());
         { std::lock_guard lock(active_dispatcher_mutex); active_dispatcher = nullptr; }
-        if (!stop_event.is_set()) wait_reestablish(stop_event, cfg);
+        if (!stop_event.is_set()) {
+            LOG_INFO("router session ended, reestablishing");
+            wait_reestablish(stop_event, cfg);
+        } else {
+            LOG_INFO("router session ended, stop requested");
+        }
     }
     cmd.stop();
     return 0;
@@ -1040,6 +1101,21 @@ int main(int argc, char** argv) {
 `wait_reestablish` waits `reestablish_seconds + uniform(0, reconnect_jitter_seconds)` — the jitter
 avoids multiple routers sharing a downstream/crypto host from reconnecting in lockstep after a
 shared outage.
+
+**Pitfall — `router_main` must log *something* at `INFO` level on the happy path, not only on
+warnings/errors, or its `/logs` is indistinguishable from broken.** Unlike the three simulators
+(each of which logs an explicit `"<actor> listening on port <N>"` line right after `cmd.start()`),
+it's easy to write `router_main`'s loop with only `LOG_WARNING`/`LOG_ERROR` calls — there's no
+*correctness* reason it needs more, since the router's actual job is proxying bytes, not announcing
+milestones. But the dashboard's log viewer (see "Monitor" below) has no way to distinguish "actor
+running fine, nothing noteworthy has happened" from "actor's logging is broken" — both look like an
+empty modal with nothing but the Export button. A router that ran an entire successful multi-hour
+test session without a single reconnect would have a permanently empty log, which reads as "this
+feature doesn't work" the first time someone opens it during exactly that kind of clean run. Log the
+command port on startup and both ends of a session (connected / ended, distinguishing "reestablishing"
+from "stop requested" so the two don't read as identical) — matching the same "listening on port"
+convention the three simulators already establish, for the same reason: a monitor's log viewer needs
+routine positive signal, not just failure signal, to be trustworthy at a glance.
 
 ### Actor process lifecycle (applies to `router_main.cpp` and all three simulator mains)
 
@@ -1266,64 +1342,250 @@ porting this file elsewhere.
 
 ---
 
-## Monitor (`monitor/main.py`, Python, runs on the **host** — unchanged design, updated launch mechanics)
+## Monitor (`monitor/main.py`, Python + Flask, runs on the **host**)
 
-The monitor's HTTP contract, layout, and Flask app are **unchanged** from the Java project's
-`monitor/main.py` — this is the whole point of keeping the monitor decoupled: "any future rewrite of
-an individual actor into a different language stays compatible with this monitor for free, provided
-the HTTP contract is preserved exactly," and the C++ actors preserve `CommandServer`'s routes
-byte-for-byte. Only the pieces that assumed a JVM process launched via a jar need to change:
+A thin dashboard that talks to every actor's `CommandServer` purely over HTTP (`/stats`, `/stop`,
+`/log_level`, `/logs`, plus `upstream_host`'s `/start`/`/results`/`/upload`) — it has no idea, and no
+reason to care, what language runs behind a command port; the only contract that matters is those
+HTTP routes, specified exactly above. Never bundled into the container image (no Python in the
+`Dockerfile`, deliberately) — it only needs plain HTTP to `localhost`, which `network_mode: host` on
+the `xv7cpp` service already provides.
+
+**Dependencies**: `flask`, `requests`, installed on the host (not the container) via
+`pip install flask requests` or equivalent.
+
+**Pitfall — actor discovery must be adapted for this project's single-shared-config reality.** A
+prior design for this kind of monitor (used by an earlier, structurally different sibling project in
+this repo family) assumed one JSON file per actor under `config/`, each with its own `name`/`type`/
+`command_port`, and discovered actors by scanning that directory. **This project does not work that
+way**: all four binaries load the *same* `config/router_1.json` (see `RouterConfig::from_file`
+above), which has `command_port`/`command_auth_token` at the top level for the router itself, and a
+per-actor `command_port` nested inside its own `upstream`/`downstream`/`crypto` sub-object for the
+other three. `discover_actors()` therefore does not scan a directory — it reads the one file once
+(cached for the monitor's process lifetime; restart the monitor to pick up a config edit) and
+synthesizes four logical actor descriptors from it:
 
 ```python
-# was: MAIN_CLASS_BY_TYPE = {"router": "com.xv6.router.RouterMain", ...}
-# now: a path to the built executable, relative to the project root:
-BINARY_BY_TYPE = {
-    "router":     "build/router",
-    "upstream":   "build/upstream_host",
-    "downstream": "build/downstream_host",
-    "crypto":     "build/crypto_host",
-}
-STARTUP_ORDER = {"crypto": 0, "downstream": 1, "router": 2, "upstream": 3}   # unchanged
+CONFIG_REL_PATH = "config/router_1.json"   # relative to the project root
+
+def discover_actors():
+    with open(PROJECT_ROOT / CONFIG_REL_PATH) as f:
+        cfg = json.load(f)
+    return [
+        {"name": cfg.get("name", "router_1"), "type": "router",
+         "command_port": cfg.get("command_port", 8080),
+         "auth_token": cfg.get("command_auth_token"),
+         "partner_id": cfg.get("partner_id"), "is_active": True},
+        {"name": "downstream_host", "type": "downstream",
+         "command_port": cfg.get("downstream", {}).get("command_port", 8081),
+         "auth_token": None, "partner_id": None, "is_active": True},
+        {"name": "crypto_host", "type": "crypto",
+         "command_port": cfg.get("crypto", {}).get("command_port", 8082),
+         "auth_token": None, "partner_id": None, "is_active": True},
+        {"name": "upstream_host", "type": "upstream",
+         "command_port": cfg.get("upstream", {}).get("command_port", 8083),
+         "auth_token": None, "partner_id": None, "is_active": True},
+    ]
 ```
 
-**`launch_actor(actor)`**: `docker exec -d <container> bash -c "mkdir -p logs &&
-./build/<binary> --config <relative-config-path> > logs/<name>.console.log 2>&1"` — same
-`bash -c` + redirect rationale as the Java version (`docker exec -d`'s client detaches immediately;
-without redirecting to a file, a crash's stderr goes nowhere retrievable). Log file truncated on
-every (re)launch.
+**Auth headers are per-actor, not uniform.** Only the router's `CommandServer` is constructed with a
+`command_auth_token` (`cfg.command_auth_token`, from the top-level config key); the three
+simulators' `CommandServer`s are all constructed with no auth token at all (`std::nullopt`), so
+`CommandServer`'s own `wrap_handler` skips the auth check entirely for them (see `command_server.h`
+above — the check only runs `if (auth_token_)`). Every route below that proxies to a protected actor
+route (`/stop`, `POST /log_level`, `/dispatcher/purge`) must send `X-Router-Auth: <auth_token>` when
+the target actor's descriptor has one, and no such header otherwise — sending a header to an actor
+that isn't expecting one is harmless (ignored), but relying on that rather than checking `auth_token`
+per actor would silently break the moment any of the three simulators is later given its own token.
 
-**`is_running(name)`**: unchanged — liveness is still "the actor's own `/stats` endpoint answers
-HTTP 200," since `docker exec -d` still gives no process handle to poll regardless of what language
-runs inside the container.
+```python
+BINARY_BY_TYPE = {
+    "router": "router_main", "upstream": "upstream_host",
+    "downstream": "downstream_host", "crypto": "crypto_host",
+}
+STARTUP_ORDER = {"crypto": 0, "downstream": 1, "router": 2, "upstream": 3}
+CONTAINER_NAME = "xv7cpp"
+CONFIG_ABS_PATH_IN_CONTAINER = "/config/router_1.json"   # per docker-compose.yml's volume mount
+BUILD_DIR_IN_CONTAINER = "/src/build"
+LOGS_DIR_IN_CONTAINER = "/src/logs"
+```
 
-**`wait_for_ready(actor, timeout=10)`**: unchanged logic (polls `/stats`, additionally checks
-`connections.downstream`/`connections.router` for routers/upstreams).
+**`launch_actor(actor)`**: `docker exec -d <container> bash -c "mkdir -p /src/logs &&
+/src/build/<binary> --config /config/router_1.json > /src/logs/<name>.console.log 2>&1"` — the
+`bash -c` wrapper (rather than invoking the binary bare) exists specifically to redirect
+stdout/stderr to a per-actor log file, since `docker exec -d`'s own client process detaches and
+exits the instant the command starts — without the redirect, a crash's stderr goes nowhere
+retrievable. The log file is truncated on every (re)launch (`>`, not `>>`) so a live `tail -F` always
+reflects the current run. Note that all four actors are typically already running by the time the
+monitor starts (`docker-compose` launches them directly at container start — see "Container" below)
+— `launch_actor` matters for restarting one specific actor after it was stopped or killed, not for
+the common "everything's already up" case.
 
-**Monitor API routes, status logic, shutdown safety net**: unchanged verbatim from the Java doc's
-Monitor section — every route, JSON shape, and the green/yellow/red status logic carries over with
-no code change needed on the monitor side beyond the `BINARY_BY_TYPE` table above.
+**`is_running(actor)`**: there is no OS process handle to poll — `docker exec -d`'s client exits
+immediately once the detached command starts inside the container, and even the actors started
+directly by `docker-compose`'s own entrypoint script aren't spawned by *this* Python process either
+way. Liveness is instead defined as "the actor's own `/stats` endpoint answers HTTP 200" —
+arguably more honest for a dev tool regardless of the transport, since a process that's alive but
+wedged wouldn't help an operator either.
 
-**Container console visibility** (`/api/actor/<name>/commands`) — **one command changes**:
-- **`kill`**: the Java version used `jps -lm` (a JVM-specific tool with no C++ equivalent) to find
-  the PID by matching `<main class> --config <relative config path>`. The C++ replacement matches
-  the same full command string via `ps` instead:
+**`wait_for_ready(actor, timeout=10)`**: polls `/stats` until it answers 200, **and** — for the
+router, until `connections.downstream == true`; for `upstream_host`, until `connections.router ==
+true`; every other actor type is ready as soon as `/stats` answers. Skipping the connection check
+means launching an upstream and immediately calling `/start` can 503 with "not connected to router"
+even though `/stats` itself already answers 200 — the HTTP server coming up and the actor's own
+TCP-level connection to its peer coming up are two different milestones.
+
+**Monitor API routes**:
+
+| Route | Purpose |
+|---|---|
+| `GET /` | serve `static/index.html` |
+| `GET /api/actors` | list: name/type/command_port/running/is_active/partner_id |
+| `GET /api/routers_by_partner` | dict `partner_id → [{name, command_port}]` (falls back to the literal key `"default"` when `partner_id` is unset, since this project's `router_1.json` doesn't set one) |
+| `GET /api/status` | parallel `/stats` health check per actor; green/yellow/red |
+| `GET /api/starting` | `{"starting": bool}` — true while a background "start all" is in flight |
+| `GET /api/csv_files` | `*.csv` under `test_csv_files/` at the project root (host-side; does not enumerate an upstream's own in-container `input_dir`) |
+| `GET /api/commands` | `{"shell": "docker exec -it xv7cpp bash"}` |
+| `GET /api/actor/<name>/commands` | `{"kill": <script>, "tail": <command>}` — see below |
+| `POST /api/actor/<name>/launch` | start if not already running |
+| `POST /api/actor/<name>/stop` | proxy to the actor's `/stop`, then poll liveness down to confirm |
+| `GET /api/actor/<name>/stats` | proxy `/stats` |
+| `GET /api/actor/<name>/start` | proxy `/start` (`upstream` type only — 404 otherwise) |
+| `GET /api/actor/<name>/results` | proxy `/results` (`upstream` type only) |
+| `GET\|POST /api/actor/<name>/log_level` | proxy log level (auth header added on POST if the actor has a token) |
+| `GET /api/actor/<name>/logs` | proxy `/logs`; `?format=text` for plain text |
+| `POST /api/actor/<name>/upload` | proxy a multipart CSV upload (`upstream` type only) |
+| `POST /api/actor/<name>/upload_path` | upload a host-relative file by path (`{"path": "..."}`) — path is resolved and checked against the project root (`Path.is_relative_to`) before opening, to reject anything that escapes it |
+| `POST /api/actor/<name>/dispatcher/purge` | `router` type only; proxies the protected `/dispatcher/purge` with the router's auth header |
+| `POST /api/start_all` | background thread: launch every active actor not already running, in `STARTUP_ORDER`, waiting up to 10s each for readiness |
+| `POST /api/stop_all` | stop every running actor, in reverse `STARTUP_ORDER` |
+| `POST /stop` | stop the monitor itself: best-effort `/stop` to every running actor first (background thread), then `os._exit(0)` after a short delay so the HTTP response can actually be sent before the process exits |
+
+**Status logic** (per actor, for `/api/status`): fetch `/stats`; non-200 or unreachable → red; no
+`yellow_threshold_seconds` key in the response → green; `seconds_since_last_recv` is `null` or
+exceeds that threshold → yellow; otherwise green.
+
+**Shutdown safety net**: `POST /stop` spawns a background thread that best-effort `POST`s `/stop` to
+every currently-running actor (swallowing any error per actor, since one unreachable actor shouldn't
+block the rest), waits briefly, then calls `os._exit(0)`. There is no process handle to fall back on
+if an actor ignores its own `/stop` — `./stop.sh` (`docker compose down`, tearing down the whole
+container) is the hard backstop if an actor's HTTP `/stop` doesn't work.
+
+**Container console visibility** (`/api/actor/<name>/commands`) — rather than embedding a real
+interactive terminal in the browser (rejected: the monitor binds `0.0.0.0:8090`, LAN-reachable, and
+shipping an unauthenticated shell into the container over HTTP isn't worth it for a dev tool), the
+dashboard hands the operator two copy-pasteable commands per actor:
+- **`kill`**: a small multi-line script (readable before running, not a single opaque one-liner) —
+  finds the PID by matching the **full binary path + config argument string** via `ps` (not just
+  the bare binary name, which keeps this safe if a future multi-router scenario means two instances
+  share a name):
+  ```bash
+  PATTERN="/src/build/router_main --config /config/router_1.json"
+  PID=$(docker exec xv7cpp sh -c "ps -eo pid,args" | \
+        awk -v pat="$PATTERN" '{cmd=$0; sub(/^[ \t]*[0-9]+[ \t]+/, "", cmd);
+                                 if (index(cmd, pat) == 1) print $1}')
+  if [ -z "$PID" ]; then echo "no matching process"; exit 1; fi
+  docker exec xv7cpp kill -9 "$PID"
   ```
-  PATTERN="build/router --config config/router_1.json"
-  PID=$(docker exec <container> sh -c "ps -eo pid,args" | grep -F "$PATTERN" | awk '{print $1}')
-  # explicit "no matching process" message and non-zero exit if nothing matched
-  docker exec <container> kill -9 "$PID"
-  ```
-  Matching on the **full binary path + config argument string**, not just the binary name, keeps
-  this safe when multiple instances would otherwise share a bare executable name (e.g. two router
-  instances in a future multi-router scenario) — same rationale as the Java version's `jps` match.
-- **`tail`**: unchanged — `docker exec <container> tail -F logs/<name>.console.log`.
+  **Pitfall — the match must be anchored to the start of the command, not a bare substring search.**
+  PID 1 inside the container is `docker-init`/`tini` (see `init: true` under "Container" above), and
+  `ps` shows *its* `args` as the entire wrapped shell script text passed to `bash -c` — i.e. every
+  actor's full invocation, concatenated, as one long string. A plain `grep -F "$PATTERN"` matches
+  that line too (the pattern is trivially a substring of the whole script), and since `ps` lists PID
+  1 first, `awk '{print $1}'` over multiple matching lines yields both PIDs concatenated
+  (`"1\n11"`), which then fails to parse as a single `kill -9` argument — the safe failure mode here,
+  but only by luck (a `PID` variable holding a single stray digit instead of two newline-joined ones
+  could easily have resolved to PID 1 alone and torn down the entire container instead of the one
+  actor requested). The `awk` version above strips the leading PID column from each candidate line
+  first, then requires the pattern to match starting at position 1 of what's left (`index(cmd, pat)
+  == 1`) — i.e. the command must *start with* the pattern, not merely contain it anywhere — which
+  excludes `docker-init`'s line (its `args` starts with `/sbin/docker-init -- bash -c ...`, not the
+  actor's own binary path) while still matching the real actor process.
+- **`tail`**: `docker exec xv7cpp tail -F /src/logs/<name>.console.log`. Only meaningful for an
+  actor that was (re)started via the dashboard's own `launch_actor` — one still running from
+  `docker-compose`'s original startup script was never redirected to a per-actor log file in the
+  first place (its stdout/stderr instead went to the container's own combined log, viewable via
+  `docker compose logs -f`), so `tail`-ing that file will report "no such file" until the actor is
+  restarted through the dashboard at least once.
 
 ### `monitor/static/index.html`
 
-**Unchanged.** No C++-specific change touches the frontend — it only ever talks to the monitor's own
-`/api/*` routes, which are unchanged. The same known open bug (log-level `<select>` snapping back to
-`INFO` on every poll tick) carries forward undisturbed, for the same reason the Java doc gives: it's
-documented, not silently patched over, as part of an unrelated change.
+Single-page vanilla JS, no build step, no framework — talks only to the monitor's own `/api/*`
+routes above.
+
+**Layout**: header (title + Start All / Stop All + a "starting…" indicator while `/api/starting` is
+true) → router-partner groups (one `<h2>` + card grid per distinct `partner_id`, `"default"` when
+unset) → a "Simulators" heading with a card grid for `crypto_host`/`downstream_host`/`upstream_host`
+→ a test-runner panel (upstream selector, a CSV dropdown sourced from `/api/csv_files` plus a raw
+file-upload input, a **Refresh List** button next to the dropdown, Upload/Start buttons, a results
+table).
+
+**Pitfall — the CSV dropdown is empty by default, and looks broken rather than "just empty" until
+you know why.** `test_csv_files/` isn't created by `git clone`/a from-scratch checkout (nothing
+seeds it, and it's reasonable to keep it out of version control if its contents are throwaway test
+fixtures) — `/api/csv_files` correctly returns `[]` against a missing directory rather than erroring,
+so the dropdown silently has nothing but its placeholder option and gives no indication *why*. Create
+`test_csv_files/` with at least one `.csv` (matching the semicolon/BOM format documented under
+`upstream_host` above) as part of first-time setup, not left for a user to discover is missing.
+Additionally: the dropdown is only populated once, at page load (`refreshCsvList()` runs on load,
+not on the 2-second `/api/status` poll interval that keeps everything else current) — a CSV added
+to the directory *after* the page was already open won't appear until either the page is reloaded
+or the **Refresh List** button next to the dropdown is clicked; this is deliberate, not a bug (an
+`/api/csv_files` filesystem scan doesn't need to run every 2 seconds alongside the actor-status
+polling, which is genuinely time-sensitive), but a user unaware of that button will reload the whole
+page unnecessarily.
+
+**Per-actor card**: a status dot (from `/api/status`), one small dot per key in `stats.connections`
+(green if `true`, red if `false`), sent/recv counters (total, 30s, 60s), last-recv time, a log-level
+`<select>`, and Logs/Commands/Start/Stop buttons. The router's card additionally shows
+`gauges.queue_depth`/`gauges.pending_count` and a confirmation-gated ("this will drop in-flight
+transactions") Purge Queue button, proxying `POST /api/actor/<name>/dispatcher/purge`.
+
+**Polling**: `/api/actors`, `/api/status`, and `/api/starting` every 2 seconds (one combined refresh
+cycle re-renders every card).
+
+**Results table columns**: PAN (field `2`), RC (field `39`, highlighted green when `"00"`), Auth
+code (field `38`), Field 47 (truncated to ~40 characters with the full value in a hover tooltip).
+
+**Log viewer modal**: fetches `/logs?format=text` for the selected actor, auto-refreshes every 2s
+while open, has an export-to-file button (client-side `Blob`/`URL.createObjectURL`, no server round
+trip needed for the download itself).
+
+**Log-level display (fixed; this was an open bug in the Java doc's original design, carried forward
+once in this doc and now corrected)**: `actor_status()` on the monitor backend fetches `GET
+/log_level` alongside `GET /stats` and folds the result into `stats.log_level`, so `/api/status`
+reports each actor's real current level, not just its traffic counters. On the frontend, the
+`<select>`'s `selected` option is computed from `stats.log_level` instead of being hardcoded to
+`INFO`, and a client-side `pendingLogLevel` map records the level the user just picked immediately
+on `change` (before the `POST /log_level` round-trip resolves) and keeps that value authoritative
+across renders until a subsequent poll's `stats.log_level` echoes it back — this avoids reverting to
+a stale value while the POST is in flight.
+
+Getting the *value* right wasn't sufficient on its own, though: the original per-poll re-render
+(`container.innerHTML = allCardsHTML`, rebuilding every card from scratch every 2s) unconditionally
+destroys and recreates every `<select>` on each tick, including whichever one the user currently has
+open. A first attempt at fixing this tracked which actor's `<select>` had focus and re-focused the
+freshly-rebuilt replacement afterward — that's not enough: assigning a parent's `innerHTML` removes
+*all* existing children before the new ones are parsed in, so the old (focused, possibly
+mid-native-dropdown) `<select>` is torn out of the document regardless of whether a replacement gets
+refocused afterward. In practice this meant a poll tick landing while the user had the dropdown
+physically open — trivially possible, since opening a picker and clicking an option easily spans
+more than the 2-second poll interval — would silently close it and discard the click, which is
+exactly the "selecting DEBUG doesn't do anything" symptom this was meant to fix. (It also meant
+naively reading the focus-tracking variable *after* the rebuild doesn't work either: removing a
+focused element from the DOM fires its `blur` handler synchronously, nulling the tracking variable
+out before any post-rebuild code runs — it must be snapshotted into a local before the rebuild.)
+
+The actual fix (`patchCards()`) abandons whole-container `innerHTML` rebuilds in favor of patching
+one `.card` element at a time: for each actor, if it's not the one whose `<select>` currently has
+focus (tracked via `onfocus`/`onblur` into `focusedLogLevelActor`), replace just that card's
+`outerHTML`; if it *is* the focused actor, skip it entirely for this tick, leaving its DOM node —
+and any open native dropdown, and whatever option the user is mid-click on — completely untouched.
+Once the user commits a selection, `onchange` calls `this.blur()` so the card resumes normal
+per-poll updates on the next tick. Router cards are patched the same way inside a per-partner
+`<section data-partner="...">` wrapper (created once and reused, rather than being torn down and
+recreated every tick like the rest of `#router-groups` previously was), so a focused router card
+survives poll ticks the same way a simulator card does.
 
 ---
 
@@ -1373,48 +1635,165 @@ crypto call** — `Dispatcher::process` only calls `crypto.validate` when `mti =
 
 ## Container
 
-`Dockerfile`: `ubuntu:22.04` (or `mcr.microsoft.com/devcontainers/base:ubuntu`, matching the Java
-project's base image choice) + `build-essential` (g++ ≥ 11, supporting C++20) + `cmake` (≥ 3.20) +
-`libssl-dev` + `git` (needed by CMake `FetchContent`'s git-clone step) + `nodejs`/`npm` (+
-`npm install -g @anthropic-ai/claude-code`, matching this repo family's existing container
-convention — omit if that convention doesn't apply in the target environment). `WORKDIR /workspace`.
+All four binaries are built into the image itself (at `docker build` time) and launched together
+as one `docker-compose` service — **not** the idle-container-plus-`docker exec` pattern some sibling
+projects in this repo family use. Simpler for this project's scope: one container, one command,
+`network_mode: host` so every actor's port is directly reachable at `localhost` from both the other
+actors and the host-side monitor, with no port-mapping bookkeeping.
 
-`start.sh`: ensures the Docker daemon is running (`dockerstart.sh`), `docker build --network host`
-the image, remove any pre-existing `xv7cpp` container, then `docker run -d --name xv7cpp --network
-host -v <project>:/workspace -w /workspace xv7cpp tail -f /dev/null` — the container idles; all
-actual work happens via `docker exec`. `--network host` means this container and any other project
-using the same default ports (5000-5002, 8080-8083, 8090) — including a live `xv6java` container —
-cannot run at the same time; this is the accepted drop-in-replacement tradeoff from the "Coexistence"
-decision above.
+**`Dockerfile`**:
+```dockerfile
+FROM ubuntu:22.04
 
-`stop.sh`: `docker stop xv7cpp && docker rm xv7cpp`.
+RUN apt-get update && apt-get install -y \
+    cmake g++ git libssl-dev pkg-config \
+    && rm -rf /var/lib/apt/lists/*
 
-`dockerstart.sh`: unchanged rationale from the Java doc — separate from `start.sh` so it can be
-re-run standalone; checks `docker info`, tries `sudo service docker start`, falls back to a direct
-`sudo dockerd` in the background if that doesn't work within ~10s.
+WORKDIR /src
+COPY . .
 
-`terminal.sh`: `docker exec -it xv7cpp bash`.
+# -j2, not -j$(nproc) -- see the OOM pitfall below.
+RUN mkdir -p build && cd build && \
+    cmake -DCMAKE_BUILD_TYPE=Release .. && \
+    make -j2
 
-Build inside the container: `docker exec xv7cpp cmake -S . -B build && docker exec xv7cpp cmake
---build build -j` → produces `build/router`, `build/crypto_host`, `build/downstream_host`,
-`build/upstream_host`. Run tests: `docker exec xv7cpp ctest --test-dir build`.
+RUN mkdir -p /config
+ENV LD_LIBRARY_PATH=/usr/local/lib:/usr/lib
+ENV PATH=/src/build:$PATH
+EXPOSE 5000 5001 5002 8080 8081 8082 8083
+CMD ["/bin/bash"]
+```
+
+**`docker-compose.yml`**: one service, `network_mode: host`, binds `./config` to `/config` (the
+config file and `pans_defined.json` live here, editable on the host without a rebuild) and `./src`
+to `/src/src` (source visible for reference/debugging — irrelevant to the already-built binaries in
+`/src/build`, which aren't affected by this mount since only `/src/src` is bound over). `init: true`
+tells Docker Compose to run a minimal init process (`tini`) as the container's actual PID 1, ahead of
+the `command` below — see the pitfall immediately after for why this isn't optional. The `command`
+launches all four actors in the background and then idles forever (`sleep infinity`), rather than
+`wait`ing on them or `exec`ing the last one.
+
+```yaml
+services:
+  xv7cpp:
+    build: .
+    container_name: xv7cpp
+    network_mode: host
+    init: true
+    volumes:
+      - ./src:/src/src
+      - ./config:/config
+    environment:
+      - CONFIG_PATH=/config/router_1.json
+    command:
+      - bash
+      - -c
+      - |
+        /src/build/crypto_host --config /config/router_1.json &
+        /src/build/downstream_host --config /config/router_1.json &
+        /src/build/upstream_host --config /config/router_1.json &
+        /src/build/router_main --config /config/router_1.json &
+        sleep infinity
+```
+
+**Pitfall — a multi-line double-quoted YAML scalar for `command` (`command: bash -c "` followed by
+further lines, closed on a later line) is fragile and can fail to parse at all**, with an unhelpful
+`go-yaml load error in scanner (while scanning a quoted scalar) ... found unexpected end of stream`
+that gives no hint the fix is "use a different YAML construct," not "there's a typo somewhere in
+this string." Use the YAML list-plus-literal-block-scalar form shown above instead (`command:` as a
+list, whose last element is a `|` block scalar containing the actual multi-line script) — it parses
+unambiguously and needs no escaping for the embedded quotes/newlines a shell script naturally has.
+
+**Pitfall — the container's own lifecycle must be decoupled from every individual actor's
+lifecycle, or the dashboard's per-actor stop/restart and `/api/stop_all`+`/api/start_all` break in a
+way that only shows up once you actually drive them, not during a plain build-and-smoke-test.** Two
+tempting-looking `command` endings both fail this, for different reasons:
+- **`... & exec /src/build/router_main --config /config/router_1.json`** (background the first
+  three, `exec` the last, no `init: true`): `exec` replaces the shell's own process image without
+  forking, so `router_main` becomes the container's PID 1. That sounds like a feature (`docker
+  stop` delivers `SIGTERM` straight to a real actor instead of an intermediary shell) but it means
+  stopping *just the router* — including via the router's own `/stop` HTTP route, which is
+  precisely what the dashboard's `/api/actor/<router>/stop` and `/api/stop_all` call — terminates
+  the **entire container** the instant `router_main`'s `main()` returns, since a container's
+  lifetime is tied to whether its PID 1 is still running. Every other actor gets hard-killed along
+  with it (observed as the container exiting with code 139), and any subsequent
+  `docker exec -d ...` to relaunch anything fails outright because the container no longer exists.
+- **`... & /src/build/router_main --config /config/router_1.json & wait`** (background all four,
+  then a bare `wait` with no `-n`): fixes the "stopping just the router kills everything" problem,
+  but introduces a different one — `wait` (no arguments) blocks until *every* backgrounded job has
+  exited, so stopping all four actors via the dashboard's `/api/stop_all` (a legitimate, intended
+  operation — "pause everything, inspect state, restart") makes the wrapper script itself finish and
+  exit, which **still** ends the container (cleanly, exit code 0 this time, but just as unable to
+  `docker exec` anything back in afterward).
+
+The fix needs both pieces together: `init: true` (so `tini`, not `bash` or `router_main`, is the
+real PID 1 — a plain child of `tini` exiting doesn't end the container) *and* ending the script with
+an unconditional `sleep infinity` instead of `wait` (so the wrapper script — and therefore the
+container — stays alive regardless of whether zero, some, or all four actor processes are still
+running). With both in place: killing or stopping any subset of actors, including all four, leaves
+the container itself running and `docker exec -d`-reachable; `docker stop`/`docker compose down`
+still tears the whole thing down via `SIGTERM` to `tini` (forwarded to the wrapper script, whose
+default handling for an unhandled `SIGTERM` terminates it) with `SIGKILL` of the whole cgroup as the
+guaranteed fallback after the grace period, regardless of whether every child received or handled
+the signal individually.
+
+**`start.sh`**: `docker compose up -d --build`, then polls `http://localhost:8080/stats` (the
+router's command port) up to 30 times, 1s apart, before reporting ready — `--build` means every
+invocation re-verifies the image is current, at the cost of a full rebuild whenever the Dockerfile
+or any `COPY`'d source file changed since the last build (Docker's own layer cache still short-
+circuits an invocation where nothing changed).
+
+**`stop.sh`**: `docker compose down` — stops and removes the container. `SIGTERM` reaches
+`router_main` directly (see the `exec` note above); no actor-level graceful-shutdown handling is
+required for this to work, since the whole container is being torn down anyway, not just one actor.
+
+**`monitor.sh`**: checks that the `requests` and `flask` Python packages are importable, then runs
+`python3 monitor/main.py` in the foreground (`Ctrl+C`, or the dashboard's Stop-All-then-`/stop`
+path, to end it). Runs on the **host**, never bundled into the container image — the container has
+no Python at all, deliberately, since the monitor's only job is to talk to each actor's
+`CommandServer` over plain HTTP, and `network_mode: host` already makes every command port reachable
+at `localhost` without any in-container Python needed to bridge that.
+
+Build inside the container (only needed again after editing source without rebuilding the image,
+e.g. while iterating): `docker exec xv7cpp bash -c "cd build && cmake --build . -j2"`. Run tests:
+`docker exec xv7cpp bash -c "cd build && ctest"` (or `docker exec xv7cpp ./build/xv6_tests` directly).
+
+**Pitfall — a separate ad-hoc dev container for fast local compile-checks (`xv7cpp_build`, e.g.
+`docker run -d --name xv7cpp_build -v $(pwd):/workspace gcc:13 sleep infinity`, not part of
+`docker-compose.yml`) is convenient for iterating on unit tests without waiting on the full
+`docker-compose build`, but its binaries must never be copied directly into the deployed `xv7cpp`
+container.** `gcc:13`'s base image ships a newer `libstdc++` than the `xv7cpp` image's `ubuntu:22.04`
+base, so a `router_main` built in `xv7cpp_build` fails at runtime in `xv7cpp` with `libstdc++.so.6:
+version 'GLIBCXX_3.4.32' not found` — the two containers are not binary-compatible, only source-
+compatible. Anything that needs to actually *run* as part of the stack must be built via `docker
+compose build` (which uses the Dockerfile's own `ubuntu:22.04` + `apt`-installed `g++`), not
+`docker cp`'d in from `xv7cpp_build`. Relatedly: if `xv7cpp_build` is bind-mounted straight onto the
+host project root (as in the example above) and its own `cmake`/`make` was ever run there, the
+resulting host-side `build/` directory (gitignored, but still present on disk) gets picked up by the
+Dockerfile's `COPY . .` on the next `docker compose build` — its `CMakeCache.txt` records
+`/workspace/build` as the source dir, which doesn't match `/src` inside the image, so `cmake`
+refuses to reuse it and the image build fails outright. Run `rm -rf build/` on the host before
+`docker compose build` if `xv7cpp_build` (or any other bind-mounted dev container) was used earlier
+in the same session.
 
 **Pitfall — unqualified `-j` (use every core) can OOM-kill the compiler in a memory-constrained
-container**, and the failure mode is easy to misdiagnose as a source bug rather than a resource
+build host**, and the failure mode is easy to misdiagnose as a source bug rather than a resource
 one. `router_main.cpp` is the single heaviest translation unit in this project — it pulls in
 `httplib.h` (header-only, large) and the full `RouterConfig`/`RouterSession`/`Dispatcher` object
-graph in one file — and under `-j8` on an 8-core/~2.8GB container, `cc1plus` compiling that one file
-concurrently with several others gets killed by the OOM killer while every *other* target (the
-shared/router static libs, the three simulators, the test binary) links and builds fine. The
-observable symptom is a `make`/`ninja` error report naming only `router_main.cpp` — `c++: fatal
-error: Killed signal terminated program cc1plus` — with everything else reported as built
-successfully, which looks like a compiler crash specific to that file rather than what it actually
-is (memory exhaustion under parallelism). If a build fails this way: re-run with a smaller `-j` (or
-`-j1` just for the affected target, e.g. `cmake --build build -j1 --target router_main`) rather than
-assuming the source changed underneath it; a memory-constrained CI/dev container should default to
-a bounded `-j` (e.g. `-j$(nproc --ignore=4)` or a fixed small number) rather than unqualified `-j`.
+graph in one file — and under `-j8` on an 8-core/~2.8GB machine (true both for a constrained CI
+runner and for `docker build` on a memory-limited dev host — this is not just a container-internal
+concern), `cc1plus` compiling that one file concurrently with several others gets killed by the OOM
+killer while every *other* target (the shared/router static libs, the three simulators, the test
+binary) links and builds fine. The observable symptom is a `make`/`ninja` error report naming only
+`router_main.cpp` — `c++: fatal error: Killed signal terminated program cc1plus` — with everything
+else reported as built successfully, which looks like a compiler crash specific to that file rather
+than what it actually is (memory exhaustion under parallelism). If a build fails this way: re-run
+with a smaller `-j` (or `-j1` just for the affected target, e.g. `cmake --build build -j1 --target
+router_main`) rather than assuming the source changed underneath it. The Dockerfile above already
+uses `-j2` as a conservative default for exactly this reason — don't "fix" it back to `-j$(nproc)`
+without confirming the build host has enough memory per core to support it.
 
-**Default port assignments** (unchanged from the Java version — see "Coexistence" decision):
+**Default port assignments**:
 - Router upstream listen: 5000
 - Downstream host IMS: 5001
 - Crypto host REST: 5002
@@ -1424,43 +1803,47 @@ a bounded `-j` (e.g. `-j$(nproc --ignore=4)` or a fixed small number) rather tha
 - Upstream command API: 8083
 - Monitor: 8090
 
+`--network host` means this container and any other project using the same default ports —
+including a live `xv6java` container from a sibling project in this repo family — cannot run at the
+same time; accepted drop-in-replacement tradeoff, same as the "Coexistence" decision above.
+
 ---
 
 ## Running
 
 ```bash
-./start.sh                            # build image + start the container (idle, ready for docker exec)
-docker exec xv7cpp cmake -S . -B build
-docker exec xv7cpp cmake --build build -j
-./monitor_start.sh                    # dashboard on http://localhost:8090, on the HOST
+./start.sh      # docker compose up -d --build; polls localhost:8080/stats until ready
+./monitor.sh    # dashboard on http://localhost:8090, on the HOST (Ctrl+C to stop)
 # work in the dashboard: Start All -> upload a CSV -> Start -> watch /results
-./monitor_stop.sh
-./stop.sh
+./stop.sh       # docker compose down
 ```
 
-Individual actors, each as `docker exec -d xv7cpp ./build/<binary> --config config/<name>.json`,
-using the `BINARY_BY_TYPE` names above.
+All four binaries are already running as soon as `start.sh` reports ready — `docker-compose`
+launches them directly (see the `Dockerfile`/`docker-compose.yml` above), no separate per-actor
+launch step is needed for the common case. The dashboard's per-actor Start/Stop buttons exist for
+finer-grained control on top of that default (e.g. after killing one actor via the dashboard's
+`kill` command for a deliberate crash test, restart just that one with the dashboard's Start button,
+via `docker exec -d`, without tearing down the whole container).
 
-`run_test.sh <csv_file>` — an end-to-end CLI driver, run on the **host**, same shape as the Java
-version's script:
-1. Builds (`cmake --build build -j`) unless run with `--manual`.
-2. Launches all four actors via `docker exec -d`, as above.
-3. Polls each actor's `/stats` with `curl -s -o /dev/null -f` (fail-fast on non-2xx) up to 30 times,
-   1s apart.
-4. Uploads the CSV to the upstream's `/upload`.
-5. Retries `GET /start` up to 15 times, 1s apart, tolerating an initial 503.
-6. Polls `/results` until every row has a response or 30 seconds elapse.
-7. Prints a PAN/RC/auth-code/field-47 report and the router's 30-second stats.
-8. On any exit path (`trap cleanup EXIT`), POSTs `/stop` to every actor's command port — not a
-   host-side PID kill, for the same reason as the Java version: actors run inside the container's
-   own PID namespace via `docker exec -d`, unreachable by a host-side signal.
+Manual/CLI equivalent of the same workflow (no dashboard) — for each actor, `curl -s
+http://localhost:<command_port>/stats` to check liveness; `curl -F 'file=@your.csv'
+http://localhost:8083/upload` then `curl http://localhost:8083/start` then `curl
+http://localhost:8083/results` to drive a test run end-to-end against `upstream_host` directly.
 
-`run_test.sh --manual <csv_file>` skips steps 1–2 and drives already-running actors.
+**Not built in this baseline** (documented here so a later pass has a starting point, per the same
+"listed, not silently expected" principle as "Future optimizations" below): an automated
+`run_test.sh <csv_file>` CLI driver — build, launch all four actors, poll readiness, upload a CSV,
+retry `/start` past an initial 503 (the upstream's TCP handshake with the router can still be in
+flight even after `/stats` itself answers), poll `/results` to completion, print a PAN/RC/auth-
+code/field-47 report, and `trap ... EXIT` a best-effort `/stop` to every actor's command port on any
+exit path (not a host-side PID kill — actors run inside the container's own PID namespace via
+`docker exec -d`/`docker-compose`, unreachable by a host-side signal). The manual/CLI workflow above
+and the dashboard both cover the same ground interactively in the meantime.
 
 ### Glue-script safety checklist (unchanged from the Java doc)
 
-Any re-runnable script (`run_test.sh`, `monitor_start.sh`, `monitor_stop.sh`) must fail loud, not
-fail silent:
+Any re-runnable script (`start.sh`, `stop.sh`, `monitor.sh`, or a future `run_test.sh`) must fail
+loud, not fail silent:
 
 - **Every HTTP readiness/polling check must fail-fast on a bad response** — `curl -s -f`.
 - **Never let a single flaky iteration of a polling/retry loop kill the whole script** under `set
@@ -1482,14 +1865,16 @@ counts), and one full-stack integration test wiring crypto/downstream/router/ups
 in-process (constructing and running each actor's `run()`/equivalent directly in the test binary,
 not via subprocess) with CSV-equivalent rows in and field 39 asserted on the results.
 
-**`run_test.sh`**, exercised for real against actual `docker exec` subprocesses (not just in-process
-Catch2) — CSV in, `/start`, poll `/results`, assert on field 39, verify clean teardown (no orphaned
-processes, no ports left bound after the script exits).
+**Manual/CLI end-to-end verification**, exercised for real against the actual running container (not
+just in-process Catch2) — `./start.sh`, upload a CSV to `upstream_host`'s `/upload`, `GET /start`,
+poll `/results`, assert on field 39, then `./stop.sh` and verify clean teardown (no orphaned
+processes, no ports left bound). A `run_test.sh` automating this exact sequence is documented but not
+built in this baseline — see "Running" above.
 
-**The dashboard itself**, exercised live in a browser — unchanged from the Java doc: "Start All"
-launches all 4 actors and shows them connected; CSV upload + Start + results through the dashboard's
-own proxy routes produces correct response codes; "Stop All" cleanly stops all 4 actors;
-`monitor_stop.sh` frees port 8090 and removes its pidfile.
+**The dashboard itself**, exercised live in a browser: "Start All" launches all 4 actors and shows
+them connected; CSV upload + Start + results through the dashboard's own proxy routes produces
+correct response codes; "Stop All" cleanly stops all 4 actors; `Ctrl+C` (or the dashboard's own
+Stop-All-then-`/stop` path) frees port 8090.
 
 ---
 
@@ -1500,7 +1885,12 @@ own proxy routes produces correct response codes; "Stop All" cleanly stops all 4
   command port beyond loopback.
 - Crypto traffic between the router and `crypto_host` is plaintext HTTP (no TLS).
 - `pans_defined.json` stores master keys in plaintext JSON — a test fixture only.
-- The known monitor log-level display bug is intentionally carried forward as documented.
+- **Fixed in this port** (was intentionally-carried-forward in the Java doc): the monitor's
+  log-level display bug — see the "Log-level display (fixed...)" note in the Monitor section above.
+- **New to this port**: the router now has real `LOG_DEBUG` message-level tracing (received/forwarded
+  MTIs, the downstream PING pipe-cleaner skip, dispatcher queue/forward events) — see the
+  "DEBUG-level message tracing" note under `Dispatcher` above. The Java doc's `DEBUG`/`FINE` level was
+  never backed by any call sites at all; only the router got this treatment here, not the simulators.
 - **New to this port**: no per-MTI schema validation (see "ISO 8583 codec" above) — a message
   carrying a field its MTI shouldn't have decodes silently rather than being rejected. Accepted
   tradeoff for dropping `j8583`/`test_spec.xml`; revisit only if this ever needs to matter.

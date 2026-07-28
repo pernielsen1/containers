@@ -73,6 +73,7 @@ int main(int argc, char** argv) {
                               send_json(res, 200, active_dispatcher->purge());
                           });
         cmd.start();
+        LOG_INFO("router command API listening on port " + std::to_string(cfg.command_port));
 
         std::unique_ptr<UpstreamServer> srv_sock;
         if (cfg.upstream.mode == "server") {
@@ -89,6 +90,7 @@ int main(int argc, char** argv) {
                 continue;
             }
 
+            LOG_INFO("router connected to downstream, dispatcher active");
             {
                 std::lock_guard lock(active_dispatcher_mutex);
                 active_dispatcher = std::shared_ptr<Dispatcher>(session->dispatcher(), [](Dispatcher*) {});
@@ -98,9 +100,11 @@ int main(int argc, char** argv) {
                 std::lock_guard lock(active_dispatcher_mutex);
                 active_dispatcher = nullptr;
             }
-
             if (!stop_event.is_set()) {
+                LOG_INFO("router session ended, reestablishing");
                 wait_reestablish(stop_event, cfg);
+            } else {
+                LOG_INFO("router session ended, stop requested");
             }
         }
 
