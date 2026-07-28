@@ -1,0 +1,9 @@
+# convert the java router spec to a c plus plus 
+the build_router_target.md file contain a full spec for building a router, simulators and monitor 
+all residing in a container
+
+# new task 
+plan before coding and ask questions for clarification
+create a new spec build_router_target_cpp.md which contains a spec for building a c plus plus implementation of the router and simulators - the front end monitor should be kept in python.
+again it should be kept in a container but all source files mapped to host
+

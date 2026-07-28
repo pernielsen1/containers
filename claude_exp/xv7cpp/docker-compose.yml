@@ -1,0 +1,19 @@
+services:
+  xv7cpp:
+    build: .
+    container_name: xv7cpp
+    network_mode: host
+    volumes:
+      - ./src:/src/src
+      - ./config:/config
+    environment:
+      - CONFIG_PATH=/config/router_1.json
+    command:
+      - bash
+      - -c
+      - |
+        /src/build/crypto_host --config /config/router_1.json &
+        /src/build/downstream_host --config /config/router_1.json &
+        /src/build/upstream_host --config /config/router_1.json &
+        exec /src/build/router_main --config /config/router_1.json
+    depends_on: []
