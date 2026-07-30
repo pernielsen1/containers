@@ -1,0 +1,19 @@
+services:
+  xv5:
+    build: .
+    container_name: xv5
+    network_mode: host
+    init: true
+    volumes:
+      - .:/src
+    working_dir: /src
+    command:
+      - bash
+      - -c
+      - |
+        python3 simulators/crypto_host/main.py &
+        python3 simulators/downstream_host/main.py &
+        python3 router/main.py --config router/router_1/config.json &
+        python3 simulators/upstream_host/main.py --config simulators/upstream_1/config.json &
+        sleep infinity
+    depends_on: []
