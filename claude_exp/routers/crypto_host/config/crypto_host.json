@@ -1,0 +1,13 @@
+{
+  "name": "crypto_host",
+  "log_level": "INFO",
+  "pans_defined": "pans_defined.json",
+  "yellow_threshold_seconds": 60,
+  "crypto": {
+    "host": "localhost",
+    "port": 5099,
+    "command_port": 8099,
+    "plugin_id": "emv-plugin",
+    "bearer_token": "crypto-token-456"
+  }
+}

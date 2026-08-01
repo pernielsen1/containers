@@ -1,0 +1,48 @@
+{
+  "name": "router_cpp-router",
+  "log_level": "INFO",
+  "command_port": 8080,
+  "command_bind_host": "0.0.0.0",
+  "command_auth_token": "test-token-123",
+  "pans_defined": "pans_defined.json",
+
+  "upstream": {
+    "mode": "server",
+    "host": "0.0.0.0",
+    "port": 5000,
+    "command_port": 8083,
+    "retry_seconds": 5,
+    "ping_0800_seconds": 30,
+    "framing": {
+      "header_hex": "",
+      "length_field_type": "ASCII",
+      "length_field_bytes": 4,
+      "max_message_bytes": 65536
+    }
+  },
+
+  "downstream": {
+    "host": "localhost",
+    "port": 5001,
+    "command_port": 8081,
+    "irm_id": "ROUTER01",
+    "client_id": "CLIENT01"
+  },
+
+  "crypto": {
+    "host": "localhost",
+    "port": 5099,
+    "command_port": 8082,
+    "plugin_id": "emv-plugin",
+    "bearer_token": "crypto-token-456"
+  },
+
+  "worker_threads": 8,
+  "reestablish_seconds": 10,
+  "yellow_threshold_seconds": 40,
+  "queue_maxsize": 1000,
+  "pending_ttl_seconds": 30,
+  "crypto_breaker_threshold": 5,
+  "crypto_breaker_cooldown_seconds": 30,
+  "reconnect_jitter_seconds": 2.0
+}

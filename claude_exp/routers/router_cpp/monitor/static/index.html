@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>router_cpp Router Dashboard</title>
+<style>
+  :root {
+    --green: #2e7d32; --yellow: #f9a825; --red: #c62828; --gray: #9e9e9e;
+    --bg: #f5f5f5; --card-bg: #ffffff; --border: #ddd; --text: #222;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 16px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  header h1 { font-size: 20px; margin: 0; flex: 1; }
+  button { cursor: pointer; border: 1px solid var(--border); background: var(--card-bg); border-radius: 4px; padding: 6px 12px; font-size: 13px; }
+  button:hover { background: #eee; }
+  button.primary { background: #1565c0; color: white; border-color: #1565c0; }
+  button.danger { background: #c62828; color: white; border-color: #c62828; }
+  #spinner { display: none; font-size: 13px; color: #555; }
+  #spinner.active { display: inline; }
+  h2 { font-size: 15px; margin: 20px 0 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-size: 12px; }
+  .card-title { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .dot.green { background: var(--green); } .dot.yellow { background: var(--yellow); }
+  .dot.red { background: var(--red); } .dot.gray { background: var(--gray); }
+  .conns { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0; }
+  .conn { display: flex; align-items: center; gap: 3px; font-size: 11px; color: #555; }
+  .stat-row { display: flex; justify-content: space-between; margin: 2px 0; }
+  .card-actions { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+  .card-actions button { padding: 3px 8px; font-size: 11px; }
+  select.log-level { font-size: 11px; padding: 2px; }
+  #test-runner { background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+  #test-runner label { font-size: 12px; margin-right: 6px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 12px; }
+  th, td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; }
+  th { background: #fafafa; }
+  td.rc-ok { background: #e8f5e9; font-weight: 600; }
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 10; }
+  .modal-backdrop.active { display: flex; align-items: center; justify-content: center; }
+  .modal { background: white; border-radius: 6px; padding: 16px; width: 80%; max-width: 800px; max-height: 80vh; display: flex; flex-direction: column; }
+  .modal pre { flex: 1; overflow: auto; background: #1e1e1e; color: #ddd; padding: 8px; font-size: 11px; white-space: pre-wrap; }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  code.cmd { display: block; background: #1e1e1e; color: #9cdcfe; padding: 6px 8px; border-radius: 4px; font-size: 11px; white-space: pre-wrap; margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>router_cpp Router Dashboard</h1>
+  <span id="spinner">starting...</span>
+  <button class="primary" onclick="startAll()">Start All</button>
+  <button class="danger" onclick="stopAll()">Stop All</button>
+</header>
+
+<div id="router-groups"></div>
+
+<h2>Simulators</h2>
+<div id="simulator-cards" class="grid"></div>
+
+<h2>Test Runner</h2>
+<div id="test-runner">
+  <label>Upstream: <select id="upstream-select"></select></label>
+  <label>CSV: <select id="csv-select"><option value="">-- host test_csv_files/ --</option></select></label>
+  <button onclick="refreshCsvList()">Refresh List</button>
+  <button onclick="uploadSelectedPath()">Upload Selected</button>
+  <label style="margin-left:12px">or upload a file: <input type="file" id="csv-file"></label>
+  <button onclick="uploadFile()">Upload File</button>
+  <button class="primary" onclick="startUpstream()">Start</button>
+  <button onclick="refreshResults()">Refresh Results</button>
+  <table id="results-table">
+    <thead><tr><th>PAN</th><th>RC</th><th>Auth code</th><th>Field 47</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<div class="modal-backdrop" id="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <strong id="modal-title"></strong>
+      <div>
+        <button onclick="exportModalLog()">Export</button>
+        <button onclick="closeModal()">Close</button>
+      </div>
+    </div>
+    <pre id="modal-body"></pre>
+  </div>
+</div>
+
+<script>
+const POLL_MS = 2000;
+let actorsCache = [];
+let logModalActor = null;
+let logModalTimer = null;
+const LOG_LEVELS = ['DEBUG', 'INFO', 'WARNING', 'ERROR'];
+// Log level the user picked but that /api/status hasn't echoed back yet (POST is in flight, or a
+// poll tick landed between the POST and the actor applying it). Kept authoritative over the
+// server-reported value until they match, so the dropdown doesn't flicker back to the old level.
+let pendingLogLevel = {};
+// Actor whose log-level <select> currently has focus. patchCards() skips rebuilding that one card
+// entirely while this is set, so a poll tick mid-interaction can't tear the control (or an open
+// native dropdown) out from under the user.
+let focusedLogLevelActor = null;
+
+async function fetchJSON(url, opts) {
+  const res = await fetch(url, opts);
+  return res.json();
+}
+
+function dotClass(status) {
+  return {green: 'green', yellow: 'yellow', red: 'red'}[status] || 'gray';
+}
+
+function renderConnections(conns) {
+  if (!conns) return '';
+  return '<div class="conns">' + Object.entries(conns).map(([k, v]) =>
+    `<span class="conn"><span class="dot ${v ? 'green' : 'red'}"></span>${k}</span>`
+  ).join('') + '</div>';
+}
+
+function currentLogLevelFor(actor, stats) {
+  const pending = pendingLogLevel[actor.name];
+  if (pending) {
+    if (stats.log_level === pending) {
+      delete pendingLogLevel[actor.name];
+      return stats.log_level;
+    }
+    return pending;
+  }
+  return stats.log_level || 'INFO';
+}
+
+function renderCard(actor, status) {
+  const stats = status.stats || {};
+  const dot = dotClass(status.status);
+  const isRouter = actor.type === 'router';
+  const gauges = stats.gauges || {};
+  const currentLevel = currentLogLevelFor(actor, stats);
+  const levelOptions = LOG_LEVELS.map(l =>
+    `<option value="${l}"${l === currentLevel ? ' selected' : ''}>${l}</option>`).join('');
+  return `
+    <div class="card" data-actor="${actor.name}">
+      <div class="card-title"><span class="dot ${dot}"></span>${actor.name} <span style="font-weight:400;color:#888">(${actor.type})</span></div>
+      ${renderConnections(stats.connections)}
+      <div class="stat-row"><span>sent / recv (total)</span><span>${stats.sent_total ?? '-'} / ${stats.recv_total ?? '-'}</span></div>
+      <div class="stat-row"><span>sent / recv (30s)</span><span>${stats.sent_30s ?? '-'} / ${stats.recv_30s ?? '-'}</span></div>
+      <div class="stat-row"><span>sent / recv (60s)</span><span>${stats.sent_60s ?? '-'} / ${stats.recv_60s ?? '-'}</span></div>
+      <div class="stat-row"><span>last recv</span><span>${stats.last_recv_datetime ?? 'never'}</span></div>
+      ${isRouter ? `<div class="stat-row"><span>queue depth</span><span>${gauges.queue_depth ?? '-'}</span></div>
+                    <div class="stat-row"><span>pending count</span><span>${gauges.pending_count ?? '-'}</span></div>` : ''}
+      <div class="stat-row">
+        <span>log level</span>
+        <select class="log-level" data-actor="${actor.name}"
+                onchange="setLogLevel('${actor.name}', this.value); this.blur();"
+                onfocus="focusedLogLevelActor='${actor.name}'"
+                onblur="if (focusedLogLevelActor === '${actor.name}') focusedLogLevelActor = null">
+          ${levelOptions}
+        </select>
+      </div>
+      <div class="card-actions">
+        <button onclick="openLogs('${actor.name}')">Logs</button>
+        <button onclick="showCommands('${actor.name}')">Commands</button>
+        <button onclick="launchActor('${actor.name}')">Start</button>
+        <button onclick="stopActor('${actor.name}')">Stop</button>
+        ${isRouter ? `<button onclick="purgeQueue('${actor.name}')">Purge Queue</button>` : ''}
+      </div>
+    </div>`;
+}
+
+// Patches `container`'s .card children to match `actorList`, one card at a time, instead of
+// wholesale `container.innerHTML = ...`. This matters because assigning a parent's innerHTML always
+// destroys *every* existing child first (even ones the new string doesn't mention), so there is no
+// way to "splice a preserved node back in" after the fact -- by the time you'd do that, the native
+// picker on a focused/open <select> has already been torn out of the document and closed. Patching
+// per card means the currently-focused actor's card (if any) can be skipped entirely, so its
+// <select> -- and any open native dropdown, and whatever option the user is mid-click on -- is never
+// touched. Every other card still gets replaced fresh each poll tick as before.
+function patchCards(container, actorList, statusMap) {
+  const seen = new Set();
+  for (const actor of actorList) {
+    seen.add(actor.name);
+    const existing = container.querySelector(`:scope > .card[data-actor="${actor.name}"]`);
+    if (actor.name === focusedLogLevelActor && existing) continue;
+    const html = renderCard(actor, statusMap[actor.name] || {});
+    if (existing) {
+      existing.outerHTML = html;
+    } else {
+      container.insertAdjacentHTML('beforeend', html);
+    }
+  }
+  container.querySelectorAll(':scope > .card').forEach(el => {
+    if (!seen.has(el.dataset.actor)) el.remove();
+  });
+}
+
+async function refreshAll() {
+  const [actors, status, starting] = await Promise.all([
+    fetchJSON('/api/actors'),
+    fetchJSON('/api/status'),
+    fetchJSON('/api/starting'),
+  ]);
+  actorsCache = actors;
+  document.getElementById('spinner').classList.toggle('active', starting.starting);
+
+  const routers = actors.filter(a => a.type === 'router');
+  const simulators = actors.filter(a => a.type !== 'router');
+
+  const groupsByPartner = {};
+  for (const r of routers) {
+    const key = r.partner_id || 'default';
+    (groupsByPartner[key] = groupsByPartner[key] || []).push(r);
+  }
+  const groupsEl = document.getElementById('router-groups');
+  const seenPartners = new Set();
+  for (const [partner, list] of Object.entries(groupsByPartner)) {
+    seenPartners.add(partner);
+    let section = groupsEl.querySelector(`:scope > section[data-partner="${partner}"]`);
+    if (!section) {
+      section = document.createElement('section');
+      section.dataset.partner = partner;
+      section.innerHTML = `<h2>Routers &mdash; partner: ${partner}</h2><div class="grid"></div>`;
+      groupsEl.appendChild(section);
+    }
+    patchCards(section.querySelector('.grid'), list, status);
+  }
+  groupsEl.querySelectorAll(':scope > section').forEach(el => {
+    if (!seenPartners.has(el.dataset.partner)) el.remove();
+  });
+
+  patchCards(document.getElementById('simulator-cards'), simulators, status);
+
+  const upstreamSelect = document.getElementById('upstream-select');
+  const upstreams = actors.filter(a => a.type === 'upstream');
+  if (upstreamSelect.dataset.filled !== String(upstreams.length)) {
+    upstreamSelect.innerHTML = upstreams.map(a => `<option value="${a.name}">${a.name}</option>`).join('');
+    upstreamSelect.dataset.filled = String(upstreams.length);
+  }
+}
+
+async function refreshCsvList() {
+  const files = await fetchJSON('/api/csv_files');
+  const sel = document.getElementById('csv-select');
+  sel.innerHTML = '<option value="">-- host test_csv_files/ --</option>' +
+    files.map(f => `<option value="${f}">${f}</option>`).join('');
+}
+
+function selectedUpstream() {
+  return document.getElementById('upstream-select').value;
+}
+
+async function startAll() {
+  await fetchJSON('/api/start_all', {method: 'POST'});
+}
+async function stopAll() {
+  await fetchJSON('/api/stop_all', {method: 'POST'});
+}
+async function launchActor(name) {
+  await fetchJSON(`/api/actor/${name}/launch`, {method: 'POST'});
+}
+async function stopActor(name) {
+  await fetchJSON(`/api/actor/${name}/stop`, {method: 'POST'});
+}
+async function purgeQueue(name) {
+  if (!confirm(`Purge ${name}'s in-flight queue and pending map? In-flight transactions will be dropped.`)) return;
+  const res = await fetchJSON(`/api/actor/${name}/dispatcher/purge`, {method: 'POST'});
+  alert(JSON.stringify(res));
+}
+async function setLogLevel(name, level) {
+  pendingLogLevel[name] = level;
+  await fetchJSON(`/api/actor/${name}/log_level`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({level}),
+  });
+}
+
+async function uploadSelectedPath() {
+  const path = document.getElementById('csv-select').value;
+  if (!path) { alert('Select a CSV from the list first.'); return; }
+  const res = await fetchJSON(`/api/actor/${selectedUpstream()}/upload_path`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({path}),
+  });
+  alert(JSON.stringify(res));
+}
+async function uploadFile() {
+  const input = document.getElementById('csv-file');
+  if (!input.files.length) { alert('Choose a file first.'); return; }
+  const form = new FormData();
+  form.append('file', input.files[0]);
+  const res = await fetch(`/api/actor/${selectedUpstream()}/upload`, {method: 'POST', body: form});
+  alert(JSON.stringify(await res.json()));
+}
+async function startUpstream() {
+  const res = await fetchJSON(`/api/actor/${selectedUpstream()}/start`);
+  alert(JSON.stringify(res));
+  refreshResults();
+}
+async function refreshResults() {
+  const rows = await fetchJSON(`/api/actor/${selectedUpstream()}/results`);
+  const tbody = document.querySelector('#results-table tbody');
+  if (!Array.isArray(rows)) { tbody.innerHTML = ''; return; }
+  tbody.innerHTML = rows.map(r => {
+    const rc = r.resp_39 || '';
+    const f47 = r.resp_47 || '';
+    const f47Trunc = f47.length > 40 ? f47.slice(0, 40) + '…' : f47;
+    return `<tr>
+      <td>${r['2'] || ''}</td>
+      <td class="${rc === '00' ? 'rc-ok' : ''}">${rc}</td>
+      <td>${r.resp_38 || ''}</td>
+      <td title="${f47.replace(/"/g, '&quot;')}">${f47Trunc}</td>
+    </tr>`;
+  }).join('');
+}
+
+function openModal(title) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-backdrop').classList.add('active');
+}
+function closeModal() {
+  document.getElementById('modal-backdrop').classList.remove('active');
+  if (logModalTimer) { clearInterval(logModalTimer); logModalTimer = null; }
+  logModalActor = null;
+}
+async function refreshLogModal() {
+  if (!logModalActor) return;
+  const res = await fetch(`/api/actor/${logModalActor}/logs?format=text`);
+  document.getElementById('modal-body').textContent = await res.text();
+}
+async function openLogs(name) {
+  logModalActor = name;
+  openModal(`Logs: ${name}`);
+  await refreshLogModal();
+  logModalTimer = setInterval(refreshLogModal, POLL_MS);
+}
+function exportModalLog() {
+  const blob = new Blob([document.getElementById('modal-body').textContent], {type: 'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${logModalActor || 'log'}.log`;
+  a.click();
+}
+async function showCommands(name) {
+  const cmds = await fetchJSON(`/api/actor/${name}/commands`);
+  openModal(`Commands: ${name}`);
+  document.getElementById('modal-body').innerHTML =
+    `<strong>kill</strong><code class="cmd">${cmds.kill}</code>` +
+    `<strong>tail</strong><code class="cmd">${cmds.tail}</code>`;
+  if (logModalTimer) { clearInterval(logModalTimer); logModalTimer = null; }
+  logModalActor = null;
+}
+
+refreshAll();
+refreshCsvList();
+setInterval(refreshAll, POLL_MS);
+</script>
+</body>
+</html>

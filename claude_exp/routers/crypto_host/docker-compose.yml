@@ -1,0 +1,15 @@
+services:
+  crypto_host:
+    build: .
+    container_name: crypto_host
+    network_mode: host
+    init: true
+    volumes:
+      - ./src:/src/src
+      - ./config:/config
+    command:
+      - bash
+      - -c
+      - |
+        /src/build/crypto_host --config /config/crypto_host.json
+    depends_on: []

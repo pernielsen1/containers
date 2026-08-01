@@ -1,9 +1,9 @@
 # move router alternatives into one structure
 make a plan and let's discuss before implementing.. 
 Three alternative implementations exists of the router, simulators and monitor
-python in ../xv5
-java in ../xv6java 
-c++ in ../xv7cpp 
+python in ../router_py
+java in ../router_java 
+c++ in ../router_cpp 
 
 each contain a md file describing the complete spec - unfortunately not with the same name - but you know them 
 
@@ -17,7 +17,7 @@ the solutions hava a complexity which are inverse to the expected performance te
 i would like to see the three alternatives as subdirectories of this directory.
 please move them and update git ignore etc and all relevant 
 ## python router & simulator in container
-the xv6java and xv7cpp are containorized - to make a correct comparison the python (../xv5) should also be in a container - make a container for this as well including the stop.sh and start.sh and mapping to host directories in same pattern as xv6java & xv7cpp
+the router_java and router_cpp are containorized - to make a correct comparison the python (../router_py) should also be in a container - make a container for this as well including the stop.sh and start.sh and mapping to host directories in same pattern as router_java & router_cpp
 
 ## learn from pitfalls
 when doing the different implementation (java was a successor to python and c++ a sucessor to jav - new pitfalls were discoverd - ensure relevant pitfalls are corrected i.e. let java learn from c++ and python from java.
@@ -39,3 +39,22 @@ latency percentiles). Each implementation has its own `stress_run.sh <tps> <dura
 `timestamp;implementation;target_tps;duration_s;sent;received;errors;achieved_tps;p50_ms;p95_ms;p99_ms;max_ms`.
 Run `./stress_test.sh` (defaults: tps 50/100/200/400, 30s each) or `./stress_test.sh --tps 50,100 --duration 10` for a quick smoke sweep.
 
+# minor updates
+for my conviniency make a start_docker.sh in the root here
+# minor updates v2 
+for my convinence make a monitor.sh in the root here
+
+# some input 
+a thought from my side - pls evaluate 
+we receive 0100 from upstream  into router - calls crypto host and sends to downstream 
+then we get 0110 back from downstream to router calls crypto host and sends to upstream
+now upstream is flooding into the router with 0100 while workers try to catch up. 
+the 0110 needs to get into that pool of workers but will perhaps not get the right place since the floowing continues all in all building up a backlog of work. 
+
+# stress test part 2 
+we have seen 100 tps as working - now will it also work if we run it for a long time let's say 5 minutes ? 
+the run should be with the real crypto_host since that seemed to cope well with this load.
+I'm interested in understanding if we at some point get into garbage collection slow down in python and java.
+what is interesting to know is what the slowest turn around time (i.e. time between send 0100 and receive 0110 at upstream)
+try to record the 10 slowest results and write them to a slow_responds.csv - record time from start of simulation plus the actual time measured for turn around.
+start in python 

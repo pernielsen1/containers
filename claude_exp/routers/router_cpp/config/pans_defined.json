@@ -1,0 +1,34 @@
+{
+  "4111111111111111": {
+    "pin": "1234",
+    "pan_seq": "01",
+    "imk_ac": "4b7780a83d7814139f3ef36f0da0ad2e",
+    "cvk": "838c192d05939818e412155e472621c2",
+    "pek": "a3ee7eed0e1d4bfbd24edf4ec5b7f818",
+    "aav_key": "9537fd46630ab08d5929b559beb478e9"
+  },
+  "4222222222222222": {
+    "pin": "4321",
+    "pan_seq": "01",
+    "imk_ac": "7d7463c91748dbedfe1b76123eb0cb81",
+    "cvk": "6a228884655ccdde464bad86438f6154",
+    "pek": "c08d14948db9789755f9ed3ff1c8dccd",
+    "aav_key": "f8d93ae5beb857e6d6682036997961d2"
+  },
+  "5412345678901234": {
+    "pin": "5678",
+    "pan_seq": "02",
+    "imk_ac": "449113170fe86ebbf3c3e945cb0ac8c9",
+    "cvk": "f4507f5bec0647fac83ee4d9c55ae4a4",
+    "pek": "68a806f44099edb200d0ad5017788d67",
+    "aav_key": "53f2c21f0968bff18f9029a176185f7b"
+  },
+  "5500000000000004": {
+    "pin": "8765",
+    "pan_seq": "02",
+    "imk_ac": "9e6abd25163f26db7242441f557bd3da",
+    "cvk": "7dfb9a9a349bd6b1a31d73f7cd413f0e",
+    "pek": "e708bb5e25d03005765ee23676787e1f",
+    "aav_key": "32ca2756acbaa9723652987c44e6d24d"
+  }
+}

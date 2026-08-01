@@ -1,0 +1,18 @@
+services:
+  router_py:
+    build: .
+    container_name: router_py
+    network_mode: host
+    init: true
+    volumes:
+      - .:/src
+    working_dir: /src
+    command:
+      - bash
+      - -c
+      - |
+        python3 simulators/crypto_host/main.py &
+        python3 simulators/downstream_host/main.py &
+        python3 router/main.py --config router/router_1/config.json &
+        sleep infinity
+    depends_on: []

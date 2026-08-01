@@ -1,0 +1,29 @@
+services:
+  router_cpp:
+    build: .
+    container_name: router_cpp
+    network_mode: host
+    init: true
+    volumes:
+      - ./src:/src/src
+      - ./config:/config
+    environment:
+      - CONFIG_PATH=/config/router_1.json
+    # Only router_main's config varies: perf runs (routers/stress_run.sh) export
+    # ROUTER_CONFIG=router_1_perf.json on the HOST before calling ./start.sh, to point the
+    # router's crypto client at the shared routers/crypto_host container instead of this
+    # container's own local crypto_host stub - everything else keeps using router_1.json
+    # unchanged. `${ROUTER_CONFIG:-router_1.json}` is substituted by docker compose itself from
+    # the host environment at `docker compose up` time (compose interpolates the whole file
+    # against the host env / .env, not against the `environment:` block above - a bare
+    # `${ROUTER_CONFIG}` with no default here silently blanks out and breaks router_main's
+    # --config flag if ROUTER_CONFIG isn't exported on the host).
+    command:
+      - bash
+      - -c
+      - |
+        /src/build/crypto_host --config /config/router_1.json &
+        /src/build/downstream_host --config /config/router_1.json &
+        /src/build/router_main --config /config/${ROUTER_CONFIG:-router_1.json} &
+        sleep infinity
+    depends_on: []
