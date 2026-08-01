@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
         //
         // NOTE (2026-07-31): the client-side bottleneck (router_py's 0110 leg running inline on a
         // single thread, capping it at ~1/latency throughput) was fixed on the router_py side instead
-        // (see performance_result_20260730.md) - default thread pool here. Bumping this server's
+        // (see performance.md) - default thread pool here. Bumping this server's
         // thread pool to 32 was tried and made every tps level *worse* (including regressing an
         // already-passing 100 tps run to p50=5070ms) - this host is CPU-constrained, and more
         // server threads than cores oversubscribes it rather than adding real capacity. Left at

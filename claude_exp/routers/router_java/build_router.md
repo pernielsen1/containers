@@ -56,7 +56,7 @@ project/
 ├── dockerstart.sh                # ensures the Docker daemon itself is running
 ├── terminal.sh                   # interactive shell into the running container
 ├── run_test.sh                   # end-to-end CLI driver, run on the HOST
-├── monitor_start.sh / monitor_stop.sh   # dashboard lifecycle, run on the HOST
+├── monitor.sh / monitor_stop.sh   # dashboard lifecycle, run on the HOST
 ├── config/
 │   ├── test_spec.xml             # j8583 ConfigParser XML — per-MTI field lists
 │   ├── pans_defined.json         # card + key data for simulators and crypto host
@@ -72,8 +72,8 @@ project/
 │   └── downstream_host.json
 │                                  # no upstream_1.json - upstream_host's config now lives in the
 │                                  # shared routers/upstream_host/ component
-├── test_csv_files/
-│   └── test.csv
+├── test_csv_files/                # mirror of routers/test_csv_files/ (the master) - local
+│   └── test.csv                    # convenience only; re-sync via routers/sync_test_csv.sh
 ├── monitor/                      # Python, runs on the HOST
 │   ├── main.py
 │   └── static/index.html
@@ -1085,7 +1085,7 @@ into a different language stays compatible with this monitor for free, provided 
 is preserved exactly** — this is the one guarantee that must never be broken by a future change to
 any actor.
 
-Runs on the host via `monitor_start.sh`/`monitor_stop.sh` (pidfile-based lifecycle; deliberately
+Runs on the host via `monitor.sh`/`monitor_stop.sh` (pidfile-based lifecycle; deliberately
 **not** `pgrep -f "monitor/main.py"` to find the process — a pattern like that can match unrelated
 processes and kill or report the wrong one). Flask app, default port 8090.
 
@@ -1306,30 +1306,6 @@ Build inside the container: `docker exec router_java mvn -q -DskipTests package`
 - Upstream command API: 8083 (upstream_1, shared component), 8086 (upstream_2, router_java-local)
 - Monitor: 8090
 
-### Deploy-style container (`docker-compose.yml`, `start_deploy.sh`, `stop_deploy.sh`)
-
-A second, additional container path exists alongside the dev container above, added so this
-implementation launches identically to the Python and C++ ports for cross-implementation
-performance comparison: `docker-compose.yml` builds the same `Dockerfile` but names the container
-`router_java-deploy` and gives it a `command` that builds the jar and launches all four actors
-directly (`mvn -q -DskipTests package`, then `java -cp target/router_java.jar <MainClass> --config
-<path> &` for each, then `wait`) instead of idling on `tail -f /dev/null` and waiting for
-`docker exec`. Same `network_mode: host`, same project-directory bind mount, same ports — it
-**cannot run at the same time** as the dev container (`./start.sh`) or as either of the other two
-implementations. `start_deploy.sh` runs `docker compose up -d --build` and polls `/stats`;
-`stop_deploy.sh` runs `docker compose down`.
-
-The dev-container flow (`start.sh`/`stop.sh`/`run_test.sh`'s `docker exec -d` launches) is
-unchanged and remains the right tool for interactive development — the deploy container exists
-specifically for scenarios that need the actors launched as a single container's own process
-tree rather than injected via `docker exec` (e.g. stress testing, or comparing container-startup
-behavior against the other two ports). `monitor/main.py`'s `is_running()` needed no change to work
-against either container: it was already defined as "the actor's own `/stats` answers" rather than
-tracking a Popen/`docker exec` handle, because `docker exec -d`'s client already detached
-immediately even in the original dev-container-only design — see `is_running()`'s own comment. (The
-Python port's monitor did *not* have this already and needed the same fix applied when it grew a
-comparable container — see `../router_py/build_router.md`'s Container section.)
-
 ---
 
 ## Running
@@ -1337,7 +1313,7 @@ comparable container — see `../router_py/build_router.md`'s Container section.
 ```bash
 ./start.sh                          # build + start the container (idle, ready for docker exec)
 docker exec router_java mvn -q -DskipTests package
-./monitor_start.sh                  # dashboard on http://localhost:8090, on the HOST
+./monitor.sh                        # dashboard on http://localhost:8090, on the HOST
 # work in the dashboard: Start All -> upload a CSV -> Start -> watch /results
 ./monitor_stop.sh
 ./stop.sh
@@ -1372,7 +1348,7 @@ above.
 ### Glue-script safety checklist
 
 Any script meant to be **re-run** (not just imported/tested as a library) — `run_test.sh`,
-`monitor_start.sh`, `monitor_stop.sh` — must fail loud, not fail silent, since none of these are
+`monitor.sh`, `monitor_stop.sh` — must fail loud, not fail silent, since none of these are
 exercised by the JUnit suite; they are the only thing that drives the real multi-process system
 end-to-end, so a bug in one is invisible until a human actually runs it.
 
@@ -1417,7 +1393,7 @@ calls `/start?rate=&duration=` and polls `/stress_stats` instead of `/results`, 
 **exactly one semicolon-delimited line to stdout** (all progress goes to stderr) so it's directly
 consumable by the top-level orchestrator, `routers/stress_test.sh`, which sweeps a list of TPS
 values across all three implementations in turn (mutually exclusive on host ports) and appends
-one CSV row per run to `routers/stress_results.csv`. See `routers/the_routers.md` for the schema.
+one CSV row per run to `routers/csv_results/stress_results.csv`. See `routers/the_routers.md` for the schema.
 
 Unlike `run_test.sh`, `stress_run.sh` does **not** spawn its own `crypto_host` — perf runs need the
 real, non-stubbed crypto math to be a meaningful bottleneck comparison across implementations, so

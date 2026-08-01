@@ -35,7 +35,7 @@ Done: each implementation's `upstream_host` now takes optional `rate`/`duration`
 (cycling the CSV to sustain load) and exposes `/stress_stats` (sent/received/errors/achieved TPS/
 latency percentiles). Each implementation has its own `stress_run.sh <tps> <duration> <csv>`, and
 `routers/stress_test.sh` sweeps a TPS list across all three in turn, appending one row per
-(implementation, tps) run to `routers/stress_results.csv`:
+(implementation, tps) run to `routers/csv_results/stress_results.csv`:
 `timestamp;implementation;target_tps;duration_s;sent;received;errors;achieved_tps;p50_ms;p95_ms;p99_ms;max_ms`.
 Run `./stress_test.sh` (defaults: tps 50/100/200/400, 30s each) or `./stress_test.sh --tps 50,100 --duration 10` for a quick smoke sweep.
 

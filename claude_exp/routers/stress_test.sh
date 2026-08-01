@@ -6,7 +6,7 @@
 # build/start/upload/stop lifecycle (raw python processes for router_py, docker exec for router_java,
 # docker-compose for router_cpp - genuinely different per port, so that lifecycle logic stays local
 # to each implementation rather than being re-derived here). Appends one CSV row per run to
-# routers/stress_results.csv, flushing after every run so a partial/aborted sweep still leaves
+# routers/csv_results/stress_results.csv, flushing after every run so a partial/aborted sweep still leaves
 # usable data.
 #
 # Crypto validation is a fourth constant across the whole sweep: routers/crypto_host (real
@@ -36,7 +36,7 @@ PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_ROOT"
 
 if [ -z "$CSV_FILE" ]; then
-  CSV_FILE="$PROJECT_ROOT/router_py/test_csv_files/test.csv"
+  CSV_FILE="$PROJECT_ROOT/test_csv_files/test.csv"
 fi
 if [ ! -f "$CSV_FILE" ]; then
   echo "CSV file not found: $CSV_FILE" >&2
@@ -44,9 +44,10 @@ if [ ! -f "$CSV_FILE" ]; then
 fi
 CSV_FILE="$(cd "$(dirname "$CSV_FILE")" && pwd)/$(basename "$CSV_FILE")"
 
-RESULTS_CSV="$PROJECT_ROOT/stress_results.csv"
+mkdir -p "$PROJECT_ROOT/csv_results"
+RESULTS_CSV="$PROJECT_ROOT/csv_results/stress_results.csv"
 if [ ! -f "$RESULTS_CSV" ]; then
-  echo "timestamp;implementation;target_tps;duration_s;sent;received;errors;achieved_tps;p50_ms;p95_ms;p99_ms;max_ms" > "$RESULTS_CSV"
+  echo "timestamp;implementation;target_tps;duration_s;sent;received;errors;achieved_tps;p50_ms;p90_ms;p95_ms;p99_ms;max_ms" > "$RESULTS_CSV"
 fi
 
 # The shared crypto_host container (real OpenSSL-backed crypto) is started once, here, and stays

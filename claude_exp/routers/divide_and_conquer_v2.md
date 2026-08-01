@@ -145,9 +145,18 @@ routers/
 ├── divide_and_conquer.md       # decision log (chronological, all three rounds)
 ├── divide_and_conquer_v2.md    # this file — architecture snapshot
 ├── stress_test.sh              # sweeps a TPS list across all three implementations
-├── stress_results.csv          # one row per (implementation, tps) run
-├── slow_responds.csv           # 10 slowest round-trips per run
-├── latency_buckets.csv         # time-bucketed p50/max per run
+├── run_soak.sh / run_soak.md   # standalone multi-phase soak sequence + its runbook
+├── test_csv_files/              # MASTER input CSVs - stress_test.sh/run_soak.sh read from here;
+│                                 # each implementation's own local test_csv_files/ is a mirror,
+│                                 # for that implementation's own run_test.sh/monitor dropdown only
+│                                 # (see sync_test_csv.sh)
+├── sync_test_csv.sh             # mirrors test_csv_files/ into each implementation's local copy
+├── csv_results/                # all output CSVs live here, kept out of the repo root
+│   ├── stress_results.csv      # one row per (implementation, tps) run
+│   ├── slow_responds.csv       # 10 slowest round-trips per run
+│   ├── latency_buckets.csv     # time-bucketed p50/max per run
+│   ├── soak_results.csv        # one row per soak-sequence phase (incl. p90)
+│   └── soak_summary.csv        # p50/p90/p99 only, per soak-sequence phase
 ├── monitor.sh                  # dispatches to whichever implementation's own monitor launcher
 │
 ├── crypto_host/                # SHARED — real OpenSSL-backed crypto, containerized

@@ -13,7 +13,7 @@ case "$IMPL" in
     exec ./router_py/run/monitor.sh
     ;;
   router_java)
-    exec ./router_java/monitor_start.sh
+    exec ./router_java/monitor.sh
     ;;
   router_cpp)
     exec ./router_cpp/monitor.sh

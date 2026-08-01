@@ -1,4 +1,10 @@
-# Performance sweep result — 2026-07-30
+# Performance results and discussion
+
+(File renamed from `performance_result_20260730.md` on 2026-08-01 — this is the running log for
+all performance discussion/investigation on this repo, not just the 2026-07-30 sweep it started
+from.)
+
+## Performance sweep result — 2026-07-30
 
 Full default sweep (`./stress_test.sh`, tps 50/100/200/400, 30s each), run uninterrupted with no
 concurrent activity on the host.
@@ -632,9 +638,139 @@ than the test processes. The earlier 5-minute/80-tps results earlier in this doc
 measured in isolation, without this ~40-minute continuous-load context) are unaffected and remain
 valid.
 
-**Next step, handed off for manual execution**: `routers/run_10min_soak_sequence.sh` (the same
-four-phase sequence, self-contained) and `routers/run_10_min_soak_sequence.md` (the runbook) were
-written so the user can run this standalone from a plain WSL terminal, with the IDE and this
-session closed first to free the memory the tooling was consuming. Once that run completes, its
-`stress_results.csv` / `slow_responds.csv` / `latency_buckets.csv` rows should be used in place of
+**Next step, handed off for manual execution**: `routers/run_soak.sh` (the same four-phase
+sequence, self-contained; named `run_10min_soak_sequence.sh` at the time) and `routers/run_soak.md`
+(the runbook; named `run_10_min_soak_sequence.md` at the time) were written so the user can run
+this standalone from a plain WSL terminal, with the IDE and this session closed first to free the
+memory the tooling was consuming. Once that run completes, its `csv_results/stress_results.csv` /
+`csv_results/slow_responds.csv` / `csv_results/latency_buckets.csv` rows should be used in place of
 this section's invalidated numbers.
+
+## Update — 2026-08-01: soak sequence parametrized, p90 added, and a 1-minute sanity check
+
+`run_soak.sh` (renamed from `run_10min_soak_sequence.sh` later the same day — see the renames/
+cleanup section below) gained a `number_of_minutes` argument (default 10, cooldown between phases
+is always `number_of_minutes / 5`) and now writes two additional outputs of its own,
+`soak_results.csv` (full per-phase row) and `soak_summary.csv` (just p50/p90/p99), both
+semicolon-separated with a comma decimal point. Getting p90 required adding it to
+`upstream_host`'s `/stress_stats` endpoint and to each implementation's `stress_run.sh` result
+row (inserted between p50 and p95) — `stress_test.sh`'s `stress_results.csv` header was updated
+to match, so rows written before this change have one fewer column than rows written after.
+
+A 1-minute (`./run_soak.sh 1`) sanity check of the new pipeline produced:
+
+| impl | p50 | p90 | p99 | max |
+|---|---|---|---|---|
+| router_py | 51,59 | 92,44 | 107,01 | 124,46 |
+| router_java | 52,26 | 93,63 | 105,18 | 276,27 |
+| router_cpp | 2,39 | 2,96 | 3,66 | 10,37 |
+
+**Confirms crypto_host is not a significant contributor to router_py/router_java's latency.**
+crypto_host is the one component genuinely shared across all three (same container, same
+OpenSSL-backed EMV validation call, phase-by-phase exclusivity so no cross-language contention).
+If it were costing tens of ms per call, that cost would show up identically in the C++ round trip
+too — but C++'s worst case across the whole minute is 10,37ms and its p99 is only 3,66ms, tightly
+bounding what crypto_host (plus network plus C++'s own processing) can possibly cost. The ~90ms
+gap between C++ and Python/Java, present all the way from p50 to p90, is therefore essentially
+entirely inside the Python/Java router implementations themselves (interpreter/GC overhead,
+threading model, dev-server framework), not the shared crypto path.
+
+Caveat: single 1-minute sample per implementation, not repeated — Java's max (276,27ms) vs its own
+p99 (105,18ms) hints at at least one outlier (GC pause, or the WSL2 clock-resync quirk noted
+elsewhere in this repo's memory), so treat this as a strong directional read, not a final number.
+
+## Update — 2026-08-01, housekeeping: renames and CSV output moved to `csv_results/`
+
+Two administrative changes, no behavior change beyond output paths:
+
+- `run_10min_soak_sequence.sh` → `run_soak.sh`, `run_10_min_soak_sequence.md` → `run_soak.md` (via
+  `git mv`, history preserved). All in-repo references updated (this file, `divide_and_conquer_v2.md`,
+  the three `build_router.md` specs, `the_routers.md`'s "Done" note).
+- All output CSVs (`stress_results.csv`, `slow_responds.csv`, `latency_buckets.csv`,
+  `soak_results.csv`, `soak_summary.csv`) moved from the repo root into `routers/csv_results/`, to
+  keep the root clean. `stress_test.sh`, each implementation's `stress_run.sh`, and `run_soak.sh`
+  all now `mkdir -p csv_results` before writing, so a fresh checkout doesn't need the directory
+  pre-created.
+
+## Update — 2026-08-01: router_cpp full-rebuild trap fixed, and a 2-minute soak confirms the earlier reading
+
+Editing `router_cpp/stress_run.sh` for the `csv_results/` move (previous section) re-triggered the
+full ~4-5 minute rebuild documented above ("router_cpp full-rebuild-on-any-edit trap"). Rather than
+just re-noting it, fixed it: added `router_cpp/.dockerignore` allow-listing only what `make -j2`'s
+default target actually needs to build (`CMakeLists.txt`, `src/`, `test/` — `test/` because the
+default `make` target also builds the `xv6_tests` Catch2 binary). Everything else in `router_cpp/`
+(docs, `stress_run.sh` itself, `monitor/`, `test_csv_files/`, `config/` — the last is
+volume-mounted at runtime, not needed at build time) is now excluded from the build context.
+**Verified**: edited `stress_run.sh` again, rebuilt — full cache hit, ~1.4s instead of ~250s.
+
+Two other options were considered but not done (lower priority now that the immediate pain is
+fixed): splitting the `cmake` configure/`FetchContent` step from the `make` compile step into
+separate layers (so a genuine `src/` change wouldn't re-clone httplib/json/catch2 from GitHub), and
+switching `router_cpp` to a persistent-container + `docker exec cmake --build` incremental-build
+model, matching how `router_java`'s `stress_run.sh` already builds inside its long-lived container
+via `docker exec ... mvn package` instead of a fresh image build every run.
+
+Also ran a 2-minute (`./run_soak.sh 2`) soak, as a repeat of the 1-minute sanity check above:
+
+| impl | p50 | p90 | p95 | p99 | max |
+|---|---|---|---|---|---|
+| router_py | 51,68 | 92,49 | 97,15 | 104,97 | 128,62 |
+| router_java | 52,03 | 93,43 | 94,18 | 104,01 | 315,47 |
+| router_cpp | 2,34 | 3,13 | 3,33 | 3,80 | 14,59 |
+
+**Same conclusion holds, more solidly**: every percentile for all three implementations is within
+noise of the 1-minute run (router_cpp's p50 2,34 vs 2,39; router_py's p90 92,49 vs 92,44; etc.),
+so this isn't a single-minute fluke — crypto_host still isn't a meaningful contributor to
+router_py/router_java's latency at 2x the sample size. router_cpp remains the standout: much more
+implementation complexity (manual EBCDIC/ISO8583 codecs, explicit memory/thread management) buys a
+genuinely large, consistent efficiency win — roughly 20-40x lower p50 than the other two, with a
+worst case (14,59ms) still under router_py/router_java's *best* case (p50 ~52ms).
+
+Also ran a 5-minute (`./run_soak.sh 5`) pass: same 0-error, 0-collapse picture for all three. C++
+and Java both stayed flat against their 1/2-minute numbers (Java's p50 52,26→52,03→52,05, p90
+93,63→93,43→93,45 — its elevated max was already present at 1 minute, a warm-up transient, not a
+growth trend). Python drifted modestly: p50 51,59→51,68→52,79, p99 107,01→104,97→112,92, max
+124,46→128,62→249,91 — small but consistent across every percentile, worth watching on a future
+longer run rather than dismissing as pure noise, though nowhere near the multi-second collapse
+seen at 100 tps in the original investigation.
+
+## Update — 2026-08-01, housekeeping part 4: `test_csv_files/` consolidated to one master
+
+Each implementation had its own `test_csv_files/test.csv` (byte-identical by luck/manual effort,
+not by any enforced mechanism), and `stress_test.sh`'s default input CSV was `router_py`'s copy
+specifically — an arbitrary choice with no reason to privilege Python's copy for a
+all-three-implementations sweep. Consolidated: `routers/test_csv_files/test.csv` is now the single
+master, `stress_test.sh` and `run_soak.sh` both read from it directly (`run_soak.sh`'s old
+`CSV_REL` was a path relative to whichever implementation directory a phase had `cd`'d into,
+resolving to *that* implementation's local copy — replaced with an absolute `CSV_FILE` pointing at
+the root master, so all three phases now provably use the identical input regardless of copies
+drifting). Each implementation's own local `test_csv_files/` still exists, unchanged, for that
+implementation's own `run_test.sh` and its monitor UI's CSV dropdown (`GET /api/csv_files`, which
+only ever reads that implementation's own directory) — new `routers/sync_test_csv.sh` mirrors the
+master into all three on demand, so future CSV additions/edits have one place to make them and one
+command to propagate them, instead of three copies to remember to keep in sync by hand.
+
+## Update — 2026-08-01, housekeeping part 5: router_java's orphaned deploy scripts removed, monitor renamed
+
+Auditing `router_java/`'s `.sh` files against what's actually referenced elsewhere turned up two
+genuinely orphaned scripts: `start_deploy.sh`/`stop_deploy.sh` (+ `router_java/docker-compose.yml`)
+built a separate `router_java-deploy` container that `build_router.md` still described as *"exists
+specifically for... stress testing"* — but that's stale. `stress_run.sh` was checked directly and
+confirmed to build/launch via `docker exec` into the plain dev container (`router_java`), not this
+deploy container; no `router_java-deploy` container existed (`docker ps -a` confirmed), and nothing
+else referenced these three files. Deleted all three, and removed the now-false "Deploy-style
+container" section from `build_router.md`.
+
+Also renamed `monitor_start.sh` → `monitor.sh`, matching `router_cpp`'s single-`monitor.sh` naming
+(`monitor_stop.sh` kept its name and its pidfile-based-not-`pgrep`-based stop logic — that's a
+deliberate, still-relevant safety fix, not something router_cpp's simpler Ctrl+C-to-stop model
+needs to be matched to). Updated root `monitor.sh`'s dispatch and every doc reference
+(`build_router.md`'s layout tree, monitor section, and glue-script safety checklist;
+`monitor_stop.sh`'s own comment) accordingly. `router_java/build_router_java_container_v1.md` was
+deliberately left alone — it's a frozen "(v1)" historical spec snapshot, same treatment as
+`divide_and_conquer.md`'s chronological log elsewhere in this repo.
+
+`router_java/` now has 8 scripts, all load-bearing: `start.sh`/`stop.sh` (dev-container lifecycle),
+`dockerstart.sh` (used by both `router_java/start.sh` and root `start_docker.sh`),
+`monitor.sh`/`monitor_stop.sh`, `run_test.sh`, `stress_run.sh`, and `terminal.sh` (manual
+`docker exec -it` convenience, not referenced elsewhere but still a working, non-misleading tool).

@@ -167,6 +167,7 @@ class UpstreamHostSim:
                     "elapsed_s": round(elapsed, 2),
                     "achieved_tps": round(sent / elapsed, 2) if elapsed > 0 else 0,
                     "p50_ms": percentile(50),
+                    "p90_ms": percentile(90),
                     "p95_ms": percentile(95),
                     "p99_ms": percentile(99),
                     "max_ms": round(samples[-1] * 1000, 2) if samples else None,

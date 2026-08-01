@@ -119,14 +119,15 @@ echo "Fetching /stress_stats..." >&2
 curl -s -f "http://127.0.0.1:${UPSTREAM_CMD}/stress_stats" | python3 -c "
 import json, sys
 s = json.load(sys.stdin)
-print(f'router_cpp;${TPS};${DURATION};{s[\"sent\"]};{s[\"received\"]};{s[\"errors\"]};{s[\"achieved_tps\"]};{s[\"p50_ms\"]};{s[\"p95_ms\"]};{s[\"p99_ms\"]};{s[\"max_ms\"]}')
+print(f'router_cpp;${TPS};${DURATION};{s[\"sent\"]};{s[\"received\"]};{s[\"errors\"]};{s[\"achieved_tps\"]};{s[\"p50_ms\"]};{s[\"p90_ms\"]};{s[\"p95_ms\"]};{s[\"p99_ms\"]};{s[\"max_ms\"]}')
 "
 
 # Records the 10 slowest 0100->0110 round trips (send-offset-since-run-start + turnaround time)
-# to routers/slow_responds.csv - lets a slow response be correlated with *when* in a long run it
-# happened (e.g. a GC/allocator pause partway through a multi-minute soak test). Same shared CSV
-# as router_py's/router_java's.
-SLOW_CSV="$PROJECT_ROOT/../slow_responds.csv"
+# to routers/csv_results/slow_responds.csv - lets a slow response be correlated with *when* in a
+# long run it happened (e.g. a GC/allocator pause partway through a multi-minute soak test). Same
+# shared CSV as router_py's/router_java's.
+mkdir -p "$PROJECT_ROOT/../csv_results"
+SLOW_CSV="$PROJECT_ROOT/../csv_results/slow_responds.csv"
 if [ ! -f "$SLOW_CSV" ]; then
   echo "timestamp;implementation;target_tps;duration_s;rank;sent_offset_s;latency_ms" > "$SLOW_CSV"
 fi
@@ -141,7 +142,7 @@ for i, r in enumerate(rows, 1):
 
 # Time-bucketed p50 (30s windows by default) - tells a smooth queueing-backlog ramp apart from
 # scattered GC/allocator-pause spikes, which a top-10-slowest list alone can't distinguish.
-BUCKETS_CSV="$PROJECT_ROOT/../latency_buckets.csv"
+BUCKETS_CSV="$PROJECT_ROOT/../csv_results/latency_buckets.csv"
 if [ ! -f "$BUCKETS_CSV" ]; then
   echo "timestamp;implementation;target_tps;duration_s;bucket_start_s;count;p50_ms;max_ms" > "$BUCKETS_CSV"
 fi

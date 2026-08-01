@@ -1,5 +1,5 @@
 #!/bin/bash
-# POST /stop, then poll the PID from monitor_start.sh's pidfile for up to 30s, SIGKILL if still
+# POST /stop, then poll the PID from monitor.sh's pidfile for up to 30s, SIGKILL if still
 # alive, then remove the pidfile. Deliberately not `pgrep -f "monitor/main.py"` - that pattern
 # has already bitten this project family once (matched an unrelated process by command-line
 # substring and left a zombie monitor alive on this exact port for hours).

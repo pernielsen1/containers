@@ -1,0 +1,15 @@
+# Only CMakeLists.txt, src/, and test/ are actually needed to build the image (Dockerfile's
+# COPY . . + cmake/make -j2, which builds the xv6_tests target from test/*.cpp too). Everything
+# else here is host-side tooling/docs/config that has zero effect on the compiled binaries but,
+# without this file, still busts COPY's cache layer on every edit and forces a full ~4-5min
+# rebuild - see performance.md's router_cpp Docker build-cache trap note.
+build_router.md
+stress_run.sh
+run_test.sh
+monitor.sh
+monitor/
+start.sh
+stop.sh
+test_csv_files/
+create_cpp_router_from_java
+config/

@@ -111,8 +111,9 @@ project/
 │   ├── test_router.py         # full-stack integration: 4 actors in-thread, CSV → 0100 → field 39
 │   └── test_router_1_01.py    # connectivity + stats smoke test for the second partner_a router
 ├── f47.json                  # documents the field-47 JSON schema (see Crypto section)
-└── test_csv_files/
-    └── test.csv
+└── test_csv_files/           # mirror of routers/test_csv_files/ (the master) - local convenience
+    └── test.csv               # for run_test.sh / monitor's CSV dropdown; re-sync via
+                                 # routers/sync_test_csv.sh, never edit here directly
 ```
 
 ---
@@ -1380,7 +1381,7 @@ similar spawn/wait-for-stats/upload/teardown scaffolding as `run_test.sh`, but c
 semicolon-delimited line to stdout** (all progress goes to stderr) so it's directly consumable by
 the top-level orchestrator, `routers/stress_test.sh`, which sweeps a list of TPS values across all
 three implementations in turn (they're mutually exclusive on host ports) and appends one CSV row
-per run to `routers/stress_results.csv`. See `routers/the_routers.md` for the schema and the
+per run to `routers/csv_results/stress_results.csv`. See `routers/the_routers.md` for the schema and the
 cross-implementation comparison this is ultimately for.
 
 Unlike `run_test.sh`, `stress_run.sh` does **not** launch its own crypto_host. It spawns only
