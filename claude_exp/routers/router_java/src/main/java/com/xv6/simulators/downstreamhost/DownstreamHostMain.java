@@ -20,6 +20,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -45,6 +46,11 @@ public final class DownstreamHostMain {
     private final CommandServer cmd;
 
     private final Map<String, BlockingQueue<byte[]>> fromConnections = new ConcurrentHashMap<>();
+    // handleToConn's loop only checks the stop event between frames and otherwise blocks forever
+    // in a read; tracking every live connection here lets runForever() force them all closed on
+    // stop instead of leaving them - and the local port they're bound to - held until the JVM
+    // itself exits (see runForever()).
+    private final Set<Socket> activeConns = ConcurrentHashMap.newKeySet();
     private int authCodeCounter = 0;
     private final Object authCodeLock = new Object();
     private ServerSocket listenSock;
@@ -257,7 +263,14 @@ public final class DownstreamHostMain {
             } catch (IOException e) {
                 break;
             }
-            Thread t = new Thread(() -> dispatchNewConn(conn));
+            activeConns.add(conn);
+            Thread t = new Thread(() -> {
+                try {
+                    dispatchNewConn(conn);
+                } finally {
+                    activeConns.remove(conn);
+                }
+            });
             t.setDaemon(true);
             t.start();
         }
@@ -280,6 +293,13 @@ public final class DownstreamHostMain {
         stopEvent.await();
         if (listenSock != null) {
             closeQuietly(listenSock);
+        }
+        // Force every live connection closed now rather than waiting for the JVM's own exit to
+        // release them - under load, or if the JVM exit is delayed (GC pause, memory pressure),
+        // that delay left port 8081/5001 held past a stress-run's cooldown window, causing the
+        // next implementation's downstream_host to lose the bind() race on the same host port.
+        for (Socket conn : activeConns) {
+            closeQuietly(conn);
         }
     }
 

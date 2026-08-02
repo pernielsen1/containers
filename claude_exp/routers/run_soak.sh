@@ -42,16 +42,23 @@ fi
 wait_for_ports_free() {
   for _ in $(seq 1 20); do
     local busy=0
+    local busy_ports=""
     for port in 8080 8081 8082 8083; do
       if (exec 3<>"/dev/tcp/127.0.0.1/${port}") 2>/dev/null; then
         exec 3<&- 3>&-
         busy=1
+        busy_ports="${busy_ports} ${port}"
       fi
     done
     if [ "$busy" -eq 0 ]; then return 0; fi
     sleep 1
   done
-  echo "Warning: ports still busy after waiting - continuing anyway" >&2
+  # Used to warn and continue anyway - but starting the next phase with a port still held
+  # (e.g. the previous implementation's downstream_host slow to release it under load) guarantees
+  # that phase's own actor loses its bind() and dies immediately, which then surfaces as a
+  # confusing "port never came up" timeout further downstream instead of this clear cause.
+  echo "ERROR: ports still busy after 20s -${busy_ports} - aborting rather than starting the next phase into a guaranteed bind() collision" >&2
+  exit 1
 }
 
 # Row from stress_run.sh is dot-decimal (python f-string formatting); comma-decimal versions for
