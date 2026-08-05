@@ -41,7 +41,11 @@ CSV_FILE="$(cd "$(dirname "$CSV_FILE")" && pwd)/$(basename "$CSV_FILE")"
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_ROOT"
 
-CRYPTO_CMD=8099  # shared routers/crypto_host container, not a local process
+ROUTER_HOST="${ROUTER_HOST:-127.0.0.1}"
+REMOTE_SERVER=""
+[ "$ROUTER_HOST" != "127.0.0.1" ] && REMOTE_SERVER="${SERVER_USER:?SERVER_USER must be set for remote stress}@serverhp.home"
+
+CRYPTO_CMD=8099  # shared crypto_host (local port 8099 or remote server port 8099)
 DS_CMD=8081
 ROUTER_CMD=8080
 UPSTREAM_CMD=8083
@@ -54,9 +58,13 @@ UPSTREAM_CMD=8083
 # implementation's run.
 cleanup() {
   if [ "$MANUAL" -eq 0 ]; then
-    for port in "$DS_CMD" "$ROUTER_CMD" "$UPSTREAM_CMD"; do
-      curl -s -o /dev/null -X POST "http://127.0.0.1:${port}/stop" || true
-    done
+    if [ "$ROUTER_HOST" = "127.0.0.1" ]; then
+      for port in "$DS_CMD" "$ROUTER_CMD"; do
+        curl -s -o /dev/null -X POST "http://127.0.0.1:${port}/stop" || true
+      done
+    fi
+    curl -s -o /dev/null -X POST "http://127.0.0.1:${UPSTREAM_CMD}/stop" || true
+    [ -n "$REMOTE_SERVER" ] && ssh "$REMOTE_SERVER" "docker rm -f router_java 2>/dev/null" >&2 || true
   fi
 }
 trap cleanup EXIT
@@ -64,8 +72,9 @@ trap cleanup EXIT
 wait_for_stats() {
   local port="$1"
   local name="$2"
+  local host="${3:-$ROUTER_HOST}"
   for _ in $(seq 1 30); do
-    if curl -s -o /dev/null -f "http://127.0.0.1:${port}/stats"; then
+    if curl -s -o /dev/null -f "http://${host}:${port}/stats"; then
       return 0
     fi
     sleep 1
@@ -75,32 +84,40 @@ wait_for_stats() {
 }
 
 if [ "$MANUAL" -eq 0 ]; then
-  # Unlike router_cpp's stress_run.sh (which brings up its whole stack fresh via ./start.sh every
-  # call), router_java is a long-lived dev container that `docker exec` runs against - it must
-  # already exist and be running, or every `docker exec` below fails with "container ... is not
-  # running". Check once and (re)start it here instead of requiring a separate manual `./start.sh`
-  # before every sweep; idempotent, so this is a no-op when it's already up.
-  if [ "$(docker inspect -f '{{.State.Running}}' router_java 2>/dev/null || echo false)" != "true" ]; then
-    echo "router_java container not running - starting it..." >&2
-    ./start.sh >&2
+  if [ "$ROUTER_HOST" = "127.0.0.1" ]; then
+    # Unlike router_cpp's stress_run.sh (which brings up its whole stack fresh via ./start.sh every
+    # call), router_java is a long-lived dev container that `docker exec` runs against - it must
+    # already exist and be running, or every `docker exec` below fails with "container ... is not
+    # running". Check once and (re)start it here instead of requiring a separate manual `./start.sh`
+    # before every sweep; idempotent, so this is a no-op when it's already up.
+    if [ "$(docker inspect -f '{{.State.Running}}' router_java 2>/dev/null || echo false)" != "true" ]; then
+      echo "router_java container not running - starting it..." >&2
+      ./start.sh >&2
+    fi
+
+    # Redirected to stderr for consistency with the other actors' launches below - any Maven output
+    # that slips through -q would otherwise land inside the single result line stress_test.sh
+    # captures via command substitution.
+    echo "Building jar..." >&2
+    docker exec router_java mvn -q -DskipTests package >&2
+
+    echo "Launching downstream_host..." >&2
+    docker exec -d router_java java -cp target/router_java.jar com.xv6.simulators.downstreamhost.DownstreamHostMain \
+      --config config/downstream_host.json >&2
+
+    echo "Launching router_1 (perf config -> shared crypto_host)..." >&2
+    docker exec -d router_java java -cp target/router_java.jar com.xv6.router.RouterMain \
+      --config config/router_1_perf.json >&2
+  else
+    echo "Starting router_java on $ROUTER_HOST (perf config -> shared crypto_host)..." >&2
+    ssh "$REMOTE_SERVER" bash -s >&2 <<'SSH_EOF'
+docker rm -f router_java 2>/dev/null || true
+docker run -d --name router_java --network host --init -e ROUTER_CONFIG=router_1_perf.json router_java
+SSH_EOF
   fi
 
-  # Redirected to stderr for consistency with the other actors' launches below - any Maven output
-  # that slips through -q would otherwise land inside the single result line stress_test.sh
-  # captures via command substitution.
-  echo "Building jar..." >&2
-  docker exec router_java mvn -q -DskipTests package >&2
-
-  echo "Launching downstream_host..." >&2
-  docker exec -d router_java java -cp target/router_java.jar com.xv6.simulators.downstreamhost.DownstreamHostMain \
-    --config config/downstream_host.json >&2
-
-  echo "Launching router_1 (perf config -> shared crypto_host)..." >&2
-  docker exec -d router_java java -cp target/router_java.jar com.xv6.router.RouterMain \
-    --config config/router_1_perf.json >&2
-
   echo "Launching upstream_1 (shared routers/upstream_host, host-side not docker exec)..." >&2
-  python3 "$PROJECT_ROOT/../upstream_host/main.py" --config "$PROJECT_ROOT/../upstream_host/config.json" >&2 &
+  python3 "$PROJECT_ROOT/../upstream_host/main.py" --config "$PROJECT_ROOT/../upstream_host/config.json" --router-host "$ROUTER_HOST" >&2 &
 else
   echo "Manual mode: assuming actors are already running." >&2
 fi
@@ -108,7 +125,7 @@ fi
 wait_for_stats "$CRYPTO_CMD" "crypto_host"
 wait_for_stats "$DS_CMD" "downstream_host"
 wait_for_stats "$ROUTER_CMD" "router_1"
-wait_for_stats "$UPSTREAM_CMD" "upstream_1"
+wait_for_stats "$UPSTREAM_CMD" "upstream_1" "127.0.0.1"
 
 echo "Uploading CSV: $CSV_FILE" >&2
 curl -s -f -X POST "http://127.0.0.1:${UPSTREAM_CMD}/upload" -F "file=@${CSV_FILE}" >/dev/null

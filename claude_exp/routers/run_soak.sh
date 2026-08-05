@@ -17,6 +17,7 @@
 set -uo pipefail
 
 ROUTERS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROUTER_HOST="${ROUTER_HOST:-127.0.0.1}"
 # Master copy at the repo root, not any implementation's local test_csv_files/ - those are
 # per-implementation mirrors (see sync_test_csv.sh) for that implementation's own local
 # convenience only, not the source of truth for stress/soak runs.
@@ -40,6 +41,7 @@ if [ ! -f "$SOAK_SUMMARY_CSV" ]; then
 fi
 
 wait_for_ports_free() {
+  [ "$ROUTER_HOST" != "127.0.0.1" ] && return 0
   for _ in $(seq 1 20); do
     local busy=0
     local busy_ports=""
@@ -88,10 +90,14 @@ run_phase() {
   record_result "$row"
 }
 
-if ! curl -sf http://127.0.0.1:8099/stats >/dev/null; then
+if [ "$ROUTER_HOST" = "127.0.0.1" ] && ! curl -sf http://127.0.0.1:8099/stats >/dev/null; then
   echo "ERROR: shared crypto_host (port 8099) is not responding - start it first:" >&2
   echo "  cd $ROUTERS_ROOT/crypto_host && ./start.sh" >&2
   exit 1
+elif [ "$ROUTER_HOST" != "127.0.0.1" ]; then
+  echo "Ensuring shared crypto_host is up on $ROUTER_HOST..." >&2
+  SERVER_USER="${SERVER_USER:?SERVER_USER must be set for remote soak}" \
+    "$ROUTERS_ROOT/server_start.sh" crypto >&2
 fi
 
 run_phase "PHASE 1" router_py 80

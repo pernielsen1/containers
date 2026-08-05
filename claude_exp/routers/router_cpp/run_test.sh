@@ -34,6 +34,8 @@ CSV_FILE="$(cd "$(dirname "$CSV_FILE")" && pwd)/$(basename "$CSV_FILE")"
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_ROOT"
 
+ROUTER_HOST="${ROUTER_HOST:-127.0.0.1}"
+
 CRYPTO_CMD=8082
 DS_CMD=8081
 ROUTER_CMD=8080
@@ -46,7 +48,9 @@ UPSTREAM_CMD=8083
 cleanup() {
   if [ "$MANUAL" -eq 0 ]; then
     curl -s -o /dev/null -X POST "http://127.0.0.1:${UPSTREAM_CMD}/stop" || true
-    ./stop.sh || true
+    if [ "$ROUTER_HOST" = "127.0.0.1" ]; then
+      ./stop.sh || true
+    fi
   fi
 }
 trap cleanup EXIT
@@ -54,11 +58,12 @@ trap cleanup EXIT
 wait_for_stats() {
   local port="$1"
   local name="$2"
+  local host="${3:-$ROUTER_HOST}"
   for _ in $(seq 1 30); do
     # curl -f: a non-2xx response is a nonzero curl exit, not a body for something downstream
     # to choke on - the whole point of a retry loop is tolerating "not ready yet", so a miss
     # here must not surface as anything other than "try again".
-    if curl -s -o /dev/null -f "http://127.0.0.1:${port}/stats"; then
+    if curl -s -o /dev/null -f "http://${host}:${port}/stats"; then
       return 0
     fi
     sleep 1
@@ -68,17 +73,19 @@ wait_for_stats() {
 }
 
 if [ "$MANUAL" -eq 0 ]; then
-  echo "Building and starting the router_cpp stack..."
-  ./start.sh
+  if [ "$ROUTER_HOST" = "127.0.0.1" ]; then
+    echo "Building and starting the router_cpp stack..."
+    ./start.sh
 
-  wait_for_stats "$CRYPTO_CMD" "crypto_host"
-  wait_for_stats "$DS_CMD" "downstream_host"
-  wait_for_stats "$ROUTER_CMD" "router_1"
+    wait_for_stats "$CRYPTO_CMD" "crypto_host"
+    wait_for_stats "$DS_CMD" "downstream_host"
+    wait_for_stats "$ROUTER_CMD" "router_1"
+  fi
 
   # upstream_1 connects to the router as a client, so it must start after the router is up -
   # matches the STARTUP_ORDER convention used everywhere else (upstream last).
   echo "Launching upstream_1 (shared routers/upstream_host)..."
-  python3 "$PROJECT_ROOT/../upstream_host/main.py" --config "$PROJECT_ROOT/../upstream_host/config.json" &
+  python3 "$PROJECT_ROOT/../upstream_host/main.py" --config "$PROJECT_ROOT/../upstream_host/config.json" --router-host "$ROUTER_HOST" &
 else
   echo "Manual mode: assuming the stack is already running."
 fi
@@ -86,7 +93,7 @@ fi
 wait_for_stats "$CRYPTO_CMD" "crypto_host"
 wait_for_stats "$DS_CMD" "downstream_host"
 wait_for_stats "$ROUTER_CMD" "router_1"
-wait_for_stats "$UPSTREAM_CMD" "upstream_1"
+wait_for_stats "$UPSTREAM_CMD" "upstream_1" "127.0.0.1"
 
 echo "Uploading CSV: $CSV_FILE"
 curl -s -f -X POST "http://127.0.0.1:${UPSTREAM_CMD}/upload" -F "file=@${CSV_FILE}" >/dev/null
@@ -147,7 +154,7 @@ for r in rows:
 
 echo
 echo "=== Router 30s stats ==="
-curl -s "http://127.0.0.1:${ROUTER_CMD}/stats" | python3 -c "
+curl -s "http://${ROUTER_HOST}:${ROUTER_CMD}/stats" | python3 -c "
 import json, sys
 stats = json.load(sys.stdin)
 print(f'sent_30s={stats.get(\"sent_30s\")} recv_30s={stats.get(\"recv_30s\")}')

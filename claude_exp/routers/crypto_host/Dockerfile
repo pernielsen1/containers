@@ -28,4 +28,4 @@ ENV PATH=/src/build:$PATH
 # Plugin-execution API + this actor's own CommandServer.
 EXPOSE 5099 8099
 
-CMD ["/bin/bash"]
+CMD ["/bin/bash", "-c", "/src/build/crypto_host --config /src/config/crypto_host.json"]

@@ -17,6 +17,7 @@
 #   ./stress_test.sh [--tps 50,100,200,400] [--duration 30] [--csv <path>] [--impl router_py,router_java,router_cpp]
 set -euo pipefail
 
+ROUTER_HOST="${ROUTER_HOST:-127.0.0.1}"
 TPS_LIST="50,100,200,400"
 DURATION=30
 CSV_FILE=""
@@ -54,8 +55,14 @@ fi
 # up for the whole sweep - unlike the router implementations it's not mutually exclusive infra,
 # it's the constant every implementation is measured against. Each implementation's stress_run.sh
 # expects it already running rather than starting/stopping it themselves.
-echo "Ensuring shared crypto_host is up..." >&2
-"$PROJECT_ROOT/crypto_host/start.sh" >&2
+if [ "$ROUTER_HOST" = "127.0.0.1" ]; then
+  echo "Ensuring shared crypto_host is up..." >&2
+  "$PROJECT_ROOT/crypto_host/start.sh" >&2
+else
+  echo "Ensuring shared crypto_host is up on $ROUTER_HOST..." >&2
+  SERVER_USER="${SERVER_USER:?SERVER_USER must be set for remote stress}" \
+    "$PROJECT_ROOT/server_start.sh" crypto >&2
+fi
 
 IFS=',' read -ra IMPLS <<< "$IMPL_LIST"
 IFS=',' read -ra TPS_VALUES <<< "$TPS_LIST"
@@ -67,6 +74,7 @@ IFS=',' read -ra TPS_VALUES <<< "$TPS_LIST"
 # happens fails its own readiness wait with a confusing "timed out" rather than a port-in-use
 # error. Poll for all four ports to go quiet before starting each run.
 wait_for_ports_free() {
+  [ "$ROUTER_HOST" != "127.0.0.1" ] && return 0
   for _ in $(seq 1 20); do
     local busy=0
     for port in 8080 8081 8082 8083; do

@@ -7,5 +7,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Actual startup is via docker-compose; this default just gives a usable shell.
-CMD ["/bin/bash"]
+# docker-compose overrides this for local dev (bind-mounts src); on remote the image runs as-is.
+CMD ["/bin/bash", "-c", "\
+  python3 simulators/crypto_host/main.py & \
+  python3 simulators/downstream_host/main.py & \
+  python3 router/main.py --config router/router_1/config.json & \
+  sleep infinity"]

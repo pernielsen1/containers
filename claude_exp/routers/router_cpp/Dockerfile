@@ -29,5 +29,10 @@ ENV PATH=/src/build:$PATH
 # Expose all required ports
 EXPOSE 5000 5001 5002 8080 8081 8082 8083
 
-# Default to showing usage; actual startup is via docker-compose or manual exec
-CMD ["/bin/bash"]
+# docker-compose overrides this for local dev (bind-mounts config to /config); on remote uses /src/config.
+ENV ROUTER_CONFIG=router_1.json
+CMD ["/bin/bash", "-c", "\
+  /src/build/crypto_host     --config /src/config/router_1.json & \
+  /src/build/downstream_host --config /src/config/router_1.json & \
+  /src/build/router_main     --config /src/config/${ROUTER_CONFIG} & \
+  sleep infinity"]

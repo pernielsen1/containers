@@ -390,9 +390,12 @@ class UpstreamHostSim:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config")
+    parser.add_argument("--router-host")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
+    if args.router_host:
+        cfg["router"]["host"] = args.router_host
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     sim = UpstreamHostSim(cfg)

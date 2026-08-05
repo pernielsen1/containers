@@ -58,3 +58,19 @@ I'm interested in understanding if we at some point get into garbage collection 
 what is interesting to know is what the slowest turn around time (i.e. time between send 0100 and receive 0110 at upstream)
 try to record the 10 slowest results and write them to a slow_responds.csv - record time from start of simulation plus the actual time measured for turn around.
 start in python 
+
+# introducing a server and deployment
+I want to continue with three alternatives - but I want to move into next phase  - introducing deployment to a decicated server - will also remove some of the uncertainties in performance measurement.
+there is a server called serverhp.home - running a ubuntu 26 lts which have a docker installed ssh and that's basically it. 
+
+## The vision
+I can build the containers python, java and cpp locally here - and then i need a deploy.sh script which can transfer to the server with the user found in environment variable - SERVER_USER
+then I need to be able to have a parameter to the test scripts which basically overrides the location of all the server instanses (localhost right now) to go to serverhp.home instead.
+
+## the task
+let's discuss the next step and then come up with a plan
+
+
+
+
+

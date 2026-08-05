@@ -37,7 +37,11 @@ CSV_FILE="$(cd "$(dirname "$CSV_FILE")" && pwd)/$(basename "$CSV_FILE")"
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_ROOT"
 
-CRYPTO_CMD=8099  # shared routers/crypto_host container, not a local process
+ROUTER_HOST="${ROUTER_HOST:-127.0.0.1}"
+REMOTE_SERVER=""
+[ "$ROUTER_HOST" != "127.0.0.1" ] && REMOTE_SERVER="${SERVER_USER:?SERVER_USER must be set for remote stress}@serverhp.home"
+
+CRYPTO_CMD=8099  # shared crypto_host (local port 8099 or remote server port 8099)
 DS_CMD=8081
 ROUTER_CMD=8080
 UPSTREAM_CMD=8083
@@ -49,6 +53,7 @@ cleanup() {
     for pid in "${PIDS[@]:-}"; do
       kill "$pid" 2>/dev/null || true
     done
+    [ -n "$REMOTE_SERVER" ] && ssh "$REMOTE_SERVER" "docker rm -f router_py 2>/dev/null" >&2 || true
   fi
 }
 trap cleanup EXIT
@@ -56,8 +61,9 @@ trap cleanup EXIT
 wait_for_stats() {
   local port="$1"
   local name="$2"
+  local host="${3:-$ROUTER_HOST}"
   for _ in $(seq 1 30); do
-    if curl -s -o /dev/null -f "http://127.0.0.1:${port}/stats"; then
+    if curl -s -o /dev/null -f "http://${host}:${port}/stats"; then
       return 0
     fi
     sleep 1
@@ -70,16 +76,27 @@ if [ "$MANUAL" -eq 0 ]; then
   # Redirected to stderr, not just left to inherit fd 1: Flask's werkzeug dev server prints its
   # "* Serving Flask app" banner directly to stdout, which would otherwise land inside the single
   # result line stress_test.sh captures via command substitution.
-  echo "Launching downstream_host..." >&2
-  python3 simulators/downstream_host/main.py >&2 &
-  PIDS+=("$!")
+  if [ "$ROUTER_HOST" = "127.0.0.1" ]; then
+    echo "Launching downstream_host..." >&2
+    python3 simulators/downstream_host/main.py >&2 &
+    PIDS+=("$!")
 
-  echo "Launching router_1 (perf config -> shared crypto_host)..." >&2
+    echo "Launching router_1 (perf config -> shared crypto_host)..." >&2
+    python3 router/main.py --config router/router_1/config_perf.json >&2 &
+    PIDS+=("$!")
+  else
+    echo "Starting router_py on $ROUTER_HOST (perf config, no embedded crypto)..." >&2
+    ssh "$REMOTE_SERVER" bash -s >&2 <<'SSH_EOF'
+docker rm -f router_py 2>/dev/null || true
+docker run -d --name router_py --network host --init router_py bash -c "
+  python3 simulators/downstream_host/main.py >&2 &
   python3 router/main.py --config router/router_1/config_perf.json >&2 &
-  PIDS+=("$!")
+  sleep infinity"
+SSH_EOF
+  fi
 
   echo "Launching upstream_1 (shared routers/upstream_host)..." >&2
-  python3 "$PROJECT_ROOT/../upstream_host/main.py" --config "$PROJECT_ROOT/../upstream_host/config.json" >&2 &
+  python3 "$PROJECT_ROOT/../upstream_host/main.py" --config "$PROJECT_ROOT/../upstream_host/config.json" --router-host "$ROUTER_HOST" >&2 &
   PIDS+=("$!")
 else
   echo "Manual mode: assuming actors are already running." >&2
@@ -88,7 +105,7 @@ fi
 wait_for_stats "$CRYPTO_CMD" "crypto_host"
 wait_for_stats "$DS_CMD" "downstream_host"
 wait_for_stats "$ROUTER_CMD" "router_1"
-wait_for_stats "$UPSTREAM_CMD" "upstream_1"
+wait_for_stats "$UPSTREAM_CMD" "upstream_1" "127.0.0.1"
 
 echo "Uploading CSV: $CSV_FILE" >&2
 curl -s -f -X POST "http://127.0.0.1:${UPSTREAM_CMD}/upload" -F "file=@${CSV_FILE}" >/dev/null
