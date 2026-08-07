@@ -37,6 +37,32 @@ PING_INTERVAL_S = 30  # upstream_host config.json's ping_0800_seconds, both upst
 launched = []  # actors this script itself started - only these get torn down at the end
 
 
+def _now_str() -> str:
+    return datetime.now().astimezone().strftime("%H:%M:%S")
+
+
+def announce(action: str, min_s: float, max_s: float = None) -> None:
+    """Prints an explicit 'about to wait' marker before every sleep/poll in this suite, so
+    someone following the console live always knows what's happening next and how long to
+    expect - never just a silent gap. max_s omitted (or equal to min_s) means a fixed-duration
+    wait; given explicitly means a poll loop with a deadline, which may finish sooner."""
+    if max_s is None or max_s == min_s:
+        print(f"[{_now_str()}] WAITING: {action} (fixed {min_s:.0f}s)")
+    else:
+        print(f"[{_now_str()}] WAITING: {action} (at least {min_s:.0f}s, up to {max_s:.0f}s)")
+
+
+def done_waiting(action: str, elapsed: float) -> None:
+    print(f"[{_now_str()}] DONE: {action} (took {elapsed:.1f}s)")
+
+
+def narrated_sleep(seconds: float, reason: str) -> None:
+    announce(reason, seconds)
+    start = time.time()
+    time.sleep(seconds)
+    done_waiting(reason, time.time() - start)
+
+
 class CsvLog:
     def __init__(self, path):
         self.path = path
@@ -61,7 +87,10 @@ def start_actor(name, timeout=15):
     if not is_running(name):
         launch_actor(actor)
         launched.append(actor)
+    announce(f"waiting for {name} to become ready", 0, timeout)
+    start = time.time()
     wait_for_ready(actor, timeout=timeout)
+    done_waiting(f"{name} ready", time.time() - start)
     return actor
 
 
@@ -115,6 +144,8 @@ def send_test_csv(upstream_name):
     with open(CSV_FILE, "rb") as f:
         requests.post(f"http://127.0.0.1:{port}/upload", files={"file": f}, timeout=5)
 
+    announce(f"{upstream_name}: waiting for /start to accept (upstream must show connected)", 0, 15)
+    poll_start = time.time()
     expected = None
     for _ in range(15):
         r = requests.get(f"http://127.0.0.1:{port}/start", timeout=3)
@@ -123,9 +154,13 @@ def send_test_csv(upstream_name):
             break
         time.sleep(1)
     if expected is None:
+        done_waiting(f"{upstream_name}: /start never became available, giving up", time.time() - poll_start)
         return []
+    done_waiting(f"{upstream_name}: /start accepted, {expected} row(s) queued", time.time() - poll_start)
 
-    deadline = time.time() + 15
+    announce(f"{upstream_name}: waiting for {expected} row(s) to round-trip", 0, 15)
+    poll_start = time.time()
+    deadline = poll_start + 15
     results = []
     while time.time() < deadline:
         r = requests.get(f"http://127.0.0.1:{port}/results", timeout=3)
@@ -134,6 +169,7 @@ def send_test_csv(upstream_name):
             if len(results) >= expected:
                 break
         time.sleep(0.5)
+    done_waiting(f"{upstream_name}: {len(results)}/{expected} row(s) round-tripped", time.time() - poll_start)
     return results
 
 
@@ -145,15 +181,19 @@ def summarize(results):
 
 def scenario_upstream_failover(log):
     print("\n=== SCENARIO: upstream failover (both upstream_1 and upstream_2 active) ===")
+    print(
+        f"    plan: start 6 actors -> settle 2s -> kill upstream_1, wait {PING_INTERVAL_S + 5}s "
+        f"-> kill upstream_2, wait {PING_INTERVAL_S + 5}s -> recover both (~30s each)"
+    )
     for name in ["crypto_host", "downstream_host", "router_1", "upstream_1", "router_2", "upstream_2"]:
         start_actor(name)
         log.log(name, "up")
-    time.sleep(2)  # let both connections settle before taking a baseline
+    narrated_sleep(2, "letting both upstream connections settle before taking a baseline")
 
     before_u2 = totals("upstream_2")
     kill_actor("upstream_1")
     log.log("upstream_1", "down")
-    time.sleep(PING_INTERVAL_S + 5)
+    narrated_sleep(PING_INTERVAL_S + 5, "confirming upstream_2's 0800 ping traffic keeps going without upstream_1")
     advanced = traffic_advanced("upstream_2", before_u2)
     verdict = "PASS" if advanced else "FAIL"
     log.log("upstream_2", f"ping_traffic_continued={advanced}")
@@ -161,7 +201,7 @@ def scenario_upstream_failover(log):
 
     kill_actor("upstream_2")
     log.log("upstream_2", "down")
-    time.sleep(PING_INTERVAL_S + 5)
+    narrated_sleep(PING_INTERVAL_S + 5, "observing downstream_host with both upstreams down")
     ds_stats = stats("downstream_host")
     log.log("downstream_host", f"OBSERVED with both upstreams down: {ds_stats}")
     print(f"OBSERVED downstream_host stats with both upstreams down: {ds_stats}")
@@ -181,9 +221,10 @@ def scenario_upstream_failover(log):
 
 def scenario_downstream_failure(log):
     print("\n=== SCENARIO: downstream_host failure (open question in resilience.md) ===")
+    print("    plan: kill downstream_host, wait 15s -> recover, wait 20s for auto-reconnect -> send test.csv (~30s)")
     kill_actor("downstream_host")
     log.log("downstream_host", "down")
-    time.sleep(15)
+    narrated_sleep(15, "observing router_1/router_2/upstream_1/upstream_2 with downstream_host down")
     observed = {
         "router_1": stats("router_1"),
         "router_2": stats("router_2"),
@@ -195,7 +236,7 @@ def scenario_downstream_failure(log):
 
     start_actor("downstream_host")
     log.log("downstream_host", "up")
-    time.sleep(20)  # >= router_1/router_2's reestablish_seconds (10s) + jitter, for auto-reconnect
+    narrated_sleep(20, "waiting for router_1/router_2 to auto-reconnect (reestablish_seconds=10 + jitter)")
     results = send_test_csv("upstream_1")
     log.log("downstream_host", f"recovery test.csv round-tripped {len(results)} rows: {summarize(results)}")
     print(f"downstream_host recovery: {len(results)} rows round-tripped")
@@ -214,6 +255,8 @@ def scenario_stuck_pending_on_downstream_teardown(log):
     transaction(s) instead of silently dropping them - the gap found and fixed while building
     Phase 3 of the debug-tracing tooling (briefs/debug_trace_master.md)."""
     print("\n=== SCENARIO: transaction stuck in-flight when downstream_host dies mid-flight ===")
+    print("    plan: kill downstream_host -> send test.csv (~15s, expected to hang) -> poll /logs for the "
+          "abandonment line (up to 10s) -> recover, wait 20s -> send test.csv (~30s)")
     router = get_actor("router_1")
 
     kill_actor("downstream_host")
@@ -225,8 +268,10 @@ def scenario_stuck_pending_on_downstream_teardown(log):
     results = send_test_csv("upstream_1")
     log.log("upstream_1", f"results while downstream dead: {summarize(results)}")
 
+    announce("polling router_1's /logs for the session-teardown abandonment line", 0, 10)
+    poll_start = time.time()
     abandoned_logged = False
-    deadline = time.time() + 10
+    deadline = poll_start + 10
     while time.time() < deadline and not abandoned_logged:
         try:
             logs = requests.get(f"http://127.0.0.1:{router['command_port']}/logs", timeout=3).json()
@@ -235,19 +280,22 @@ def scenario_stuck_pending_on_downstream_teardown(log):
         abandoned_logged = any("still pending" in entry.get("message", "") for entry in logs)
         if not abandoned_logged:
             time.sleep(1)
+    done_waiting(f"abandonment logged={abandoned_logged}", time.time() - poll_start)
     log.log("router_1", f"session-teardown abandonment logged={abandoned_logged}")
     verdict = "PASS" if abandoned_logged else "FAIL"
     print(f"{verdict}: session teardown logged the abandoned transaction (dispatcher.py drain_and_stop)")
 
     start_actor("downstream_host")
     log.log("downstream_host", "up")
-    time.sleep(20)  # >= router_1's reestablish_seconds (10s) + jitter, for auto-reconnect
+    narrated_sleep(20, "waiting for router_1 to auto-reconnect (reestablish_seconds=10 + jitter)")
     results = send_test_csv("upstream_1")
     log.log("downstream_host", f"recovery test.csv round-tripped {len(results)} rows: {summarize(results)}")
 
 
 def scenario_crypto_host_failure(log):
     print("\n=== SCENARIO: crypto_host failure (open question in resilience.md) ===")
+    print(f"    plan: kill crypto_host -> send test.csv (~30s) -> recover, wait {BREAKER_COOLDOWN_S + 5}s "
+          f"for breaker cooldown -> send test.csv (~30s)")
     kill_actor("crypto_host")
     log.log("crypto_host", "down")
     results = send_test_csv("upstream_1")
@@ -256,13 +304,21 @@ def scenario_crypto_host_failure(log):
 
     start_actor("crypto_host")
     log.log("crypto_host", "up")
-    time.sleep(BREAKER_COOLDOWN_S + 5)  # let CryptoClient's circuit breaker close again
+    narrated_sleep(BREAKER_COOLDOWN_S + 5, "letting CryptoClient's circuit breaker close again")
     results = send_test_csv("upstream_1")
     log.log("crypto_host", f"OBSERVED test.csv after recovery + breaker cooldown: {summarize(results)}")
     print(f"OBSERVED after crypto_host recovery: {summarize(results)}")
 
 
 def main():
+    print(f"[{_now_str()}] test_resilience.py starting - 4 scenarios, roughly 4-5 minutes total.")
+    print("  1. upstream failover           (~100s: 2 fixed waits of 35s each, plus two ~15-30s recoveries)")
+    print("  2. downstream_host failure     (~50s: 15s + 20s fixed waits, plus one ~15-30s recovery)")
+    print("  3. stuck pending on teardown   (~60s: ~15s hang + up to 10s poll + 20s fixed wait + recovery)")
+    print("  4. crypto_host failure         (~65s: one ~15-30s send + a 35s fixed breaker-cooldown wait)")
+    print("Every individual wait below is announced first with an expected min/max duration, and")
+    print("confirmed done afterward - nothing here is a silent gap.")
+    suite_start = time.time()
     log = CsvLog(RESULT_CSV)
     try:
         scenario_upstream_failover(log)
@@ -271,6 +327,7 @@ def main():
         scenario_crypto_host_failure(log)
     finally:
         teardown()
+    print(f"\n[{_now_str()}] test_resilience.py finished (took {time.time() - suite_start:.0f}s total)")
 
 
 if __name__ == "__main__":

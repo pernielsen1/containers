@@ -23,7 +23,13 @@ public:
     // success, or "" on any failure (breaker open, HTTP error, bad auth, unknown plugin_id,
     // malformed response) -- callers must only overwrite their working f47 when this is
     // non-empty, so a down/misconfigured crypto host degrades to "checks silently skipped."
-    std::string validate(const std::string& endpoint, const std::string& pan, const std::string& f47);
+    //
+    // router_stan isn't part of the Fortanix plugin contract - it's passed through so
+    // crypto_host's own logs can be joined with this router's logs on the same transaction
+    // (mirrors router_py's crypto_client.py / router_java's CryptoClient.java). Empty string
+    // when a caller has none.
+    std::string validate(const std::string& endpoint, const std::string& pan, const std::string& f47,
+                          const std::string& router_stan = "");
 
 private:
     void record_failure();

@@ -43,8 +43,12 @@ public class CryptoClient {
      * failure path leaves the original f47 untouched. Handles Fortanix PluginOutput envelope:
      * response body is a JSON string literal (base64 "format":"byte"), which we decode to reach
      * the inner {"f47": ...} object.
+     *
+     * routerStan isn't part of the Fortanix plugin contract - it's passed through so crypto_host's
+     * own logs can be joined with this router's logs on the same transaction (mirrors router_py's
+     * crypto_client.py). Empty string when a caller has none.
      */
-    public String validate(String endpoint, String pan, String f47) {
+    public String validate(String endpoint, String pan, String f47, String routerStan) {
         synchronized (lock) {
             if (System.currentTimeMillis() < openUntilMillis) {
                 return "";
@@ -52,7 +56,8 @@ public class CryptoClient {
         }
 
         try {
-            String json = MAPPER.writeValueAsString(Map.of("operation", endpoint, "f2", pan, "f47", f47));
+            String json = MAPPER.writeValueAsString(
+                    Map.of("operation", endpoint, "f2", pan, "f47", f47, "router_stan", routerStan));
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(baseUrl))
                     .timeout(Duration.ofSeconds(5))
@@ -80,7 +85,8 @@ public class CryptoClient {
             }
             return result == null ? "" : result.toString();
         } catch (Exception e) {
-            logger.log(Level.WARNING, "crypto_host " + endpoint + " call failed: " + e.getMessage());
+            logger.log(Level.WARNING, "crypto_host " + endpoint + " call failed (router_stan=" + routerStan
+                    + "): " + e.getMessage());
             synchronized (lock) {
                 failureCount++;
                 if (failureCount >= breakerThreshold) {

@@ -28,6 +28,8 @@ public:
     void close();
 
 private:
+    friend class DownstreamConnectionTestFactory;  // test-only: build from an existing fd pair
+                                                     // instead of a real IMS Connect handshake
     DownstreamConnection() = default;
 
     int to_fd_ = -1;

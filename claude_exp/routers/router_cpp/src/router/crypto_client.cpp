@@ -34,7 +34,8 @@ void CryptoClient::reset_failure() {
     failure_count_ = 0;
 }
 
-std::string CryptoClient::validate(const std::string& endpoint, const std::string& pan, const std::string& f47) {
+std::string CryptoClient::validate(const std::string& endpoint, const std::string& pan, const std::string& f47,
+                                    const std::string& router_stan) {
     {
         std::lock_guard<std::mutex> lock(breaker_mutex_);
         if (std::chrono::steady_clock::now() < open_until_) {
@@ -42,7 +43,7 @@ std::string CryptoClient::validate(const std::string& endpoint, const std::strin
         }
     }
 
-    nlohmann::json body = {{"operation", endpoint}, {"f2", pan}, {"f47", f47}};
+    nlohmann::json body = {{"operation", endpoint}, {"f2", pan}, {"f47", f47}, {"router_stan", router_stan}};
     httplib::Headers headers = {{"Authorization", "Bearer " + cfg_.bearer_token}};
 
     // One httplib::Client per calling thread (worker or response-worker), lazily built on
@@ -52,8 +53,8 @@ std::string CryptoClient::validate(const std::string& endpoint, const std::strin
     thread_local httplib::Client client = make_client();
     auto res = client.Post(base_path_, headers, body.dump(), "application/json");
     if (!res || res->status >= 400) {
-        LOG_WARNING("crypto_client: " + endpoint + " request failed, status=" +
-                    (res ? std::to_string(res->status) : std::string("(no response)")));
+        LOG_WARNING("crypto_client: " + endpoint + " request failed (router_stan=" + router_stan +
+                    "), status=" + (res ? std::to_string(res->status) : std::string("(no response)")));
         record_failure();
         return "";
     }
@@ -69,7 +70,8 @@ std::string CryptoClient::validate(const std::string& endpoint, const std::strin
         reset_failure();
         return f47_out;
     } catch (const std::exception& e) {
-        LOG_WARNING(std::string("crypto_client: failed to decode PluginOutput envelope: ") + e.what());
+        LOG_WARNING("crypto_client: failed to decode PluginOutput envelope (router_stan=" + router_stan +
+                    "): " + e.what());
         record_failure();
         return "";
     }

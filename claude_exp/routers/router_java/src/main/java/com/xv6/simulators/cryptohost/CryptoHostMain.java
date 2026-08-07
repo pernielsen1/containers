@@ -88,12 +88,17 @@ public final class CryptoHostMain {
                 String operation = String.valueOf(body.getOrDefault("operation", ""));
                 String pan = String.valueOf(body.getOrDefault("f2", ""));
                 String f47 = String.valueOf(body.getOrDefault("f47", ""));
+                // Not part of the Fortanix plugin contract - passed through purely so this
+                // actor's logs can be joined with the router's logs on the same transaction
+                // (empty when a caller doesn't send one, e.g. tests hitting this route directly).
+                String routerStan = String.valueOf(body.getOrDefault("router_stan", ""));
 
                 if (!operation.equals("validate_0100") && !operation.equals("validate_0110")) {
                     CommandServer.sendJson(exchange, 400, Map.of("error", "unknown operation: " + operation));
                     return;
                 }
 
+                logger.fine("validate pan=" + pan + " router_stan=" + routerStan);
                 String result = validate(pan, f47);
                 Map<String, Object> responseData = Map.of("f47", result);
                 String responseJson = MAPPER.writeValueAsString(responseData);

@@ -142,3 +142,39 @@
 2026-08-07T23:09:57+02:00;crypto_host;OBSERVED test.csv while down: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"message_type":"0110","response_code":"00"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"message_type":"0110","response_code":"00"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"message_type":"0110","response_code":"01"}'}]
 2026-08-07T23:09:57+02:00;crypto_host;up
 2026-08-07T23:10:32+02:00;crypto_host;OBSERVED test.csv after recovery + breaker cooldown: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T23:49:15+02:00;crypto_host;up
+2026-08-07T23:49:15+02:00;downstream_host;up
+2026-08-07T23:49:15+02:00;router_1;up
+2026-08-07T23:49:15+02:00;upstream_1;up
+2026-08-07T23:49:15+02:00;downstream_host;down (about to send a transaction with nowhere to go)
+2026-08-07T23:49:30+02:00;upstream_1;results while downstream dead: no results received
+2026-08-07T23:49:30+02:00;router_1;session-teardown abandonment logged=True
+2026-08-07T23:49:31+02:00;downstream_host;up
+2026-08-07T23:49:51+02:00;downstream_host;recovery test.csv round-tripped 3 rows: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T23:50:24+02:00;crypto_host;up
+2026-08-07T23:50:24+02:00;downstream_host;up
+2026-08-07T23:50:29+02:00;router_1;up
+2026-08-07T23:50:29+02:00;upstream_1;up
+2026-08-07T23:50:29+02:00;router_2;up
+2026-08-07T23:50:35+02:00;upstream_2;up
+2026-08-07T23:50:37+02:00;upstream_1;down
+2026-08-07T23:51:12+02:00;upstream_2;ping_traffic_continued=True
+2026-08-07T23:51:12+02:00;upstream_2;down
+2026-08-07T23:51:47+02:00;downstream_host;OBSERVED with both upstreams down: {'last_recv_datetime': '23:51:04', 'recv_1800s': 3, 'recv_180s': 3, 'recv_30s': 0, 'recv_60s': 1, 'recv_total': 3, 'seconds_since_last_recv': 42.3, 'sent_1800s': 3, 'sent_180s': 3, 'sent_30s': 0, 'sent_60s': 1, 'sent_total': 3, 'yellow_threshold_seconds': 40}
+2026-08-07T23:51:47+02:00;upstream_1;up
+2026-08-07T23:51:47+02:00;upstream_1;test.csv round-tripped 3 rows: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T23:51:48+02:00;upstream_2;up
+2026-08-07T23:51:49+02:00;upstream_2;test.csv round-tripped 3 rows: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T23:51:49+02:00;downstream_host;down
+2026-08-07T23:52:04+02:00;downstream_host;OBSERVED after 15s down: {'router_1': {'connections': {'downstream': False, 'upstream': True}, 'gauges': {'pending_count': 0, 'queue_depth': 0, 'response_queue_depth': 0}, 'last_recv_datetime': '23:51:47', 'latency': {'crypto_rtt': {'count': 21, 'max_ms': 6.676, 'min_ms': 3.077, 'p50_ms': 3.544, 'p95_ms': 6.076}, 'downstream_rtt': {'count': 9, 'max_ms': 0.966, 'min_ms': 0.68, 'p50_ms': 0.777, 'p95_ms': 0.93}, 'queue_wait': {'count': 12, 'max_ms': 1.1, 'min_ms': 0.094, 'p50_ms': 0.136, 'p95_ms': 0.626}, 'total': {'count': 9, 'max_ms': 12.273, 'min_ms': 7.221, 'p50_ms': 8.275, 'p95_ms': 10.917}}, 'recv_1800s': 89, 'recv_180s': 23, 'recv_30s': 8, 'recv_60s': 8, 'recv_total': 89, 'seconds_since_last_recv': 16.7, 'sent_1800s': 87, 'sent_180s': 21, 'sent_30s': 8, 'sent_60s': 8, 'sent_total': 87, 'yellow_threshold_seconds': 40}, 'router_2': {'connections': {'downstream': False, 'upstream': True}, 'gauges': {'pending_count': 0, 'queue_depth': 0, 'response_queue_depth': 0}, 'last_recv_datetime': '23:51:48', 'latency': {'crypto_rtt': {'count': 6, 'max_ms': 5.065, 'min_ms': 3.077, 'p50_ms': 3.14, 'p95_ms': 4.74}, 'downstream_rtt': {'count': 3, 'max_ms': 0.822, 'min_ms': 0.71, 'p50_ms': 0.816, 'p95_ms': 0.821}, 'queue_wait': {'count': 3, 'max_ms': 0.107, 'min_ms': 0.096, 'p50_ms': 0.1, 'p95_ms': 0.106}, 'total': {'count': 3, 'max_ms': 10.125, 'min_ms': 7.213, 'p50_ms': 7.469, 'p95_ms': 9.86}}, 'recv_1800s': 12, 'recv_180s': 12, 'recv_30s': 8, 'recv_60s': 10, 'recv_total': 12, 'seconds_since_last_recv': 15.5, 'sent_1800s': 12, 'sent_180s': 12, 'sent_30s': 8, 'sent_60s': 10, 'sent_total': 12, 'yellow_threshold_seconds': 40}, 'upstream_1': {'connections': {'router': True}, 'last_recv_datetime': '23:51:47', 'recv_1800s': 4, 'recv_180s': 4, 'recv_30s': 4, 'recv_60s': 4, 'recv_total': 4, 'seconds_since_last_recv': 16.7, 'sent_1800s': 4, 'sent_180s': 4, 'sent_30s': 4, 'sent_60s': 4, 'sent_total': 4, 'yellow_threshold_seconds': 40}, 'upstream_2': {'connections': {'router': True}, 'last_recv_datetime': '23:51:48', 'recv_1800s': 4, 'recv_180s': 4, 'recv_30s': 4, 'recv_60s': 4, 'recv_total': 4, 'seconds_since_last_recv': 15.6, 'sent_1800s': 4, 'sent_180s': 4, 'sent_30s': 4, 'sent_60s': 4, 'sent_total': 4, 'yellow_threshold_seconds': 40}}
+2026-08-07T23:52:04+02:00;downstream_host;up
+2026-08-07T23:52:25+02:00;downstream_host;recovery test.csv round-tripped 3 rows: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T23:52:25+02:00;downstream_host;down (about to send a transaction with nowhere to go)
+2026-08-07T23:52:40+02:00;upstream_1;results while downstream dead: no results received
+2026-08-07T23:52:40+02:00;router_1;session-teardown abandonment logged=True
+2026-08-07T23:52:41+02:00;downstream_host;up
+2026-08-07T23:53:01+02:00;downstream_host;recovery test.csv round-tripped 3 rows: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T23:53:01+02:00;crypto_host;down
+2026-08-07T23:53:02+02:00;crypto_host;OBSERVED test.csv while down: [{'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"message_type":"0110","response_code":"00"}'}, {'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"message_type":"0110","response_code":"00"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"message_type":"0110","response_code":"01"}'}]
+2026-08-07T23:53:02+02:00;crypto_host;up
+2026-08-07T23:53:37+02:00;crypto_host;OBSERVED test.csv after recovery + breaker cooldown: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]

@@ -122,7 +122,7 @@ class DispatcherResilienceTest {
         }
 
         @Override
-        public String validate(String endpoint, String pan, String f47) {
+        public String validate(String endpoint, String pan, String f47, String routerStan) {
             return "";
         }
     }
@@ -277,6 +277,60 @@ class DispatcherResilienceTest {
         f.setAccessible(true);
         Map<String, PendingEntry> pending = (Map<String, PendingEntry>) f.get(dispatcher);
         pending.put(stan, entry);
+    }
+
+    @Test
+    void drainAndStopLogsAndClearsAbandonedPending() throws Exception {
+        TestHarness h = new TestHarness(5, 100, 1);
+        h.dispatcher.start();
+
+        Socket[] pair = socketPair();
+        Socket upConn = pair[0];
+        Socket testConn = pair[1];
+        ReentrantLock writeLock = new ReentrantLock();
+
+        java.util.List<String> captured = new java.util.concurrent.CopyOnWriteArrayList<>();
+        Handler captureHandler = new Handler() {
+            @Override
+            public void publish(LogRecord record) {
+                if (record.getLevel().intValue() >= Level.WARNING.intValue()) {
+                    captured.add(record.getMessage());
+                }
+            }
+
+            @Override
+            public void flush() {
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+        Logger dispatcherLogger = Logger.getLogger(Dispatcher.class.getName());
+        dispatcherLogger.addHandler(captureHandler);
+
+        try {
+            putPendingEntry(h.dispatcher, "000042", new PendingEntry(upConn, writeLock, "100042", System.nanoTime()));
+
+            h.dispatcher.drainAndStop();
+
+            assertEquals(0, getPendingSize(h.dispatcher));
+            assertTrue(captured.stream().anyMatch(m -> m.contains("router_stan 000042 still pending")));
+            assertTrue(captured.stream().anyMatch(m -> m.contains("abandoned 1 pending transaction")));
+        } finally {
+            dispatcherLogger.removeHandler(captureHandler);
+            h.close();
+            upConn.close();
+            testConn.close();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static int getPendingSize(Dispatcher dispatcher) throws Exception {
+        java.lang.reflect.Field f = Dispatcher.class.getDeclaredField("pending");
+        f.setAccessible(true);
+        Map<String, PendingEntry> pending = (Map<String, PendingEntry>) f.get(dispatcher);
+        return pending.size();
     }
 
     @Test

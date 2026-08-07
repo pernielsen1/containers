@@ -1,4 +1,5 @@
 build/
+build_local/
 logs/
 upstream_1_input/
 *.log

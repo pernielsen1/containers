@@ -62,6 +62,8 @@ public:
     void drain_and_stop();                                                     // poison-pill sentinels + join
 
 private:
+    friend class DispatcherTestAccess;  // test-only access to pending_/queue_/stan_counter_
+
     void worker_loop();
     void response_worker_loop();
     void reaper_loop();

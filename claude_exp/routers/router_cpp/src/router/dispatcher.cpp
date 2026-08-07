@@ -110,7 +110,7 @@ void Dispatcher::process(RoutedMessage& msg) {
     auto fwd = req;
     if (mti == "0100") {
         std::string f47 = req.count("47") ? req.at("47") : "";
-        std::string enriched = crypto_.validate("validate_0100", pan, f47);
+        std::string enriched = crypto_.validate("validate_0100", pan, f47, router_stan);
         if (!enriched.empty()) fwd["47"] = enriched;
     }
     fwd["11"] = router_stan;
@@ -164,7 +164,7 @@ void Dispatcher::handle_response(const std::map<std::string, std::string>& resp)
     if (mti == "0110") {
         std::string pan = fwd.count("2") ? fwd.at("2") : "";
         std::string f47 = fwd.count("47") ? fwd.at("47") : "";
-        std::string enriched = crypto_.validate("validate_0110", pan, f47);
+        std::string enriched = crypto_.validate("validate_0110", pan, f47, router_stan);
         if (!enriched.empty()) fwd["47"] = enriched;
     }
 
@@ -275,6 +275,29 @@ void Dispatcher::drain_and_stop() {
         if (t.joinable()) t.join();
     }
     if (reaper_.joinable()) reaper_.join();
+
+    // Session teardown (upstream or downstream disconnect, reconnect) previously discarded any
+    // still-in-flight transactions with zero trace - unlike purge(), which reports
+    // pending_dropped, this path left no log line explaining why a transaction just vanished.
+    // There's nothing to *do* about them (the upstream client that would receive a decline is
+    // already gone), but a live-diagnosis session needs the record. Safe without extra locking
+    // beyond the move itself: every worker/response-worker thread that could still be mutating
+    // pending_ has already been joined above.
+    std::unordered_map<std::string, PendingEntry> dropped;
+    {
+        std::lock_guard<std::mutex> lock(pending_mutex_);
+        dropped = std::move(pending_);
+        pending_.clear();
+    }
+    for (const auto& [stan, entry] : dropped) {
+        LOG_WARNING("dispatcher: session torn down with router_stan=" + stan + " still pending (upstream_stan=" +
+                    entry.upstream_stan + "); abandoning");
+    }
+    if (!dropped.empty()) {
+        LOG_WARNING("dispatcher: session teardown abandoned " + std::to_string(dropped.size()) +
+                    " pending transaction(s)");
+        stats_.set_gauge("pending_count", 0);
+    }
 }
 
 }  // namespace xv6::router

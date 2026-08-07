@@ -175,7 +175,7 @@ public final class Dispatcher {
 
         Map<String, String> fwd = new LinkedHashMap<>(req);
         if ("0100".equals(mti)) {
-            String result = crypto.validate("validate_0100", pan, req.getOrDefault("47", ""));
+            String result = crypto.validate("validate_0100", pan, req.getOrDefault("47", ""), routerStan);
             if (!result.isEmpty()) {
                 fwd.put("47", result);
             }
@@ -224,7 +224,7 @@ public final class Dispatcher {
         fwd.put("11", entry.upstreamStan());
         if ("0110".equals(mti)) {
             String pan = resp.getOrDefault("2", "");
-            String result = crypto.validate("validate_0110", pan, resp.getOrDefault("47", ""));
+            String result = crypto.validate("validate_0110", pan, resp.getOrDefault("47", ""), routerStan);
             if (!result.isEmpty()) {
                 fwd.put("47", result);
             }
@@ -353,6 +353,24 @@ public final class Dispatcher {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
+        }
+
+        // Session teardown (upstream or downstream disconnect, reconnect) previously discarded
+        // any still-in-flight transactions with zero trace - unlike purge(), which reports
+        // dropped_pending, this path left no log line explaining why a transaction just
+        // vanished. There's nothing to *do* about them (the upstream client that would receive
+        // a decline is already gone), but a live-diagnosis session needs the record. Safe to
+        // read/clear `pending` here without extra locking: every worker/response-worker thread
+        // that could still be mutating it has already been joined above.
+        Map<String, PendingEntry> dropped = new LinkedHashMap<>(pending);
+        pending.clear();
+        for (Map.Entry<String, PendingEntry> e : dropped.entrySet()) {
+            logger.warning("session torn down with router_stan " + e.getKey() + " still pending (upstream_stan="
+                    + e.getValue().upstreamStan() + "); abandoning");
+        }
+        if (!dropped.isEmpty()) {
+            logger.warning("session teardown abandoned " + dropped.size() + " pending transaction(s)");
+            stats.setGauge("pending_count", 0);
         }
     }
 }

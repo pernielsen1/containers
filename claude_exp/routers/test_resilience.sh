@@ -33,6 +33,8 @@ IFS=',' read -ra IMPLS <<< "$IMPL_LIST"
 # mode: host / direct bind), and a stopped actor doesn't necessarily release its port the instant
 # the previous suite's teardown returns.
 wait_for_ports_free() {
+  echo "[$(date +%H:%M:%S)] WAITING: for ports 8080-8083 to free up (at least 0s, up to 20s)" >&2
+  local waited=0
   for _ in $(seq 1 20); do
     local busy=0
     for port in 8080 8081 8082 8083; do
@@ -42,11 +44,13 @@ wait_for_ports_free() {
       fi
     done
     if [ "$busy" -eq 0 ]; then
+      echo "[$(date +%H:%M:%S)] DONE: ports free (took ${waited}s)" >&2
       return 0
     fi
     sleep 1
+    waited=$((waited + 1))
   done
-  echo "Warning: ports still busy after waiting - starting next suite anyway" >&2
+  echo "[$(date +%H:%M:%S)] WARNING: ports still busy after 20s - starting next suite anyway" >&2
 }
 
 ran_any=0
@@ -55,15 +59,18 @@ for impl in "${IMPLS[@]}"; do
     echo "Skipping $impl: no test_resilience.sh yet" >&2
     continue
   fi
-  echo "=== $impl resilience suite ===" >&2
+  echo "" >&2
+  echo "=== [$(date +%H:%M:%S)] $impl resilience suite starting (each suite is several minutes - see its own console output for per-step wait times) ===" >&2
   wait_for_ports_free
   ran_any=1
+  impl_start=$(date +%s)
   # One implementation's suite failing (or finding a real bug) must not stop the others from
   # running - report and continue, same spirit as stress_test.sh's per-run `|| true` handling.
   if ! "$PROJECT_ROOT/$impl/test_resilience.sh"; then
-    echo "$impl resilience suite exited non-zero - see output above" >&2
+    echo "[$(date +%H:%M:%S)] $impl resilience suite exited non-zero - see output above" >&2
   fi
-  echo "  -> $impl done, log: $PROJECT_ROOT/$impl/test_resilience.csv" >&2
+  impl_elapsed=$(( $(date +%s) - impl_start ))
+  echo "=== [$(date +%H:%M:%S)] $impl done (took ${impl_elapsed}s), log: $PROJECT_ROOT/$impl/test_resilience.csv ===" >&2
 done
 
 if [ "$ran_any" -eq 0 ]; then

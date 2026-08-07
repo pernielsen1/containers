@@ -76,14 +76,21 @@ int main(int argc, char** argv) {
                     return;
                 }
 
+                // router_stan isn't part of the Fortanix plugin contract - it's an extra field
+                // the router sends purely so this actor's logs can be joined with the router's
+                // logs on the same transaction (empty when a caller doesn't send one, e.g. tests
+                // hitting this route directly).
+                std::string router_stan;
                 try {
                     auto body = json::parse(req.body);
                     std::string pan = body.at("f2").get<std::string>();
                     std::string f47_str = body.value("f47", std::string(""));
+                    router_stan = body.value("router_stan", std::string(""));
                     json f47 = iso_codec::f47_decode(f47_str);
                     stats.record_recv();
 
                     json enriched = validate(pan, f47, pans);
+                    LOG_DEBUG("validated pan=" + pan + " router_stan=" + router_stan);
 
                     json envelope = {{"f47", enriched.dump()}};
                     std::string envelope_str = envelope.dump();
@@ -95,6 +102,7 @@ int main(int argc, char** argv) {
                     res.status = 200;
                     stats.record_sent();
                 } catch (const std::exception& e) {
+                    LOG_WARNING("validate failed router_stan=" + router_stan + ": " + e.what());
                     send_json(res, 400, {{"error", e.what()}});
                 }
             });
