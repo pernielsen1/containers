@@ -1,8 +1,10 @@
+import json
 import logging
 import threading
 
 from flask import Flask, jsonify, request
 
+from shared.json_log import JsonFormatter
 from shared.log_buffer import LogBuffer
 
 
@@ -18,8 +20,7 @@ class CommandServer:
         logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
         self.log_buffer = LogBuffer(maxlen=2000)
-        formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
-        self.log_buffer.setFormatter(formatter)
+        self.log_buffer.setFormatter(JsonFormatter())
         logging.getLogger().addHandler(self.log_buffer)
 
         self._register_builtin_routes()
@@ -61,8 +62,16 @@ class CommandServer:
             lines = self.log_buffer.get_lines()
             fmt = request.args.get("format", "json")
             if fmt == "text":
+                # Each line is already a standalone JSON object (JSON-lines format) - fine to
+                # ship/tail as-is without re-parsing.
                 return "\n".join(lines), 200, {"Content-Type": "text/plain"}
-            return jsonify(lines)
+            parsed = []
+            for line in lines:
+                try:
+                    parsed.append(json.loads(line))
+                except ValueError:
+                    parsed.append({"message": line})
+            return jsonify(parsed)
 
     def register(self, path, methods=("GET",), protected: bool = False):
         def decorator(fn):

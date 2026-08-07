@@ -13,6 +13,9 @@ import requests
 from flask import Flask, jsonify, request, send_from_directory
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, PROJECT_ROOT)
+
+from shared.json_log import configure_logging  # noqa: E402
 
 # upstream_host is shared across all three implementations (routers/upstream_host/), not router_py-local
 # - see routers/upstream_host/build_router.md.
@@ -362,6 +365,16 @@ def _make_app(_port):
         fmt = request.args.get("format", "json")
         return _proxy_get(name, f"logs?format={fmt}")
 
+    @app.route("/api/actor/<name>/pending")
+    def actor_pending(name):
+        return _proxy_get(name, "pending")
+
+    @app.route("/api/actor/<name>/trace", methods=["GET", "POST"])
+    def actor_trace(name):
+        if request.method == "POST":
+            return _proxy_post(name, "trace", json_body=request.json)
+        return _proxy_get(name, "trace")
+
     @app.route("/api/actor/<name>/upload", methods=["POST"])
     def actor_upload(name):
         actor = get_actor(name)
@@ -444,7 +457,7 @@ def main():
     parser.add_argument("--port", type=int, default=8090)
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    configure_logging(level=logging.INFO)
 
     # Both an atexit handler AND an explicit SIGTERM handler are required: Python's atexit
     # handlers do not run on a bare SIGTERM (only on normal interpreter exit), so without the

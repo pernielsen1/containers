@@ -201,6 +201,51 @@ def scenario_downstream_failure(log):
     print(f"downstream_host recovery: {len(results)} rows round-tripped")
 
 
+def scenario_stuck_pending_on_downstream_teardown(log):
+    """Not the SIGSTOP/pause-resume variant resilience.md flags as a deferred follow-up (that one
+    simulates a silent hang and turned out racy to script deterministically - see
+    project_routers_monorepo memory). This is a plain, deterministic case: downstream_host is
+    killed *before* sending, then upstream_1's own already-open connection (untouched - no
+    fighting over router_1's single-client "server mode" slot, which is what an earlier, more
+    complicated version of this scenario tripped over) is used to send test.csv. Every row gets
+    genuinely stuck in router_1's pending map (there's nowhere for it to go), and this checks that
+    the session teardown that follows (dispatcher.py's drain_and_stop, once the downstream
+    receiver thread's recv() notices downstream_host is gone) reports the abandoned
+    transaction(s) instead of silently dropping them - the gap found and fixed while building
+    Phase 3 of the debug-tracing tooling (briefs/debug_trace_master.md)."""
+    print("\n=== SCENARIO: transaction stuck in-flight when downstream_host dies mid-flight ===")
+    router = get_actor("router_1")
+
+    kill_actor("downstream_host")
+    log.log("downstream_host", "down (about to send a transaction with nowhere to go)")
+
+    # send_test_csv uploads+starts test.csv on upstream_1's existing connection and polls for
+    # results for up to 15s - downstream is dead so nothing will ever complete, but that gives
+    # router_1's session plenty of time to notice and tear down mid-call.
+    results = send_test_csv("upstream_1")
+    log.log("upstream_1", f"results while downstream dead: {summarize(results)}")
+
+    abandoned_logged = False
+    deadline = time.time() + 10
+    while time.time() < deadline and not abandoned_logged:
+        try:
+            logs = requests.get(f"http://127.0.0.1:{router['command_port']}/logs", timeout=3).json()
+        except requests.RequestException:
+            logs = []
+        abandoned_logged = any("still pending" in entry.get("message", "") for entry in logs)
+        if not abandoned_logged:
+            time.sleep(1)
+    log.log("router_1", f"session-teardown abandonment logged={abandoned_logged}")
+    verdict = "PASS" if abandoned_logged else "FAIL"
+    print(f"{verdict}: session teardown logged the abandoned transaction (dispatcher.py drain_and_stop)")
+
+    start_actor("downstream_host")
+    log.log("downstream_host", "up")
+    time.sleep(20)  # >= router_1's reestablish_seconds (10s) + jitter, for auto-reconnect
+    results = send_test_csv("upstream_1")
+    log.log("downstream_host", f"recovery test.csv round-tripped {len(results)} rows: {summarize(results)}")
+
+
 def scenario_crypto_host_failure(log):
     print("\n=== SCENARIO: crypto_host failure (open question in resilience.md) ===")
     kill_actor("crypto_host")
@@ -222,6 +267,7 @@ def main():
     try:
         scenario_upstream_failover(log)
         scenario_downstream_failure(log)
+        scenario_stuck_pending_on_downstream_teardown(log)
         scenario_crypto_host_failure(log)
     finally:
         teardown()

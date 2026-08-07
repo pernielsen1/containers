@@ -48,7 +48,7 @@ def test_logs_route():
 
     resp = requests.get("http://127.0.0.1:18704/logs")
     assert resp.status_code == 200
-    assert any("hello from test" in line for line in resp.json())
+    assert any("hello from test" in entry.get("message", "") for entry in resp.json())
 
     resp_text = requests.get("http://127.0.0.1:18704/logs?format=text")
     assert "hello from test" in resp_text.text

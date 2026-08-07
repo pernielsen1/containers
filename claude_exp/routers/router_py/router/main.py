@@ -7,12 +7,13 @@ import threading
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from flask import jsonify  # noqa: E402
+from flask import jsonify, request  # noqa: E402
 
 from router.config import RouterConfig  # noqa: E402
 from router.session import RouterSession  # noqa: E402
 from router.upstream import UpstreamServer  # noqa: E402
 from shared.command_server import CommandServer  # noqa: E402
+from shared.json_log import configure_logging  # noqa: E402
 from shared.stats import Stats  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -36,8 +37,9 @@ def run(cfg=None, stop_event=None, stats=None, _config_base=None):
         stats = Stats(yellow_threshold_seconds=cfg.yellow_threshold_seconds)
 
     # MUST come before CommandServer(...): CommandServer adds a LogBuffer handler to the
-    # root logger, and basicConfig is a no-op once the root logger already has handlers.
-    logging.basicConfig(level=cfg.log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    # root logger, and configure_logging (like basicConfig) is a no-op once the root logger
+    # already has handlers.
+    configure_logging(level=cfg.log_level)
 
     cmd = CommandServer(
         cfg.command_port, stats, stop_event, bind_host=cfg.command_bind_host, auth_token=cfg.command_auth_token
@@ -51,6 +53,25 @@ def run(cfg=None, stop_event=None, stats=None, _config_base=None):
         if dispatcher is None:
             return jsonify({"error": "no active session"}), 503
         return jsonify(dispatcher.purge())
+
+    @cmd.register("/pending", methods=["GET"])
+    def pending_route():
+        dispatcher = active_dispatcher["current"]
+        if dispatcher is None:
+            return jsonify({"error": "no active session"}), 503
+        return jsonify(dispatcher.pending_snapshot())
+
+    @cmd.register("/trace", methods=["GET", "POST"])
+    def trace_route():
+        dispatcher = active_dispatcher["current"]
+        if dispatcher is None:
+            return jsonify({"error": "no active session"}), 503
+        if request.method == "POST":
+            body = request.json or {}
+            count = body.get("count", 1)
+            dispatcher.trace.arm(count, stan=body.get("stan"), pan=body.get("pan"))
+            return jsonify(dispatcher.trace.snapshot())
+        return jsonify(dispatcher.trace.snapshot())
 
     cmd.start()
 

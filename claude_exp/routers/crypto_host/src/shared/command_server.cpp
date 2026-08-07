@@ -83,6 +83,8 @@ void CommandServer::setup_builtin_routes() {
         auto format = req.get_param_value("format");
 
         if (format == "text") {
+            // Each line is already a standalone JSON object (JSON-lines format) - fine to
+            // ship/tail as-is without re-parsing.
             std::string text;
             for (const auto& line : lines) {
                 text += line + "\n";
@@ -90,7 +92,15 @@ void CommandServer::setup_builtin_routes() {
             res.set_content(text, "text/plain");
             res.status = 200;
         } else {
-            send_json(res, 200, json(lines));
+            json parsed = json::array();
+            for (const auto& line : lines) {
+                try {
+                    parsed.push_back(json::parse(line));
+                } catch (const std::exception&) {
+                    parsed.push_back(json{{"message", line}});
+                }
+            }
+            send_json(res, 200, parsed);
         }
     });
 }

@@ -30,7 +30,7 @@ class FakeDownstream:
 
 
 class FakeCrypto:
-    def validate(self, endpoint, pan, f47):
+    def validate(self, endpoint, pan, f47, router_stan=""):
         return ""
 
 
@@ -137,6 +137,120 @@ def test_stan_collision_is_logged(caplog):
             time.sleep(0.3)
 
         assert any("still outstanding" in rec.message for rec in caplog.records)
+    finally:
+        dispatcher.drain_and_stop()
+        up_conn.close()
+        test_conn.close()
+
+
+def test_pending_snapshot_reports_age_oldest_first():
+    dispatcher, cfg, downstream, stats = _make_dispatcher(pending_ttl_seconds=100)
+
+    up_conn, test_conn = socket.socketpair()
+    write_lock = threading.Lock()
+    try:
+        now = time.monotonic()
+        with dispatcher._pending_lock:
+            dispatcher._pending["000001"] = PendingEntry(up_conn, write_lock, "100001", now - 5)
+            dispatcher._pending["000002"] = PendingEntry(up_conn, write_lock, "100002", now - 1)
+
+        snapshot = dispatcher.pending_snapshot()
+        assert [e["router_stan"] for e in snapshot] == ["000001", "000002"]
+        assert snapshot[0]["upstream_stan"] == "100001"
+        assert snapshot[0]["age_seconds"] > snapshot[1]["age_seconds"]
+    finally:
+        up_conn.close()
+        test_conn.close()
+
+
+def test_drain_and_stop_logs_and_clears_abandoned_pending(caplog):
+    dispatcher, cfg, downstream, stats = _make_dispatcher(pending_ttl_seconds=100)
+    dispatcher.start()
+
+    up_conn, test_conn = socket.socketpair()
+    write_lock = threading.Lock()
+    try:
+        with dispatcher._pending_lock:
+            dispatcher._pending["000042"] = PendingEntry(up_conn, write_lock, "100042", time.monotonic())
+
+        with caplog.at_level(logging.WARNING):
+            dispatcher.drain_and_stop()
+
+        assert dispatcher._pending == {}
+        messages = [rec.message for rec in caplog.records]
+        assert any("router_stan 000042 still pending" in m for m in messages)
+        assert any("abandoned 1 pending transaction" in m for m in messages)
+        stan_record = next(rec for rec in caplog.records if "000042 still pending" in rec.message)
+        assert stan_record.router_stan == "000042"
+    finally:
+        up_conn.close()
+        test_conn.close()
+
+
+def test_trace_capture_round_trip():
+    dispatcher, cfg, downstream, stats = _make_dispatcher(pending_ttl_seconds=100)
+
+    up_conn, test_conn = socket.socketpair()
+    write_lock = threading.Lock()
+    try:
+        dispatcher.trace.arm(1)
+
+        req = {"t": "0100", "2": "4111111111111111", "3": "000000", "4": "000000000100", "11": "000042"}
+        msg = RoutedMessage(req=req, up_conn=up_conn, up_write_lock=write_lock, up_addr=("x", 0), raw=b"\xaa\xbb")
+        dispatcher._process(msg)
+
+        router_stan = next(iter(dispatcher._pending))
+        assert router_stan == "000001"
+
+        resp = {"t": "0110", "11": router_stan, "39": "00"}
+        dispatcher.handle_response(resp, raw=b"\xcc\xdd")
+
+        snap = dispatcher.trace.snapshot()
+        assert len(snap["entries"]) == 1
+        entry = snap["entries"][0]
+        assert entry["router_stan"] == router_stan
+        assert entry["upstream_stan"] == "000042"
+        stages = [h["stage"] for h in entry["hops"]]
+        # crypto_call appears once per leg (validate_0100 on the way down, validate_0110 on the
+        # way back) - FakeCrypto returns "" (a no-op enrichment) but the hop is still recorded.
+        assert stages == [
+            "upstream_recv", "crypto_call", "downstream_send",
+            "downstream_recv", "crypto_call", "upstream_send",
+        ]
+        assert entry["hops"][0]["wire_hex"] == "aabb"
+        assert entry["hops"][3]["wire_hex"] == "ccdd"
+        assert snap["armed"] is False  # count of 1 exhausted
+    finally:
+        up_conn.close()
+        test_conn.close()
+
+
+def test_latency_recorded_for_full_round_trip():
+    dispatcher, cfg, downstream, stats = _make_dispatcher(pending_ttl_seconds=100)
+    dispatcher.start()
+
+    up_conn, test_conn = socket.socketpair()
+    write_lock = threading.Lock()
+    try:
+        req = {"t": "0100", "2": "4111111111111111", "3": "000000", "4": "000000000100", "11": "000042"}
+        # submit(), not _process() directly - queue_wait is only recorded in _worker_loop, which
+        # only runs on the real dequeue path.
+        dispatcher.submit(RoutedMessage(req=req, up_conn=up_conn, up_write_lock=write_lock, up_addr=("x", 0)))
+
+        deadline = time.time() + 2
+        while time.time() < deadline and not dispatcher._pending:
+            time.sleep(0.05)
+        router_stan = next(iter(dispatcher._pending))
+
+        resp = {"t": "0110", "11": router_stan, "39": "00"}
+        dispatcher.handle_response(resp)
+
+        snap = stats.snapshot()
+        for name in ("queue_wait", "crypto_rtt", "downstream_rtt", "total"):
+            assert name in snap["latency"], f"missing latency bucket: {name}"
+            assert snap["latency"][name]["count"] >= 1
+        # one crypto_rtt sample per leg: validate_0100 on the way down, validate_0110 on the way back
+        assert snap["latency"]["crypto_rtt"]["count"] == 2
     finally:
         dispatcher.drain_and_stop()
         up_conn.close()

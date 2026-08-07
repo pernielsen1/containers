@@ -44,3 +44,28 @@ Observed against a live run:
   acceptable fallback behavior or a bug to fix in `router_py` before this pattern is ported
   anywhere else.
 
+## Round 2 (2026-08-07) - stuck-transaction / session-teardown scenario
+
+Added `scenario_stuck_pending_on_downstream_teardown` to `router_py/test_resilience.py`, found
+while building the live-diagnosis tooling in `briefs/debug_trace_master.md`. Not the SIGSTOP
+pause/resume variant Round 1 flagged as deferred (that one simulates a silent hang and turned out
+racy to script deterministically - the router's own reconnect/liveness logic races with it in ways
+that are hard to pin down from outside). This is a plainer, deterministic case: hold a raw upstream
+client connection open, send one transaction, confirm it's genuinely stuck in `router_1`'s pending
+map (`GET /pending`), then kill `downstream_host` outright with the transaction still in flight.
+
+**Bug found + fixed**: `Dispatcher.drain_and_stop()` (called on every session teardown - upstream
+disconnect, downstream disconnect, reconnect) never touched `_pending` at all - any transactions
+in flight at the moment of teardown were silently abandoned, no log line, nothing - unlike
+`purge()`, which explicitly reports `dropped_pending`. Not a correctness bug (there's no valid
+recipient left for a decline once the client - or, in this scenario, downstream - is gone), but a
+pure observability gap: someone diagnosing "where did transaction X go" would have found nothing
+explaining it vanished at session teardown. Fixed to log one WARNING per abandoned STAN plus a
+summary count, and clear `_pending`. Covered by both a unit test
+(`test_drain_and_stop_logs_and_clears_abandoned_pending` in `test_dispatcher_resilience.py`) and
+this live scenario.
+
+**TODO when porting resilience testing to `router_java`/`router_cpp`**: check whether their
+equivalent session-teardown path has the same silent-drop gap (near-certain, since they're
+separate hand-ported copies of the same architecture) and add the same fix + scenario there.
+

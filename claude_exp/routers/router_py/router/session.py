@@ -143,7 +143,7 @@ class RouterSession:
                 try:
                     if mti in ("0100", "0120", "0420"):
                         self.dispatcher.submit(
-                            RoutedMessage(req=req, up_conn=conn, up_write_lock=write_lock, up_addr=addr)
+                            RoutedMessage(req=req, up_conn=conn, up_write_lock=write_lock, up_addr=addr, raw=data)
                         )
                     elif mti == "0800":
                         self._forward_0800(req)
@@ -221,7 +221,7 @@ class RouterSession:
                 if resp.get("t") == "0810":
                     self._forward_0810(resp)
                 else:
-                    self.dispatcher.submit_response(resp)
+                    self.dispatcher.submit_response(resp, raw=data)
             except Exception:
                 logger.exception("unexpected error dispatching downstream message mti=%s", resp.get("t"))
 

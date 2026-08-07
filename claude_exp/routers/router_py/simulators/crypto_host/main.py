@@ -12,6 +12,7 @@ from flask import Flask, request  # noqa: E402
 
 from shared.command_server import CommandServer  # noqa: E402
 from shared.iso_utils import f47_decode, f47_encode  # noqa: E402
+from shared.json_log import configure_logging  # noqa: E402
 from shared.stats import Stats  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -68,9 +69,11 @@ class CryptoHostSim:
             self.stats.record_recv()
             body = request.json or {}
             operation = body.get("operation", "")
+            router_stan = body.get("router_stan", "")
             if operation not in ("validate_0100", "validate_0110"):
                 return {"error": f"unknown operation: {operation}"}, 400
 
+            logger.debug("validate pan=%s router_stan=%s", body.get("f2", ""), router_stan)
             result = self._validate(body.get("f2", ""), body.get("f47", ""))
             envelope = json.dumps({"f47": result})
             b64 = base64.b64encode(envelope.encode("utf-8")).decode("ascii")
@@ -95,7 +98,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     cfg = load_config(args.config)
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    configure_logging(level=logging.INFO)
 
     sim = CryptoHostSim(cfg)
     sim.run_forever()

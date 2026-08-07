@@ -39,12 +39,16 @@ class CryptoClient:
         self._failure_count = 0
         self._open_until = 0.0
 
-    def validate(self, endpoint: str, pan: str, f47: str) -> str:
+    def validate(self, endpoint: str, pan: str, f47: str, router_stan: str = "") -> str:
         """Returns the enriched f47 on success, or "" on any failure (breaker open or HTTP
         error) - callers only overwrite their working f47 when this return value is truthy,
         so any failure path leaves the original f47 untouched. Handles the Fortanix
         PluginOutput envelope: response body is a base64-encoded JSON string, which we decode
-        to reach the inner {"f47": ...} object."""
+        to reach the inner {"f47": ...} object.
+
+        router_stan is passed through so crypto_host's own logs can be joined with this
+        router's logs on the same transaction - it's not part of the Fortanix plugin contract,
+        just an extra field crypto_host echoes into its log lines."""
         with self._lock:
             if time.time() < self._open_until:
                 return ""
@@ -52,7 +56,7 @@ class CryptoClient:
         try:
             resp = self._session.post(
                 self._base_url,
-                json={"operation": endpoint, "f2": pan, "f47": f47},
+                json={"operation": endpoint, "f2": pan, "f47": f47, "router_stan": router_stan},
                 headers={"Authorization": f"Bearer {self._bearer_token}"},
                 timeout=5,
             )
@@ -60,7 +64,10 @@ class CryptoClient:
             decoded = base64.b64decode(resp.json()).decode("utf-8")
             result = json.loads(decoded).get("f47", "")
         except Exception as e:
-            logger.warning("crypto_host %s call failed: %s", endpoint, e)
+            logger.warning(
+                "crypto_host %s call failed (router_stan=%s): %s",
+                endpoint, router_stan, e, extra={"router_stan": router_stan},
+            )
             with self._lock:
                 self._failure_count += 1
                 if self._failure_count >= self._breaker_threshold:

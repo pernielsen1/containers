@@ -20,6 +20,7 @@ from flask import jsonify, request  # noqa: E402
 from upstream_shared.command_server import CommandServer  # noqa: E402
 from upstream_shared.framing import read_message, write_message  # noqa: E402
 from upstream_shared.iso_utils import build_0800, load_spec  # noqa: E402
+from upstream_shared.json_log import configure_logging  # noqa: E402
 from upstream_shared.stats import Stats  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -396,7 +397,7 @@ if __name__ == "__main__":
     cfg = load_config(args.config)
     if args.router_host:
         cfg["router"]["host"] = args.router_host
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    configure_logging(level=logging.INFO)
 
     sim = UpstreamHostSim(cfg)
     sim.run_forever()

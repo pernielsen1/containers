@@ -15,6 +15,7 @@ import iso8583  # noqa: E402
 from shared.command_server import CommandServer  # noqa: E402
 from shared.ims_connect import PING_TRANSCODE, read_request, write_response  # noqa: E402
 from shared.iso_utils import f47_decode, f47_encode, load_spec  # noqa: E402
+from shared.json_log import configure_logging  # noqa: E402
 from shared.stats import Stats  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -238,6 +239,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     cfg = load_config(args.config)
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    configure_logging(level=logging.INFO)
     sim = DownstreamHostSim(cfg)
     sim.run_forever()

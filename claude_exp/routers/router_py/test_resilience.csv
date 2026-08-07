@@ -21,3 +21,124 @@
 2026-08-02T12:55:15+02:00;crypto_host;OBSERVED test.csv while down: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"message_type":"0110","response_code":"00"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"message_type":"0110","response_code":"00"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"message_type":"0110","response_code":"01"}'}]
 2026-08-02T12:55:15+02:00;crypto_host;up
 2026-08-02T12:55:51+02:00;crypto_host;OBSERVED test.csv after recovery + breaker cooldown: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T22:45:00+02:00;crypto_host;up
+2026-08-07T22:45:01+02:00;downstream_host;up
+2026-08-07T22:45:01+02:00;router_1;up
+2026-08-07T22:45:02+02:00;upstream_1;up
+2026-08-07T22:45:03+02:00;router_2;up
+2026-08-07T22:45:08+02:00;upstream_2;up
+2026-08-07T22:45:10+02:00;upstream_1;down
+2026-08-07T22:45:45+02:00;upstream_2;ping_traffic_continued=True
+2026-08-07T22:45:45+02:00;upstream_2;down
+2026-08-07T22:46:20+02:00;downstream_host;OBSERVED with both upstreams down: {'last_recv_datetime': '22:45:38', 'recv_1800s': 3, 'recv_180s': 3, 'recv_30s': 0, 'recv_60s': 1, 'recv_total': 3, 'seconds_since_last_recv': 42.4, 'sent_1800s': 3, 'sent_180s': 3, 'sent_30s': 0, 'sent_60s': 1, 'sent_total': 3, 'yellow_threshold_seconds': 40}
+2026-08-07T22:46:20+02:00;upstream_1;up
+2026-08-07T22:46:21+02:00;upstream_1;test.csv round-tripped 3 rows: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T22:46:22+02:00;upstream_2;up
+2026-08-07T22:46:23+02:00;upstream_2;test.csv round-tripped 3 rows: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T22:46:23+02:00;downstream_host;down
+2026-08-07T22:46:38+02:00;downstream_host;OBSERVED after 15s down: {'router_1': {'connections': {'downstream': False, 'upstream': True}, 'gauges': {'pending_count': 0, 'queue_depth': 0, 'response_queue_depth': 0}, 'last_recv_datetime': '22:46:20', 'recv_1800s': 10, 'recv_180s': 10, 'recv_30s': 8, 'recv_60s': 8, 'recv_total': 10, 'seconds_since_last_recv': 17.3, 'sent_1800s': 10, 'sent_180s': 10, 'sent_30s': 8, 'sent_60s': 8, 'sent_total': 10, 'yellow_threshold_seconds': 40}, 'router_2': {'connections': {'downstream': False, 'upstream': True}, 'gauges': {'pending_count': 0, 'queue_depth': 0, 'response_queue_depth': 0}, 'last_recv_datetime': '22:46:22', 'recv_1800s': 12, 'recv_180s': 12, 'recv_30s': 8, 'recv_60s': 8, 'recv_total': 12, 'seconds_since_last_recv': 15.6, 'sent_1800s': 12, 'sent_180s': 12, 'sent_30s': 8, 'sent_60s': 8, 'sent_total': 12, 'yellow_threshold_seconds': 40}, 'upstream_1': {'connections': {'router': True}, 'last_recv_datetime': '22:46:20', 'recv_1800s': 4, 'recv_180s': 4, 'recv_30s': 4, 'recv_60s': 4, 'recv_total': 4, 'seconds_since_last_recv': 17.3, 'sent_1800s': 4, 'sent_180s': 4, 'sent_30s': 4, 'sent_60s': 4, 'sent_total': 4, 'yellow_threshold_seconds': 40}, 'upstream_2': {'connections': {'router': True}, 'last_recv_datetime': '22:46:22', 'recv_1800s': 4, 'recv_180s': 4, 'recv_30s': 4, 'recv_60s': 4, 'recv_total': 4, 'seconds_since_last_recv': 15.6, 'sent_1800s': 4, 'sent_180s': 4, 'sent_30s': 4, 'sent_60s': 4, 'sent_total': 4, 'yellow_threshold_seconds': 40}}
+2026-08-07T22:46:38+02:00;downstream_host;up
+2026-08-07T22:46:59+02:00;downstream_host;recovery test.csv round-tripped 3 rows: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T22:47:00+02:00;router_1;transaction genuinely pending before teardown: False ([])
+2026-08-07T22:47:00+02:00;downstream_host;down (transaction in flight)
+2026-08-07T22:47:10+02:00;router_1;session-teardown abandonment logged=False
+2026-08-07T22:47:10+02:00;downstream_host;up
+2026-08-07T22:47:10+02:00;router_1;pending after recovery: {'error': 'no active session'}
+2026-08-07T22:47:10+02:00;crypto_host;down
+2026-08-07T22:47:25+02:00;crypto_host;OBSERVED test.csv while down: no results received
+2026-08-07T22:47:26+02:00;crypto_host;up
+2026-08-07T22:48:02+02:00;crypto_host;OBSERVED test.csv after recovery + breaker cooldown: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T22:50:17+02:00;crypto_host;up
+2026-08-07T22:50:17+02:00;downstream_host;up
+2026-08-07T22:50:17+02:00;router_1;up
+2026-08-07T22:50:18+02:00;upstream_1;up
+2026-08-07T22:50:18+02:00;upstream_1;down (freeing router_1's single client slot for this scenario)
+2026-08-07T22:50:20+02:00;router_1;transaction genuinely pending before teardown: False ([])
+2026-08-07T22:50:20+02:00;downstream_host;down (transaction in flight)
+2026-08-07T22:50:30+02:00;router_1;session-teardown abandonment logged=False
+2026-08-07T22:50:30+02:00;downstream_host;up
+2026-08-07T22:50:30+02:00;router_1;pending after recovery: {'error': 'no active session'}
+2026-08-07T22:50:30+02:00;upstream_1;up
+2026-08-07T22:54:13+02:00;crypto_host;up
+2026-08-07T22:54:13+02:00;downstream_host;up
+2026-08-07T22:54:14+02:00;router_1;up
+2026-08-07T22:54:14+02:00;upstream_1;up
+2026-08-07T22:54:14+02:00;upstream_1;down (freeing router_1's single client slot for this scenario)
+2026-08-07T22:54:16+02:00;router_1;transaction genuinely pending before teardown: False ([])
+2026-08-07T22:54:16+02:00;downstream_host;down (transaction in flight)
+2026-08-07T22:54:26+02:00;router_1;session-teardown abandonment logged=False
+2026-08-07T22:54:26+02:00;downstream_host;up
+2026-08-07T22:54:26+02:00;router_1;pending after recovery: {'error': 'no active session'}
+2026-08-07T22:54:26+02:00;upstream_1;up
+2026-08-07T22:57:49+02:00;crypto_host;up
+2026-08-07T22:57:49+02:00;downstream_host;up
+2026-08-07T22:57:49+02:00;router_1;up
+2026-08-07T22:57:50+02:00;upstream_1;up
+2026-08-07T22:57:50+02:00;downstream_host;down (about to send a transaction with nowhere to go)
+2026-08-07T22:58:05+02:00;upstream_1;results while downstream dead: no results received
+2026-08-07T22:58:05+02:00;router_1;session-teardown abandonment logged=True
+2026-08-07T22:58:05+02:00;downstream_host;up
+2026-08-07T22:58:20+02:00;downstream_host;recovery test.csv round-tripped 0 rows: no results received
+2026-08-07T22:58:49+02:00;crypto_host;up
+2026-08-07T22:58:50+02:00;downstream_host;up
+2026-08-07T22:58:50+02:00;router_1;up
+2026-08-07T22:58:50+02:00;upstream_1;up
+2026-08-07T22:58:50+02:00;downstream_host;down (about to send a transaction with nowhere to go)
+2026-08-07T22:59:05+02:00;upstream_1;results while downstream dead: no results received
+2026-08-07T22:59:05+02:00;router_1;session-teardown abandonment logged=True
+2026-08-07T22:59:06+02:00;downstream_host;up
+2026-08-07T22:59:26+02:00;downstream_host;recovery test.csv round-tripped 3 rows: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T23:00:28+02:00;crypto_host;up
+2026-08-07T23:00:29+02:00;downstream_host;up
+2026-08-07T23:00:30+02:00;router_1;up
+2026-08-07T23:00:30+02:00;upstream_1;up
+2026-08-07T23:00:31+02:00;router_2;up
+2026-08-07T23:00:35+02:00;upstream_2;up
+2026-08-07T23:00:38+02:00;upstream_1;down
+2026-08-07T23:01:13+02:00;upstream_2;ping_traffic_continued=True
+2026-08-07T23:01:13+02:00;upstream_2;down
+2026-08-07T23:01:48+02:00;downstream_host;OBSERVED with both upstreams down: {'last_recv_datetime': '23:01:05', 'recv_1800s': 3, 'recv_180s': 3, 'recv_30s': 0, 'recv_60s': 1, 'recv_total': 3, 'seconds_since_last_recv': 42.3, 'sent_1800s': 3, 'sent_180s': 3, 'sent_30s': 0, 'sent_60s': 1, 'sent_total': 3, 'yellow_threshold_seconds': 40}
+2026-08-07T23:01:48+02:00;upstream_1;up
+2026-08-07T23:01:48+02:00;upstream_1;test.csv round-tripped 3 rows: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T23:01:50+02:00;upstream_2;up
+2026-08-07T23:01:51+02:00;upstream_2;test.csv round-tripped 3 rows: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T23:01:51+02:00;downstream_host;down
+2026-08-07T23:02:06+02:00;downstream_host;OBSERVED after 15s down: {'router_1': {'connections': {'downstream': False, 'upstream': True}, 'gauges': {'pending_count': 0, 'queue_depth': 0, 'response_queue_depth': 0}, 'last_recv_datetime': '23:01:48', 'recv_1800s': 10, 'recv_180s': 10, 'recv_30s': 8, 'recv_60s': 8, 'recv_total': 10, 'seconds_since_last_recv': 17.9, 'sent_1800s': 10, 'sent_180s': 10, 'sent_30s': 8, 'sent_60s': 8, 'sent_total': 10, 'yellow_threshold_seconds': 40}, 'router_2': {'connections': {'downstream': False, 'upstream': True}, 'gauges': {'pending_count': 0, 'queue_depth': 0, 'response_queue_depth': 0}, 'last_recv_datetime': '23:01:50', 'recv_1800s': 12, 'recv_180s': 12, 'recv_30s': 8, 'recv_60s': 8, 'recv_total': 12, 'seconds_since_last_recv': 15.5, 'sent_1800s': 12, 'sent_180s': 12, 'sent_30s': 8, 'sent_60s': 8, 'sent_total': 12, 'yellow_threshold_seconds': 40}, 'upstream_1': {'connections': {'router': True}, 'last_recv_datetime': '23:01:48', 'recv_1800s': 4, 'recv_180s': 4, 'recv_30s': 4, 'recv_60s': 4, 'recv_total': 4, 'seconds_since_last_recv': 17.9, 'sent_1800s': 4, 'sent_180s': 4, 'sent_30s': 4, 'sent_60s': 4, 'sent_total': 4, 'yellow_threshold_seconds': 40}, 'upstream_2': {'connections': {'router': True}, 'last_recv_datetime': '23:01:50', 'recv_1800s': 4, 'recv_180s': 4, 'recv_30s': 4, 'recv_60s': 4, 'recv_total': 4, 'seconds_since_last_recv': 15.5, 'sent_1800s': 4, 'sent_180s': 4, 'sent_30s': 4, 'sent_60s': 4, 'sent_total': 4, 'yellow_threshold_seconds': 40}}
+2026-08-07T23:02:06+02:00;downstream_host;up
+2026-08-07T23:02:27+02:00;downstream_host;recovery test.csv round-tripped 3 rows: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T23:02:27+02:00;downstream_host;down (about to send a transaction with nowhere to go)
+2026-08-07T23:02:42+02:00;upstream_1;results while downstream dead: no results received
+2026-08-07T23:02:42+02:00;router_1;session-teardown abandonment logged=True
+2026-08-07T23:02:42+02:00;downstream_host;up
+2026-08-07T23:03:03+02:00;downstream_host;recovery test.csv round-tripped 3 rows: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T23:03:03+02:00;crypto_host;down
+2026-08-07T23:03:03+02:00;crypto_host;OBSERVED test.csv while down: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"message_type":"0110","response_code":"00"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"message_type":"0110","response_code":"00"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"message_type":"0110","response_code":"01"}'}]
+2026-08-07T23:03:04+02:00;crypto_host;up
+2026-08-07T23:03:39+02:00;crypto_host;OBSERVED test.csv after recovery + breaker cooldown: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T23:07:22+02:00;crypto_host;up
+2026-08-07T23:07:23+02:00;downstream_host;up
+2026-08-07T23:07:23+02:00;router_1;up
+2026-08-07T23:07:23+02:00;upstream_1;up
+2026-08-07T23:07:24+02:00;router_2;up
+2026-08-07T23:07:29+02:00;upstream_2;up
+2026-08-07T23:07:31+02:00;upstream_1;down
+2026-08-07T23:08:06+02:00;upstream_2;ping_traffic_continued=True
+2026-08-07T23:08:06+02:00;upstream_2;down
+2026-08-07T23:08:41+02:00;downstream_host;OBSERVED with both upstreams down: {'last_recv_datetime': '23:07:59', 'recv_1800s': 3, 'recv_180s': 3, 'recv_30s': 0, 'recv_60s': 1, 'recv_total': 3, 'seconds_since_last_recv': 42.3, 'sent_1800s': 3, 'sent_180s': 3, 'sent_30s': 0, 'sent_60s': 1, 'sent_total': 3, 'yellow_threshold_seconds': 40}
+2026-08-07T23:08:41+02:00;upstream_1;up
+2026-08-07T23:08:42+02:00;upstream_1;test.csv round-tripped 3 rows: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T23:08:44+02:00;upstream_2;up
+2026-08-07T23:08:44+02:00;upstream_2;test.csv round-tripped 3 rows: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T23:08:44+02:00;downstream_host;down
+2026-08-07T23:08:59+02:00;downstream_host;OBSERVED after 15s down: {'router_1': {'connections': {'downstream': False, 'upstream': True}, 'gauges': {'pending_count': 0, 'queue_depth': 0, 'response_queue_depth': 0}, 'last_recv_datetime': '23:08:42', 'recv_1800s': 10, 'recv_180s': 10, 'recv_30s': 8, 'recv_60s': 8, 'recv_total': 10, 'seconds_since_last_recv': 17.6, 'sent_1800s': 10, 'sent_180s': 10, 'sent_30s': 8, 'sent_60s': 8, 'sent_total': 10, 'yellow_threshold_seconds': 40}, 'router_2': {'connections': {'downstream': False, 'upstream': True}, 'gauges': {'pending_count': 0, 'queue_depth': 0, 'response_queue_depth': 0}, 'last_recv_datetime': '23:08:44', 'recv_1800s': 12, 'recv_180s': 12, 'recv_30s': 8, 'recv_60s': 8, 'recv_total': 12, 'seconds_since_last_recv': 15.5, 'sent_1800s': 12, 'sent_180s': 12, 'sent_30s': 8, 'sent_60s': 8, 'sent_total': 12, 'yellow_threshold_seconds': 40}, 'upstream_1': {'connections': {'router': True}, 'last_recv_datetime': '23:08:42', 'recv_1800s': 4, 'recv_180s': 4, 'recv_30s': 4, 'recv_60s': 4, 'recv_total': 4, 'seconds_since_last_recv': 17.6, 'sent_1800s': 4, 'sent_180s': 4, 'sent_30s': 4, 'sent_60s': 4, 'sent_total': 4, 'yellow_threshold_seconds': 40}, 'upstream_2': {'connections': {'router': True}, 'last_recv_datetime': '23:08:44', 'recv_1800s': 4, 'recv_180s': 4, 'recv_30s': 4, 'recv_60s': 4, 'recv_total': 4, 'seconds_since_last_recv': 15.5, 'sent_1800s': 4, 'sent_180s': 4, 'sent_30s': 4, 'sent_60s': 4, 'sent_total': 4, 'yellow_threshold_seconds': 40}}
+2026-08-07T23:08:59+02:00;downstream_host;up
+2026-08-07T23:09:20+02:00;downstream_host;recovery test.csv round-tripped 3 rows: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T23:09:20+02:00;downstream_host;down (about to send a transaction with nowhere to go)
+2026-08-07T23:09:35+02:00;upstream_1;results while downstream dead: no results received
+2026-08-07T23:09:35+02:00;router_1;session-teardown abandonment logged=True
+2026-08-07T23:09:35+02:00;downstream_host;up
+2026-08-07T23:09:56+02:00;downstream_host;recovery test.csv round-tripped 3 rows: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-07T23:09:56+02:00;crypto_host;down
+2026-08-07T23:09:57+02:00;crypto_host;OBSERVED test.csv while down: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"message_type":"0110","response_code":"00"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"message_type":"0110","response_code":"00"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"message_type":"0110","response_code":"01"}'}]
+2026-08-07T23:09:57+02:00;crypto_host;up
+2026-08-07T23:10:32+02:00;crypto_host;OBSERVED test.csv after recovery + breaker cooldown: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]

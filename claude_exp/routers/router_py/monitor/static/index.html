@@ -35,10 +35,10 @@
   th, td { border-bottom: 1px solid #eee; text-align: left; padding: 0.3rem 0.5rem; }
   td.rc-ok { color: #2ecc71; font-weight: 600; }
   td.rc-bad { color: #e74c3c; font-weight: 600; }
-  #log-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 20; }
-  #log-modal .box { background: #111; color: #ddd; width: min(900px, 92vw); height: 80vh; margin: 4vh auto; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
-  #log-modal .box header { position: static; background: #1a1a1a; color: #fff; padding: 0.6rem 1rem; }
-  #log-modal pre { flex: 1; overflow: auto; margin: 0; padding: 0.75rem 1rem; font-size: 0.75rem; white-space: pre-wrap; }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 20; }
+  .modal-overlay .box { background: #111; color: #ddd; width: min(900px, 92vw); height: 80vh; margin: 4vh auto; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
+  .modal-overlay .box header { position: static; background: #1a1a1a; color: #fff; padding: 0.6rem 1rem; }
+  .modal-overlay pre { flex: 1; overflow: auto; margin: 0; padding: 0.75rem 1rem; font-size: 0.75rem; white-space: pre-wrap; overflow-wrap: anywhere; }
   @media (prefers-color-scheme: dark) {
     body { background: #16181d; color: #e6e6e6; }
     header { background: #16181d; }
@@ -83,7 +83,7 @@
   </table>
 </section>
 
-<div id="log-modal">
+<div id="log-modal" class="modal-overlay">
   <div class="box">
     <header style="display:flex; justify-content:space-between; align-items:center;">
       <span id="log-modal-title">Logs</span>
@@ -96,12 +96,45 @@
   </div>
 </div>
 
+<div id="pending-modal" class="modal-overlay">
+  <div class="box">
+    <header style="display:flex; justify-content:space-between; align-items:center;">
+      <span id="pending-modal-title">Pending</span>
+      <span>
+        <button id="pending-close">Close</button>
+      </span>
+    </header>
+    <pre id="pending-modal-body"></pre>
+  </div>
+</div>
+
+<div id="trace-modal" class="modal-overlay">
+  <div class="box">
+    <header style="display:flex; justify-content:space-between; align-items:center;">
+      <span id="trace-modal-title">Trace</span>
+      <span>
+        <button id="trace-close">Close</button>
+      </span>
+    </header>
+    <div style="display:flex; gap:0.5rem; align-items:center; padding:0.6rem 1rem; background:#1a1a1a;">
+      <label style="color:#ddd; font-size:0.75rem;">count <input id="trace-count" type="number" min="1" value="5" style="width:4em;"></label>
+      <label style="color:#ddd; font-size:0.75rem;">stan filter <input id="trace-stan" type="text" placeholder="optional" style="width:8em;"></label>
+      <label style="color:#ddd; font-size:0.75rem;">pan filter <input id="trace-pan" type="text" placeholder="optional" style="width:10em;"></label>
+      <button id="trace-arm">Arm capture</button>
+      <span id="trace-status" style="color:#ddd; font-size:0.75rem;"></span>
+    </div>
+    <pre id="trace-modal-body"></pre>
+  </div>
+</div>
+
 <script>
 const POLL_MS = 2000;
 let actorsCache = [];
 let partnersCache = {};
 let logModalActor = null;
 let logModalTimer = null;
+let pendingModalActor = null;
+let traceModalActor = null;
 
 async function getJSON(url, opts) {
   const resp = await fetch(url, opts);
@@ -131,6 +164,16 @@ function renderCard(actor, stats, status, currentLevel) {
     gaugeHtml = `<div class="gauges">queue_depth=${gauges.queue_depth ?? "-"} pending_count=${gauges.pending_count ?? "-"}</div>`;
   }
 
+  // latency isn't router-specific in shared/stats.py (any actor can record_latency), so key off
+  // whether the actor actually reported any buckets rather than actor.type.
+  let latencyHtml = "";
+  if (stats.latency) {
+    const parts = Object.entries(stats.latency).map(
+      ([name, b]) => `${name}=${b.p50_ms.toFixed(2)}/${b.p95_ms.toFixed(2)}ms`
+    );
+    latencyHtml = `<div class="gauges" title="p50/p95 per hop">${parts.join(" ")}</div>`;
+  }
+
   // Reflect the actor's actual current level (fetched alongside stats every poll tick) rather
   // than hardcoding a selected option - otherwise the dropdown always reverts to showing
   // "INFO" a couple seconds after a user picks something else, since this whole card (select
@@ -148,11 +191,14 @@ function renderCard(actor, stats, status, currentLevel) {
     <div class="stats-row">recv 30s/60s: ${stats.recv_30s ?? '-'} / ${stats.recv_60s ?? '-'} &nbsp; total: ${stats.recv_total ?? '-'}</div>
     <div class="stats-row">last recv: ${stats.last_recv_datetime ?? '-'} (${fmtSeconds(stats.seconds_since_last_recv)} ago)</div>
     ${gaugeHtml}
+    ${latencyHtml}
     <div class="card-actions">
       <select class="log-level-select" data-actor="${actor.name}">
         ${levelOptions}
       </select>
       <button class="btn-logs" data-actor="${actor.name}">Logs</button>
+      ${actor.type === "router" ? `<button class="btn-pending" data-actor="${actor.name}">Pending</button>` : ""}
+      ${actor.type === "router" ? `<button class="btn-trace" data-actor="${actor.name}">Trace</button>` : ""}
       <button class="btn-launch" data-actor="${actor.name}">Start</button>
       <button class="btn-stop danger" data-actor="${actor.name}">Stop</button>
       ${actor.type === "router" ? `<button class="btn-purge danger" data-actor="${actor.name}">Purge Queue</button>` : ""}
@@ -250,6 +296,12 @@ async function poll() {
     if (logModalActor) {
       refreshLogModal();
     }
+    if (pendingModalActor) {
+      refreshPendingModal();
+    }
+    if (traceModalActor) {
+      refreshTraceModal();
+    }
   } catch (e) {
     console.error("poll failed", e);
   }
@@ -272,6 +324,12 @@ function attachCardHandlers() {
   document.querySelectorAll(".btn-logs").forEach((btn) => {
     btn.onclick = () => openLogModal(btn.dataset.actor);
   });
+  document.querySelectorAll(".btn-pending").forEach((btn) => {
+    btn.onclick = () => openPendingModal(btn.dataset.actor);
+  });
+  document.querySelectorAll(".btn-trace").forEach((btn) => {
+    btn.onclick = () => openTraceModal(btn.dataset.actor);
+  });
   document.querySelectorAll(".log-level-select").forEach((sel) => {
     sel.onchange = () => {
       fetch(`/api/actor/${sel.dataset.actor}/log_level`, {
@@ -290,11 +348,20 @@ function openLogModal(name) {
   refreshLogModal();
 }
 
+function fmtLogEntry(entry) {
+  // /logs now returns structured {ts, level, logger, message, router_stan?} objects (see
+  // shared/json_log.py) rather than pre-formatted strings - render them back into a single
+  // readable line here instead of relying on Array.join, which would print "[object Object]".
+  let line = `${entry.ts ?? ""} ${entry.level ?? ""} ${entry.logger ?? ""}: ${entry.message ?? ""}`;
+  if (entry.router_stan) line += ` router_stan=${entry.router_stan}`;
+  return line;
+}
+
 async function refreshLogModal() {
   if (!logModalActor) return;
   try {
-    const lines = await getJSON(`/api/actor/${logModalActor}/logs`);
-    document.getElementById("log-modal-body").textContent = lines.join("\n");
+    const entries = await getJSON(`/api/actor/${logModalActor}/logs`);
+    document.getElementById("log-modal-body").textContent = entries.map(fmtLogEntry).join("\n");
   } catch (e) {
     // actor may be stopped; leave existing content
   }
@@ -307,6 +374,94 @@ document.getElementById("log-close").onclick = () => {
 document.getElementById("log-export").onclick = () => {
   if (!logModalActor) return;
   window.open(`/api/actor/${logModalActor}/logs?format=text`, "_blank");
+};
+
+function openPendingModal(name) {
+  pendingModalActor = name;
+  document.getElementById("pending-modal-title").textContent = `Pending: ${name}`;
+  document.getElementById("pending-modal").style.display = "block";
+  refreshPendingModal();
+}
+
+function fmtPendingEntry(e) {
+  return `router_stan=${e.router_stan}  upstream_stan=${e.upstream_stan}  age=${e.age_seconds.toFixed(1)}s`;
+}
+
+async function refreshPendingModal() {
+  if (!pendingModalActor) return;
+  try {
+    const entries = await getJSON(`/api/actor/${pendingModalActor}/pending`);
+    document.getElementById("pending-modal-body").textContent =
+      entries.length ? entries.map(fmtPendingEntry).join("\n") : "(no in-flight transactions)";
+  } catch (e) {
+    // actor may be stopped; leave existing content
+  }
+}
+
+document.getElementById("pending-close").onclick = () => {
+  pendingModalActor = null;
+  document.getElementById("pending-modal").style.display = "none";
+};
+
+function openTraceModal(name) {
+  traceModalActor = name;
+  document.getElementById("trace-modal-title").textContent = `Trace: ${name}`;
+  document.getElementById("trace-modal").style.display = "block";
+  refreshTraceModal();
+}
+
+function fmtHop(h) {
+  // Everything besides stage/elapsed_ms/wire_hex is call-specific (crypto_ms, enriched, ...) -
+  // render generically instead of hardcoding each field router.dispatcher.py might attach.
+  const known = new Set(["stage", "elapsed_ms"]);
+  const extras = Object.keys(h)
+    .filter((k) => !known.has(k))
+    .map((k) => `${k}=${h[k]}`)
+    .join(" ");
+  return `    [${h.elapsed_ms.toFixed(3)}ms] ${h.stage.padEnd(16)} ${extras}`;
+}
+
+function fmtTraceEntry(e) {
+  const header = `router_stan=${e.router_stan} upstream_stan=${e.upstream_stan} pan=${e.pan} mti=${e.mti}` +
+    (e.incomplete ? "  [INCOMPLETE - session torn down mid-capture]" : "");
+  return [header, ...e.hops.map(fmtHop)].join("\n");
+}
+
+async function refreshTraceModal() {
+  if (!traceModalActor) return;
+  try {
+    const snap = await getJSON(`/api/actor/${traceModalActor}/trace`);
+    if (snap.error) {
+      document.getElementById("trace-status").textContent = snap.error;
+      return;
+    }
+    document.getElementById("trace-status").textContent =
+      snap.armed ? `armed, ${snap.remaining} remaining` : "not armed";
+    document.getElementById("trace-modal-body").textContent =
+      snap.entries.length ? snap.entries.map(fmtTraceEntry).join("\n\n") : "(no captures yet)";
+  } catch (e) {
+    // actor may be stopped; leave existing content
+  }
+}
+
+document.getElementById("trace-close").onclick = () => {
+  traceModalActor = null;
+  document.getElementById("trace-modal").style.display = "none";
+};
+document.getElementById("trace-arm").onclick = async () => {
+  if (!traceModalActor) return;
+  const count = parseInt(document.getElementById("trace-count").value, 10) || 1;
+  const stan = document.getElementById("trace-stan").value.trim();
+  const pan = document.getElementById("trace-pan").value.trim();
+  const body = { count };
+  if (stan) body.stan = stan;
+  if (pan) body.pan = pan;
+  await fetch(`/api/actor/${traceModalActor}/trace`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  refreshTraceModal();
 };
 
 document.getElementById("start-all").onclick = () => fetch("/api/start_all", { method: "POST" });
