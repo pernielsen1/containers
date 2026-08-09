@@ -126,8 +126,10 @@ public final class CryptoHostMain {
         String pluginId = String.valueOf(cfg.getOrDefault("plugin_id", "default-plugin-id"));
         String bearerToken = String.valueOf(cfg.getOrDefault("bearer_token", "default-bearer-token"));
 
-        HttpServer validateServer = HttpServer.create(new InetSocketAddress("127.0.0.1", ((Number) cfg.get("port")).intValue()), 0);
+        int port = ((Number) cfg.get("port")).intValue();
+        HttpServer validateServer = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
         registerFortanixRoute(validateServer, pluginId, bearerToken);
+        logger.info("crypto host listening on port " + port);
         validateServer.setExecutor(Executors.newCachedThreadPool(runnable -> {
             Thread t = new Thread(runnable);
             t.setDaemon(true);

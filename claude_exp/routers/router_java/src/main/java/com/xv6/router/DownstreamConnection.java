@@ -7,11 +7,13 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.charset.Charset;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.logging.Logger;
 
 /** Dual-socket IMS session; thread-safe send via an internal lock. Port of router_py's
  * router/downstream.py DownstreamConnection. */
 public final class DownstreamConnection {
 
+    private static final Logger logger = Logger.getLogger(DownstreamConnection.class.getName());
     private static final Charset CP500 = Charset.forName("Cp500");
 
     private final Socket toSock;
@@ -43,6 +45,7 @@ public final class DownstreamConnection {
         toSock.getOutputStream().write(ping);
         toSock.getOutputStream().flush();
 
+        logger.info("downstream connected to " + cfg.host() + ":" + cfg.port());
         return new DownstreamConnection(toSock, fromSock);
     }
 

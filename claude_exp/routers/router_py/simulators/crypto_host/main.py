@@ -82,6 +82,7 @@ class CryptoHostSim:
 
     def start(self) -> None:
         self.cmd.start()
+        logger.info("crypto host listening on port %d", self.cfg["port"])
         threading.Thread(
             target=lambda: self.app.run(host="127.0.0.1", port=self.cfg["port"], use_reloader=False),
             daemon=True,

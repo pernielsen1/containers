@@ -268,3 +268,33 @@ TEST_CASE("purge drops queued and pending counts", "[dispatcher]") {
     REQUIRE(result["queue_dropped"] == 3);
     REQUIRE(result["pending_dropped"] == 1);
 }
+
+TEST_CASE("pending_snapshot reports age oldest first", "[dispatcher]") {
+    TestHarness h(5, 100, 1);
+    // No start() - nothing drains pending_ out from under the direct injections below.
+
+    SocketPair up_pair;
+    auto write_lock = std::make_shared<std::mutex>();
+    auto now = std::chrono::steady_clock::now();
+
+    PendingEntry older;
+    older.up_fd = up_pair.a;
+    older.up_write_lock = write_lock;
+    older.upstream_stan = "100001";
+    older.created_at = now - std::chrono::seconds(5);
+    DispatcherTestAccess::inject_pending(h.dispatcher, "000001", older);
+
+    PendingEntry newer;
+    newer.up_fd = up_pair.a;
+    newer.up_write_lock = write_lock;
+    newer.upstream_stan = "100002";
+    newer.created_at = now - std::chrono::seconds(1);
+    DispatcherTestAccess::inject_pending(h.dispatcher, "000002", newer);
+
+    auto snapshot = h.dispatcher.pending_snapshot();
+    REQUIRE(snapshot.size() == 2);
+    REQUIRE(snapshot[0].router_stan == "000001");
+    REQUIRE(snapshot[1].router_stan == "000002");
+    REQUIRE(snapshot[0].upstream_stan == "100001");
+    REQUIRE(snapshot[0].age_seconds > snapshot[1].age_seconds);
+}

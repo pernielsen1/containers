@@ -293,6 +293,27 @@ public final class Dispatcher {
         }
     }
 
+    /**
+     * Read-only view of in-flight transactions (downstream request sent, no response yet) for
+     * live diagnosis - e.g. "why is this router stuck", without waiting for the pendingTtlSeconds
+     * reaper to expire and decline them. Sorted oldest-first so a stuck transaction sorts to the
+     * top. Port of router_py's Dispatcher.pending_snapshot().
+     */
+    public List<Map<String, Object>> pendingSnapshot() {
+        long now = System.nanoTime();
+        List<Map<String, Object>> entries = new ArrayList<>();
+        for (Map.Entry<String, PendingEntry> e : pending.entrySet()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("router_stan", e.getKey());
+            row.put("upstream_stan", e.getValue().upstreamStan());
+            double ageSeconds = (now - e.getValue().createdAtNanos()) / 1_000_000_000.0;
+            row.put("age_seconds", Math.round(ageSeconds * 1000.0) / 1000.0);
+            entries.add(row);
+        }
+        entries.sort((a, b) -> Double.compare((double) b.get("age_seconds"), (double) a.get("age_seconds")));
+        return entries;
+    }
+
     /** Operator drain; returns dropped counts. */
     public Map<String, Integer> purge() {
         int droppedQueue = 0;

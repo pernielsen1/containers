@@ -6,7 +6,6 @@ import java.util.Deque;
 import java.util.List;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
-import java.util.logging.SimpleFormatter;
 
 /**
  * Captures the last N log lines in a deque. Installed on the root logger by CommandServer. Port
@@ -20,7 +19,7 @@ public final class LogBuffer extends Handler {
 
     public LogBuffer(int maxLen) {
         this.maxLen = maxLen;
-        setFormatter(new SimpleFormatter());
+        setFormatter(new JsonLogFormatter());
     }
 
     @Override

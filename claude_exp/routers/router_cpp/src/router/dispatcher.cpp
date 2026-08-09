@@ -1,5 +1,7 @@
 #include "router/dispatcher.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 
 #include "shared/framing.h"
@@ -251,6 +253,23 @@ std::map<std::string, int> Dispatcher::purge() {
     return {{"queue_dropped", queue_dropped},
             {"response_queue_dropped", response_queue_dropped},
             {"pending_dropped", pending_dropped}};
+}
+
+std::vector<PendingSnapshotEntry> Dispatcher::pending_snapshot() {
+    auto now = std::chrono::steady_clock::now();
+    std::vector<PendingSnapshotEntry> entries;
+    {
+        std::lock_guard<std::mutex> lock(pending_mutex_);
+        entries.reserve(pending_.size());
+        for (const auto& [stan, entry] : pending_) {
+            double age_seconds = std::chrono::duration<double>(now - entry.created_at).count();
+            entries.push_back({stan, entry.upstream_stan, std::round(age_seconds * 1000.0) / 1000.0});
+        }
+    }
+    std::sort(entries.begin(), entries.end(), [](const PendingSnapshotEntry& a, const PendingSnapshotEntry& b) {
+        return a.age_seconds > b.age_seconds;
+    });
+    return entries;
 }
 
 void Dispatcher::drain_and_stop() {

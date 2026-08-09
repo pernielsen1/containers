@@ -30,6 +30,9 @@ public final class RouterMain {
         // logger already has handlers - not an issue for java.util.logging, but kept in the same
         // order for parity).
         Logger.getLogger("").setLevel(LogLevels.parse(cfg.logLevel()));
+        logger.info("router " + cfg.name() + " starting: command_port=" + cfg.commandPort()
+                + " downstream=" + cfg.downstream().host() + ":" + cfg.downstream().port()
+                + " upstream mode=" + cfg.upstream().mode());
 
         CommandServer cmd = new CommandServer(
                 cfg.commandPort(), stats, stopEvent, cfg.commandBindHost(), cfg.commandAuthToken());
@@ -43,6 +46,15 @@ public final class RouterMain {
                 return;
             }
             CommandServer.sendJson(exchange, 200, dispatcher.purge());
+        });
+
+        cmd.register("/pending", List.of("GET"), false, exchange -> {
+            Dispatcher dispatcher = activeDispatcher.get();
+            if (dispatcher == null) {
+                CommandServer.sendJson(exchange, 503, Map.of("error", "no active session"));
+                return;
+            }
+            CommandServer.sendJson(exchange, 200, dispatcher.pendingSnapshot());
         });
 
         cmd.start();

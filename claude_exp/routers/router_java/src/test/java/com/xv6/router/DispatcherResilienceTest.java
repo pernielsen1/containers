@@ -15,6 +15,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Handler;
@@ -355,6 +356,33 @@ class DispatcherResilienceTest {
             Map<String, Integer> result = h.dispatcher.purge();
             assertEquals(3, result.get("dropped_queue"));
             assertEquals(1, result.get("dropped_pending"));
+        } finally {
+            h.close();
+            upConn.close();
+            pair[1].close();
+        }
+    }
+
+    @Test
+    void pendingSnapshotReportsAgeOldestFirst() throws Exception {
+        TestHarness h = new TestHarness(5, 100, 1);
+        // No start() - nothing drains `pending` out from under the direct injections below.
+
+        Socket[] pair = socketPair();
+        Socket upConn = pair[0];
+        ReentrantLock writeLock = new ReentrantLock();
+        try {
+            long now = System.nanoTime();
+            putPendingEntry(h.dispatcher, "000001",
+                    new PendingEntry(upConn, writeLock, "100001", now - 5_000_000_000L));
+            putPendingEntry(h.dispatcher, "000002",
+                    new PendingEntry(upConn, writeLock, "100002", now - 1_000_000_000L));
+
+            List<Map<String, Object>> snapshot = h.dispatcher.pendingSnapshot();
+            assertEquals(List.of("000001", "000002"),
+                    snapshot.stream().map(e -> e.get("router_stan")).toList());
+            assertEquals("100001", snapshot.get(0).get("upstream_stan"));
+            assertTrue((double) snapshot.get(0).get("age_seconds") > (double) snapshot.get(1).get("age_seconds"));
         } finally {
             h.close();
             upConn.close();

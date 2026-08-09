@@ -322,6 +322,7 @@ class UpstreamHostSim:
         with self._conn_lock:
             self._conn = sock
         self.stats.set_connection("router", True)
+        logger.info("connection established with router at %s", sock.getpeername())
 
         disc_evt = threading.Event()
         recv_thread = threading.Thread(target=self._receive_loop, args=(sock, disc_evt), daemon=True)
@@ -335,6 +336,7 @@ class UpstreamHostSim:
             if self._conn is sock:
                 self._conn = None
         self.stats.set_connection("router", False)
+        logger.info("connection to router lost")
         try:
             sock.close()
         except OSError:
@@ -373,9 +375,12 @@ class UpstreamHostSim:
 
     def start(self) -> None:
         self.cmd.start()
+        router_cfg = self.cfg["router"]
         if self.mode == "server":
+            logger.info("upstream host listening on port %d", router_cfg["port"])
             threading.Thread(target=self._server_accept_loop, daemon=True).start()
         else:
+            logger.info("upstream host connecting to %s:%d", router_cfg["host"], router_cfg["port"])
             threading.Thread(target=self._client_connect_loop, daemon=True).start()
 
     def run_forever(self) -> None:

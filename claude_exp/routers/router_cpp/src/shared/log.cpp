@@ -3,8 +3,11 @@
 #include <algorithm>
 #include <chrono>
 #include <cctype>
+#include <cstdio>
 #include <ctime>
 #include <iostream>
+
+#include <nlohmann/json.hpp>
 
 namespace xv6::shared {
 
@@ -14,6 +17,24 @@ std::string to_upper(const std::string& s) {
     std::string out = s;
     std::transform(out.begin(), out.end(), out.begin(), [](unsigned char c) { return std::toupper(c); });
     return out;
+}
+
+// Matches the shape (and roughly the precision) of router_py's JsonFormatter
+// (shared/json_log.py) - not the same field set (no "logger" name here, this Logger is
+// process-wide not per-module), but "ts"/"level"/"message" line up so /logs output from either
+// side greps and jq's the same way. Mirrors the shared top-level crypto_host/src/shared/log.cpp,
+// which got this same treatment during Phase 2 - router_cpp's own logging had not, until now.
+std::string iso8601_utc_now() {
+    auto now = std::chrono::system_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+    std::time_t tt = std::chrono::system_clock::to_time_t(now);
+    std::tm tm_buf{};
+    gmtime_r(&tt, &tm_buf);
+    char time_buf[32];
+    std::strftime(time_buf, sizeof(time_buf), "%Y-%m-%dT%H:%M:%S", &tm_buf);
+    char full_buf[40];
+    std::snprintf(full_buf, sizeof(full_buf), "%s.%03dZ", time_buf, static_cast<int>(ms.count()));
+    return std::string(full_buf);
 }
 
 }  // namespace
@@ -51,14 +72,12 @@ void Logger::log(LogLevel level, const std::string& msg) {
         return;
     }
 
-    auto now = std::chrono::system_clock::now();
-    std::time_t tt = std::chrono::system_clock::to_time_t(now);
-    std::tm tm_buf{};
-    localtime_r(&tt, &tm_buf);
-    char time_buf[16];
-    std::strftime(time_buf, sizeof(time_buf), "%H:%M:%S", &tm_buf);
-
-    std::string line = std::string(time_buf) + " " + to_string(level) + " " + msg;
+    nlohmann::json entry = {
+        {"ts", iso8601_utc_now()},
+        {"level", to_string(level)},
+        {"message", msg},
+    };
+    std::string line = entry.dump();
 
     {
         std::lock_guard<std::mutex> lock(mutex_);

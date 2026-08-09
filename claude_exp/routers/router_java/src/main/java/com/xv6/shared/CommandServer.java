@@ -38,8 +38,14 @@ public final class CommandServer {
 
         // Root logger gets the LogBuffer handler as a side effect of construction - mirrors the
         // Python version's ordering requirement: configure logging (levels, handlers) before
-        // this, or messages logged before this line won't retroactively appear in /logs.
-        Logger.getLogger("").addHandler(logBuffer);
+        // this, or messages logged before this line won't retroactively appear in /logs. Also
+        // switches the JVM's default console handler(s) to JSON-lines, matching router_py's
+        // shared/json_log.py: same {ts, level, logger, message} shape on stdout and on /logs.
+        Logger root = Logger.getLogger("");
+        for (java.util.logging.Handler handler : root.getHandlers()) {
+            handler.setFormatter(new JsonLogFormatter());
+        }
+        root.addHandler(logBuffer);
 
         this.server = HttpServer.create(new InetSocketAddress(bindHost, port), 0);
         registerBuiltinRoutes();
@@ -102,9 +108,19 @@ public final class CommandServer {
             List<String> lines = logBuffer.getLines();
             String query = exchange.getRequestURI().getQuery();
             if (query != null && query.contains("format=text")) {
+                // Each line is already a standalone JSON object (JSON-lines format) - fine to
+                // ship/tail as-is without re-parsing.
                 sendText(exchange, 200, String.join("\n", lines));
             } else {
-                sendJson(exchange, 200, lines);
+                List<Object> parsed = new java.util.ArrayList<>(lines.size());
+                for (String line : lines) {
+                    try {
+                        parsed.add(MAPPER.readValue(line, Map.class));
+                    } catch (Exception e) {
+                        parsed.add(Map.of("message", line));
+                    }
+                }
+                sendJson(exchange, 200, parsed);
             }
         });
     }

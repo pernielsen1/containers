@@ -13,12 +13,21 @@
 #include <stdexcept>
 #include <thread>
 
+#include "shared/log.h"
+
 namespace xv6::router {
 
 namespace {
 
 std::runtime_error errno_error(const std::string& what) {
     return std::runtime_error(what + ": " + std::strerror(errno));
+}
+
+std::string format_addr(const sockaddr_storage& storage) {
+    const auto* addr_in = reinterpret_cast<const sockaddr_in*>(&storage);
+    char buf[INET_ADDRSTRLEN] = {};
+    ::inet_ntop(AF_INET, &addr_in->sin_addr, buf, sizeof(buf));
+    return std::string(buf) + ":" + std::to_string(ntohs(addr_in->sin_port));
 }
 
 }  // namespace
@@ -45,6 +54,7 @@ UpstreamServer::UpstreamServer(const UpstreamConfig& cfg) {
         ::close(listen_fd_);
         throw err;
     }
+    LOG_INFO("upstream server listening on port " + std::to_string(cfg.port));
 }
 
 UpstreamServer::~UpstreamServer() {
@@ -73,6 +83,7 @@ std::optional<UpstreamConn> UpstreamServer::accept(const std::function<bool()>& 
         conn.fd = fd;
         conn.addr = peer;
         conn.write_lock = std::make_shared<std::mutex>();
+        LOG_INFO("upstream connected from " + format_addr(peer));
         return conn;
     }
     return std::nullopt;
@@ -149,6 +160,7 @@ std::optional<UpstreamConn> UpstreamClient::connect(const std::function<bool()>&
         conn.fd = fd;
         std::memcpy(&conn.addr, &addr, sizeof(sockaddr_in));
         conn.write_lock = std::make_shared<std::mutex>();
+        LOG_INFO("connected to upstream at " + format_addr(conn.addr));
         return conn;
     }
     return std::nullopt;

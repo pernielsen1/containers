@@ -37,6 +37,15 @@ struct RoutedMessage {
     sockaddr_storage addr{};
 };
 
+// One row of Dispatcher::pending_snapshot()'s output. A plain struct rather than nlohmann::json
+// directly, so dispatcher.h doesn't need to pull in json.hpp - callers (router_main.cpp) convert
+// to JSON at the point they already depend on it.
+struct PendingSnapshotEntry {
+    std::string router_stan;
+    std::string upstream_stan;
+    double age_seconds = 0.0;
+};
+
 // Worker pool + STAN rewrite + pending map. Direct 1:1 port of the Java concurrency model --
 // single mutex-guarded map, linear-scan reaper, no sharding. Routes 0100 upstream -> crypto ->
 // downstream. Routes 0110/0130/0430 downstream -> upstream (via STAN lookup).
@@ -60,6 +69,11 @@ public:
     void handle_response(const std::map<std::string, std::string>& resp);      // runs on a response worker thread
     std::map<std::string, int> purge();                                        // operator drain; returns dropped counts
     void drain_and_stop();                                                     // poison-pill sentinels + join
+
+    // Read-only view of in-flight transactions (downstream request sent, no response yet) for
+    // live diagnosis - e.g. "why is this router stuck", without waiting for pending_ttl_seconds
+    // to expire and decline them. Sorted oldest-first so a stuck transaction sorts to the top.
+    std::vector<PendingSnapshotEntry> pending_snapshot();
 
 private:
     friend class DispatcherTestAccess;  // test-only access to pending_/queue_/stan_counter_

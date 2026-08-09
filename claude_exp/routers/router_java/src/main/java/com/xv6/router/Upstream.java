@@ -9,6 +9,7 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BooleanSupplier;
+import java.util.logging.Logger;
 
 /**
  * Port of router_py's router/upstream.py. {@code shouldStop} plays the role of Python's combined
@@ -19,6 +20,8 @@ import java.util.function.BooleanSupplier;
  * intervals.
  */
 public final class Upstream {
+
+    private static final Logger logger = Logger.getLogger(Upstream.class.getName());
 
     private Upstream() {
     }
@@ -40,6 +43,7 @@ public final class Upstream {
             serverSocket.setReuseAddress(true);
             serverSocket.bind(new InetSocketAddress(cfg.port()));
             serverSocket.setSoTimeout(1000);
+            logger.info("upstream server listening on port " + cfg.port());
         }
 
         /** Loops with a 1-second accept timeout; returns null on stop or a hard socket error. */
@@ -47,6 +51,7 @@ public final class Upstream {
             while (!shouldStop.getAsBoolean()) {
                 try {
                     Socket sock = serverSocket.accept();
+                    logger.info("upstream connected from " + sock.getRemoteSocketAddress());
                     return new UpstreamConn(sock, sock.getRemoteSocketAddress(), new ReentrantLock());
                 } catch (SocketTimeoutException timeout) {
                     // loop, re-check shouldStop
@@ -78,6 +83,7 @@ public final class Upstream {
                 try {
                     Socket sock = new Socket();
                     sock.connect(new InetSocketAddress(cfg.host(), cfg.port()), 5000);
+                    logger.info("connected to upstream at " + sock.getRemoteSocketAddress());
                     return new UpstreamConn(sock, sock.getRemoteSocketAddress(), new ReentrantLock());
                 } catch (IOException e) {
                     if (!interruptibleWait(cfg.retrySeconds() * 1000L, shouldStop)) {

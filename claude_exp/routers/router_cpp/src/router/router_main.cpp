@@ -72,6 +72,21 @@ int main(int argc, char** argv) {
                               }
                               send_json(res, 200, active_dispatcher->purge());
                           });
+        cmd.register_route("/pending", {"GET"}, /*protected=*/false,
+                          [&](const httplib::Request&, httplib::Response& res) {
+                              std::lock_guard lock(active_dispatcher_mutex);
+                              if (!active_dispatcher) {
+                                  send_json(res, 503, {{"error", "no active session"}});
+                                  return;
+                              }
+                              json arr = json::array();
+                              for (const auto& e : active_dispatcher->pending_snapshot()) {
+                                  arr.push_back({{"router_stan", e.router_stan},
+                                                 {"upstream_stan", e.upstream_stan},
+                                                 {"age_seconds", e.age_seconds}});
+                              }
+                              send_json(res, 200, arr);
+                          });
         cmd.start();
         LOG_INFO("router command API listening on port " + std::to_string(cfg.command_port));
 

@@ -1,12 +1,14 @@
 {
-  "name": "router_1.01",
+  "name": "router_y_3",
   "type": "router",
   "is_active": true,
-  "partner_id": "partner_a",
+  "partner_id": "partner_Y",
   "log_level": "INFO",
-  "command_port": 8084,
+  "command_port": 8087,
   "upstream": {
-    "port": 5003,
+    "port": 5020,
+    "mode": "client",
+    "host": "localhost",
     "framing": {
       "header_hex": "",
       "length_field_type": "ASCII",
@@ -17,7 +19,7 @@
     "host": "localhost",
     "port": 5001,
     "irm_id": "IRM_ID01",
-    "client_id": "CLIENT02"
+    "client_id": "CLIENT04"
   },
   "crypto": {
     "host": "localhost",

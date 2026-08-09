@@ -15,6 +15,7 @@
 #include "shared/ebcdic.h"
 #include "shared/framing.h"
 #include "shared/ims_connect.h"
+#include "shared/log.h"
 
 namespace xv6::router {
 
@@ -106,6 +107,7 @@ DownstreamConnection DownstreamConnection::connect(const DownstreamConfig& cfg) 
     DownstreamConnection conn;
     conn.to_fd_ = to_fd;
     conn.from_fd_ = from_fd;
+    LOG_INFO("downstream connected to " + cfg.host + ":" + std::to_string(cfg.port));
     return conn;
 }
 

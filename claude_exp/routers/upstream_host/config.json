@@ -2,6 +2,7 @@
   "name": "upstream_1",
   "type": "upstream",
   "is_active": true,
+  "partner_id": "partner_X",
   "command_port": 8083,
   "router": {
     "host": "localhost",

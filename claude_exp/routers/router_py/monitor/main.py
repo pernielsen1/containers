@@ -41,6 +41,9 @@ _processes_lock = threading.Lock()
 _starting = False
 _starting_lock = threading.Lock()
 
+_starting_partners = set()
+_starting_partners_lock = threading.Lock()
+
 
 def discover_actors():
     global _actors_cache
@@ -72,6 +75,7 @@ def discover_actors():
                     "command_port": cfg.get("command_port"),
                     "config_path": path,
                     "is_active": cfg.get("is_active", True),
+                    "partner_id": cfg.get("partner_id"),
                 }
             )
 
@@ -89,6 +93,7 @@ def discover_actors():
                     "command_port": upstream_cfg.get("command_port"),
                     "config_path": upstream_config_path,
                     "is_active": upstream_cfg.get("is_active", True),
+                    "partner_id": upstream_cfg.get("partner_id"),
                 }
             )
         except (OSError, json.JSONDecodeError):
@@ -105,6 +110,15 @@ def get_actors():
 
 def get_actor(name):
     return next((a for a in get_actors() if a["name"] == name), None)
+
+
+def _actors_for_partner(partner_id):
+    return [a for a in get_actors() if a["partner_id"] == partner_id]
+
+
+def _supporting_actors():
+    # crypto_host + downstream_host specifically - the only actors with no partner_id at all.
+    return [a for a in get_actors() if not a["partner_id"]]
 
 
 def is_running(name):
@@ -177,18 +191,45 @@ def wait_for_ready(actor, timeout=10):
     logger.warning("wait_for_ready timed out for %s", actor["name"])
 
 
+def _start_actors(actors):
+    for actor in actors:
+        if not actor["is_active"]:
+            continue
+        if not is_running(actor["name"]):
+            launch_actor(actor)
+        wait_for_ready(actor, timeout=10)
+
+
 def _start_all_worker():
     global _starting
     try:
-        for actor in get_actors():
-            if not actor["is_active"]:
-                continue
-            if not is_running(actor["name"]):
-                launch_actor(actor)
-            wait_for_ready(actor, timeout=10)
+        _start_actors(get_actors())
     finally:
         with _starting_lock:
             _starting = False
+
+
+def _start_partner_worker(partner_id):
+    with _starting_partners_lock:
+        _starting_partners.add(partner_id)
+    try:
+        _start_actors(_actors_for_partner(partner_id))
+    finally:
+        with _starting_partners_lock:
+            _starting_partners.discard(partner_id)
+
+
+_INFRA_KEY = "__infra__"
+
+
+def _start_infra_worker():
+    with _starting_partners_lock:
+        _starting_partners.add(_INFRA_KEY)
+    try:
+        _start_actors(_supporting_actors())
+    finally:
+        with _starting_partners_lock:
+            _starting_partners.discard(_INFRA_KEY)
 
 
 def _terminate_all():
@@ -228,24 +269,25 @@ def _make_app(_port):
                 "command_port": a["command_port"],
                 "running": is_running(a["name"]),
                 "is_active": a["is_active"],
+                "partner_id": a["partner_id"],
             }
             for a in get_actors()
         ]
         return jsonify(result)
 
-    @app.route("/api/routers_by_partner")
-    def routers_by_partner():
+    @app.route("/api/actors_by_partner")
+    def actors_by_partner():
+        # Both router and upstream actors carry partner_id - a partner "connection" is the pair
+        # of them (see build/monitor.md's partner model). crypto_host/downstream_host have no
+        # partner_id and are never grouped here; they're the shared, partner-less infra shown
+        # separately on the landing page.
         result = {}
         for a in get_actors():
-            if a["type"] != "router":
+            if not a["partner_id"]:
                 continue
-            try:
-                with open(a["config_path"]) as f:
-                    cfg = json.load(f)
-            except OSError:
-                continue
-            partner_id = cfg.get("partner_id", "unknown")
-            result.setdefault(partner_id, []).append({"name": a["name"], "command_port": a["command_port"]})
+            result.setdefault(a["partner_id"], []).append(
+                {"name": a["name"], "type": a["type"], "command_port": a["command_port"]}
+            )
         return jsonify(result)
 
     def _actor_status(actor):
@@ -438,6 +480,48 @@ def _make_app(_port):
             if is_running(a["name"]):
                 stop_actor(a)
         return jsonify({"status": "stopped"})
+
+    @app.route("/api/partner/<partner_id>/start", methods=["POST"])
+    def partner_start(partner_id):
+        with _starting_partners_lock:
+            if partner_id in _starting_partners:
+                return jsonify({"status": "already starting"})
+        t = threading.Thread(target=_start_partner_worker, args=(partner_id,), daemon=True)
+        t.start()
+        return jsonify({"status": "starting"})
+
+    @app.route("/api/partner/<partner_id>/stop", methods=["POST"])
+    def partner_stop(partner_id):
+        for a in reversed(_actors_for_partner(partner_id)):
+            if is_running(a["name"]):
+                stop_actor(a)
+        return jsonify({"status": "stopped"})
+
+    @app.route("/api/partner/<partner_id>/starting")
+    def partner_starting(partner_id):
+        with _starting_partners_lock:
+            return jsonify({"starting": partner_id in _starting_partners})
+
+    @app.route("/api/infra/start", methods=["POST"])
+    def infra_start():
+        with _starting_partners_lock:
+            if _INFRA_KEY in _starting_partners:
+                return jsonify({"status": "already starting"})
+        t = threading.Thread(target=_start_infra_worker, daemon=True)
+        t.start()
+        return jsonify({"status": "starting"})
+
+    @app.route("/api/infra/stop", methods=["POST"])
+    def infra_stop():
+        for a in reversed(_supporting_actors()):
+            if is_running(a["name"]):
+                stop_actor(a)
+        return jsonify({"status": "stopped"})
+
+    @app.route("/api/infra/starting")
+    def infra_starting():
+        with _starting_partners_lock:
+            return jsonify({"starting": _INFRA_KEY in _starting_partners})
 
     @app.route("/stop", methods=["POST"])
     def stop_monitor():

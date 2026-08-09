@@ -1,8 +1,8 @@
 {
   "name": "router_2",
   "type": "router",
-  "is_active": false,
-  "partner_id": "partner_b",
+  "is_active": true,
+  "partner_id": "partner_X",
   "log_level": "INFO",
   "command_port": 8085,
   "upstream": {

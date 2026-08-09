@@ -40,6 +40,10 @@ def run(cfg=None, stop_event=None, stats=None, _config_base=None):
     # root logger, and configure_logging (like basicConfig) is a no-op once the root logger
     # already has handlers.
     configure_logging(level=cfg.log_level)
+    logger.info(
+        "router %s starting: command_port=%d downstream=%s:%d upstream mode=%s",
+        cfg.name, cfg.command_port, cfg.downstream.host, cfg.downstream.port, cfg.upstream.mode,
+    )
 
     cmd = CommandServer(
         cfg.command_port, stats, stop_event, bind_host=cfg.command_bind_host, auth_token=cfg.command_auth_token
