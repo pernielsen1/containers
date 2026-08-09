@@ -87,6 +87,35 @@ int main(int argc, char** argv) {
                               }
                               send_json(res, 200, arr);
                           });
+        cmd.register_route("/trace", {"GET", "POST"}, /*protected=*/false,
+                          [&](const httplib::Request& req, httplib::Response& res) {
+                              std::lock_guard lock(active_dispatcher_mutex);
+                              if (!active_dispatcher) {
+                                  send_json(res, 503, {{"error", "no active session"}});
+                                  return;
+                              }
+                              if (req.method == "POST") {
+                                  int count = 1;
+                                  std::string stan;
+                                  std::string pan;
+                                  if (!req.body.empty()) {
+                                      try {
+                                          auto body = json::parse(req.body);
+                                          if (body.contains("count")) count = body["count"].get<int>();
+                                          if (body.contains("stan") && !body["stan"].is_null())
+                                              stan = body["stan"].get<std::string>();
+                                          if (body.contains("pan") && !body["pan"].is_null())
+                                              pan = body["pan"].get<std::string>();
+                                      } catch (const std::exception&) {
+                                          // Malformed body: fall through with the count=1/no-filter
+                                          // defaults, matching router_py's `body.get(...)` behavior
+                                          // when the JSON simply doesn't have these keys.
+                                      }
+                                  }
+                                  active_dispatcher->trace().arm(count, stan, pan);
+                              }
+                              send_json(res, 200, active_dispatcher->trace().snapshot());
+                          });
         cmd.start();
         LOG_INFO("router command API listening on port " + std::to_string(cfg.command_port));
 

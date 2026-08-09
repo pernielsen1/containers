@@ -18,6 +18,7 @@
 #include "router/crypto_client.h"
 #include "router/downstream_connection.h"
 #include "router/router_config.h"
+#include "router/trace_recorder.h"
 #include "shared/stats.h"
 #include "shared/stop_event.h"
 
@@ -28,6 +29,11 @@ struct PendingEntry {
     std::shared_ptr<std::mutex> up_write_lock;
     std::string upstream_stan;
     std::chrono::steady_clock::time_point created_at;
+    // Distinct from created_at (set once this entry is added to pending_, i.e. after crypto +
+    // right before the downstream send - used for the TTL reaper and downstream_rtt).
+    // started_at is the true transaction start (RoutedMessage::enqueued_at, before queue wait
+    // and the upstream-leg crypto call) - used for the end-to-end "total" latency bucket.
+    std::chrono::steady_clock::time_point started_at;
 };
 
 struct RoutedMessage {
@@ -35,6 +41,8 @@ struct RoutedMessage {
     int up_fd = -1;
     std::shared_ptr<std::mutex> up_write_lock;
     sockaddr_storage addr{};
+    std::vector<uint8_t> raw;  // wire bytes as received - feeds TraceRecorder::start()
+    std::chrono::steady_clock::time_point enqueued_at{};  // stamped by Dispatcher::submit()
 };
 
 // One row of Dispatcher::pending_snapshot()'s output. A plain struct rather than nlohmann::json
@@ -65,8 +73,9 @@ public:
     // Enqueues a downstream response (0110/0130/0430) for handling by the response worker pool,
     // instead of processing it inline on the caller's (ds-receiver) thread. Keeps the 0110 leg's
     // crypto call from being a single-threaded bottleneck that competes with the 0100 leg's queue.
-    void submit_response(std::map<std::string, std::string> resp);            // blocking enqueue (backpressure)
-    void handle_response(const std::map<std::string, std::string>& resp);      // runs on a response worker thread
+    // raw is the wire bytes as received - feeds TraceRecorder's downstream_recv hop.
+    void submit_response(std::map<std::string, std::string> resp, std::vector<uint8_t> raw = {});
+    void handle_response(const std::map<std::string, std::string>& resp, const std::vector<uint8_t>& raw = {});
     std::map<std::string, int> purge();                                        // operator drain; returns dropped counts
     void drain_and_stop();                                                     // poison-pill sentinels + join
 
@@ -74,6 +83,9 @@ public:
     // live diagnosis - e.g. "why is this router stuck", without waiting for pending_ttl_seconds
     // to expire and decline them. Sorted oldest-first so a stuck transaction sorts to the top.
     std::vector<PendingSnapshotEntry> pending_snapshot();
+
+    // Exposed for the /trace route (router_main.cpp) - mirrors router_py's public `dispatcher.trace`.
+    TraceRecorder& trace() { return trace_; }
 
 private:
     friend class DispatcherTestAccess;  // test-only access to pending_/queue_/stan_counter_
@@ -95,13 +107,19 @@ private:
     std::condition_variable queue_cv_not_full_;
     std::condition_variable queue_cv_not_empty_;
 
-    std::deque<std::optional<std::map<std::string, std::string>>> response_queue_;  // nullopt = poison pill
+    struct ResponseItem {
+        std::map<std::string, std::string> resp;
+        std::vector<uint8_t> raw;
+    };
+    std::deque<std::optional<ResponseItem>> response_queue_;  // nullopt = poison pill
     std::mutex response_queue_mutex_;
     std::condition_variable response_queue_cv_not_full_;
     std::condition_variable response_queue_cv_not_empty_;
 
     std::unordered_map<std::string, PendingEntry> pending_;
     std::mutex pending_mutex_;
+
+    TraceRecorder trace_;
 
     std::atomic<int> stan_counter_{0};
 

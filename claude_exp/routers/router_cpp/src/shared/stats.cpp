@@ -1,9 +1,11 @@
 #include "shared/stats.h"
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
 #include <ctime>
+#include <vector>
 
 namespace xv6::shared {
 
@@ -16,6 +18,17 @@ int64_t now_ms() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
                std::chrono::system_clock::now().time_since_epoch())
         .count();
+}
+
+double round3(double v) { return std::round(v * 1000.0) / 1000.0; }
+
+// Linear-interpolation percentile - matches router_py's _percentile helper.
+double percentile(const std::vector<double>& sorted_values, double pct) {
+    double k = (sorted_values.size() - 1) * pct;
+    size_t f = static_cast<size_t>(k);
+    size_t c = std::min(f + 1, sorted_values.size() - 1);
+    if (f == c) return sorted_values[f];
+    return sorted_values[f] + (sorted_values[c] - sorted_values[f]) * (k - f);
 }
 
 }  // namespace
@@ -48,6 +61,15 @@ void Stats::record_recv() {
     ++recv_total_;
     last_recv_ms_ = t;
     trim(recv_ts_, t);
+}
+
+void Stats::record_latency(const std::string& name, double value_ms) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto& bucket = latencies_[name];
+    bucket.push_back(value_ms);
+    while (bucket.size() > kLatencyMaxLen) {
+        bucket.pop_front();
+    }
 }
 
 void Stats::trim(std::deque<int64_t>& dq, int64_t now_ms_val) const {
@@ -114,6 +136,24 @@ nlohmann::json Stats::snapshot() const {
             g[k] = v;
         }
         out["gauges"] = std::move(g);
+    }
+    if (!latencies_.empty()) {
+        nlohmann::json latency_out = nlohmann::json::object();
+        for (const auto& [name, bucket] : latencies_) {
+            if (bucket.empty()) continue;
+            std::vector<double> values(bucket.begin(), bucket.end());
+            std::sort(values.begin(), values.end());
+            nlohmann::json row;
+            row["count"] = values.size();
+            row["min_ms"] = round3(values.front());
+            row["p50_ms"] = round3(percentile(values, 0.50));
+            row["p95_ms"] = round3(percentile(values, 0.95));
+            row["max_ms"] = round3(values.back());
+            latency_out[name] = std::move(row);
+        }
+        if (!latency_out.empty()) {
+            out["latency"] = std::move(latency_out);
+        }
     }
     return out;
 }

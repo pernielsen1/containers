@@ -41,6 +41,7 @@ add_library(xv6_router STATIC
     src/router/crypto_client.cpp
     src/router/dispatcher.cpp
     src/router/router_session.cpp
+    src/router/trace_recorder.cpp
 )
 target_include_directories(xv6_router PUBLIC src)
 target_link_libraries(xv6_router PUBLIC xv6_shared)

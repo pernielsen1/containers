@@ -105,7 +105,7 @@ void RouterSession::handle_upstream(int fd, const sockaddr_storage& addr,
             std::string mti = req.at("t");
             LOG_DEBUG("upstream recv mti=" + mti);
             if (mti == "0100" || mti == "0120" || mti == "0420") {
-                dispatcher_->submit(RoutedMessage{req, fd, write_lock, addr});
+                dispatcher_->submit(RoutedMessage{req, fd, write_lock, addr, frame});
             } else if (mti == "0800") {
                 forward_0800(req);
             } else {
@@ -180,7 +180,7 @@ void RouterSession::downstream_receiver() {
                 if (resp.at("t") == "0810") {
                     forward_0810(resp);
                 } else {
-                    dispatcher_->submit_response(resp);
+                    dispatcher_->submit_response(resp, frame);
                 }
             } catch (const std::exception& e) {
                 LOG_ERROR("unexpected error dispatching downstream message mti=" + resp.at("t"));

@@ -156,7 +156,7 @@ public final class RouterSession {
                 logger.fine("upstream recv mti=" + mti);
                 try {
                     if ("0100".equals(mti) || "0120".equals(mti) || "0420".equals(mti)) {
-                        dispatcher.submit(new RoutedMessage(req, conn, writeLock, addr));
+                        dispatcher.submit(new RoutedMessage(req, conn, writeLock, addr, data));
                     } else if ("0800".equals(mti)) {
                         forward0800(req);
                     } else {
@@ -259,7 +259,7 @@ public final class RouterSession {
                 if ("0810".equals(resp.get("t"))) {
                     forward0810(resp);
                 } else {
-                    dispatcher.submitResponse(resp);
+                    dispatcher.submitResponse(resp, data);
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

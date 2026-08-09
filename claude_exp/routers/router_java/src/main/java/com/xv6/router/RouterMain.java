@@ -57,6 +57,32 @@ public final class RouterMain {
             CommandServer.sendJson(exchange, 200, dispatcher.pendingSnapshot());
         });
 
+        cmd.register("/trace", List.of("GET", "POST"), false, exchange -> {
+            Dispatcher dispatcher = activeDispatcher.get();
+            if (dispatcher == null) {
+                CommandServer.sendJson(exchange, 503, Map.of("error", "no active session"));
+                return;
+            }
+            if ("POST".equals(exchange.getRequestMethod())) {
+                Map<?, ?> body = CommandServer.parseJsonBody(exchange);
+                int count = 1;
+                String stan = null;
+                String pan = null;
+                if (body != null) {
+                    Object countObj = body.get("count");
+                    if (countObj instanceof Number n) {
+                        count = n.intValue();
+                    }
+                    Object stanObj = body.get("stan");
+                    stan = stanObj == null ? null : stanObj.toString();
+                    Object panObj = body.get("pan");
+                    pan = panObj == null ? null : panObj.toString();
+                }
+                dispatcher.trace().arm(count, stan, pan);
+            }
+            CommandServer.sendJson(exchange, 200, dispatcher.trace().snapshot());
+        });
+
         cmd.start();
 
         Upstream.UpstreamServer srvSock = null;

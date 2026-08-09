@@ -47,6 +47,14 @@ Tracks fixes made in `router_py` (or the shared Python actors) that still need p
   no equivalent in either language yet. Check whether their session-teardown path has the same kind
   of gaps `router_py` had before assuming the unit tests alone give equivalent coverage.
 
+- **Pre-existing `RouterFullStackTest` failure in `router_java`** (not caused by this round's
+  changes - confirmed via `git stash` before any of it started): `RouterFullStackTest.startStack`
+  fails with `IllegalStateException: port 18083 not ready (key=router)` in `@BeforeAll`, so every
+  `@Test` in that class errors out before running. Surfaced repeatedly while verifying the
+  2026-08-09 logging/pending/trace ports (each `mvn test` run shows `Tests run: N, Errors: 1` for
+  this reason alone, everything else passing). Not investigated - noted here so it gets fixed
+  before calling router_java's test suite "clean" again.
+
 - **Legacy "xv6" naming cleanup** (cosmetic, not a functional bug, but flagged as a standing
   TODO). Both `router_java` and `router_cpp` were renamed from `xv6java`/`xv7cpp` on 2026-08-01, but
   only the top-level directory changed — internals didn't:

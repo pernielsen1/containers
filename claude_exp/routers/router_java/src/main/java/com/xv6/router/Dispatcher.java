@@ -35,7 +35,12 @@ public final class Dispatcher {
     private static final int STAN_MODULUS = 1_000_000;
     private static final Set<String> RESPONSE_MTIS = Set.of("0110", "0130", "0430");
     private static final RoutedMessage POISON = new RoutedMessage(null, null, null, null);
-    private static final Map<String, String> RESPONSE_POISON = new LinkedHashMap<>();
+    private static final ResponseItem RESPONSE_POISON = new ResponseItem(null, null);
+
+    /** (resp, raw) pair - raw is threaded through so TraceRecorder can capture the
+     * downstream_recv hop's wire bytes, same as router_py's response_queue tuple. */
+    private record ResponseItem(Map<String, String> resp, byte[] raw) {
+    }
 
     private final RouterConfig cfg;
     private final DownstreamConnection downstream;
@@ -45,9 +50,10 @@ public final class Dispatcher {
     private final MessageFactory<IsoMessage> upstreamFactory;
     private final Stats stats;
     private final StopEvent reconnectEvent;
+    private final TraceRecorder trace = new TraceRecorder();
 
     private final BlockingQueue<RoutedMessage> queue;
-    private final BlockingQueue<Map<String, String>> responseQueue;
+    private final BlockingQueue<ResponseItem> responseQueue;
     private final Map<String, PendingEntry> pending = new ConcurrentHashMap<>();
     private final Object stanLock = new Object();
     private int stanCounter = 0;
@@ -73,6 +79,11 @@ public final class Dispatcher {
         this.reconnectEvent = reconnectEvent;
         this.queue = new ArrayBlockingQueue<>(cfg.queueMaxsize());
         this.responseQueue = new ArrayBlockingQueue<>(cfg.queueMaxsize());
+    }
+
+    /** Exposed for the /trace route (RouterMain) - mirrors router_py's public `dispatcher.trace`. */
+    public TraceRecorder trace() {
+        return trace;
     }
 
     private String nextStan() {
@@ -102,7 +113,8 @@ public final class Dispatcher {
 
     /** Blocking enqueue (backpressure). */
     public void submit(RoutedMessage msg) throws InterruptedException {
-        queue.put(msg);
+        RoutedMessage timed = msg.withEnqueuedAt(System.nanoTime());
+        queue.put(timed);
         stats.setGauge("queue_depth", queue.size());
         logger.fine("dispatcher: queued mti=" + msg.req().get("t") + " (queue_depth=" + queue.size() + ")");
     }
@@ -113,8 +125,8 @@ public final class Dispatcher {
      * (validate_0110) from being a single-threaded bottleneck that's entirely separate from - and
      * doesn't have to compete with - the 0100 leg's queue.
      */
-    public void submitResponse(Map<String, String> resp) throws InterruptedException {
-        responseQueue.put(resp);
+    public void submitResponse(Map<String, String> resp, byte[] raw) throws InterruptedException {
+        responseQueue.put(new ResponseItem(resp, raw));
         stats.setGauge("response_queue_depth", responseQueue.size());
         logger.fine("dispatcher: queued response mti=" + resp.get("t")
                 + " (response_queue_depth=" + responseQueue.size() + ")");
@@ -133,6 +145,9 @@ public final class Dispatcher {
             if (msg == POISON) {
                 return;
             }
+            if (msg.enqueuedAtNanos() != 0) {
+                stats.recordLatency("queue_wait", (System.nanoTime() - msg.enqueuedAtNanos()) / 1_000_000.0);
+            }
             try {
                 process(msg);
             } catch (IOException e) {
@@ -146,19 +161,19 @@ public final class Dispatcher {
 
     private void responseWorkerLoop() {
         while (true) {
-            Map<String, String> resp;
+            ResponseItem item;
             try {
-                resp = responseQueue.take();
+                item = responseQueue.take();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return;
             }
             stats.setGauge("response_queue_depth", responseQueue.size());
-            if (resp == RESPONSE_POISON) {
+            if (item == RESPONSE_POISON) {
                 return;
             }
             try {
-                handleResponse(resp);
+                handleResponse(item.resp(), item.raw());
             } catch (Exception e) {
                 logger.log(Level.SEVERE, "unexpected error processing dispatched response", e);
             }
@@ -172,10 +187,20 @@ public final class Dispatcher {
         String upstreamStan = req.getOrDefault("11", "");
 
         String routerStan = nextStan();
+        boolean tracing = trace.start(routerStan, upstreamStan, pan, mti, msg.raw());
 
         Map<String, String> fwd = new LinkedHashMap<>(req);
         if ("0100".equals(mti)) {
+            long cryptoStart = System.nanoTime();
             String result = crypto.validate("validate_0100", pan, req.getOrDefault("47", ""), routerStan);
+            double cryptoMs = (System.nanoTime() - cryptoStart) / 1_000_000.0;
+            stats.recordLatency("crypto_rtt", cryptoMs);
+            if (tracing) {
+                Map<String, Object> extra = new LinkedHashMap<>();
+                extra.put("crypto_ms", Math.round(cryptoMs * 1000.0) / 1000.0);
+                extra.put("enriched", !result.isEmpty());
+                trace.hop(routerStan, "crypto_call", null, extra);
+            }
             if (!result.isEmpty()) {
                 fwd.put("47", result);
             }
@@ -185,8 +210,13 @@ public final class Dispatcher {
         // `factory` (downstream leg), not `upstreamFactory`, even though `fwd` originated
         // upstream - this frame goes out over `downstream.send` below.
         byte[] encoded = IsoUtils.fromMap(factory, fwd).writeData();
+        if (tracing) {
+            trace.hop(routerStan, "downstream_send", encoded);
+        }
 
-        PendingEntry entry = new PendingEntry(msg.upConn(), msg.upWriteLock(), upstreamStan, System.nanoTime());
+        long startedAtNanos = msg.enqueuedAtNanos() != 0 ? msg.enqueuedAtNanos() : System.nanoTime();
+        PendingEntry entry = new PendingEntry(
+                msg.upConn(), msg.upWriteLock(), upstreamStan, System.nanoTime(), startedAtNanos);
         if (pending.putIfAbsent(routerStan, entry) != null) {
             logger.severe("router_stan " + routerStan + " still outstanding; overwriting pending entry");
             pending.put(routerStan, entry);
@@ -201,8 +231,8 @@ public final class Dispatcher {
                 + " router_stan=" + routerStan);
     }
 
-    /** Called from the ds-receiver thread. */
-    public void handleResponse(Map<String, String> resp) {
+    /** Called from a response-worker thread (or directly by tests). */
+    public void handleResponse(Map<String, String> resp, byte[] raw) {
         String mti = resp.get("t");
         if ("0810".equals(mti)) {
             return;
@@ -213,24 +243,44 @@ public final class Dispatcher {
         }
 
         String routerStan = resp.getOrDefault("11", "");
+        trace.hop(routerStan, "downstream_recv", raw);
+        boolean tracing = trace.isTracing(routerStan);
+
+        long now = System.nanoTime();
         PendingEntry entry = pending.remove(routerStan);
         stats.setGauge("pending_count", pending.size());
         if (entry == null) {
             logger.warning("no pending entry for router_stan " + routerStan);
+            if (tracing) {
+                trace.finish(routerStan);
+            }
             return;
         }
+        stats.recordLatency("downstream_rtt", (now - entry.createdAtNanos()) / 1_000_000.0);
 
         Map<String, String> fwd = new LinkedHashMap<>(resp);
         fwd.put("11", entry.upstreamStan());
         if ("0110".equals(mti)) {
             String pan = resp.getOrDefault("2", "");
+            long cryptoStart = System.nanoTime();
             String result = crypto.validate("validate_0110", pan, resp.getOrDefault("47", ""), routerStan);
+            double cryptoMs = (System.nanoTime() - cryptoStart) / 1_000_000.0;
+            stats.recordLatency("crypto_rtt", cryptoMs);
+            if (tracing) {
+                Map<String, Object> extra = new LinkedHashMap<>();
+                extra.put("crypto_ms", Math.round(cryptoMs * 1000.0) / 1000.0);
+                extra.put("enriched", !result.isEmpty());
+                trace.hop(routerStan, "crypto_call", null, extra);
+            }
             if (!result.isEmpty()) {
                 fwd.put("47", result);
             }
         }
 
         byte[] encoded = IsoUtils.fromMap(upstreamFactory, fwd).writeData();
+        if (tracing) {
+            trace.hop(routerStan, "upstream_send", encoded);
+        }
         try {
             entry.upWriteLock().lock();
             try {
@@ -244,6 +294,10 @@ public final class Dispatcher {
         } catch (IOException e) {
             // entry.upConn() can be closed by session teardown racing this write.
             logger.warning("failed to write response upstream for stan " + entry.upstreamStan());
+        }
+        stats.recordLatency("total", (System.nanoTime() - entry.startedAtNanos()) / 1_000_000.0);
+        if (tracing) {
+            trace.finish(routerStan);
         }
     }
 
@@ -392,6 +446,11 @@ public final class Dispatcher {
         if (!dropped.isEmpty()) {
             logger.warning("session teardown abandoned " + dropped.size() + " pending transaction(s)");
             stats.setGauge("pending_count", 0);
+        }
+
+        List<Map<String, Object>> abandonedTraces = trace.abandonInProgress();
+        if (!abandonedTraces.isEmpty()) {
+            logger.warning("session teardown left " + abandonedTraces.size() + " in-progress trace(s) incomplete");
         }
     }
 }
