@@ -1,0 +1,10 @@
+{
+  "entity_id": "BE123456789",
+  "entity_name": "Example Belgian Branch",
+  "legal_country": "BE",
+  "reporter_bic": "EXBBE22XXX",
+  "reporting_center": "Brussels",
+  "contact_name": "AnaCredit Reporting Team",
+  "contact_email": "reporting@example.be",
+  "nil_comment": "No instruments issued to any counterparties in this reporting period."
+}
