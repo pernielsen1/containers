@@ -29,10 +29,15 @@ add_library(xv6_shared STATIC
     src/shared/log.cpp
     src/shared/command_server.cpp
     src/shared/pans_defined.cpp
+    src/shared/tls.cpp
 )
 target_include_directories(xv6_shared PUBLIC src)
 target_link_libraries(xv6_shared PUBLIC httplib nlohmann_json::nlohmann_json
                                           OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
+# PUBLIC: cpp-httplib (header-only) gates its SSLClient/SSLServer classes behind this macro,
+# checked at whatever TU first includes httplib.h - every target linking xv6_shared needs it too,
+# not just this library's own .cpp files.
+target_compile_definitions(xv6_shared PUBLIC CPPHTTPLIB_OPENSSL_SUPPORT)
 
 add_library(xv6_router STATIC
     src/router/router_config.cpp

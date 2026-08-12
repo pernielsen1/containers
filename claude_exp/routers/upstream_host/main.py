@@ -21,6 +21,7 @@ from upstream_shared.command_server import CommandServer  # noqa: E402
 from upstream_shared.framing import read_message, write_message  # noqa: E402
 from upstream_shared.iso_utils import build_0800, load_spec  # noqa: E402
 from upstream_shared.json_log import configure_logging  # noqa: E402
+from upstream_shared.ssl_utils import wrap_client_socket, wrap_server_socket  # noqa: E402
 from upstream_shared.stats import Stats  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,9 @@ def load_config(path=None):
     base_dir = os.path.dirname(os.path.abspath(path))
     cfg["iso_spec"] = os.path.normpath(os.path.join(base_dir, cfg["iso_spec"]))
     cfg["input_dir"] = os.path.normpath(os.path.join(base_dir, cfg.get("input_dir", "input")))
+    for key in ("certfile", "keyfile", "cafile"):
+        if cfg.get(key):
+            cfg[key] = os.path.normpath(os.path.join(base_dir, cfg[key]))
     return cfg
 
 
@@ -350,6 +354,14 @@ class UpstreamHostSim:
         while not self.stop_event.is_set():
             try:
                 sock = socket.create_connection((router_cfg["host"], router_cfg["port"]), timeout=5)
+                sock = wrap_client_socket(
+                    sock,
+                    ssl_active=self.cfg.get("ssl_active", False),
+                    certfile=self.cfg.get("certfile"),
+                    keyfile=self.cfg.get("keyfile"),
+                    cafile=self.cfg.get("cafile"),
+                    server_hostname=router_cfg["host"],
+                )
                 sock.settimeout(None)  # switch to blocking; timeout=5 above is connect-only
             except OSError:
                 self.stop_event.wait(retry_seconds)
@@ -371,6 +383,14 @@ class UpstreamHostSim:
                 continue
             except OSError:
                 break
+            if self.cfg.get("ssl_active"):
+                conn = wrap_server_socket(
+                    conn,
+                    ssl_active=True,
+                    certfile=self.cfg["certfile"],
+                    keyfile=self.cfg["keyfile"],
+                    cafile=self.cfg.get("cafile"),
+                )
             self._run_connection(conn)
 
     def start(self) -> None:

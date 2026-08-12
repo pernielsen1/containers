@@ -14,6 +14,25 @@ CryptoClient::CryptoClient(const CryptoConfig& cfg, int breaker_threshold, int b
       breaker_cooldown_seconds_(breaker_cooldown_seconds) {}
 
 httplib::Client CryptoClient::make_client() const {
+    if (cfg_.ssl_active) {
+        std::string url = "https://" + cfg_.host + ":" + std::to_string(cfg_.port);
+        // Same self-signed file doubles as this client's own identity (mutual TLS) when given -
+        // matches router_py's crypto_client.py session.cert/verify split.
+        httplib::Client client = (!cfg_.certfile.empty() && !cfg_.keyfile.empty())
+                                      ? httplib::Client(url, cfg_.certfile, cfg_.keyfile)
+                                      : httplib::Client(url);
+        if (!cfg_.cafile.empty()) {
+            client.set_ca_cert_path(cfg_.cafile);
+            client.enable_server_certificate_verification(true);
+        } else {
+            client.enable_server_certificate_verification(false);
+        }
+        client.set_connection_timeout(5, 0);
+        client.set_read_timeout(5, 0);
+        client.set_write_timeout(5, 0);
+        return client;
+    }
+
     httplib::Client client(cfg_.host, cfg_.port);
     client.set_connection_timeout(5, 0);
     client.set_read_timeout(5, 0);

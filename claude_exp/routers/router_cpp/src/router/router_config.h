@@ -21,6 +21,11 @@ struct UpstreamConfig {
     // downstream leg always stays ASCII, since it still talks to the shared downstream_host.
     std::string encoding = "ascii";
     xv6::shared::FramingConfig framing;
+
+    bool ssl_active = false;
+    std::string certfile;
+    std::string keyfile;
+    std::string cafile;
 };
 
 struct DownstreamConfig {
@@ -29,6 +34,11 @@ struct DownstreamConfig {
     int command_port = 8081;  // downstream_host simulator's own CommandServer port
     std::vector<uint8_t> irm_id;     // EBCDIC-encoded, exactly 8 bytes
     std::vector<uint8_t> client_id;  // EBCDIC-encoded, exactly 8 bytes
+
+    bool ssl_active = false;
+    std::string certfile;
+    std::string keyfile;
+    std::string cafile;
 };
 
 struct CryptoConfig {
@@ -37,6 +47,11 @@ struct CryptoConfig {
     int command_port = 8082;   // crypto_host simulator's own CommandServer port
     std::string plugin_id;
     std::string bearer_token;
+
+    bool ssl_active = false;
+    std::string certfile;
+    std::string keyfile;
+    std::string cafile;
 };
 
 struct RouterConfig {

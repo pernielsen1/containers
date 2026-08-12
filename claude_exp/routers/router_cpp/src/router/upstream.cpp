@@ -14,6 +14,7 @@
 #include <thread>
 
 #include "shared/log.h"
+#include "shared/tls.h"
 
 namespace xv6::router {
 
@@ -32,7 +33,7 @@ std::string format_addr(const sockaddr_storage& storage) {
 
 }  // namespace
 
-UpstreamServer::UpstreamServer(const UpstreamConfig& cfg) {
+UpstreamServer::UpstreamServer(const UpstreamConfig& cfg) : cfg_(cfg) {
     listen_fd_ = ::socket(AF_INET, SOCK_STREAM, 0);
     if (listen_fd_ < 0) throw errno_error("socket() failed");
 
@@ -77,6 +78,16 @@ std::optional<UpstreamConn> UpstreamServer::accept(const std::function<bool()>& 
         if (fd < 0) {
             if (errno == EINTR) continue;
             return std::nullopt;
+        }
+
+        if (cfg_.ssl_active) {
+            try {
+                xv6::shared::tls::wrap_server(fd, cfg_.certfile, cfg_.keyfile, cfg_.cafile);
+            } catch (const std::exception& e) {
+                LOG_WARNING(std::string("upstream TLS handshake failed: ") + e.what());
+                ::close(fd);
+                continue;
+            }
         }
 
         UpstreamConn conn;
@@ -155,6 +166,17 @@ std::optional<UpstreamConn> UpstreamClient::connect(const std::function<bool()>&
 
         // Restore blocking mode -- the connect-timeout must not leak onto subsequent reads.
         ::fcntl(fd, F_SETFL, flags);
+
+        if (cfg_.ssl_active) {
+            try {
+                xv6::shared::tls::wrap_client(fd, cfg_.certfile, cfg_.keyfile, cfg_.cafile, cfg_.host);
+            } catch (const std::exception& e) {
+                LOG_WARNING(std::string("upstream TLS handshake failed: ") + e.what());
+                ::close(fd);
+                if (!wait_retry(should_stop)) return std::nullopt;
+                continue;
+            }
+        }
 
         UpstreamConn conn;
         conn.fd = fd;

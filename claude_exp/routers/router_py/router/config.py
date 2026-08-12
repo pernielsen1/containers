@@ -27,6 +27,10 @@ class UpstreamConfig:
     mode: str = "server"
     host: str = "localhost"
     retry_seconds: int = 5
+    ssl_active: bool = False
+    certfile: Optional[str] = None
+    keyfile: Optional[str] = None
+    cafile: Optional[str] = None
 
 
 @dataclass
@@ -35,6 +39,10 @@ class DownstreamConfig:
     port: int
     irm_id: bytes
     client_id: bytes
+    ssl_active: bool = False
+    certfile: Optional[str] = None
+    keyfile: Optional[str] = None
+    cafile: Optional[str] = None
 
 
 @dataclass
@@ -43,6 +51,10 @@ class CryptoConfig:
     port: int
     plugin_id: str
     bearer_token: str
+    ssl_active: bool = False
+    certfile: Optional[str] = None
+    keyfile: Optional[str] = None
+    cafile: Optional[str] = None
 
 
 @dataclass
@@ -68,6 +80,14 @@ class RouterConfig:
     command_bind_host: str = "127.0.0.1"
     command_auth_token: Optional[str] = None
 
+    @staticmethod
+    def _resolve_path(base_dir: str, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        if os.path.isabs(value):
+            return value
+        return os.path.normpath(os.path.join(base_dir, value))
+
     @classmethod
     def from_file(cls, path: str) -> "RouterConfig":
         with open(path) as f:
@@ -80,12 +100,17 @@ class RouterConfig:
             length_field_type=framing_data["length_field_type"],
             length_field_bytes=framing_data["length_field_bytes"],
         )
+        upstream_cfg = data["upstream"]
         upstream = UpstreamConfig(
-            port=data["upstream"]["port"],
+            port=upstream_cfg["port"],
             framing=framing,
-            mode=data["upstream"].get("mode", "server"),
-            host=data["upstream"].get("host", "localhost"),
-            retry_seconds=data["upstream"].get("retry_seconds", 5),
+            mode=upstream_cfg.get("mode", "server"),
+            host=upstream_cfg.get("host", "localhost"),
+            retry_seconds=upstream_cfg.get("retry_seconds", 5),
+            ssl_active=bool(upstream_cfg.get("ssl_active", False)),
+            certfile=cls._resolve_path(base_dir, upstream_cfg.get("certfile")),
+            keyfile=cls._resolve_path(base_dir, upstream_cfg.get("keyfile")),
+            cafile=cls._resolve_path(base_dir, upstream_cfg.get("cafile")),
         )
 
         ds = data["downstream"]
@@ -94,13 +119,22 @@ class RouterConfig:
             port=ds["port"],
             irm_id=to_ebcdic(ds["irm_id"], 8),
             client_id=to_ebcdic(ds["client_id"], 8),
+            ssl_active=bool(ds.get("ssl_active", False)),
+            certfile=cls._resolve_path(base_dir, ds.get("certfile")),
+            keyfile=cls._resolve_path(base_dir, ds.get("keyfile")),
+            cafile=cls._resolve_path(base_dir, ds.get("cafile")),
         )
 
+        crypto_cfg = data["crypto"]
         crypto = CryptoConfig(
-            host=data["crypto"]["host"],
-            port=data["crypto"]["port"],
-            plugin_id=data["crypto"]["plugin_id"],
-            bearer_token=data["crypto"]["bearer_token"],
+            host=crypto_cfg["host"],
+            port=crypto_cfg["port"],
+            plugin_id=crypto_cfg["plugin_id"],
+            bearer_token=crypto_cfg["bearer_token"],
+            ssl_active=bool(crypto_cfg.get("ssl_active", False)),
+            certfile=cls._resolve_path(base_dir, crypto_cfg.get("certfile")),
+            keyfile=cls._resolve_path(base_dir, crypto_cfg.get("keyfile")),
+            cafile=cls._resolve_path(base_dir, crypto_cfg.get("cafile")),
         )
 
         iso_spec = os.path.normpath(os.path.join(base_dir, data["iso_spec"]))

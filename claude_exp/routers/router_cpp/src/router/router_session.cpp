@@ -10,6 +10,7 @@
 #include "shared/ims_connect.h"
 #include "shared/iso_codec.h"
 #include "shared/log.h"
+#include "shared/tls.h"
 
 using namespace xv6::router;
 using namespace xv6::shared;
@@ -200,6 +201,7 @@ void RouterSession::teardown(std::thread& up_thread) {
         std::lock_guard lock(*upstream_ref_mutex_);
         if (upstream_fd_ != -1) {
             ::shutdown(upstream_fd_, SHUT_RDWR);
+            tls::close(upstream_fd_);
             ::close(upstream_fd_);
             upstream_fd_ = -1;
         }

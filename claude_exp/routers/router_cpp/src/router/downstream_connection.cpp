@@ -16,6 +16,7 @@
 #include "shared/framing.h"
 #include "shared/ims_connect.h"
 #include "shared/log.h"
+#include "shared/tls.h"
 
 namespace xv6::router {
 
@@ -90,6 +91,17 @@ DownstreamConnection DownstreamConnection::connect(const DownstreamConfig& cfg) 
         throw;
     }
 
+    if (cfg.ssl_active) {
+        try {
+            xv6::shared::tls::wrap_client(to_fd, cfg.certfile, cfg.keyfile, cfg.cafile, cfg.host);
+            xv6::shared::tls::wrap_client(from_fd, cfg.certfile, cfg.keyfile, cfg.cafile, cfg.host);
+        } catch (...) {
+            ::close(to_fd);
+            ::close(from_fd);
+            throw;
+        }
+    }
+
     try {
         auto resume = xv6::shared::build_frame(0x80, cfg.irm_id, cfg.client_id, "", {});
         xv6::shared::send_exact(from_fd, resume);
@@ -141,11 +153,13 @@ std::vector<uint8_t> DownstreamConnection::recv() { return xv6::shared::read_res
 void DownstreamConnection::close() {
     if (to_fd_ >= 0) {
         ::shutdown(to_fd_, SHUT_RDWR);
+        xv6::shared::tls::close(to_fd_);
         ::close(to_fd_);
         to_fd_ = -1;
     }
     if (from_fd_ >= 0) {
         ::shutdown(from_fd_, SHUT_RDWR);
+        xv6::shared::tls::close(from_fd_);
         ::close(from_fd_);
         from_fd_ = -1;
     }

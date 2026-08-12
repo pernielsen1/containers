@@ -16,6 +16,7 @@ from shared.command_server import CommandServer  # noqa: E402
 from shared.ims_connect import PING_TRANSCODE, read_request, write_response  # noqa: E402
 from shared.iso_utils import f47_decode, f47_encode, load_spec  # noqa: E402
 from shared.json_log import configure_logging  # noqa: E402
+from shared.ssl_utils import wrap_server_socket  # noqa: E402
 from shared.stats import Stats  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,9 @@ def load_config(path=None):
     base_dir = os.path.dirname(os.path.abspath(path))
     cfg["iso_spec"] = os.path.normpath(os.path.join(base_dir, cfg["iso_spec"]))
     cfg["pans_defined"] = os.path.normpath(os.path.join(base_dir, cfg["pans_defined"]))
+    for key in ("certfile", "keyfile", "cafile"):
+        if key in cfg and cfg[key]:
+            cfg[key] = os.path.normpath(os.path.join(base_dir, cfg[key]))
     return cfg
 
 
@@ -211,6 +215,14 @@ class DownstreamHostSim:
                 continue
             except OSError:
                 break
+            if self.cfg.get("ssl_active"):
+                conn = wrap_server_socket(
+                    conn,
+                    ssl_active=True,
+                    certfile=self.cfg["certfile"],
+                    keyfile=self.cfg["keyfile"],
+                    cafile=self.cfg.get("cafile"),
+                )
             threading.Thread(target=self._dispatch_new_conn, args=(conn,), daemon=True).start()
 
     def start(self) -> None:

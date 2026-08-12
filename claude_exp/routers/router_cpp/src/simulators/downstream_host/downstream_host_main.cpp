@@ -30,6 +30,7 @@
 #include "shared/pans_defined.h"
 #include "shared/stats.h"
 #include "shared/stop_event.h"
+#include "shared/tls.h"
 
 using json = nlohmann::json;
 using namespace xv6::router;
@@ -207,6 +208,7 @@ void handle_from_conn(int fd, std::shared_ptr<ResponseQueue> queue, StopEvent& s
         }
     }
     ::shutdown(fd, SHUT_RDWR);
+    tls::close(fd);
     ::close(fd);
 }
 
@@ -224,6 +226,7 @@ void handle_to_conn(int fd, ConnectionRegistry& registry, const std::map<std::st
         LOG_INFO(std::string("downstream_host: to-conn closed: ") + e.what());
     }
     ::shutdown(fd, SHUT_RDWR);
+    tls::close(fd);
     ::close(fd);
 }
 
@@ -233,6 +236,7 @@ void handle_connection(int fd, ConnectionRegistry* registry, const std::map<std:
     try {
         req = read_request(fd);
     } catch (const std::exception&) {
+        tls::close(fd);
         ::close(fd);
         return;
     }
@@ -303,6 +307,17 @@ int main(int argc, char** argv) {
 
             int client_fd = ::accept(listen_fd, nullptr, nullptr);
             if (client_fd < 0) continue;
+
+            if (cfg.downstream.ssl_active) {
+                try {
+                    tls::wrap_server(client_fd, cfg.downstream.certfile, cfg.downstream.keyfile,
+                                     cfg.downstream.cafile);
+                } catch (const std::exception& e) {
+                    LOG_WARNING(std::string("downstream_host: TLS handshake failed: ") + e.what());
+                    ::close(client_fd);
+                    continue;
+                }
+            }
 
             {
                 std::lock_guard<std::mutex> lock(active_fds_mutex);

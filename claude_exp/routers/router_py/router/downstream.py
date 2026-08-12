@@ -3,6 +3,7 @@ import socket
 import threading
 
 from shared.ims_connect import PING_TRANSCODE, build_frame, read_response
+from shared.ssl_utils import wrap_client_socket
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,22 @@ class DownstreamConnection:
     def connect(cls, cfg) -> "DownstreamConnection":
         to_sock = socket.create_connection((cfg.host, cfg.port))
         from_sock = socket.create_connection((cfg.host, cfg.port))
+        to_sock = wrap_client_socket(
+            to_sock,
+            ssl_active=cfg.ssl_active,
+            certfile=cfg.certfile,
+            keyfile=cfg.keyfile,
+            cafile=cfg.cafile,
+            server_hostname=cfg.host,
+        )
+        from_sock = wrap_client_socket(
+            from_sock,
+            ssl_active=cfg.ssl_active,
+            certfile=cfg.certfile,
+            keyfile=cfg.keyfile,
+            cafile=cfg.cafile,
+            server_hostname=cfg.host,
+        )
 
         resume_frame = build_frame(0x80, cfg.irm_id, cfg.client_id)
         from_sock.sendall(resume_frame)

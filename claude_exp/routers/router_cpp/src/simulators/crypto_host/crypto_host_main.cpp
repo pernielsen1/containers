@@ -1,6 +1,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <exception>
+#include <memory>
 #include <thread>
 
 #include <nlohmann/json.hpp>
@@ -61,8 +62,18 @@ int main(int argc, char** argv) {
         cmd.start();
 
         // Separate httplib::Server for the plugin-execution route, bound to its own port --
-        // mirrors the Java version's two independent HttpServer instances.
-        httplib::Server plugin_server;
+        // mirrors the Java version's two independent HttpServer instances. SSLServer derives
+        // from Server (same .Post/.listen/.stop surface), so ssl_active only decides which
+        // concrete type gets constructed.
+        std::unique_ptr<httplib::Server> plugin_server_ptr;
+        if (cfg.crypto.ssl_active) {
+            plugin_server_ptr = std::make_unique<httplib::SSLServer>(
+                cfg.crypto.certfile.c_str(), cfg.crypto.keyfile.c_str(),
+                cfg.crypto.cafile.empty() ? nullptr : cfg.crypto.cafile.c_str());
+        } else {
+            plugin_server_ptr = std::make_unique<httplib::Server>();
+        }
+        httplib::Server& plugin_server = *plugin_server_ptr;
         plugin_server.Post(
             "/sys/v1/plugins/([^/]+)",
             [&](const httplib::Request& req, httplib::Response& res) {

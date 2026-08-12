@@ -4,3 +4,4 @@ logs/
 upstream_1_input/
 *.log
 __pycache__/
+config/certs/

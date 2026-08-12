@@ -9,6 +9,7 @@
 
 #include "shared/ebcdic.h"
 #include "shared/hex.h"
+#include "shared/tls.h"
 
 namespace xv6::shared {
 
@@ -24,7 +25,7 @@ std::vector<uint8_t> recv_exact(int fd, size_t n) {
     std::vector<uint8_t> buf(n);
     size_t off = 0;
     while (off < n) {
-        ssize_t got = ::recv(fd, buf.data() + off, n - off, 0);
+        ssize_t got = tls::recv(fd, buf.data() + off, n - off);
         if (got == 0) {
             throw FramingError("connection closed while reading");
         }
@@ -40,7 +41,7 @@ std::vector<uint8_t> recv_exact(int fd, size_t n) {
 void send_exact(int fd, const std::vector<uint8_t>& data) {
     size_t off = 0;
     while (off < data.size()) {
-        ssize_t sent = ::send(fd, data.data() + off, data.size() - off, MSG_NOSIGNAL);
+        ssize_t sent = tls::send(fd, data.data() + off, data.size() - off);
         if (sent < 0) {
             if (errno == EINTR) continue;
             throw FramingError(std::string("send failed: ") + std::strerror(errno));

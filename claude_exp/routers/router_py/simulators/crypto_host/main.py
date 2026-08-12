@@ -25,6 +25,9 @@ def load_config(path=None):
         cfg = json.load(f)
     base_dir = os.path.dirname(os.path.abspath(path))
     cfg["pans_defined"] = os.path.normpath(os.path.join(base_dir, cfg["pans_defined"]))
+    for key in ("certfile", "keyfile", "cafile"):
+        if key in cfg and cfg[key]:
+            cfg[key] = os.path.normpath(os.path.join(base_dir, cfg[key]))
     return cfg
 
 
@@ -83,8 +86,16 @@ class CryptoHostSim:
     def start(self) -> None:
         self.cmd.start()
         logger.info("crypto host listening on port %d", self.cfg["port"])
+        ssl_context = None
+        if self.cfg.get("ssl_active"):
+            ssl_context = (self.cfg["certfile"], self.cfg["keyfile"])
         threading.Thread(
-            target=lambda: self.app.run(host="127.0.0.1", port=self.cfg["port"], use_reloader=False),
+            target=lambda: self.app.run(
+                host="127.0.0.1",
+                port=self.cfg["port"],
+                use_reloader=False,
+                ssl_context=ssl_context,
+            ),
             daemon=True,
         ).start()
 

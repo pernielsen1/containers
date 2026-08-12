@@ -13,6 +13,10 @@
     "length_field_type": "ASCII",
     "length_field_bytes": 4
   },
+  "ssl_active": true,
+  "certfile": "../router_py/certs/upstream_router_1_ssl_active_true_cert.pem",
+  "keyfile": "../router_py/certs/upstream_router_1_ssl_active_true_key.pem",
+  "cafile": "../router_py/certs/upstream_router_1_ssl_active_true_ca.pem",
   "iso_spec": "test_spec.json",
   "input_dir": "input",
   "ping_0800_seconds": 30,

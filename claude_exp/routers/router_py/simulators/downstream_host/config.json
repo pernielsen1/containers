@@ -4,6 +4,10 @@
   "is_active": true,
   "port": 5001,
   "command_port": 8081,
+  "ssl_active": true,
+  "certfile": "../../certs/downstream_ssl_active_true_cert.pem",
+  "keyfile": "../../certs/downstream_ssl_active_true_key.pem",
+  "cafile": "../../certs/downstream_ssl_active_true_ca.pem",
   "iso_spec": "../../test_spec.json",
   "pans_defined": "../../pans_defined.json",
   "yellow_threshold_seconds": 40

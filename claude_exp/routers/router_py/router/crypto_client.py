@@ -21,9 +21,16 @@ class CryptoClient:
         breaker_cooldown_seconds: int = 30,
         pool_size: int = 20,
     ):
-        self._base_url = f"http://{cfg.host}:{cfg.port}/sys/v1/plugins/{cfg.plugin_id}"
+        scheme = "https" if getattr(cfg, "ssl_active", False) else "http"
+        self._base_url = f"{scheme}://{cfg.host}:{cfg.port}/sys/v1/plugins/{cfg.plugin_id}"
         self._bearer_token = cfg.bearer_token
         self._session = requests.Session()
+        self._session.verify = cfg.cafile if getattr(cfg, "ssl_active", False) and getattr(cfg, "cafile", None) else False
+        self._session.cert = (
+            (cfg.certfile, cfg.keyfile)
+            if getattr(cfg, "ssl_active", False) and getattr(cfg, "certfile", None) and getattr(cfg, "keyfile", None)
+            else None
+        )
         # Default HTTPAdapter pool_maxsize is 10 - both the 0100-leg worker pool and the
         # 0110-leg response-worker pool call validate() concurrently on this one shared
         # session, so at worker_threads=8/response_worker_threads=8 (the default) that's up
@@ -33,6 +40,7 @@ class CryptoClient:
         # sustained load, the discarded sockets pile up in CLOSE_WAIT.
         adapter = requests.adapters.HTTPAdapter(pool_connections=pool_size, pool_maxsize=pool_size)
         self._session.mount("http://", adapter)
+        self._session.mount("https://", adapter)
         self._breaker_threshold = breaker_threshold
         self._breaker_cooldown_seconds = breaker_cooldown_seconds
         self._lock = threading.Lock()
@@ -59,6 +67,8 @@ class CryptoClient:
                 json={"operation": endpoint, "f2": pan, "f47": f47, "router_stan": router_stan},
                 headers={"Authorization": f"Bearer {self._bearer_token}"},
                 timeout=5,
+                verify=self._session.verify,
+                cert=self._session.cert,
             )
             resp.raise_for_status()
             decoded = base64.b64decode(resp.json()).decode("utf-8")

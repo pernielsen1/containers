@@ -33,6 +33,7 @@ public:
     std::optional<UpstreamConn> accept(const std::function<bool()>& should_stop);
 
 private:
+    UpstreamConfig cfg_;
     int listen_fd_ = -1;
 };
 

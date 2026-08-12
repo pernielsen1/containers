@@ -4,6 +4,7 @@ import threading
 import time
 
 from shared.framing import read_message, write_message
+from shared.ssl_utils import wrap_client_socket, wrap_server_socket
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,14 @@ class UpstreamServer:
                 continue
             except OSError:
                 return None
+            if self.cfg.ssl_active:
+                conn = wrap_server_socket(
+                    conn,
+                    ssl_active=True,
+                    certfile=self.cfg.certfile,
+                    keyfile=self.cfg.keyfile,
+                    cafile=self.cfg.cafile,
+                )
             conn.settimeout(None)
             logger.info("upstream connected from %s", addr)
             return conn, addr, threading.Lock()
@@ -50,6 +59,14 @@ class UpstreamClient:
         while not stop_event.is_set():
             try:
                 sock = socket.create_connection((self.cfg.host, self.cfg.port), timeout=5)
+                sock = wrap_client_socket(
+                    sock,
+                    ssl_active=self.cfg.ssl_active,
+                    certfile=self.cfg.certfile,
+                    keyfile=self.cfg.keyfile,
+                    cafile=self.cfg.cafile,
+                    server_hostname=self.cfg.host,
+                )
                 sock.settimeout(None)  # switch to blocking; timeout=5 above is connect-only
             except OSError:
                 elapsed = 0.0

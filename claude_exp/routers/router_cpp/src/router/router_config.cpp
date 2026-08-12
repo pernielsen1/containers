@@ -12,6 +12,15 @@ namespace xv6::router {
 
 namespace {
 
+// Empty stays empty (ssl_active defaults to false, so an absent path is legitimate); otherwise
+// resolved relative to the config file's own directory, matching pans_defined_path below.
+std::string resolve_path(const std::filesystem::path& base_dir, const std::string& value) {
+    if (value.empty()) return value;
+    std::filesystem::path p(value);
+    if (p.is_relative()) p = base_dir / p;
+    return p.string();
+}
+
 xv6::shared::FramingConfig parse_framing(const nlohmann::json& j) {
     xv6::shared::FramingConfig cfg;
     cfg.header_hex = j.value("header_hex", std::string(""));
@@ -22,7 +31,7 @@ xv6::shared::FramingConfig parse_framing(const nlohmann::json& j) {
     return cfg;
 }
 
-UpstreamConfig parse_upstream(const nlohmann::json& j) {
+UpstreamConfig parse_upstream(const nlohmann::json& j, const std::filesystem::path& base_dir) {
     UpstreamConfig cfg;
     cfg.mode = j.value("mode", std::string("server"));
     cfg.host = j.value("host", std::string("localhost"));
@@ -34,26 +43,38 @@ UpstreamConfig parse_upstream(const nlohmann::json& j) {
     if (j.contains("framing")) {
         cfg.framing = parse_framing(j.at("framing"));
     }
+    cfg.ssl_active = j.value("ssl_active", false);
+    cfg.certfile = resolve_path(base_dir, j.value("certfile", std::string("")));
+    cfg.keyfile = resolve_path(base_dir, j.value("keyfile", std::string("")));
+    cfg.cafile = resolve_path(base_dir, j.value("cafile", std::string("")));
     return cfg;
 }
 
-DownstreamConfig parse_downstream(const nlohmann::json& j) {
+DownstreamConfig parse_downstream(const nlohmann::json& j, const std::filesystem::path& base_dir) {
     DownstreamConfig cfg;
     cfg.host = j.value("host", std::string(""));
     cfg.port = j.value("port", 0);
     cfg.command_port = j.value("command_port", 8081);
     cfg.irm_id = xv6::shared::to_ebcdic(j.value("irm_id", std::string("")), 8);
     cfg.client_id = xv6::shared::to_ebcdic(j.value("client_id", std::string("")), 8);
+    cfg.ssl_active = j.value("ssl_active", false);
+    cfg.certfile = resolve_path(base_dir, j.value("certfile", std::string("")));
+    cfg.keyfile = resolve_path(base_dir, j.value("keyfile", std::string("")));
+    cfg.cafile = resolve_path(base_dir, j.value("cafile", std::string("")));
     return cfg;
 }
 
-CryptoConfig parse_crypto(const nlohmann::json& j) {
+CryptoConfig parse_crypto(const nlohmann::json& j, const std::filesystem::path& base_dir) {
     CryptoConfig cfg;
     cfg.host = j.value("host", std::string(""));
     cfg.port = j.value("port", 0);
     cfg.command_port = j.value("command_port", 8082);
     cfg.plugin_id = j.value("plugin_id", std::string(""));
     cfg.bearer_token = j.value("bearer_token", std::string(""));
+    cfg.ssl_active = j.value("ssl_active", false);
+    cfg.certfile = resolve_path(base_dir, j.value("certfile", std::string("")));
+    cfg.keyfile = resolve_path(base_dir, j.value("keyfile", std::string("")));
+    cfg.cafile = resolve_path(base_dir, j.value("cafile", std::string("")));
     return cfg;
 }
 
@@ -66,6 +87,7 @@ RouterConfig RouterConfig::from_file(const std::string& path) {
     }
     nlohmann::json j;
     in >> j;
+    std::filesystem::path base_dir = std::filesystem::path(path).parent_path();
 
     RouterConfig cfg;
     cfg.name = j.value("name", std::string(""));
@@ -79,9 +101,9 @@ RouterConfig RouterConfig::from_file(const std::string& path) {
         cfg.command_auth_token = j.at("command_auth_token").get<std::string>();
     }
 
-    if (j.contains("upstream")) cfg.upstream = parse_upstream(j.at("upstream"));
-    if (j.contains("downstream")) cfg.downstream = parse_downstream(j.at("downstream"));
-    if (j.contains("crypto")) cfg.crypto = parse_crypto(j.at("crypto"));
+    if (j.contains("upstream")) cfg.upstream = parse_upstream(j.at("upstream"), base_dir);
+    if (j.contains("downstream")) cfg.downstream = parse_downstream(j.at("downstream"), base_dir);
+    if (j.contains("crypto")) cfg.crypto = parse_crypto(j.at("crypto"), base_dir);
 
     cfg.worker_threads = j.value("worker_threads", 8);
     cfg.response_worker_threads = j.value("response_worker_threads", 8);
