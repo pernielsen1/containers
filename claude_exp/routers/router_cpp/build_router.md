@@ -1290,17 +1290,17 @@ and ARPC computation only happen when the router is pointed at the shared `route
 container (see `config/router_1_perf.json` and the `ROUTER_CONFIG` mechanism under "Container"
 below).
 
-### `downstream_host`
+### `downstream_host` (now the shared `../downstream_host/main.py`)
 
-**Config** (`config/downstream_host.json`):
-```json
-{
-  "name": "downstream_host", "type": "downstream", "is_active": true,
-  "port": 5001, "command_port": 8081,
-  "pans_defined": "pans_defined.json",
-  "yellow_threshold_seconds": 40
-}
-```
+**Moved**: `downstream_host_main.cpp` is gone — `downstream_host` is now the shared
+`routers/downstream_host/` Python component (see `../downstream_host/build_router.md`), launched
+as a host subprocess like `upstream_host`, not one of this container's own binaries. It previously
+read its settings from a nested block inside the shared `config/router_1.json`; now it has its own
+flat `config/downstream_host.json` / `downstream_host_perf.json` (this implementation's own
+config, extracted from that nested block plus the top-level `pans_defined`/`iso_spec` it used to
+inherit implicitly — `iso_spec` now points at `../../upstream_host/test_spec.json`, the pyiso8583
+JSON format the shared component needs). The architecture notes below describe the now-retired
+C++ implementation, kept for historical reference.
 
 **Architecture**: single listen socket; each accepted connection is dispatched by reading its first
 IMS frame in a **fresh thread** (not the acceptor thread — the acceptor must be free to accept both

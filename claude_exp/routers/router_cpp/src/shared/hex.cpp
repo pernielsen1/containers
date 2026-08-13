@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <stdexcept>
 
-namespace xv6::shared {
+namespace shared {
 
 namespace {
 int hex_nibble(char c) {
@@ -37,4 +37,4 @@ std::string hex_encode(const std::vector<uint8_t>& bytes) {
     return out;
 }
 
-}  // namespace xv6::shared
+}  // namespace shared

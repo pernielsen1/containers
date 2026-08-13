@@ -78,7 +78,7 @@ project/
 │   ├── main.py
 │   └── static/index.html
 ├── src/
-│   ├── main/java/com/xv6/
+│   ├── main/java/com/router/
 │   │   ├── shared/     Framing, FramingConfig, Charset500, ImsConnect, IsoUtils, Stats,
 │   │   │               StopEvent, LogBuffer, LogLevels, CommandServer
 │   │   ├── router/     RouterConfig, RouterConfigJson, UpstreamConfig, DownstreamConfig,
@@ -87,12 +87,12 @@ project/
 │   │   │               Dispatcher, RouterSession, RouterMain
 │   │   └── simulators/{cryptohost,downstreamhost}/*Main.java   # upstream_host is the shared
 │   │                              # routers/upstream_host/ Python component now, not a Java class
-│   └── test/java/com/xv6/   # JUnit 5
+│   └── test/java/com/router/   # JUnit 5
 └── logs/                          # gitignored; per-actor console logs written at runtime
 ```
 
 One Maven module, one shaded jar (`target/router_java.jar`). Every actor is a different `Main` class
-launched from the same jar: `java -cp target/router_java.jar com.xv6.router.RouterMain --config
+launched from the same jar: `java -cp target/router_java.jar com.router.router.RouterMain --config
 config/router_1.json`, and likewise for the three simulator `Main` classes.
 
 Scope: router + simulators (crypto_host, downstream_host, upstream_host); router_1 is the primary
@@ -128,7 +128,7 @@ required by this spec; install however the target environment prefers.
 
 ---
 
-## Shared modules (`com.xv6.shared`)
+## Shared modules (`com.router.shared`)
 
 ### `Framing` — length-prefixed TCP framing
 
@@ -350,7 +350,7 @@ unless a config explicitly overrides `command_bind_host`. Auth token defaults to
 
 ### Real crypto math has moved to a shared container — `crypto_host` here is a stub
 
-`com.xv6.shared.CryptoUtils` used to live here and do the real EMV cryptographic work (MasterCard
+`com.router.shared.CryptoUtils` used to live here and do the real EMV cryptographic work (MasterCard
 M/Chip UDK/session-key derivation, Retail MAC ARQC verification, ARPC Method 1, ISO 9564-1
 Format-0 PIN block verification, MasterCard CVV2 verification, HMAC-SHA1 AAV verification — all
 pure JCE code, no I/O). That class (and its test, `CryptoUtilsTest`) has been **deleted**. The real
@@ -486,7 +486,7 @@ container, which reads the full record; this doc doesn't cover its internals.
 
 ---
 
-## Router (`com.xv6.router`)
+## Router (`com.router.router`)
 
 ### Config schema (`config/router_1.json`)
 
@@ -918,7 +918,7 @@ same `run()` method directly without killing the test JVM.
 
 ---
 
-## Simulators (`com.xv6.simulators.*`)
+## Simulators (`com.router.simulators.*`)
 
 All three follow the same shape: load `config.json`, build a `Stats` + `CommandServer`, register
 any custom routes, start, and (for the two that aren't a bare HTTP service) run an accept/connect
@@ -982,19 +982,17 @@ above). This repo's own `validate()` does just this:
 The router always calls crypto regardless of whether f47/f55 is present on a given message — an
 empty f47 simply gets a `response_code` stamped onto it either way.
 
-### `downstream_host` (`DownstreamHostMain`)
+### `downstream_host` (now the shared `../downstream_host/main.py`)
+
+**Moved**: `DownstreamHostMain.java` is gone — `downstream_host` is now the shared
+`routers/downstream_host/` Python component (see `../downstream_host/build_router.md`), launched
+as a host subprocess like `upstream_host`. `config/downstream_host.json` /
+`downstream_host_perf.json` still live here (this implementation's own config, pointing at the
+shared `iso_spec`/`pans_defined` it needs — the `iso_spec` field now points at
+`../../upstream_host/test_spec.json`, the pyiso8583 JSON format, not `test_spec.xml`, since the
+shared component doesn't speak j8583's XML spec format).
 
 Simulates an IMS Connect authorization host.
-
-**Config** (`config/downstream_host.json`):
-```json
-{
-  "name": "downstream_host", "type": "downstream", "is_active": true,
-  "port": 5001, "command_port": 8081,
-  "iso_spec": "test_spec.xml", "pans_defined": "pans_defined.json",
-  "yellow_threshold_seconds": 40
-}
-```
 
 **Architecture**: single listen socket; each accepted connection is dispatched by reading its
 first IMS frame in a **fresh thread** (not the acceptor thread — the acceptor must be free to
@@ -1055,7 +1053,7 @@ ends (internally consistent, but not matching Python/C++). Fixed with one
 **Integration points that remain locally relevant:**
 - **Launch mechanism**: `stress_run.sh`/`run_test.sh` launch it as a bare host subprocess
   (`python3 ../upstream_host/main.py --config ../upstream_host/config.json &`), replacing the old
-  `docker exec -d router_java java -cp target/router_java.jar com.xv6.simulators.upstreamhost.UpstreamHostMain ...`.
+  `docker exec -d router_java java -cp target/router_java.jar com.router.simulators.upstreamhost.UpstreamHostMain ...`.
   Teardown is unchanged in spirit — `POST :8083/stop` — since the shared component exposes the same
   `CommandServer` `/stop` route and reliably exits on it regardless of how it was launched.
 - **Monitor integration**: `monitor/main.py`'s `discover_actors()` walks `router_java/`'s own tree
@@ -1100,9 +1098,9 @@ never find it, so `discover_actors()` adds one explicit synthesized entry for it
 
 ```
 MAIN_CLASS_BY_TYPE = {
-    "router":     "com.xv6.router.RouterMain",
-    "downstream": "com.xv6.simulators.downstreamhost.DownstreamHostMain",
-    "crypto":     "com.xv6.simulators.cryptohost.CryptoHostMain",
+    "router":     "com.router.router.RouterMain",
+    "downstream": "com.router.simulators.downstreamhost.DownstreamHostMain",
+    "crypto":     "com.router.simulators.cryptohost.CryptoHostMain",
 }
 STARTUP_ORDER = {"crypto": 0, "downstream": 1, "router": 2, "upstream": 3}
 ```

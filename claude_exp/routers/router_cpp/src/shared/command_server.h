@@ -12,7 +12,7 @@
 #include "shared/stats.h"
 #include "shared/stop_event.h"
 
-namespace xv6::shared {
+namespace shared {
 
 class CommandServer {
 public:
@@ -44,4 +44,4 @@ private:
     std::unique_ptr<std::thread> listen_thread_;
 };
 
-}  // namespace xv6::shared
+}  // namespace shared

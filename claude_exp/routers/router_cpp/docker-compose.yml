@@ -18,12 +18,14 @@ services:
     # against the host env / .env, not against the `environment:` block above - a bare
     # `${ROUTER_CONFIG}` with no default here silently blanks out and breaks router_main's
     # --config flag if ROUTER_CONFIG isn't exported on the host).
+    # downstream_host is the shared routers/downstream_host Python component now (see
+    # ../divide_and_conquer.md and ../downstream_host/build_router.md), launched as a host
+    # subprocess by run_test.sh/stress_run.sh - not one of this stack's own binaries anymore.
     command:
       - bash
       - -c
       - |
         /src/build/crypto_host --config /config/router_1.json &
-        /src/build/downstream_host --config /config/${ROUTER_CONFIG:-router_1.json} &
         /src/build/router_main --config /config/${ROUTER_CONFIG:-router_1.json} &
         sleep infinity
     depends_on: []

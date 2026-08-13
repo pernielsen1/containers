@@ -1,13 +1,13 @@
 #!/bin/bash
-# Stress-test CLI driver: brings up the router_cpp docker-compose stack via ./start.sh (crypto_host,
-# downstream_host, router_main run as background processes inside one container), launches
-# upstream_host as a bare host subprocess (the shared routers/upstream_host Python component -
-# see ../divide_and_conquer.md - not one of this implementation's own binaries anymore), uploads
-# the given CSV, calls /start?rate=&duration= (upstream_host cycles the CSV rows at the requested
-# rate for the requested duration instead of a single pass), waits for the run to finish, then
-# prints exactly ONE line to stdout: a semicolon-delimited result row consumed by
-# routers/stress_test.sh. All progress/log output goes to stderr. Direct C++-port analog of
-# router_py/stress_run.sh.
+# Stress-test CLI driver: brings up the router_cpp docker-compose stack via ./start.sh
+# (crypto_host, router_main run as background processes inside one container), launches
+# downstream_host/upstream_host as bare host subprocesses (the shared routers/downstream_host and
+# routers/upstream_host Python components - see ../divide_and_conquer.md - not this
+# implementation's own binaries anymore), uploads the given CSV, calls /start?rate=&duration=
+# (upstream_host cycles the CSV rows at the requested rate for the requested duration instead of
+# a single pass), waits for the run to finish, then prints exactly ONE line to stdout: a
+# semicolon-delimited result row consumed by routers/stress_test.sh. All progress/log output goes
+# to stderr. Direct C++-port analog of router_py/stress_run.sh.
 #
 # Crypto is NOT this implementation's own local stub here - perf runs hit the real OpenSSL-backed
 # routers/crypto_host container (shared across all three implementations, so it's the same
@@ -52,11 +52,13 @@ DS_CMD=8081
 ROUTER_CMD=8080
 UPSTREAM_CMD=8083
 
-# upstream_host is a host subprocess now, not one of the compose stack's background processes -
-# ./stop.sh (compose down) doesn't reach it, so cleanup also stops it via its own /stop route.
+# downstream_host/upstream_host are host subprocesses now, not part of the compose stack's
+# background processes - ./stop.sh (compose down) doesn't reach them, so cleanup also stops them
+# via their own /stop routes.
 cleanup() {
   if [ "$MANUAL" -eq 0 ]; then
     curl -s -o /dev/null -X POST "http://127.0.0.1:${UPSTREAM_CMD}/stop" || true
+    curl -s -o /dev/null -X POST "http://127.0.0.1:${DS_CMD}/stop" || true
     if [ "$ROUTER_HOST" = "127.0.0.1" ]; then
       ./stop.sh || true
     fi
@@ -81,6 +83,9 @@ wait_for_stats() {
 
 if [ "$MANUAL" -eq 0 ]; then
   if [ "$ROUTER_HOST" = "127.0.0.1" ]; then
+    echo "Launching downstream_host (shared routers/downstream_host, host-side)..." >&2
+    python3 "$PROJECT_ROOT/../downstream_host/main.py" --config config/downstream_host_perf.json >&2 &
+
     echo "Building and starting the router_cpp stack (perf config)..." >&2
     # Redirected to stderr: docker compose's build/up progress writes to stdout, which would
     # otherwise land inside the single result line stress_test.sh captures via command substitution.

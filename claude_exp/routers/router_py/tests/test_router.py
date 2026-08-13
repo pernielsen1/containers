@@ -9,8 +9,8 @@ from router import main as router_main
 from router.config import CryptoConfig, DownstreamConfig, Framing, RouterConfig, UpstreamConfig
 from shared.ims_connect import to_ebcdic
 from simulators.crypto_host.main import CryptoHostSim
-from simulators.downstream_host.main import DownstreamHostSim
-from main import UpstreamHostSim  # shared routers/upstream_host/main.py, see conftest.py
+from downstream_host.main import DownstreamHostSim  # shared routers/downstream_host/main.py, see conftest.py
+from upstream_host.main import UpstreamHostSim  # shared routers/upstream_host/main.py, see conftest.py
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPEC_PATH = os.path.join(PROJECT_ROOT, "test_spec.json")

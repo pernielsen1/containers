@@ -15,21 +15,21 @@ Tracks fixes made in `router_py` (or the shared Python actors) that still need p
   languages' non-`upstream_host` actors only launch via `docker exec` into a pre-built container,
   unlike router_py's plain host subprocesses) that the port needs to account for.
 
-- **Pre-existing `RouterFullStackTest` failure in `router_java`** (not caused by the 2026-08-09
-  round - confirmed via `git stash` beforehand): `RouterFullStackTest.startStack` fails with
-  `IllegalStateException: port 18083 not ready (key=router)` in `@BeforeAll`, so every `@Test` in
-  that class errors out before running. Not investigated - noted here so it gets fixed before
-  calling router_java's test suite "clean" again.
-
-- **Legacy "xv6" naming cleanup** (cosmetic, not a functional bug, but flagged as a standing
-  TODO). Both `router_java` and `router_cpp` were renamed from `xv6java`/`xv7cpp` on 2026-08-01, but
-  only the top-level directory changed — internals didn't:
-  - `router_java`: Java package still `com.xv6.*`.
-  - `router_cpp`: C++ namespace still `xv6::router`/`xv6::shared`; CMake targets still
-    `xv6_router`/`xv6_shared`/`xv6_tests`.
-  Touches every file in both trees — plan as its own deliberate pass, not a drive-by edit.
-
 ## Done
+
+- **Pre-existing `RouterFullStackTest` failure in `router_java`** — fixed as a side effect of the
+  `downstream_host` consolidation below: rewriting the test's `@BeforeAll` to launch
+  `downstream_host` as a real subprocess (instead of in-process `DownstreamHostMain`) also fixed
+  the flaky `port 18083 not ready` failure. `RouterFullStackTest` now passes reliably.
+
+- **Legacy "xv6" naming cleanup** (2026-08-13) — both `router_java` and `router_cpp` were renamed
+  from `xv6java`/`xv7cpp` on 2026-08-01, but only the top-level directory changed until now:
+  - `router_java`: Java package `com.xv6.*` → `com.router.*` (38 files, plus `pom.xml`'s groupId
+    and every hardcoded `-cp` classpath string in scripts/monitor).
+  - `router_cpp`: C++ namespace `xv6::router`/`xv6::shared` → `router::`/`shared::`; CMake targets
+    `xv6_router`/`xv6_shared`/`xv6_tests` → `router_lib`/`shared_lib`/`router_tests` (47 files).
+  Full test suites re-verified green after each rename (router_java: `mvn test`, router_cpp:
+  `router_tests` binary + Docker functional smoke test).
 
 - **INFO-level startup/connection logging** — every actor now logs at least INFO on startup and
   on connection established, even outside debug mode. `router_py` done 2026-08-09 morning;

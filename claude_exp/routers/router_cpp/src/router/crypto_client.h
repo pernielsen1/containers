@@ -9,7 +9,7 @@
 
 #include "router/router_config.h"
 
-namespace xv6::router {
+namespace router {
 
 // HTTP client to crypto_host with a circuit breaker. Wire interface deliberately mimics
 // Fortanix DSM's "invoke a plugin execution" API (POST /sys/v1/plugins/{plugin_id}, bearer-token
@@ -49,4 +49,4 @@ private:
     std::chrono::steady_clock::time_point open_until_{};
 };
 
-}  // namespace xv6::router
+}  // namespace router

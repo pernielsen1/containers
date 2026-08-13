@@ -817,7 +817,12 @@ All simulators share the same pattern:
 - Create `Stats` + `CommandServer`; start both
 - Expose custom routes via `cmd.register(path, methods)`
 
-### `simulators/downstream_host/main.py`
+### `downstream_host` (now `../downstream_host/main.py`, shared across all three implementations)
+
+**Moved**: this used to live at `simulators/downstream_host/main.py`; it's now the shared
+`routers/downstream_host/` component (see `../downstream_host/build_router.md`), the same
+treatment `upstream_host` got in Round 2 — only `simulators/downstream_host/config.json` /
+`config_perf.json` still live here. Behavior/config shape below is otherwise unchanged.
 
 Simulates an IMS Connect authorization host.
 

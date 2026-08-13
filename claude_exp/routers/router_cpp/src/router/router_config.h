@@ -7,7 +7,7 @@
 
 #include "shared/framing.h"
 
-namespace xv6::router {
+namespace router {
 
 struct UpstreamConfig {
     std::string mode = "server";  // "server" | "client"
@@ -20,7 +20,7 @@ struct UpstreamConfig {
     // LLVAR/LLLVAR length-prefix digits and value bytes; see shared::iso_codec::Encoding). The
     // downstream leg always stays ASCII, since it still talks to the shared downstream_host.
     std::string encoding = "ascii";
-    xv6::shared::FramingConfig framing;
+    shared::FramingConfig framing;
 
     bool ssl_active = false;
     std::string certfile;
@@ -87,4 +87,4 @@ struct RouterConfig {
     static RouterConfig from_file(const std::string& path);
 };
 
-}  // namespace xv6::router
+}  // namespace router

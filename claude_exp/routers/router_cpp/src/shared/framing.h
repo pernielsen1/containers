@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace xv6::shared {
+namespace shared {
 
 struct FramingConfig {
     enum class LengthFieldType { BigEndian, LittleEndian, Ascii, Ebcdic };
@@ -39,4 +39,4 @@ void write_message(int fd, const std::vector<uint8_t>& data, const FramingConfig
 std::vector<uint8_t> recv_exact(int fd, size_t n);
 void send_exact(int fd, const std::vector<uint8_t>& data);
 
-}  // namespace xv6::shared
+}  // namespace shared

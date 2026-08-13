@@ -1,0 +1,115 @@
+package com.router.router;
+
+import com.router.shared.Framing;
+import com.router.shared.SslUtils;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BooleanSupplier;
+import java.util.logging.Logger;
+
+/**
+ * Port of router_py's router/upstream.py. {@code shouldStop} plays the role of Python's combined
+ * stop_event/reconnect_event ({@code _OrEvent}) - callers pass e.g. {@code orEvent::isSet}.
+ * Waits below poll every 200ms rather than blocking on a single condition variable (unlike
+ * Python's threading.Event.wait, which wakes immediately when set); this trades a little latency
+ * for a much simpler implementation, acceptable given this project's multi-second retry/reestablish
+ * intervals.
+ */
+public final class Upstream {
+
+    private static final Logger logger = Logger.getLogger(Upstream.class.getName());
+
+    private Upstream() {
+    }
+
+    public static byte[] readUpstream(Socket conn, UpstreamConfig cfg) throws IOException {
+        return Framing.readMessage(conn, cfg.framing());
+    }
+
+    public static void writeUpstream(Socket conn, byte[] data, UpstreamConfig cfg) throws IOException {
+        Framing.writeMessage(conn, data, cfg.framing());
+    }
+
+    /** Listens on cfg.port. Created once outside the session loop (survives reconnects). */
+    public static final class UpstreamServer {
+        private final ServerSocket serverSocket;
+
+        public UpstreamServer(UpstreamConfig cfg) throws IOException {
+            serverSocket = SslUtils.createServerSocket(cfg.sslActive(), cfg.certfile(), cfg.keyfile(), cfg.cafile());
+            serverSocket.setReuseAddress(true);
+            serverSocket.bind(new InetSocketAddress(cfg.port()));
+            serverSocket.setSoTimeout(1000);
+            logger.info("upstream server listening on port " + cfg.port());
+        }
+
+        /** Loops with a 1-second accept timeout; returns null on stop or a hard socket error. */
+        public UpstreamConn accept(BooleanSupplier shouldStop) {
+            while (!shouldStop.getAsBoolean()) {
+                try {
+                    Socket sock = serverSocket.accept();
+                    logger.info("upstream connected from " + sock.getRemoteSocketAddress());
+                    return new UpstreamConn(sock, sock.getRemoteSocketAddress(), new ReentrantLock());
+                } catch (SocketTimeoutException timeout) {
+                    // loop, re-check shouldStop
+                } catch (IOException e) {
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        public void close() {
+            try {
+                serverSocket.close();
+            } catch (IOException ignored) {
+            }
+        }
+    }
+
+    /** Connects out to cfg.host:cfg.port, retrying every cfg.retrySeconds(). */
+    public static final class UpstreamClient {
+        private final UpstreamConfig cfg;
+
+        public UpstreamClient(UpstreamConfig cfg) {
+            this.cfg = cfg;
+        }
+
+        public UpstreamConn connect(BooleanSupplier shouldStop) {
+            while (!shouldStop.getAsBoolean()) {
+                try {
+                    Socket sock = SslUtils.createSocket(cfg.sslActive(), cfg.certfile(), cfg.keyfile(), cfg.cafile());
+                    sock.connect(new InetSocketAddress(cfg.host(), cfg.port()), 5000);
+                    logger.info("connected to upstream at " + sock.getRemoteSocketAddress());
+                    return new UpstreamConn(sock, sock.getRemoteSocketAddress(), new ReentrantLock());
+                } catch (IOException e) {
+                    if (!interruptibleWait(cfg.retrySeconds() * 1000L, shouldStop)) {
+                        return null;
+                    }
+                }
+            }
+            return null;
+        }
+
+        private boolean interruptibleWait(long totalMillis, BooleanSupplier shouldStop) {
+            long elapsed = 0;
+            while (elapsed < totalMillis) {
+                if (shouldStop.getAsBoolean()) {
+                    return false;
+                }
+                try {
+                    Thread.sleep(Math.min(200, totalMillis - elapsed));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+                elapsed += 200;
+            }
+            return true;
+        }
+    }
+}

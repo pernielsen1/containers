@@ -7,7 +7,7 @@
 
 #include "router/router_config.h"
 
-namespace xv6::router {
+namespace router {
 
 // Dual-socket IMS session: one socket sends requests (to-socket), one receives responses
 // (from-socket).
@@ -37,4 +37,4 @@ private:
     std::unique_ptr<std::mutex> write_mutex_ = std::make_unique<std::mutex>();
 };
 
-}  // namespace xv6::router
+}  // namespace router

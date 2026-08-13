@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <string>
 
-namespace xv6::shared::tls {
+namespace shared::tls {
 
 // TLS-wraps an already-connected/-accepted fd in place: subsequent recv()/send() on that fd
 // (called via this module, not raw ::recv/::send) transparently go through OpenSSL. Both take
@@ -27,4 +27,4 @@ ssize_t send(int fd, const void* buf, size_t len);
 // ::shutdown()/::close() the fd itself - this only releases the TLS state associated with it.
 void close(int fd);
 
-}  // namespace xv6::shared::tls
+}  // namespace shared::tls

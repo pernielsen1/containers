@@ -11,7 +11,7 @@
 #include "shared/hex.h"
 #include "shared/tls.h"
 
-namespace xv6::shared {
+namespace shared {
 
 FramingConfig::LengthFieldType parse_length_field_type(const std::string& name) {
     if (name == "BIG_ENDIAN") return FramingConfig::LengthFieldType::BigEndian;
@@ -142,4 +142,4 @@ void write_message(int fd, const std::vector<uint8_t>& data, const FramingConfig
     send_exact(fd, out);
 }
 
-}  // namespace xv6::shared
+}  // namespace shared

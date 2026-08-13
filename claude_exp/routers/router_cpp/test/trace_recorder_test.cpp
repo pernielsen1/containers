@@ -4,7 +4,7 @@
 
 // Port of router_py's tests/test_trace.py / router_java's TraceRecorderTest.java.
 
-using namespace xv6::router;
+using namespace router;
 
 TEST_CASE("disarmed by default", "[trace]") {
     TraceRecorder trace;

@@ -1,8 +1,9 @@
 #!/bin/bash
-# Stress-test CLI driver: launches downstream_host/router as `docker exec -d` processes inside
-# the router_java container, and upstream_host as a bare host subprocess (it's the shared
-# routers/upstream_host Python component, not a per-language actor anymore - see
-# ../divide_and_conquer.md and ../upstream_host/build_router.md), the same way run_test.sh does,
+# Stress-test CLI driver: launches router as a `docker exec -d` process inside the router_java
+# container, and downstream_host/upstream_host as bare host subprocesses (the shared
+# routers/downstream_host and routers/upstream_host Python components, not per-language actors
+# anymore - see ../divide_and_conquer.md, ../downstream_host/build_router.md and
+# ../upstream_host/build_router.md), the same way run_test.sh does,
 # uploads the given CSV, calls /start?rate=&duration= (upstream_host cycles the CSV rows at the
 # requested rate for the requested duration instead of a single pass), waits for the run to
 # finish, then prints exactly ONE line to stdout: a semicolon-delimited result row consumed by
@@ -51,8 +52,8 @@ ROUTER_CMD=8080
 UPSTREAM_CMD=8083
 
 # Teardown goes through each actor's own /stop HTTP route rather than a PID kill - this works
-# uniformly whether the actor is a `docker exec -d` process inside the container (downstream_host,
-# router_1) or the host-side shared upstream_host subprocess, since /stop just sets that actor's
+# uniformly whether the actor is a `docker exec -d` process inside the container (router_1) or a
+# host-side shared subprocess (downstream_host, upstream_host), since /stop just sets that actor's
 # own stop_event and its process exits on its own. crypto_host is deliberately excluded here -
 # it's the shared container, not one of this run's own actors, and must stay up for the next
 # implementation's run.
@@ -101,12 +102,11 @@ if [ "$MANUAL" -eq 0 ]; then
     echo "Building jar..." >&2
     docker exec router_java mvn -q -DskipTests package >&2
 
-    echo "Launching downstream_host..." >&2
-    docker exec -d router_java java -cp target/router_java.jar com.xv6.simulators.downstreamhost.DownstreamHostMain \
-      --config config/downstream_host_perf.json >&2
+    echo "Launching downstream_host (shared routers/downstream_host, host-side not docker exec)..." >&2
+    python3 "$PROJECT_ROOT/../downstream_host/main.py" --config config/downstream_host_perf.json >&2 &
 
     echo "Launching router_1 (perf config -> shared crypto_host)..." >&2
-    docker exec -d router_java java -cp target/router_java.jar com.xv6.router.RouterMain \
+    docker exec -d router_java java -cp target/router_java.jar com.router.router.RouterMain \
       --config config/router_1_perf.json >&2
   else
     echo "Starting router_java on $ROUTER_HOST (perf config -> shared crypto_host)..." >&2

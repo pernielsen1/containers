@@ -9,7 +9,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace xv6::shared::iso_codec {
+namespace shared::iso_codec {
 
 enum class IsoType { Alpha, Llvar, Lllvar, Binary, Lllbin };
 
@@ -65,4 +65,4 @@ std::vector<uint8_t> build_0810(const std::string& f24, Encoding encoding = Enco
 std::string f47_encode(const nlohmann::json& data);
 nlohmann::json f47_decode(const std::string& value);  // {} on parse error or blank input
 
-}  // namespace xv6::shared::iso_codec
+}  // namespace shared::iso_codec

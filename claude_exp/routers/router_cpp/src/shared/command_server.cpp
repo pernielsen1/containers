@@ -5,7 +5,7 @@
 #include "shared/log.h"
 
 using json = nlohmann::json;
-using namespace xv6::shared;
+using namespace shared;
 
 namespace {
 
@@ -56,7 +56,7 @@ void CommandServer::setup_builtin_routes() {
 
     register_route("/log_level", {"GET"}, /*protected=*/false, [](const httplib::Request&, httplib::Response& res) {
         auto level = Logger::instance().level();
-        send_json(res, 200, {{"level", xv6::shared::to_string(level)}});
+        send_json(res, 200, {{"level", shared::to_string(level)}});
     });
 
     register_route("/log_level", {"POST"}, /*protected=*/true, [](const httplib::Request& req, httplib::Response& res) {
@@ -66,13 +66,13 @@ void CommandServer::setup_builtin_routes() {
                 send_json(res, 400, {{"error", "missing 'level' field"}});
                 return;
             }
-            auto level_opt = xv6::shared::parse_log_level(body["level"].get<std::string>());
+            auto level_opt = shared::parse_log_level(body["level"].get<std::string>());
             if (!level_opt) {
                 send_json(res, 400, {{"error", "invalid log level"}});
                 return;
             }
             Logger::instance().set_level(level_opt.value());
-            send_json(res, 200, {{"level", xv6::shared::to_string(level_opt.value())}});
+            send_json(res, 200, {{"level", shared::to_string(level_opt.value())}});
         } catch (const std::exception& e) {
             send_json(res, 400, {{"error", std::string("parse error: ") + e.what()}});
         }

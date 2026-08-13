@@ -5,7 +5,7 @@
 #include "shared/ebcdic.h"
 #include "shared/framing.h"
 
-namespace xv6::shared {
+namespace shared {
 
 const std::vector<uint8_t> PING_TRANSCODE = to_ebcdic("PING0001", 8);
 
@@ -97,4 +97,4 @@ ImsRequest read_request(int fd) {
     return req;
 }
 
-}  // namespace xv6::shared
+}  // namespace shared

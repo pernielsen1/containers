@@ -16,7 +16,7 @@
 #include "shared/log.h"
 #include "shared/tls.h"
 
-namespace xv6::router {
+namespace router {
 
 namespace {
 
@@ -82,7 +82,7 @@ std::optional<UpstreamConn> UpstreamServer::accept(const std::function<bool()>& 
 
         if (cfg_.ssl_active) {
             try {
-                xv6::shared::tls::wrap_server(fd, cfg_.certfile, cfg_.keyfile, cfg_.cafile);
+                shared::tls::wrap_server(fd, cfg_.certfile, cfg_.keyfile, cfg_.cafile);
             } catch (const std::exception& e) {
                 LOG_WARNING(std::string("upstream TLS handshake failed: ") + e.what());
                 ::close(fd);
@@ -169,7 +169,7 @@ std::optional<UpstreamConn> UpstreamClient::connect(const std::function<bool()>&
 
         if (cfg_.ssl_active) {
             try {
-                xv6::shared::tls::wrap_client(fd, cfg_.certfile, cfg_.keyfile, cfg_.cafile, cfg_.host);
+                shared::tls::wrap_client(fd, cfg_.certfile, cfg_.keyfile, cfg_.cafile, cfg_.host);
             } catch (const std::exception& e) {
                 LOG_WARNING(std::string("upstream TLS handshake failed: ") + e.what());
                 ::close(fd);
@@ -188,4 +188,4 @@ std::optional<UpstreamConn> UpstreamClient::connect(const std::function<bool()>&
     return std::nullopt;
 }
 
-}  // namespace xv6::router
+}  // namespace router

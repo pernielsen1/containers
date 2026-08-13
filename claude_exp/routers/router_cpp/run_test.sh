@@ -1,13 +1,15 @@
 #!/bin/bash
 # End-to-end CLI driver (not Catch2): brings up the router_cpp docker-compose stack (crypto_host,
-# downstream_host, router_main run as background processes inside one container - see
-# docker-compose.yml's `command` - there is no separate long-lived dev container to `docker exec`
-# into, unlike router_java's), then launches upstream_host as a bare host subprocess (the shared
-# routers/upstream_host Python component - see ../divide_and_conquer.md - not one of this
-# implementation's own binaries anymore), waits for each /stats endpoint to come up, uploads the
-# given CSV to upstream_host, calls /start, polls /results until all rows have a response (30s
-# deadline), then prints a PAN/RC/auth-code/field-47 report and the router's 30s stats. Direct
-# C++-port analog of router_py/run_test.sh and router_java/run_test.sh - same CLI surface and output format.
+# router_main run as background processes inside one container - see docker-compose.yml's
+# `command` - there is no separate long-lived dev container to `docker exec` into, unlike
+# router_java's), then launches downstream_host/upstream_host as bare host subprocesses (the
+# shared routers/downstream_host and routers/upstream_host Python components - see
+# ../divide_and_conquer.md, ../downstream_host/build_router.md and
+# ../upstream_host/build_router.md - not this implementation's own binaries anymore), waits for
+# each /stats endpoint to come up, uploads the given CSV to upstream_host, calls /start, polls
+# /results until all rows have a response (30s deadline), then prints a PAN/RC/auth-code/field-47
+# report and the router's 30s stats. Direct C++-port analog of router_py/run_test.sh and
+# router_java/run_test.sh - same CLI surface and output format.
 #
 # Usage:
 #   ./run_test.sh <csv_file>            ./start.sh, run the test, ./stop.sh
@@ -41,13 +43,14 @@ DS_CMD=8081
 ROUTER_CMD=8080
 UPSTREAM_CMD=8083
 
-# upstream_host is the shared routers/upstream_host Python component (see
-# ../divide_and_conquer.md) - a host subprocess, not one of the compose stack's four background
-# processes anymore. ./stop.sh (compose down) doesn't reach it, so cleanup also stops it via its
-# own /stop route.
+# downstream_host/upstream_host are the shared routers/downstream_host and routers/upstream_host
+# Python components (see ../divide_and_conquer.md) - host subprocesses, not part of the compose
+# stack's background processes anymore. ./stop.sh (compose down) doesn't reach them, so cleanup
+# also stops them via their own /stop routes.
 cleanup() {
   if [ "$MANUAL" -eq 0 ]; then
     curl -s -o /dev/null -X POST "http://127.0.0.1:${UPSTREAM_CMD}/stop" || true
+    curl -s -o /dev/null -X POST "http://127.0.0.1:${DS_CMD}/stop" || true
     if [ "$ROUTER_HOST" = "127.0.0.1" ]; then
       ./stop.sh || true
     fi
@@ -74,6 +77,9 @@ wait_for_stats() {
 
 if [ "$MANUAL" -eq 0 ]; then
   if [ "$ROUTER_HOST" = "127.0.0.1" ]; then
+    echo "Launching downstream_host (shared routers/downstream_host, host-side)..."
+    python3 "$PROJECT_ROOT/../downstream_host/main.py" --config config/downstream_host.json &
+
     echo "Building and starting the router_cpp stack..."
     ./start.sh
 

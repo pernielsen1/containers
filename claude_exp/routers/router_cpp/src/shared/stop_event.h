@@ -4,7 +4,7 @@
 #include <condition_variable>
 #include <mutex>
 
-namespace xv6::shared {
+namespace shared {
 
 // Write-once stop flag. Backed by a condition_variable (not a bare polled atomic<bool>) so
 // wait_for() wakes immediately on set() rather than only at the next poll tick -- matching
@@ -39,4 +39,4 @@ private:
     bool flag_ = false;
 };
 
-}  // namespace xv6::shared
+}  // namespace shared

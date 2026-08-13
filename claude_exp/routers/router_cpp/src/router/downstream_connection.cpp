@@ -18,7 +18,7 @@
 #include "shared/log.h"
 #include "shared/tls.h"
 
-namespace xv6::router {
+namespace router {
 
 namespace {
 
@@ -93,8 +93,8 @@ DownstreamConnection DownstreamConnection::connect(const DownstreamConfig& cfg) 
 
     if (cfg.ssl_active) {
         try {
-            xv6::shared::tls::wrap_client(to_fd, cfg.certfile, cfg.keyfile, cfg.cafile, cfg.host);
-            xv6::shared::tls::wrap_client(from_fd, cfg.certfile, cfg.keyfile, cfg.cafile, cfg.host);
+            shared::tls::wrap_client(to_fd, cfg.certfile, cfg.keyfile, cfg.cafile, cfg.host);
+            shared::tls::wrap_client(from_fd, cfg.certfile, cfg.keyfile, cfg.cafile, cfg.host);
         } catch (...) {
             ::close(to_fd);
             ::close(from_fd);
@@ -103,13 +103,13 @@ DownstreamConnection DownstreamConnection::connect(const DownstreamConfig& cfg) 
     }
 
     try {
-        auto resume = xv6::shared::build_frame(0x80, cfg.irm_id, cfg.client_id, "", {});
-        xv6::shared::send_exact(from_fd, resume);
+        auto resume = shared::build_frame(0x80, cfg.irm_id, cfg.client_id, "", {});
+        shared::send_exact(from_fd, resume);
 
-        auto ping_data = xv6::shared::to_ebcdic("1234 clean the pipes", 20);
-        auto ping = xv6::shared::build_frame(0x00, cfg.irm_id, cfg.client_id, "", ping_data,
-                                              xv6::shared::PING_TRANSCODE);
-        xv6::shared::send_exact(to_fd, ping);
+        auto ping_data = shared::to_ebcdic("1234 clean the pipes", 20);
+        auto ping = shared::build_frame(0x00, cfg.irm_id, cfg.client_id, "", ping_data,
+                                              shared::PING_TRANSCODE);
+        shared::send_exact(to_fd, ping);
     } catch (...) {
         ::close(to_fd);
         ::close(from_fd);
@@ -145,24 +145,24 @@ DownstreamConnection::~DownstreamConnection() { close(); }
 
 void DownstreamConnection::send(const std::vector<uint8_t>& frame) {
     std::lock_guard<std::mutex> lock(*write_mutex_);
-    xv6::shared::send_exact(to_fd_, frame);
+    shared::send_exact(to_fd_, frame);
 }
 
-std::vector<uint8_t> DownstreamConnection::recv() { return xv6::shared::read_response(from_fd_); }
+std::vector<uint8_t> DownstreamConnection::recv() { return shared::read_response(from_fd_); }
 
 void DownstreamConnection::close() {
     if (to_fd_ >= 0) {
         ::shutdown(to_fd_, SHUT_RDWR);
-        xv6::shared::tls::close(to_fd_);
+        shared::tls::close(to_fd_);
         ::close(to_fd_);
         to_fd_ = -1;
     }
     if (from_fd_ >= 0) {
         ::shutdown(from_fd_, SHUT_RDWR);
-        xv6::shared::tls::close(from_fd_);
+        shared::tls::close(from_fd_);
         ::close(from_fd_);
         from_fd_ = -1;
     }
 }
 
-}  // namespace xv6::router
+}  // namespace router

@@ -1,11 +1,14 @@
 #!/bin/bash
-# End-to-end CLI driver (not JUnit): launches crypto_host/downstream_host/router as background
-# `docker exec -d` processes inside the router_java container, and upstream_host as a bare host
-# subprocess (the shared routers/upstream_host Python component - see ../divide_and_conquer.md and
-# ../upstream_host/build_router.md), waits for each /stats endpoint to come up, uploads the given
-# CSV, calls /start, polls /results until all rows have a response (30s deadline), then prints a
-# PAN/RC/auth-code/field-47 report and the router's 30s stats. Direct Java-port analog of
-# router_py/run_test.sh.
+# End-to-end CLI driver (not JUnit): launches crypto_host/router as background `docker exec -d`
+# processes inside the router_java container, and downstream_host/upstream_host as bare host
+# subprocesses (the shared routers/downstream_host and routers/upstream_host Python components -
+# see ../divide_and_conquer.md, ../downstream_host/build_router.md and
+# ../upstream_host/build_router.md - downstream_host must stay co-located with wherever the
+# router itself runs, since the router connects out to it at "localhost:<port>", unlike
+# upstream_host which the router listens for and which can run anywhere reachable), waits for
+# each /stats endpoint to come up, uploads the given CSV, calls /start, polls /results until all
+# rows have a response (30s deadline), then prints a PAN/RC/auth-code/field-47 report and the
+# router's 30s stats. Direct Java-port analog of router_py/run_test.sh.
 #
 # Usage:
 #   ./run_test.sh <csv_file>            build the jar, spawn all actors, run the test, tear them down
@@ -40,9 +43,9 @@ ROUTER_CMD=8080
 UPSTREAM_CMD=8083
 
 # Teardown goes through each actor's own /stop HTTP route, not a host-side PID kill. This works
-# uniformly across the `docker exec -d` actors (crypto_host/downstream_host/router, whose exec
-# client process on the host doesn't forward signals to the java process it launched) and the
-# host-side upstream_host subprocess alike, since /stop just sets that actor's own stop_event and
+# uniformly across the `docker exec -d` actors (crypto_host/router, whose exec client process on
+# the host doesn't forward signals to the java process it launched) and the host-side
+# downstream_host/upstream_host subprocesses alike, since /stop just sets that actor's own stop_event and
 # its process exits on its own. No different in spirit from router_py's kill_monitor.sh, which also
 # stops its target via an HTTP POST rather than a raw signal.
 cleanup() {
@@ -80,15 +83,14 @@ if [ "$MANUAL" -eq 0 ]; then
     docker exec router_java mvn -q -DskipTests package
 
     echo "Launching crypto_host..."
-    docker exec -d router_java java -cp target/router_java.jar com.xv6.simulators.cryptohost.CryptoHostMain \
+    docker exec -d router_java java -cp target/router_java.jar com.router.simulators.cryptohost.CryptoHostMain \
       --config config/crypto_host.json
 
-    echo "Launching downstream_host..."
-    docker exec -d router_java java -cp target/router_java.jar com.xv6.simulators.downstreamhost.DownstreamHostMain \
-      --config config/downstream_host.json
+    echo "Launching downstream_host (shared routers/downstream_host, host-side not docker exec)..."
+    python3 "$PROJECT_ROOT/../downstream_host/main.py" --config config/downstream_host.json &
 
     echo "Launching router_1..."
-    docker exec -d router_java java -cp target/router_java.jar com.xv6.router.RouterMain \
+    docker exec -d router_java java -cp target/router_java.jar com.router.router.RouterMain \
       --config config/router_1.json
   fi
 

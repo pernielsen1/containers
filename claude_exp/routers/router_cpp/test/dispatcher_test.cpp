@@ -17,10 +17,10 @@
 // Port of router_py's tests/test_dispatcher_resilience.py / router_java's
 // DispatcherResilienceTest.java.
 
-using namespace xv6::router;
-using namespace xv6::shared;
+using namespace router;
+using namespace shared;
 
-namespace xv6::router {
+namespace router {
 
 // Test-only access to Dispatcher's private members. There's no reflection in C++ the way
 // router_java's tests use it - this friend class is the equivalent backdoor, scoped to exactly
@@ -62,7 +62,7 @@ public:
     }
 };
 
-}  // namespace xv6::router
+}  // namespace router
 
 namespace {
 
@@ -90,8 +90,8 @@ RouterConfig make_cfg(int queue_maxsize, int pending_ttl_seconds, int worker_thr
     cfg.upstream.port = 15000;
     cfg.downstream.host = "localhost";
     cfg.downstream.port = 15001;
-    cfg.downstream.irm_id = xv6::shared::to_ebcdic("IRM0001", 8);
-    cfg.downstream.client_id = xv6::shared::to_ebcdic("CLIENT01", 8);
+    cfg.downstream.irm_id = shared::to_ebcdic("IRM0001", 8);
+    cfg.downstream.client_id = shared::to_ebcdic("CLIENT01", 8);
     // Nothing listening on port 1 - CryptoClient::validate() fails fast (connection refused) and
     // returns "" without needing a mock/fake, matching every real failure path it already has.
     cfg.crypto.host = "localhost";
@@ -111,8 +111,8 @@ RouterConfig make_cfg(int queue_maxsize, int pending_ttl_seconds, int worker_thr
 // and the Dispatcher itself.
 struct TestHarness {
     RouterConfig cfg;
-    xv6::shared::Stats stats{std::nullopt};
-    xv6::shared::StopEvent reconnect_event;
+    shared::Stats stats{std::nullopt};
+    shared::StopEvent reconnect_event;
     CryptoClient crypto;
     SocketPair ds_to_pair;    // downstream "to" leg - test never reads ds_to_pair.b, just lets
                                // bytes accumulate; none of these tests exercise the response path
@@ -138,7 +138,7 @@ RoutedMessage make_msg(std::map<std::string, std::string> req, int up_fd,
 }
 
 bool any_log_contains(const std::string& needle) {
-    auto lines = xv6::shared::Logger::instance().buffered_lines();
+    auto lines = shared::Logger::instance().buffered_lines();
     return std::any_of(lines.begin(), lines.end(),
                         [&](const std::string& l) { return l.find(needle) != std::string::npos; });
 }
@@ -160,8 +160,8 @@ TEST_CASE("pending entry TTL expiry sends local decline", "[dispatcher]") {
     // decline back upstream - read it off the paired socket (up_pair.b's SO_RCVTIMEO turns a
     // stuck read into a clear test failure instead of a hang).
     FramingConfig upstream_framing;  // defaults already match router_1's ASCII/4-byte framing
-    auto decline_frame = xv6::shared::read_message(up_pair.b, upstream_framing);
-    auto resp = xv6::shared::iso_codec::decode(decline_frame);
+    auto decline_frame = shared::read_message(up_pair.b, upstream_framing);
+    auto resp = shared::iso_codec::decode(decline_frame);
     REQUIRE(resp["11"] == "000001");
     REQUIRE(resp["39"] == "91");
 

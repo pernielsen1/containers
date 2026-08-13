@@ -29,10 +29,12 @@ ENV PATH=/src/build:$PATH
 # Expose all required ports
 EXPOSE 5000 5001 5002 8080 8081 8082 8083
 
+# downstream_host is the shared routers/downstream_host Python component now (see
+# ../divide_and_conquer.md and ../downstream_host/build_router.md), launched as a host
+# subprocess by run_test.sh/stress_run.sh - not one of this container's own binaries anymore.
 # docker-compose overrides this for local dev (bind-mounts config to /config); on remote uses /src/config.
 ENV ROUTER_CONFIG=router_1.json
 CMD ["/bin/bash", "-c", "\
   /src/build/crypto_host     --config /src/config/router_1.json & \
-  /src/build/downstream_host --config /src/config/${ROUTER_CONFIG} & \
   /src/build/router_main     --config /src/config/${ROUTER_CONFIG} & \
   sleep infinity"]

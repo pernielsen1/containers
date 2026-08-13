@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace xv6::shared {
+namespace shared {
 
 constexpr int IRM_HEADER_LEN = 28;
 extern const std::vector<uint8_t> PING_TRANSCODE;  // to_ebcdic("PING0001", 8)
@@ -30,4 +30,4 @@ struct ImsRequest {
 };
 ImsRequest read_request(int fd);
 
-}  // namespace xv6::shared
+}  // namespace shared

@@ -9,7 +9,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace xv6::shared {
+namespace shared {
 
 namespace {
 
@@ -95,4 +95,4 @@ std::vector<std::string> Logger::buffered_lines() const {
     return std::vector<std::string>(ring_.begin(), ring_.end());
 }
 
-}  // namespace xv6::shared
+}  // namespace shared

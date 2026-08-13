@@ -2,7 +2,7 @@
 
 #include "shared/iso_codec.h"
 
-using namespace xv6::shared::iso_codec;
+using namespace shared::iso_codec;
 
 TEST_CASE("MTI is encoded as 4 ASCII characters, not 2 binary bytes", "[iso_codec][mti]") {
     // Matches the shared upstream_host Python component's pyiso8583 convention (and router_java's

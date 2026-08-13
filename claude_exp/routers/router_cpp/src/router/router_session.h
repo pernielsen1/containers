@@ -14,7 +14,7 @@
 #include "shared/stats.h"
 #include "shared/stop_event.h"
 
-namespace xv6::router {
+namespace router {
 
 class RouterSession {
 public:
@@ -23,8 +23,8 @@ public:
     // RouterSession afterward (a move constructor, or the extra move std::optional::emplace()
     // performs internally even when handed an already-built rvalue) would leave that reference
     // dangling. Constructing once on the heap and never moving it sidesteps the problem entirely.
-    static std::unique_ptr<RouterSession> connect(const RouterConfig& cfg, xv6::shared::Stats& stats,
-                                                   xv6::shared::StopEvent& stop_event);
+    static std::unique_ptr<RouterSession> connect(const RouterConfig& cfg, shared::Stats& stats,
+                                                   shared::StopEvent& stop_event);
 
     RouterSession(RouterSession&& other) = delete;
     RouterSession(const RouterSession&) = delete;
@@ -37,8 +37,8 @@ public:
 
 private:
     RouterSession(const RouterConfig& cfg, DownstreamConnection&& downstream,
-                  std::unique_ptr<CryptoClient> crypto, xv6::shared::Stats& stats,
-                  xv6::shared::StopEvent& stop_event, std::unique_ptr<xv6::shared::StopEvent>&& reconnect_event);
+                  std::unique_ptr<CryptoClient> crypto, shared::Stats& stats,
+                  shared::StopEvent& stop_event, std::unique_ptr<shared::StopEvent>&& reconnect_event);
 
     void handle_upstream(int fd, const sockaddr_storage& addr,
                         const std::shared_ptr<std::mutex>& write_lock);
@@ -51,9 +51,9 @@ private:
     DownstreamConnection downstream_;
     std::unique_ptr<CryptoClient> crypto_;
     std::unique_ptr<Dispatcher> dispatcher_;
-    xv6::shared::Stats& stats_;
-    xv6::shared::StopEvent& stop_event_;
-    std::unique_ptr<xv6::shared::StopEvent> reconnect_event_;
+    shared::Stats& stats_;
+    shared::StopEvent& stop_event_;
+    std::unique_ptr<shared::StopEvent> reconnect_event_;
 
     int upstream_fd_ = -1;
     std::shared_ptr<std::mutex> upstream_write_lock_;
@@ -62,4 +62,4 @@ private:
     std::thread ds_receiver_thread_;
 };
 
-}  // namespace xv6::router
+}  // namespace router

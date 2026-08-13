@@ -5,7 +5,7 @@
 // Port of router_py's tests/test_stats.py latency tests / router_java's StatsTest.java latency
 // tests. (No general StatsTest.cpp existed before this - only covering the Phase 5 addition.)
 
-using namespace xv6::shared;
+using namespace shared;
 
 TEST_CASE("latency percentiles", "[stats]") {
     Stats s(std::nullopt);

@@ -4,7 +4,7 @@
 #include <chrono>
 #include <cmath>
 
-namespace xv6::router {
+namespace router {
 
 namespace {
 
@@ -138,4 +138,4 @@ void TraceRecorder::add_entry(nlohmann::json entry) {
     }
 }
 
-}  // namespace xv6::router
+}  // namespace router

@@ -5,7 +5,7 @@
 
 #include "shared/framing.h"
 
-using namespace xv6::shared;
+using namespace shared;
 
 namespace {
 

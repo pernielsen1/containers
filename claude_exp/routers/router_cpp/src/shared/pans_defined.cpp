@@ -5,7 +5,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace xv6::shared {
+namespace shared {
 
 std::map<std::string, PanRecord> load_pans_defined(const std::string& path) {
     std::ifstream in(path);
@@ -29,4 +29,4 @@ std::map<std::string, PanRecord> load_pans_defined(const std::string& path) {
     return result;
 }
 
-}  // namespace xv6::shared
+}  // namespace shared

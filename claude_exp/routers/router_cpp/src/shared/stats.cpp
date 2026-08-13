@@ -7,7 +7,7 @@
 #include <ctime>
 #include <vector>
 
-namespace xv6::shared {
+namespace shared {
 
 namespace {
 
@@ -158,4 +158,4 @@ nlohmann::json Stats::snapshot() const {
     return out;
 }
 
-}  // namespace xv6::shared
+}  // namespace shared

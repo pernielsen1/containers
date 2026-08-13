@@ -9,10 +9,10 @@
 #include "shared/iso_codec.h"
 #include "shared/log.h"
 
-namespace xv6::router {
+namespace router {
 
 Dispatcher::Dispatcher(const RouterConfig& cfg, DownstreamConnection& downstream, CryptoClient& crypto,
-                         xv6::shared::Stats& stats, xv6::shared::StopEvent& reconnect_event)
+                         shared::Stats& stats, shared::StopEvent& reconnect_event)
     : cfg_(cfg), downstream_(downstream), crypto_(crypto), stats_(stats), reconnect_event_(reconnect_event) {}
 
 Dispatcher::~Dispatcher() { drain_and_stop(); }
@@ -64,7 +64,7 @@ void Dispatcher::worker_loop() {
 
         try {
             process(*item);
-        } catch (const xv6::shared::FramingError& e) {
+        } catch (const shared::FramingError& e) {
             LOG_ERROR(std::string("dispatcher worker: downstream write failed: ") + e.what());
             reconnect_event_.set();
         } catch (const std::exception& e) {
@@ -131,7 +131,7 @@ void Dispatcher::process(RoutedMessage& msg) {
     }
     fwd["11"] = router_stan;
 
-    auto encoded = xv6::shared::iso_codec::encode(fwd);
+    auto encoded = shared::iso_codec::encode(fwd);
     if (tracing) {
         trace_.hop(router_stan, "downstream_send", &encoded);
     }
@@ -154,7 +154,7 @@ void Dispatcher::process(RoutedMessage& msg) {
     }
 
     auto frame =
-        xv6::shared::build_frame(0x00, cfg_.downstream.irm_id, cfg_.downstream.client_id, fwd.at("t"), encoded);
+        shared::build_frame(0x00, cfg_.downstream.irm_id, cfg_.downstream.client_id, fwd.at("t"), encoded);
     downstream_.send(frame);
     stats_.record_sent();
     LOG_DEBUG("dispatcher: forwarded mti=" + mti + " to downstream, upstream_stan=" + upstream_stan +
@@ -209,14 +209,14 @@ void Dispatcher::handle_response(const std::map<std::string, std::string>& resp,
     }
 
     try {
-        auto encoded = xv6::shared::iso_codec::encode(
-            fwd, xv6::shared::iso_codec::encoding_from_config_string(cfg_.upstream.encoding));
+        auto encoded = shared::iso_codec::encode(
+            fwd, shared::iso_codec::encoding_from_config_string(cfg_.upstream.encoding));
         if (tracing) {
             trace_.hop(router_stan, "upstream_send", &encoded);
         }
         {
             std::lock_guard<std::mutex> lock(*entry.up_write_lock);
-            xv6::shared::write_message(entry.up_fd, encoded, cfg_.upstream.framing);
+            shared::write_message(entry.up_fd, encoded, cfg_.upstream.framing);
         }
         stats_.record_sent();
         LOG_DEBUG("dispatcher: forwarded mti=" + mti + " to upstream, router_stan=" + router_stan +
@@ -256,11 +256,11 @@ void Dispatcher::reaper_loop() {
         for (const auto& entry : expired) {
             try {
                 std::map<std::string, std::string> decline = {{"t", "0110"}, {"11", entry.upstream_stan}, {"39", "91"}};
-                auto encoded = xv6::shared::iso_codec::encode(
-                    decline, xv6::shared::iso_codec::encoding_from_config_string(cfg_.upstream.encoding));
+                auto encoded = shared::iso_codec::encode(
+                    decline, shared::iso_codec::encoding_from_config_string(cfg_.upstream.encoding));
                 {
                     std::lock_guard<std::mutex> lock(*entry.up_write_lock);
-                    xv6::shared::write_message(entry.up_fd, encoded, cfg_.upstream.framing);
+                    shared::write_message(entry.up_fd, encoded, cfg_.upstream.framing);
                 }
                 stats_.record_sent();
             } catch (const std::exception& e) {
@@ -371,4 +371,4 @@ void Dispatcher::drain_and_stop() {
     }
 }
 
-}  // namespace xv6::router
+}  // namespace router

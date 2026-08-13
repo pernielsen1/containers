@@ -10,7 +10,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace xv6::router {
+namespace router {
 
 // On-demand, self-expiring capture of full per-hop transaction detail for live diagnosis at
 // production volume - briefs/debug_trace_master.md Phase 4. Off by default: the hot path pays
@@ -63,4 +63,4 @@ private:
     std::unordered_map<std::string, nlohmann::json> in_progress_;  // holds "_started_at_ns" (int64_t)
 };
 
-}  // namespace xv6::router
+}  // namespace router

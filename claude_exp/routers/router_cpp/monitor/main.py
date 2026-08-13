@@ -29,14 +29,16 @@ CONFIG_ABS_PATH_IN_CONTAINER = "/config/router_1.json"
 BUILD_DIR_IN_CONTAINER = "/src/build"
 LOGS_DIR_IN_CONTAINER = "/src/logs"
 
-# upstream_host is shared across all three implementations (routers/upstream_host/), not one of
-# this implementation's own binaries anymore - see routers/upstream_host/build_router.md.
-# Launched as a host subprocess (like router_py's monitor always did), not via docker exec.
+# upstream_host/downstream_host are shared across all three implementations
+# (routers/upstream_host/, routers/downstream_host/), not this implementation's own binaries
+# anymore - see their respective build_router.md. Launched as host subprocesses (like router_py's
+# monitor always did), not via docker exec.
 UPSTREAM_HOST_DIR = PROJECT_ROOT.parent / "upstream_host"
+DOWNSTREAM_HOST_DIR = PROJECT_ROOT.parent / "downstream_host"
+HOST_COMPONENT_DIRS = {"upstream": UPSTREAM_HOST_DIR, "downstream": DOWNSTREAM_HOST_DIR}
 
 BINARY_BY_TYPE = {
     "router": "router_main",
-    "downstream": "downstream_host",
     "crypto": "crypto_host",
 }
 STARTUP_ORDER = {"crypto": 0, "downstream": 1, "router": 2, "upstream": 3}
@@ -47,8 +49,9 @@ _actors_cache = None
 _starting_lock = threading.Lock()
 _starting = False
 
-# Only the shared upstream_host actor is tracked here (a real host Popen handle) - every other
-# actor type is launched via `docker exec -d`, which detaches instantly and has no Popen handle.
+# Only the shared upstream_host/downstream_host actors are tracked here (a real host Popen
+# handle) - every other actor type is launched via `docker exec -d`, which detaches instantly and
+# has no Popen handle.
 _processes = {}
 _processes_lock = threading.Lock()
 
@@ -81,7 +84,7 @@ def discover_actors():
             "auth_token": None,
             "partner_id": None,
             "is_active": True,
-            "config_abs_path_in_container": CONFIG_ABS_PATH_IN_CONTAINER,
+            "downstream_config_path": PROJECT_ROOT / "config" / "downstream_host.json",
         },
         {
             "name": "crypto_host",
@@ -196,11 +199,12 @@ def wait_for_ready(actor, timeout=10):
 
 
 def launch_actor(actor):
-    if actor["type"] == "upstream":
-        config_path = actor.get("upstream_config_path", UPSTREAM_HOST_DIR / "config.json")
+    host_dir = HOST_COMPONENT_DIRS.get(actor["type"])
+    if host_dir:
+        config_path = actor.get("upstream_config_path") or actor.get("downstream_config_path") or (host_dir / "config.json")
         proc = subprocess.Popen(
-            [sys.executable, str(UPSTREAM_HOST_DIR / "main.py"), "--config", str(config_path)],
-            cwd=str(UPSTREAM_HOST_DIR),
+            [sys.executable, str(host_dir / "main.py"), "--config", str(config_path)],
+            cwd=str(host_dir),
         )
         with _processes_lock:
             _processes[actor["name"]] = proc
@@ -227,14 +231,15 @@ def actor_commands(actor):
     wrapped shell script text (every actor's invocation concatenated together), which trivially
     contains any single actor's pattern as a substring. A plain `grep -F` would match PID 1 first
     and kill the whole container instead of the intended single actor."""
-    if actor["type"] == "upstream":
+    host_dir = HOST_COMPONENT_DIRS.get(actor["type"])
+    if host_dir:
         with _processes_lock:
             proc = _processes.get(actor["name"])
         pid = proc.pid if proc is not None else None
-        kill_script = f"kill -9 {pid}" if pid is not None else f'pkill -f "{UPSTREAM_HOST_DIR / "main.py"}"'
+        kill_script = f"kill -9 {pid}" if pid is not None else f'pkill -f "{host_dir / "main.py"}"'
         return {
             "kill": kill_script,
-            "tail": "(no log file - upstream_host runs as a host subprocess with inherited stdout/stderr)",
+            "tail": f"(no log file - {actor['type']}_host runs as a host subprocess with inherited stdout/stderr)",
         }
 
     binary_path = f"{BUILD_DIR_IN_CONTAINER}/{actor['binary']}"

@@ -17,8 +17,8 @@ on the piece that's actively iterated on during perf-harness work, and removes t
 reimplementations that existed only for parity. See `../divide_and_conquer.md` (part 2) for the
 original design discussion.
 
-`downstream_host` (a trivial echo) intentionally stays embedded per-language, unlike this — it's
-not worth the same consolidation.
+`downstream_host` (a trivial echo) got the same treatment later — see
+`../downstream_host/build_router.md`.
 
 ## Wire contract
 

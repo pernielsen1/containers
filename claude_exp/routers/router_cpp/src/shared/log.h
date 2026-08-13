@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace xv6::shared {
+namespace shared {
 
 enum class LogLevel { Debug, Info, Warning, Error };
 
@@ -35,9 +35,9 @@ private:
     std::deque<std::string> ring_;
 };
 
-}  // namespace xv6::shared
+}  // namespace shared
 
-#define LOG_DEBUG(msg) ::xv6::shared::Logger::instance().log(::xv6::shared::LogLevel::Debug, (msg))
-#define LOG_INFO(msg) ::xv6::shared::Logger::instance().log(::xv6::shared::LogLevel::Info, (msg))
-#define LOG_WARNING(msg) ::xv6::shared::Logger::instance().log(::xv6::shared::LogLevel::Warning, (msg))
-#define LOG_ERROR(msg) ::xv6::shared::Logger::instance().log(::xv6::shared::LogLevel::Error, (msg))
+#define LOG_DEBUG(msg) ::shared::Logger::instance().log(::shared::LogLevel::Debug, (msg))
+#define LOG_INFO(msg) ::shared::Logger::instance().log(::shared::LogLevel::Info, (msg))
+#define LOG_WARNING(msg) ::shared::Logger::instance().log(::shared::LogLevel::Warning, (msg))
+#define LOG_ERROR(msg) ::shared::Logger::instance().log(::shared::LogLevel::Error, (msg))

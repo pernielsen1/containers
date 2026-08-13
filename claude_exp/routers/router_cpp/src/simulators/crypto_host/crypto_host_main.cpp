@@ -16,8 +16,8 @@
 #include "shared/stop_event.h"
 
 using json = nlohmann::json;
-using namespace xv6::router;
-using namespace xv6::shared;
+using namespace router;
+using namespace shared;
 
 namespace {
 

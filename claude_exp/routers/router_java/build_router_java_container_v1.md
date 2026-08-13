@@ -41,16 +41,16 @@ router_java/
 │   ├── main.py
 │   └── static/index.html
 └── src/
-    ├── main/java/com/xv6/
+    ├── main/java/com/router/
     │   ├── shared/      # Framing, ImsConnect, IsoUtils, Stats, CommandServer, CryptoUtils, ...
     │   ├── router/      # RouterConfig, Upstream, DownstreamConnection, CryptoClient,
     │   │                # Dispatcher, RouterSession, RouterMain
     │   └── simulators/{cryptohost,downstreamhost,upstreamhost}/*Main.java
-    └── test/java/com/xv6/   # JUnit 5, mirrors router_py's tests/
+    └── test/java/com/router/   # JUnit 5, mirrors router_py's tests/
 ```
 
 One Maven module, one shaded jar (`target/router_java.jar`) — every actor is just a different `Main`
-class launched as `java -cp target/router_java.jar com.xv6.router.RouterMain --config
+class launched as `java -cp target/router_java.jar com.router.router.RouterMain --config
 config/router_1.json`, mirroring how the Python build launched one script per actor.
 
 ---

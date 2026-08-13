@@ -17,17 +17,18 @@ sys.path.insert(0, PROJECT_ROOT)
 
 from shared.json_log import configure_logging  # noqa: E402
 
-# upstream_host is shared across all three implementations (routers/upstream_host/), not router_py-local
-# - see routers/upstream_host/build_router.md.
+# upstream_host/downstream_host are shared across all three implementations (routers/upstream_host/,
+# routers/downstream_host/), not router_py-local - see their respective build_router.md.
 UPSTREAM_HOST_DIR = os.path.join(os.path.dirname(PROJECT_ROOT), "upstream_host")
+DOWNSTREAM_HOST_DIR = os.path.join(os.path.dirname(PROJECT_ROOT), "downstream_host")
 
 SCRIPTS_BY_TYPE = {
     "router": "router/main.py",
     "upstream": os.path.join(UPSTREAM_HOST_DIR, "main.py"),
-    "downstream": "simulators/downstream_host/main.py",
+    "downstream": os.path.join(DOWNSTREAM_HOST_DIR, "main.py"),
     "crypto": "simulators/crypto_host/main.py",
 }
-CONFIG_REQUIRED_TYPES = {"router", "upstream"}
+CONFIG_REQUIRED_TYPES = {"router", "upstream", "downstream"}
 STARTUP_ORDER = {"crypto": 0, "downstream": 1, "router": 2, "upstream": 3}
 
 logger = logging.getLogger(__name__)

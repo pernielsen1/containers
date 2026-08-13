@@ -2,10 +2,10 @@
 
 #include "shared/ebcdic.h"
 
-using xv6::shared::ascii_to_ebcdic_bytes;
-using xv6::shared::ebcdic_to_ascii_bytes;
-using xv6::shared::from_ebcdic;
-using xv6::shared::to_ebcdic;
+using shared::ascii_to_ebcdic_bytes;
+using shared::ebcdic_to_ascii_bytes;
+using shared::from_ebcdic;
+using shared::to_ebcdic;
 
 TEST_CASE("ebcdic round-trips ASCII text", "[ebcdic]") {
     std::string s = "PING0001 clean the pipes ABCxyz0123";

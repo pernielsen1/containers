@@ -22,7 +22,7 @@
 #include "shared/stats.h"
 #include "shared/stop_event.h"
 
-namespace xv6::router {
+namespace router {
 
 struct PendingEntry {
     int up_fd = -1;
@@ -60,7 +60,7 @@ struct PendingSnapshotEntry {
 class Dispatcher {
 public:
     Dispatcher(const RouterConfig& cfg, DownstreamConnection& downstream, CryptoClient& crypto,
-               xv6::shared::Stats& stats, xv6::shared::StopEvent& reconnect_event);
+               shared::Stats& stats, shared::StopEvent& reconnect_event);
     ~Dispatcher();
     Dispatcher(const Dispatcher&) = delete;
     Dispatcher& operator=(const Dispatcher&) = delete;
@@ -99,8 +99,8 @@ private:
     const RouterConfig& cfg_;
     DownstreamConnection& downstream_;
     CryptoClient& crypto_;
-    xv6::shared::Stats& stats_;
-    xv6::shared::StopEvent& reconnect_event_;
+    shared::Stats& stats_;
+    shared::StopEvent& reconnect_event_;
 
     std::deque<std::optional<RoutedMessage>> queue_;  // nullopt = poison pill
     std::mutex queue_mutex_;
@@ -126,7 +126,7 @@ private:
     std::vector<std::thread> workers_;
     std::vector<std::thread> response_workers_;
     std::thread reaper_;
-    xv6::shared::StopEvent dispatcher_stop_;  // stops the reaper loop on drain_and_stop()
+    shared::StopEvent dispatcher_stop_;  // stops the reaper loop on drain_and_stop()
 };
 
-}  // namespace xv6::router
+}  // namespace router

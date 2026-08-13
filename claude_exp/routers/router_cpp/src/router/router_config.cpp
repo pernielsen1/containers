@@ -8,7 +8,7 @@
 
 #include "shared/ebcdic.h"
 
-namespace xv6::router {
+namespace router {
 
 namespace {
 
@@ -21,11 +21,11 @@ std::string resolve_path(const std::filesystem::path& base_dir, const std::strin
     return p.string();
 }
 
-xv6::shared::FramingConfig parse_framing(const nlohmann::json& j) {
-    xv6::shared::FramingConfig cfg;
+shared::FramingConfig parse_framing(const nlohmann::json& j) {
+    shared::FramingConfig cfg;
     cfg.header_hex = j.value("header_hex", std::string(""));
     cfg.length_field_type =
-        xv6::shared::parse_length_field_type(j.value("length_field_type", std::string("ASCII")));
+        shared::parse_length_field_type(j.value("length_field_type", std::string("ASCII")));
     cfg.length_field_bytes = j.value("length_field_bytes", 4);
     cfg.max_message_bytes = j.value("max_message_bytes", 65536);
     return cfg;
@@ -55,8 +55,8 @@ DownstreamConfig parse_downstream(const nlohmann::json& j, const std::filesystem
     cfg.host = j.value("host", std::string(""));
     cfg.port = j.value("port", 0);
     cfg.command_port = j.value("command_port", 8081);
-    cfg.irm_id = xv6::shared::to_ebcdic(j.value("irm_id", std::string("")), 8);
-    cfg.client_id = xv6::shared::to_ebcdic(j.value("client_id", std::string("")), 8);
+    cfg.irm_id = shared::to_ebcdic(j.value("irm_id", std::string("")), 8);
+    cfg.client_id = shared::to_ebcdic(j.value("client_id", std::string("")), 8);
     cfg.ssl_active = j.value("ssl_active", false);
     cfg.certfile = resolve_path(base_dir, j.value("certfile", std::string("")));
     cfg.keyfile = resolve_path(base_dir, j.value("keyfile", std::string("")));
@@ -125,4 +125,4 @@ RouterConfig RouterConfig::from_file(const std::string& path) {
     return cfg;
 }
 
-}  // namespace xv6::router
+}  // namespace router

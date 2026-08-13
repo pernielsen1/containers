@@ -12,8 +12,8 @@
 #include "shared/log.h"
 #include "shared/tls.h"
 
-using namespace xv6::router;
-using namespace xv6::shared;
+using namespace router;
+using namespace shared;
 
 std::unique_ptr<RouterSession> RouterSession::connect(const RouterConfig& cfg, Stats& stats,
                                                        StopEvent& stop_event) {

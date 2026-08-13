@@ -31,7 +31,7 @@ not just history.
 | **crypto_host (real)** | Yes | `routers/crypto_host/` | The actual performance bottleneck under test — every implementation must be measured against the *same* bottleneck, or the comparison is meaningless |
 | **crypto_host (stub)** | No | `<impl>/simulators/crypto_host` | Kept local, no OpenSSL, just a PAN-presence check — lets each implementation build/functionally-test standalone without the shared container running |
 | **upstream_host** | Yes | `routers/upstream_host/` | Pure test infrastructure (load generator), zero comparison value — three reimplementations existed only for parity, not because the language mattered |
-| **downstream_host** | No | `<impl>/simulators/downstream_host` | Trivial echo — not worth the churn of centralizing, and not a comparison point either way |
+| **downstream_host** | Yes | `routers/downstream_host/` | Trivial IMS-Connect-style echo/approve-decline stub, zero comparison value — same reasoning as `upstream_host`, consolidated in the same round-5-adjacent readability pass. Configs stay per-implementation (each language's `pans_defined.json` test data genuinely differs) even though the code is now shared |
 | **monitor** | No (but a common pattern) | `<impl>/monitor/` | Three ported copies, not one shared instance — they bind the same host ports and are mutually exclusive, and each needed different actor-launch mechanics (`docker exec`, host subprocess, `docker compose`) matching its implementation's own lifecycle |
 
 ### Round 1 — `crypto_host` (see `divide_and_conquer.md` part 1)
@@ -138,6 +138,47 @@ All three implementations' EBCDIC leg was verified with a live CSV burst (correc
 and cross-checked byte-for-byte against each other, not just internally self-consistent. See each
 implementation's `build_router.md` for full detail.
 
+### `downstream_host` consolidation + `xv6` naming cleanup (2026-08-13)
+
+A readability/DRY pass, done after SSL/TLS landed across all three implementations and before
+moving on to soak testing. Two pieces:
+
+**`downstream_host` consolidated into shared Python**, the same treatment `upstream_host` got in
+Round 2 — it was the one remaining per-language-duplicated simulator besides `crypto_host` (which
+stays excluded, per-language, deliberately). Removed ~700 lines of duplicated Java/C++
+reimplementation (`DownstreamHostMain.java`, `downstream_host_main.cpp`) in favor of one shared
+`routers/downstream_host/main.py`, launched as a host subprocess by every implementation's
+`run_test.sh`/`stress_run.sh`/`monitor`, exactly like `upstream_host` already is. Unlike
+`upstream_host`, **configs stay per-implementation** — each language's `pans_defined.json` test
+PAN/key data genuinely differs (confirmed by diffing all three: router_py's own set,
+router_java's/router_cpp's shared-but-different set, and `crypto_host`'s real set are three
+distinct datasets), so only the code was duplicated, not the data. `router_cpp` previously had no
+standalone `downstream_host.json` (its downstream settings lived as a nested block inside
+`config/router_1.json`) — extracted a flat one, mirroring `router_java`'s existing shape.
+
+**Real bug found and fixed during router_java's port**: a genuine cross-language mTLS deadlock.
+Java's `SSLSocket` defers its TLS handshake to the connection's first read/write (see
+`SslUtils.createSocket`'s doc comment); the shared `downstream_host`'s `_accept_loop()` performed
+`wrap_server_socket()` *synchronously inside the single accept loop thread*, before spawning the
+per-connection dispatch thread. Router opens two sockets (to-conn, from-conn) and triggers their
+handshakes in a different order than the acceptor sees their TCP connects in — router_py's own
+client happens to avoid this (its `wrap_client_socket` handshakes eagerly, immediately after each
+`connect()`, so there's never two half-open connections at once) — but router_java's ordering hit
+it every time, wedging the server's accept loop on one connection while the client waited on the
+other, neither side able to progress. Never surfaced before because router_java's downstream leg
+had only ever talked to its own same-language TLS server (client-role code exercised against a
+Python TLS server for the first time by this consolidation) — the same "invisible until
+cross-wired" pattern as Round 2's bitmap-encoding bug and Round 3's EBCDIC length-prefix bug.
+Fixed by moving the handshake into the per-connection dispatch thread (`downstream_host/main.py`'s
+`_dispatch_new_conn`), completing a deadlock-avoidance pattern the file's own docstring already
+half-described for the plaintext read path.
+
+**`xv6` legacy internal naming cleaned up**: `router_java`'s Java package (`com.xv6.*` →
+`com.router.*`) and `router_cpp`'s C++ namespace/CMake targets (`xv6::router`/`xv6::shared` →
+`router::`/`shared::`, `xv6_router`/`xv6_shared`/`xv6_tests` → `router_lib`/`shared_lib`/
+`router_tests`) — cosmetic leftovers from the pre-2026-08-01 `xv6java`/`xv7cpp` names that survived
+the directory rename, done here since this pass already touched most of the same files.
+
 ## Current repository layout
 
 ```
@@ -172,22 +213,32 @@ routers/
 │   ├── upstream_shared/          # forked copy of router_py/shared's small utility modules
 │   └── build_router.md
 │
+├── downstream_host/              # SHARED — IMS-Connect-style echo/approve-decline stub,
+│   ├── main.py                  #   host-side (not containerized)
+│   ├── downstream_shared/        # forked copy of router_py/shared's small utility modules
+│   └── build_router.md           # configs stay per-implementation — see this doc for why
+│
 ├── router_py/                         # Python router — under comparison
-│   ├── router/, shared/, simulators/{crypto_host (stub), downstream_host}
-│   │   router/router_2/config.json + simulators/upstream_2/config.json — second partner,
-│   │   disabled by default, EBCDIC upstream leg (see Round 3)
+│   ├── router/, shared/, simulators/{crypto_host (stub), upstream_2}
+│   │   router/router_2/config.json — second partner, disabled by default, EBCDIC upstream leg
+│   │   (see Round 3); simulators/downstream_host/{config.json,config_perf.json} — this
+│   │   implementation's own config for the shared downstream_host component
 │   ├── monitor/                  # own instance, launches actors as host subprocesses
 │   └── stress_run.sh / run_test.sh
 │
 ├── router_java/                     # Java router — under comparison
-│   ├── src/main/java/com/xv6/{router, shared, simulators/{cryptohost, downstreamhost}}
+│   ├── src/main/java/com/xv6/{router, shared, simulators/cryptohost}
 │   │   config/router_2.json + config/upstream_2.json — same second-partner pattern
+│   │   config/downstream_host.json + downstream_host_perf.json — this implementation's own
+│   │   config for the shared downstream_host component
 │   ├── monitor/                  # own instance, launches actors via `docker exec -d`
 │   └── stress_run.sh / run_test.sh
 │
 └── router_cpp/                       # C++ router — under comparison
-    ├── src/{router, shared, simulators/{crypto_host, downstream_host}}
+    ├── src/{router, shared, simulators/crypto_host}
     │   config/router_2.json + config/upstream_2.json — same second-partner pattern
+    │   config/downstream_host.json + downstream_host_perf.json — this implementation's own
+    │   config for the shared downstream_host component
     ├── monitor/                   # own instance, synthesizes actors from config file(s)
     └── stress_run.sh / run_test.sh
 ```
@@ -199,16 +250,16 @@ flowchart LR
     U["upstream_host<br/>(shared, host process)"] -->|"0100 (TCP, framed)"| R["router<br/>(router_py / router_java / router_cpp)"]
     R -->|"0110"| U
     R -->|"validate_0100/0110<br/>(HTTP, Fortanix-shaped)"| C["crypto_host<br/>(shared container, real OpenSSL)"]
-    R -->|"0100/0110 relay"| D["downstream_host<br/>(per-implementation stub echo)"]
+    R -->|"0100/0110 relay"| D["downstream_host<br/>(shared, host process)"]
     M["monitor<br/>(per-implementation, host process)"] -.->|"HTTP: /stats /start /stop"| U
     M -.-> R
     M -.-> C
     M -.-> D
 ```
 
-Only `router` and `downstream_host` are containerized per implementation; `crypto_host` and
-`upstream_host` are shared; `monitor` is a per-implementation host process that just proxies HTTP
-to whichever actors are currently running.
+Only `router` is containerized per implementation; `crypto_host`, `upstream_host`, and
+`downstream_host` are shared; `monitor` is a per-implementation host process that just proxies
+HTTP to whichever actors are currently running.
 
 ## How to run things
 

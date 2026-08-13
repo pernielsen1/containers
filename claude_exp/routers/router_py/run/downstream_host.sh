@@ -1,3 +1,4 @@
 #!/bin/bash
 cd "$(dirname "$0")/.."
-exec python3 simulators/downstream_host/main.py
+# downstream_host is the shared routers/downstream_host component now, not router_py-local.
+exec python3 ../downstream_host/main.py --config simulators/downstream_host/config.json

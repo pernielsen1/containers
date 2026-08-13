@@ -9,7 +9,7 @@
 
 #include "router/router_config.h"
 
-namespace xv6::router {
+namespace router {
 
 struct UpstreamConn {
     int fd = -1;
@@ -52,4 +52,4 @@ private:
     UpstreamConfig cfg_;
 };
 
-}  // namespace xv6::router
+}  // namespace router

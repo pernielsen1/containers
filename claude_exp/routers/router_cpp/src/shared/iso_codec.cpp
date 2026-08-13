@@ -8,7 +8,7 @@
 #include "shared/ebcdic.h"
 #include "shared/hex.h"
 
-namespace xv6::shared::iso_codec {
+namespace shared::iso_codec {
 
 namespace {
 
@@ -30,7 +30,7 @@ std::vector<uint8_t> encode_field(const FieldSpec& spec, const std::string& valu
                 s = s.substr(0, spec.length);
             }
             std::vector<uint8_t> out(s.begin(), s.end());
-            return encoding == Encoding::Ebcdic ? xv6::shared::ascii_to_ebcdic_bytes(out) : out;
+            return encoding == Encoding::Ebcdic ? shared::ascii_to_ebcdic_bytes(out) : out;
         }
         case IsoType::Binary: {
             auto raw = hex_decode(value);
@@ -42,14 +42,14 @@ std::vector<uint8_t> encode_field(const FieldSpec& spec, const std::string& valu
             std::string len_str = zero_pad_decimal(value.size(), 2);
             out.insert(out.end(), len_str.begin(), len_str.end());
             out.insert(out.end(), value.begin(), value.end());
-            return encoding == Encoding::Ebcdic ? xv6::shared::ascii_to_ebcdic_bytes(out) : out;
+            return encoding == Encoding::Ebcdic ? shared::ascii_to_ebcdic_bytes(out) : out;
         }
         case IsoType::Lllvar: {
             std::vector<uint8_t> out;
             std::string len_str = zero_pad_decimal(value.size(), 3);
             out.insert(out.end(), len_str.begin(), len_str.end());
             out.insert(out.end(), value.begin(), value.end());
-            return encoding == Encoding::Ebcdic ? xv6::shared::ascii_to_ebcdic_bytes(out) : out;
+            return encoding == Encoding::Ebcdic ? shared::ascii_to_ebcdic_bytes(out) : out;
         }
         case IsoType::Lllbin: {
             auto raw = hex_decode(value);
@@ -74,7 +74,7 @@ std::string read_text(const std::vector<uint8_t>& bytes, size_t& offset, size_t 
                               bytes.begin() + static_cast<long>(offset + count));
     offset += count;
     if (encoding == Encoding::Ebcdic) {
-        raw = xv6::shared::ebcdic_to_ascii_bytes(raw);
+        raw = shared::ebcdic_to_ascii_bytes(raw);
     }
     return std::string(raw.begin(), raw.end());
 }
@@ -160,7 +160,7 @@ std::vector<uint8_t> encode(const std::map<std::string, std::string>& data, Enco
     std::vector<uint8_t> out;
     std::vector<uint8_t> mti_bytes(mti.begin(), mti.end());
     if (encoding == Encoding::Ebcdic) {
-        mti_bytes = xv6::shared::ascii_to_ebcdic_bytes(mti_bytes);
+        mti_bytes = shared::ascii_to_ebcdic_bytes(mti_bytes);
     }
     out.insert(out.end(), mti_bytes.begin(), mti_bytes.end());
     // Bitmap is raw binary either way, never text-encoded - matches the shared upstream_host
@@ -187,7 +187,7 @@ std::map<std::string, std::string> decode(const std::vector<uint8_t>& bytes, Enc
     // text field when encoding == Ebcdic (it's not in kFieldSpecs, so handled directly here).
     std::vector<uint8_t> mti_bytes(bytes.begin(), bytes.begin() + 4);
     if (encoding == Encoding::Ebcdic) {
-        mti_bytes = xv6::shared::ebcdic_to_ascii_bytes(mti_bytes);
+        mti_bytes = shared::ebcdic_to_ascii_bytes(mti_bytes);
     }
     data["t"] = std::string(mti_bytes.begin(), mti_bytes.end());
 
@@ -243,4 +243,4 @@ nlohmann::json f47_decode(const std::string& value) {
     }
 }
 
-}  // namespace xv6::shared::iso_codec
+}  // namespace shared::iso_codec

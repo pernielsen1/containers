@@ -18,7 +18,7 @@ FetchContent_Declare(json    GIT_REPOSITORY https://github.com/nlohmann/json.git
 FetchContent_Declare(catch2  GIT_REPOSITORY https://github.com/catchorg/Catch2.git      GIT_TAG v3.5.4)
 FetchContent_MakeAvailable(httplib json catch2)
 
-add_library(xv6_shared STATIC
+add_library(shared_lib STATIC
     src/shared/hex.cpp
     src/shared/base64.cpp
     src/shared/ebcdic.cpp
@@ -31,15 +31,15 @@ add_library(xv6_shared STATIC
     src/shared/pans_defined.cpp
     src/shared/tls.cpp
 )
-target_include_directories(xv6_shared PUBLIC src)
-target_link_libraries(xv6_shared PUBLIC httplib nlohmann_json::nlohmann_json
+target_include_directories(shared_lib PUBLIC src)
+target_link_libraries(shared_lib PUBLIC httplib nlohmann_json::nlohmann_json
                                           OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
 # PUBLIC: cpp-httplib (header-only) gates its SSLClient/SSLServer classes behind this macro,
-# checked at whatever TU first includes httplib.h - every target linking xv6_shared needs it too,
+# checked at whatever TU first includes httplib.h - every target linking shared_lib needs it too,
 # not just this library's own .cpp files.
-target_compile_definitions(xv6_shared PUBLIC CPPHTTPLIB_OPENSSL_SUPPORT)
+target_compile_definitions(shared_lib PUBLIC CPPHTTPLIB_OPENSSL_SUPPORT)
 
-add_library(xv6_router STATIC
+add_library(router_lib STATIC
     src/router/router_config.cpp
     src/router/upstream.cpp
     src/router/downstream_connection.cpp
@@ -48,25 +48,21 @@ add_library(xv6_router STATIC
     src/router/router_session.cpp
     src/router/trace_recorder.cpp
 )
-target_include_directories(xv6_router PUBLIC src)
-target_link_libraries(xv6_router PUBLIC xv6_shared)
+target_include_directories(router_lib PUBLIC src)
+target_link_libraries(router_lib PUBLIC shared_lib)
 
 add_executable(router_main src/router/router_main.cpp)
 target_include_directories(router_main PRIVATE src)
-target_link_libraries(router_main PRIVATE xv6_router xv6_shared)
+target_link_libraries(router_main PRIVATE router_lib shared_lib)
 
 add_executable(crypto_host src/simulators/crypto_host/crypto_host_main.cpp)
 target_include_directories(crypto_host PRIVATE src)
-target_link_libraries(crypto_host PRIVATE xv6_router xv6_shared)
-
-add_executable(downstream_host src/simulators/downstream_host/downstream_host_main.cpp)
-target_include_directories(downstream_host PRIVATE src)
-target_link_libraries(downstream_host PRIVATE xv6_router xv6_shared)
+target_link_libraries(crypto_host PRIVATE router_lib shared_lib)
 
 enable_testing()
 file(GLOB TEST_SOURCES CONFIGURE_DEPENDS test/*.cpp)
-add_executable(xv6_tests ${TEST_SOURCES})
-target_link_libraries(xv6_tests PRIVATE xv6_router xv6_shared Catch2::Catch2WithMain)
+add_executable(router_tests ${TEST_SOURCES})
+target_link_libraries(router_tests PRIVATE router_lib shared_lib Catch2::Catch2WithMain)
 include(CTest)
 include(Catch)
-catch_discover_tests(xv6_tests)
+catch_discover_tests(router_tests)

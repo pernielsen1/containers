@@ -8,7 +8,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace xv6::shared {
+namespace shared {
 
 // Thread-safe rolling counters. Windows {30, 60, 180, 1800} seconds, backed by one mutex and
 // two deques of send/recv timestamps (millis), trimmed to the max window on every record.
@@ -54,4 +54,4 @@ private:
     std::optional<int> yellow_threshold_seconds_;
 };
 
-}  // namespace xv6::shared
+}  // namespace shared

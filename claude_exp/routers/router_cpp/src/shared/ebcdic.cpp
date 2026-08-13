@@ -2,7 +2,7 @@
 
 #include <array>
 
-namespace xv6::shared {
+namespace shared {
 
 namespace {
 
@@ -96,4 +96,4 @@ std::vector<uint8_t> ebcdic_to_ascii_bytes(const std::vector<uint8_t>& ebcdic) {
     return out;
 }
 
-}  // namespace xv6::shared
+}  // namespace shared

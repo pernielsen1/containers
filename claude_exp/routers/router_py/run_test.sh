@@ -74,7 +74,7 @@ if [ "$MANUAL" -eq 0 ]; then
     PIDS+=("$!")
 
     echo "Launching downstream_host..."
-    python3 simulators/downstream_host/main.py &
+    python3 ../downstream_host/main.py --config simulators/downstream_host/config.json &
     PIDS+=("$!")
 
     echo "Launching router_1..."

@@ -20,15 +20,17 @@ from flask import Flask, jsonify, request, send_from_directory
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONTAINER_NAME = "router_java"
 
-# upstream_host is shared across all three implementations (routers/upstream_host/), not a Java
-# actor anymore - see routers/upstream_host/build_router.md. Launched as a host subprocess
-# (like router_py's monitor always did), not via docker exec into CONTAINER_NAME.
+# upstream_host/downstream_host are shared across all three implementations
+# (routers/upstream_host/, routers/downstream_host/), not Java actors anymore - see their
+# respective build_router.md. Launched as host subprocesses (like router_py's monitor always
+# did), not via docker exec into CONTAINER_NAME.
 UPSTREAM_HOST_DIR = os.path.join(os.path.dirname(PROJECT_ROOT), "upstream_host")
+DOWNSTREAM_HOST_DIR = os.path.join(os.path.dirname(PROJECT_ROOT), "downstream_host")
+HOST_COMPONENT_DIRS = {"upstream": UPSTREAM_HOST_DIR, "downstream": DOWNSTREAM_HOST_DIR}
 
 MAIN_CLASS_BY_TYPE = {
-    "router": "com.xv6.router.RouterMain",
-    "downstream": "com.xv6.simulators.downstreamhost.DownstreamHostMain",
-    "crypto": "com.xv6.simulators.cryptohost.CryptoHostMain",
+    "router": "com.router.router.RouterMain",
+    "crypto": "com.router.simulators.cryptohost.CryptoHostMain",
 }
 STARTUP_ORDER = {"crypto": 0, "downstream": 1, "router": 2, "upstream": 3}
 
@@ -40,9 +42,9 @@ _actors_lock = threading.Lock()
 _starting = False
 _starting_lock = threading.Lock()
 
-# Only the shared upstream_host actor is tracked here (a real host Popen handle) - every other
-# actor type is launched via `docker exec -d` (see launch_actor()), which detaches instantly and
-# has no Popen handle to track in the first place.
+# Only the shared upstream_host/downstream_host actors are tracked here (a real host Popen
+# handle) - every other actor type is launched via `docker exec -d` (see launch_actor()), which
+# detaches instantly and has no Popen handle to track in the first place.
 _processes = {}
 _processes_lock = threading.Lock()
 
@@ -100,11 +102,12 @@ def _consider(found, path):
         return
     name = cfg.get("name")
     actor_type = cfg.get("type")
-    # "upstream" has no MAIN_CLASS_BY_TYPE entry (launch_actor() special-cases it as a host
-    # subprocess of the shared upstream_host binary instead of a docker-exec'd Java main class),
-    # but it's still a valid discoverable actor type - e.g. a per-implementation-local
-    # config/upstream_2.json, mirroring router_py's simulators/upstream_2/config.json pattern.
-    if not name or (actor_type not in MAIN_CLASS_BY_TYPE and actor_type != "upstream"):
+    # "upstream"/"downstream" have no MAIN_CLASS_BY_TYPE entry (launch_actor() special-cases them
+    # as host subprocesses of the shared upstream_host/downstream_host components instead of a
+    # docker-exec'd Java main class), but they're still valid discoverable actor types - e.g. a
+    # per-implementation-local config/upstream_2.json, mirroring router_py's
+    # simulators/upstream_2/config.json pattern.
+    if not name or (actor_type not in MAIN_CLASS_BY_TYPE and actor_type not in HOST_COMPONENT_DIRS):
         return
     if any(a["name"] == name for a in found):
         return
@@ -143,10 +146,11 @@ def is_running(name):
 
 
 def launch_actor(actor):
-    if actor["type"] == "upstream":
+    host_dir = HOST_COMPONENT_DIRS.get(actor["type"])
+    if host_dir:
         proc = subprocess.Popen(
-            [sys.executable, os.path.join(UPSTREAM_HOST_DIR, "main.py"), "--config", actor["config_path"]],
-            cwd=UPSTREAM_HOST_DIR,
+            [sys.executable, os.path.join(host_dir, "main.py"), "--config", actor["config_path"]],
+            cwd=host_dir,
         )
         with _processes_lock:
             _processes[actor["name"]] = proc
@@ -173,12 +177,13 @@ def actor_console_log_path(actor):
 
 
 def actor_kill_command(actor):
-    if actor["type"] == "upstream":
+    host_dir = HOST_COMPONENT_DIRS.get(actor["type"])
+    if host_dir:
         with _processes_lock:
             proc = _processes.get(actor["name"])
         pid = proc.pid if proc is not None else None
         if pid is None:
-            return f'pkill -f "{os.path.join(UPSTREAM_HOST_DIR, "main.py")}"'
+            return f'pkill -f "{os.path.join(host_dir, "main.py")}"'
         return f"kill -9 {pid}"
 
     main_class = MAIN_CLASS_BY_TYPE[actor["type"]]
@@ -205,8 +210,8 @@ def actor_kill_command(actor):
 
 
 def actor_tail_command(actor):
-    if actor["type"] == "upstream":
-        return "(no log file - upstream_host runs as a host subprocess with inherited stdout/stderr)"
+    if actor["type"] in HOST_COMPONENT_DIRS:
+        return f"(no log file - {actor['type']}_host runs as a host subprocess with inherited stdout/stderr)"
     return f"docker exec {CONTAINER_NAME} tail -F {actor_console_log_path(actor)}"
 
 

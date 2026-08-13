@@ -10,7 +10,7 @@
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 
-namespace xv6::shared::tls {
+namespace shared::tls {
 
 namespace {
 
@@ -149,4 +149,4 @@ void close(int fd) {
     SSL_free(ssl);
 }
 
-}  // namespace xv6::shared::tls
+}  // namespace shared::tls

@@ -5,7 +5,7 @@
 #include "shared/base64.h"
 #include "shared/log.h"
 
-namespace xv6::router {
+namespace router {
 
 CryptoClient::CryptoClient(const CryptoConfig& cfg, int breaker_threshold, int breaker_cooldown_seconds)
     : cfg_(cfg),
@@ -82,7 +82,7 @@ std::string CryptoClient::validate(const std::string& endpoint, const std::strin
         // The 2XX body is a JSON string literal -- the PluginOutput envelope (base64,
         // "format": "byte"), not a JSON object wrapping it.
         std::string base64_str = nlohmann::json::parse(res->body).get<std::string>();
-        auto decoded_bytes = xv6::shared::base64_decode(base64_str);
+        auto decoded_bytes = shared::base64_decode(base64_str);
         std::string decoded_json(decoded_bytes.begin(), decoded_bytes.end());
         auto inner = nlohmann::json::parse(decoded_json);
         std::string f47_out = inner.value("f47", std::string(""));
@@ -96,4 +96,4 @@ std::string CryptoClient::validate(const std::string& endpoint, const std::strin
     }
 }
 
-}  // namespace xv6::router
+}  // namespace router
