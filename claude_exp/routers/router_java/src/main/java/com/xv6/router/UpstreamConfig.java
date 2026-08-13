@@ -10,7 +10,11 @@ public record UpstreamConfig(
         FramingConfig framing,
         String mode,
         String host,
-        int retrySeconds) {
+        int retrySeconds,
+        boolean sslActive,
+        String certfile,
+        String keyfile,
+        String cafile) {
 
     public UpstreamConfig {
         if (mode == null) {

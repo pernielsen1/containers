@@ -100,7 +100,7 @@ SSH_EOF
   # upstream_1 connects to the router as a client, so it must start after the router is up -
   # matches the STARTUP_ORDER convention used everywhere else (upstream last).
   echo "Launching upstream_1 (shared routers/upstream_host)..." >&2
-  python3 "$PROJECT_ROOT/../upstream_host/main.py" --config "$PROJECT_ROOT/../upstream_host/config.json" --router-host "$ROUTER_HOST" >&2 &
+  python3 "$PROJECT_ROOT/../upstream_host/main.py" --config "$PROJECT_ROOT/../upstream_host/config_perf.json" --router-host "$ROUTER_HOST" >&2 &
 else
   echo "Manual mode: assuming the stack is already running." >&2
 fi

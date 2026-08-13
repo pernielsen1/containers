@@ -1,6 +1,7 @@
 package com.xv6.router;
 
 import com.xv6.shared.ImsConnect;
+import com.xv6.shared.SslUtils;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -26,11 +27,11 @@ public final class DownstreamConnection {
     }
 
     public static DownstreamConnection connect(DownstreamConfig cfg) throws IOException {
-        Socket toSock = new Socket();
+        Socket toSock = SslUtils.createSocket(cfg.sslActive(), cfg.certfile(), cfg.keyfile(), cfg.cafile());
         toSock.connect(new InetSocketAddress(cfg.host(), cfg.port()), 5000);
         toSock.setSoTimeout(0);
 
-        Socket fromSock = new Socket();
+        Socket fromSock = SslUtils.createSocket(cfg.sslActive(), cfg.certfile(), cfg.keyfile(), cfg.cafile());
         fromSock.connect(new InetSocketAddress(cfg.host(), cfg.port()), 5000);
         fromSock.setSoTimeout(0);
 

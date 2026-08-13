@@ -53,10 +53,10 @@ class DispatcherResilienceTest {
 
     private static RouterConfig makeCfg(int queueMaxsize, int pendingTtlSeconds, int workerThreads) {
         FramingConfig framing = new FramingConfig("", "ASCII", 4, Framing.DEFAULT_MAX_MESSAGE_BYTES);
-        UpstreamConfig upstream = new UpstreamConfig(15000, framing, "server", "localhost", 5);
+        UpstreamConfig upstream = new UpstreamConfig(15000, framing, "server", "localhost", 5, false, null, null, null);
         DownstreamConfig downstream = new DownstreamConfig(
-                "localhost", 15001, ImsConnect.toEbcdic("IRM0001", 8), ImsConnect.toEbcdic("CLIENT01", 8));
-        CryptoConfig crypto = new CryptoConfig("localhost", 15002, "test-plugin-id", "test-bearer-token");
+                "localhost", 15001, ImsConnect.toEbcdic("IRM0001", 8), ImsConnect.toEbcdic("CLIENT01", 8), false, null, null, null);
+        CryptoConfig crypto = new CryptoConfig("localhost", 15002, "test-plugin-id", "test-bearer-token", false, null, null, null);
         return new RouterConfig(
                 "test_router", 19100, upstream, downstream, crypto, SPEC_PATH, null, null, "INFO",
                 workerThreads, workerThreads, 10, 40, queueMaxsize, pendingTtlSeconds, 5, 30, 2.0,
@@ -118,8 +118,8 @@ class DispatcherResilienceTest {
 
     /** Mirrors router_py's FakeCrypto test double: always returns "" without any network I/O. */
     private static final class NoOpCrypto extends CryptoClient {
-        NoOpCrypto() {
-            super(new CryptoConfig("localhost", 1, "test-plugin-id", "test-bearer-token"), 5, 30);
+        NoOpCrypto() throws IOException {
+            super(new CryptoConfig("localhost", 1, "test-plugin-id", "test-bearer-token", false, null, null, null), 5, 30);
         }
 
         @Override

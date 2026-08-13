@@ -23,7 +23,7 @@ services:
       - -c
       - |
         /src/build/crypto_host --config /config/router_1.json &
-        /src/build/downstream_host --config /config/router_1.json &
+        /src/build/downstream_host --config /config/${ROUTER_CONFIG:-router_1.json} &
         /src/build/router_main --config /config/${ROUTER_CONFIG:-router_1.json} &
         sleep infinity
     depends_on: []

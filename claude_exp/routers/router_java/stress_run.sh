@@ -103,7 +103,7 @@ if [ "$MANUAL" -eq 0 ]; then
 
     echo "Launching downstream_host..." >&2
     docker exec -d router_java java -cp target/router_java.jar com.xv6.simulators.downstreamhost.DownstreamHostMain \
-      --config config/downstream_host.json >&2
+      --config config/downstream_host_perf.json >&2
 
     echo "Launching router_1 (perf config -> shared crypto_host)..." >&2
     docker exec -d router_java java -cp target/router_java.jar com.xv6.router.RouterMain \
@@ -117,7 +117,7 @@ SSH_EOF
   fi
 
   echo "Launching upstream_1 (shared routers/upstream_host, host-side not docker exec)..." >&2
-  python3 "$PROJECT_ROOT/../upstream_host/main.py" --config "$PROJECT_ROOT/../upstream_host/config.json" --router-host "$ROUTER_HOST" >&2 &
+  python3 "$PROJECT_ROOT/../upstream_host/main.py" --config "$PROJECT_ROOT/../upstream_host/config_perf.json" --router-host "$ROUTER_HOST" >&2 &
 else
   echo "Manual mode: assuming actors are already running." >&2
 fi

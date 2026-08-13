@@ -11,19 +11,31 @@
       "header_hex": "",
       "length_field_type": "ASCII",
       "length_field_bytes": 4
-    }
+    },
+    "ssl_active": true,
+    "certfile": "certs/upstream_router_1_ssl_active_true_cert.pem",
+    "keyfile": "certs/upstream_router_1_ssl_active_true_key.pem",
+    "cafile": "certs/upstream_router_1_ssl_active_true_ca.pem"
   },
   "downstream": {
     "host": "localhost",
     "port": 5001,
     "irm_id": "IRM_ID01",
-    "client_id": "CLIENT01"
+    "client_id": "CLIENT01",
+    "ssl_active": true,
+    "certfile": "certs/downstream_ssl_active_true_cert.pem",
+    "keyfile": "certs/downstream_ssl_active_true_key.pem",
+    "cafile": "certs/downstream_ssl_active_true_ca.pem"
   },
   "crypto": {
     "host": "localhost",
     "port": 5002,
     "plugin_id": "a53c0b4e-2f7e-4c1e-9c58-1e6f2b6d7a10",
-    "bearer_token": "dev-fortanix-bearer-token"
+    "bearer_token": "dev-fortanix-bearer-token",
+    "ssl_active": true,
+    "certfile": "certs/crypto_host_ssl_active_true_cert.pem",
+    "keyfile": "certs/crypto_host_ssl_active_true_key.pem",
+    "cafile": "certs/crypto_host_ssl_active_true_ca.pem"
   },
   "iso_spec": "test_spec.xml",
   "worker_threads": 8,

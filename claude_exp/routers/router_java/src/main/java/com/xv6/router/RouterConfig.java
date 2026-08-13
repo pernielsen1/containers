@@ -38,17 +38,38 @@ public record RouterConfig(
     private static final ObjectMapper MAPPER =
             new ObjectMapper().setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
 
+    /** Resolves a config-relative cert/key/CA path against the config file's own directory, like
+     * router_py's from_file's _resolve_path - null stays null (ssl_active=false configs omit
+     * these entirely). */
+    static String resolvePath(String baseDir, String value) {
+        if (value == null) {
+            return null;
+        }
+        return Path.of(baseDir).resolve(value).normalize().toString();
+    }
+
     public static RouterConfig fromFile(String path) throws IOException {
         RouterConfigJson raw = MAPPER.readValue(new File(path), RouterConfigJson.class);
         String baseDir = new File(path).getAbsoluteFile().getParent();
         String resolvedIsoSpec = Path.of(baseDir).resolve(raw.isoSpec()).normalize().toString();
 
+        UpstreamConfig up = raw.upstream();
+        UpstreamConfig resolvedUpstream = new UpstreamConfig(
+                up.port(), up.framing(), up.mode(), up.host(), up.retrySeconds(), up.sslActive(),
+                resolvePath(baseDir, up.certfile()), resolvePath(baseDir, up.keyfile()), resolvePath(baseDir, up.cafile()));
+
+        CryptoConfig crypto = raw.crypto();
+        CryptoConfig resolvedCrypto = new CryptoConfig(
+                crypto.host(), crypto.port(), crypto.plugin_id(), crypto.bearer_token(), crypto.ssl_active(),
+                resolvePath(baseDir, crypto.certfile()), resolvePath(baseDir, crypto.keyfile()),
+                resolvePath(baseDir, crypto.cafile()));
+
         return new RouterConfig(
                 raw.name(),
                 raw.commandPort(),
-                raw.upstream(),
-                DownstreamConfig.from(raw.downstream()),
-                raw.crypto(),
+                resolvedUpstream,
+                DownstreamConfig.from(raw.downstream(), baseDir),
+                resolvedCrypto,
                 resolvedIsoSpec,
                 raw.upstreamIsoEncoding(),
                 raw.partnerId(),

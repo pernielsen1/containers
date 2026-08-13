@@ -78,7 +78,7 @@ if [ "$MANUAL" -eq 0 ]; then
   # result line stress_test.sh captures via command substitution.
   if [ "$ROUTER_HOST" = "127.0.0.1" ]; then
     echo "Launching downstream_host..." >&2
-    python3 simulators/downstream_host/main.py >&2 &
+    python3 simulators/downstream_host/main.py --config simulators/downstream_host/config_perf.json >&2 &
     PIDS+=("$!")
 
     echo "Launching router_1 (perf config -> shared crypto_host)..." >&2
@@ -89,14 +89,14 @@ if [ "$MANUAL" -eq 0 ]; then
     ssh "$REMOTE_SERVER" bash -s >&2 <<'SSH_EOF'
 docker rm -f router_py 2>/dev/null || true
 docker run -d --name router_py --network host --init router_py bash -c "
-  python3 simulators/downstream_host/main.py >&2 &
+  python3 simulators/downstream_host/main.py --config simulators/downstream_host/config_perf.json >&2 &
   python3 router/main.py --config router/router_1/config_perf.json >&2 &
   sleep infinity"
 SSH_EOF
   fi
 
   echo "Launching upstream_1 (shared routers/upstream_host)..." >&2
-  python3 "$PROJECT_ROOT/../upstream_host/main.py" --config "$PROJECT_ROOT/../upstream_host/config.json" --router-host "$ROUTER_HOST" >&2 &
+  python3 "$PROJECT_ROOT/../upstream_host/main.py" --config "$PROJECT_ROOT/../upstream_host/config_perf.json" --router-host "$ROUTER_HOST" >&2 &
   PIDS+=("$!")
 else
   echo "Manual mode: assuming actors are already running." >&2

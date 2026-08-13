@@ -33,6 +33,6 @@ EXPOSE 5000 5001 5002 8080 8081 8082 8083
 ENV ROUTER_CONFIG=router_1.json
 CMD ["/bin/bash", "-c", "\
   /src/build/crypto_host     --config /src/config/router_1.json & \
-  /src/build/downstream_host --config /src/config/router_1.json & \
+  /src/build/downstream_host --config /src/config/${ROUTER_CONFIG} & \
   /src/build/router_main     --config /src/config/${ROUTER_CONFIG} & \
   sleep infinity"]

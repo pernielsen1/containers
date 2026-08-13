@@ -62,9 +62,13 @@ def create_self_signed_cert(prefix: Path, common_name: str):
 
     cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
     key_path.write_bytes(
+        # PKCS8, not the TraditionalOpenSSL/PKCS1 format cryptography defaults suggest: OpenSSL
+        # (router_py's ssl module and router_cpp's libssl) reads either transparently, but the
+        # JDK's built-in KeyFactory (router_java's SslUtils, no BouncyCastle dependency) only
+        # parses PKCS8 - so PKCS8 is the one format all three implementations can load.
         key.private_bytes(
             encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption(),
         )
     )

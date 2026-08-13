@@ -1,6 +1,7 @@
 package com.xv6.router;
 
 import com.xv6.shared.Framing;
+import com.xv6.shared.SslUtils;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -39,7 +40,7 @@ public final class Upstream {
         private final ServerSocket serverSocket;
 
         public UpstreamServer(UpstreamConfig cfg) throws IOException {
-            serverSocket = new ServerSocket();
+            serverSocket = SslUtils.createServerSocket(cfg.sslActive(), cfg.certfile(), cfg.keyfile(), cfg.cafile());
             serverSocket.setReuseAddress(true);
             serverSocket.bind(new InetSocketAddress(cfg.port()));
             serverSocket.setSoTimeout(1000);
@@ -81,7 +82,7 @@ public final class Upstream {
         public UpstreamConn connect(BooleanSupplier shouldStop) {
             while (!shouldStop.getAsBoolean()) {
                 try {
-                    Socket sock = new Socket();
+                    Socket sock = SslUtils.createSocket(cfg.sslActive(), cfg.certfile(), cfg.keyfile(), cfg.cafile());
                     sock.connect(new InetSocketAddress(cfg.host(), cfg.port()), 5000);
                     logger.info("connected to upstream at " + sock.getRemoteSocketAddress());
                     return new UpstreamConn(sock, sock.getRemoteSocketAddress(), new ReentrantLock());

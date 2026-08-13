@@ -3,12 +3,17 @@ package com.xv6.simulators.cryptohost;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.HttpsConfigurator;
+import com.sun.net.httpserver.HttpsServer;
 import com.xv6.shared.CommandServer;
 import com.xv6.shared.IsoUtils;
 import com.xv6.shared.LogLevels;
+import com.xv6.shared.SslUtils;
 import com.xv6.shared.Stats;
 import com.xv6.shared.StopEvent;
 
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -38,6 +43,13 @@ public final class CryptoHostMain {
         Map<String, Object> cfg = new LinkedHashMap<>(MAPPER.readValue(new File(path), Map.class));
         String baseDir = new File(path).getAbsoluteFile().getParent();
         cfg.put("pans_defined", resolve(baseDir, (String) cfg.get("pans_defined")));
+        if (cfg.get("certfile") != null) {
+            cfg.put("certfile", resolve(baseDir, (String) cfg.get("certfile")));
+            cfg.put("keyfile", resolve(baseDir, (String) cfg.get("keyfile")));
+        }
+        if (cfg.get("cafile") != null) {
+            cfg.put("cafile", resolve(baseDir, (String) cfg.get("cafile")));
+        }
         return cfg;
     }
 
@@ -127,7 +139,27 @@ public final class CryptoHostMain {
         String bearerToken = String.valueOf(cfg.getOrDefault("bearer_token", "default-bearer-token"));
 
         int port = ((Number) cfg.get("port")).intValue();
-        HttpServer validateServer = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
+        boolean sslActive = Boolean.TRUE.equals(cfg.get("ssl_active"));
+        HttpServer validateServer;
+        if (sslActive) {
+            String cafile = (String) cfg.get("cafile");
+            SSLContext sslContext = SslUtils.buildServerContext(
+                    (String) cfg.get("certfile"), (String) cfg.get("keyfile"), cafile);
+            HttpsServer httpsServer = HttpsServer.create(new InetSocketAddress("127.0.0.1", port), 0);
+            httpsServer.setHttpsConfigurator(new HttpsConfigurator(sslContext) {
+                @Override
+                public void configure(com.sun.net.httpserver.HttpsParameters params) {
+                    SSLParameters sslParams = getSSLContext().getDefaultSSLParameters();
+                    if (cafile != null) {
+                        sslParams.setNeedClientAuth(true);
+                    }
+                    params.setSSLParameters(sslParams);
+                }
+            });
+            validateServer = httpsServer;
+        } else {
+            validateServer = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
+        }
         registerFortanixRoute(validateServer, pluginId, bearerToken);
         logger.info("crypto host listening on port " + port);
         validateServer.setExecutor(Executors.newCachedThreadPool(runnable -> {

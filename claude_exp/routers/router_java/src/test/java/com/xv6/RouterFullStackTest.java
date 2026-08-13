@@ -99,9 +99,9 @@ class RouterFullStackTest {
         FramingConfig framing = new FramingConfig("", "ASCII", 4, Framing.DEFAULT_MAX_MESSAGE_BYTES);
         RouterConfig routerCfg = new RouterConfig(
                 "test_router", ROUTER_CMD,
-                new UpstreamConfig(ROUTER_UPSTREAM_PORT, framing, "server", "localhost", 5),
-                new DownstreamConfig("localhost", DS_PORT, ImsConnect.toEbcdic("IRM_ID01", 8), ImsConnect.toEbcdic("CLIENT01", 8)),
-                new CryptoConfig("localhost", CRYPTO_REST, pluginId, bearerToken),
+                new UpstreamConfig(ROUTER_UPSTREAM_PORT, framing, "server", "localhost", 5, false, null, null, null),
+                new DownstreamConfig("localhost", DS_PORT, ImsConnect.toEbcdic("IRM_ID01", 8), ImsConnect.toEbcdic("CLIENT01", 8), false, null, null, null),
+                new CryptoConfig("localhost", CRYPTO_REST, pluginId, bearerToken, false, null, null, null),
                 SPEC_PATH, null, null, "DEBUG", 8, 8, 10, 40, 1000, 30, 5, 30, 2.0, "127.0.0.1", null);
         routerStop = new StopEvent();
         Thread routerThread = new Thread(() -> {

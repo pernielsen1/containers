@@ -7,6 +7,7 @@ import com.xv6.shared.CommandServer;
 import com.xv6.shared.ImsConnect;
 import com.xv6.shared.IsoUtils;
 import com.xv6.shared.LogLevels;
+import com.xv6.shared.SslUtils;
 import com.xv6.shared.Stats;
 import com.xv6.shared.StopEvent;
 
@@ -60,6 +61,13 @@ public final class DownstreamHostMain {
         String baseDir = new File(path).getAbsoluteFile().getParent();
         cfg.put("iso_spec", resolve(baseDir, (String) cfg.get("iso_spec")));
         cfg.put("pans_defined", resolve(baseDir, (String) cfg.get("pans_defined")));
+        if (cfg.get("certfile") != null) {
+            cfg.put("certfile", resolve(baseDir, (String) cfg.get("certfile")));
+            cfg.put("keyfile", resolve(baseDir, (String) cfg.get("keyfile")));
+        }
+        if (cfg.get("cafile") != null) {
+            cfg.put("cafile", resolve(baseDir, (String) cfg.get("cafile")));
+        }
         return cfg;
     }
 
@@ -278,7 +286,9 @@ public final class DownstreamHostMain {
 
     public void start() throws IOException {
         cmd.start();
-        listenSock = new ServerSocket();
+        listenSock = SslUtils.createServerSocket(
+                Boolean.TRUE.equals(cfg.get("ssl_active")),
+                (String) cfg.get("certfile"), (String) cfg.get("keyfile"), (String) cfg.get("cafile"));
         listenSock.setReuseAddress(true);
         listenSock.bind(new InetSocketAddress((Integer) cfg.get("port")));
         listenSock.setSoTimeout(1000);

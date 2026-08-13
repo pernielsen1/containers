@@ -1,6 +1,7 @@
 package com.xv6.router;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.xv6.shared.SslUtils;
 
 import java.io.IOException;
 import java.net.URI;
@@ -23,16 +24,22 @@ public class CryptoClient {
 
     private final String baseUrl;
     private final String bearerToken;
-    private final HttpClient client = HttpClient.newHttpClient();
+    private final HttpClient client;
     private final int breakerThreshold;
     private final int breakerCooldownSeconds;
     private final Object lock = new Object();
     private int failureCount = 0;
     private long openUntilMillis = 0;
 
-    public CryptoClient(CryptoConfig cfg, int breakerThreshold, int breakerCooldownSeconds) {
-        this.baseUrl = "http://" + cfg.host() + ":" + cfg.port() + "/sys/v1/plugins/" + cfg.plugin_id();
+    public CryptoClient(CryptoConfig cfg, int breakerThreshold, int breakerCooldownSeconds) throws IOException {
+        String scheme = cfg.ssl_active() ? "https" : "http";
+        this.baseUrl = scheme + "://" + cfg.host() + ":" + cfg.port() + "/sys/v1/plugins/" + cfg.plugin_id();
         this.bearerToken = cfg.bearer_token();
+        HttpClient.Builder builder = HttpClient.newBuilder();
+        if (cfg.ssl_active()) {
+            builder.sslContext(SslUtils.buildClientContext(cfg.certfile(), cfg.keyfile(), cfg.cafile()));
+        }
+        this.client = builder.build();
         this.breakerThreshold = breakerThreshold;
         this.breakerCooldownSeconds = breakerCooldownSeconds;
     }
