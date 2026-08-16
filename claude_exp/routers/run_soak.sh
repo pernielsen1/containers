@@ -1,5 +1,5 @@
 #!/bin/bash
-# One-off soak-test sequence: runs three passes (router_py @ 80 tps, router_java @ 100 tps,
+# One-off soak-test sequence: runs three passes (router_py @ 100 tps, router_java @ 100 tps,
 # router_cpp @ 100 tps), each for <number_of_minutes> minutes, with an idle cooldown between
 # each phase equal to number_of_minutes / 5. Meant to be run standalone (close the IDE / other
 # heavy processes first - this host only has ~2.8GB RAM and a long back-to-back run needs the
@@ -100,7 +100,7 @@ elif [ "$ROUTER_HOST" != "127.0.0.1" ]; then
     "$ROUTERS_ROOT/server_start.sh" crypto >&2
 fi
 
-run_phase "PHASE 1" router_py 80
+run_phase "PHASE 1" router_py 100
 
 echo "=== COOLDOWN: ${COOLDOWN_S}s idle ==="
 date -Iseconds
