@@ -2009,7 +2009,7 @@ docker-compose build/up output — see the pitfall note in router_py's doc, whic
 inside the captured result row) so it's directly consumable by the top-level orchestrator,
 `routers/stress_test.sh`, which sweeps a list of TPS values across all three implementations in
 turn (mutually exclusive on host ports) and appends one CSV row per run to
-`routers/csv_results/stress_results.csv`. See `routers/the_routers.md` for the schema.
+`routers/csv_results/stress_results.csv`. See `routers/old/the_routers.md` for the schema.
 
 **Crypto under stress is not this implementation's own local stub.** `stress_run.sh` runs
 `ROUTER_CONFIG=router_1_perf.json ./start.sh` (rather than plain `./start.sh`) so `router_main`

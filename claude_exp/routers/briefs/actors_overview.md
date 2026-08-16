@@ -4,6 +4,10 @@ container; the monitor dashboard (not an actor itself) runs on the host and driv
 Full behavioral spec for each is in `build_router.md` — this file is just the current
 wiring: who talks to whom, on which ports, from which config file.
 
+All three of `router_1`'s legs (upstream, downstream, crypto) run mTLS by default
+(`ssl_active: true` in each block of `router_1.json`, certs under `certs/`) — see
+`build_router.md`'s SSL section for the toggle-off-for-debugging escape hatch.
+
 ```
                           ┌─────────────────┐
   upstream_1 ───(5000)───►│    router_1     │───(5001, IMS dual-socket)───► downstream_host
@@ -27,7 +31,7 @@ wiring: who talks to whom, on which ports, from which config file.
 
 | Actor | Wire port | Command port (HTTP: `/stats`, `/stop`, `/log_level`, `/logs`, …) |
 |---|---|---|
-| `router_1` | 5000 (upstream listen, server mode) | 8080 |
+| `router_1` | 5000 (upstream listen, server mode) | 8080 — also `/pending` (live in-flight STANs) and `/trace` (on-demand per-hop capture), router-only routes from the debug-tracing tooling |
 | `crypto_host` | 5002 (HTTP validate routes) | 8082 |
 | `downstream_host` | 5001 (IMS Connect) | 8081 |
 | `upstream_1` | — (connects out to `router_1:5000`) | 8083 |
@@ -60,9 +64,14 @@ whose `crypto` block instead points at the shared `routers/crypto_host/` contain
 
 ## Scope notes
 
-- Single instance of every actor type — no multi-router-per-partner or multi-upstream scenario
-  configured (the underlying spec supports it; this configuration just doesn't use it yet).
-- `is_active: true` on all four, so the monitor's "Start All" launches everything.
+- The four actors above are the default single-instance-per-type topology this file describes.
+  A second, disabled-by-default router+upstream pair now also exists
+  (`config/router_2.json`/`config/upstream_2.json`, `is_active: false`) — a reversed-topology
+  partner speaking EBCDIC on its upstream leg only, sharing the same `downstream_host`/
+  `crypto_host`. Not covered by the diagram/tables above, which stay scoped to the default
+  `router_1` topology; see `build_router.md` for the `router_2`/EBCDIC details.
+- `is_active: true` on all four actors described here, so the monitor's "Start All" launches
+  everything in this file's scope (not `router_2`/`upstream_2`, which stay off by default).
 - Card data for `crypto_host`/`downstream_host` comes from `config/pans_defined.json` (4 PANs,
   each with its own `pin`/`pan_seq`/`imk_ac`/`cvk`/`pek`/`aav_key`) — shared by both actors since
   both need to recognize the same set of PANs.

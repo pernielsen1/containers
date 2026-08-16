@@ -1386,7 +1386,7 @@ similar spawn/wait-for-stats/upload/teardown scaffolding as `run_test.sh`, but c
 semicolon-delimited line to stdout** (all progress goes to stderr) so it's directly consumable by
 the top-level orchestrator, `routers/stress_test.sh`, which sweeps a list of TPS values across all
 three implementations in turn (they're mutually exclusive on host ports) and appends one CSV row
-per run to `routers/csv_results/stress_results.csv`. See `routers/the_routers.md` for the schema and the
+per run to `routers/csv_results/stress_results.csv`. See `routers/old/the_routers.md` for the schema and the
 cross-implementation comparison this is ultimately for.
 
 Unlike `run_test.sh`, `stress_run.sh` does **not** launch its own crypto_host. It spawns only

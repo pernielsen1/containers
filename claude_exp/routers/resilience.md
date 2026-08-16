@@ -47,7 +47,7 @@ Observed against a live run:
 ## Round 2 (2026-08-07) - stuck-transaction / session-teardown scenario
 
 Added `scenario_stuck_pending_on_downstream_teardown` to `router_py/test_resilience.py`, found
-while building the live-diagnosis tooling in `briefs/debug_trace_master.md`. Not the SIGSTOP
+while building the live-diagnosis tooling in `briefs/old/debug_trace_master.md`. Not the SIGSTOP
 pause/resume variant Round 1 flagged as deferred (that one simulates a silent hang and turned out
 racy to script deterministically - the router's own reconnect/liveness logic races with it in ways
 that are hard to pin down from outside). This is a plainer, deterministic case: hold a raw upstream

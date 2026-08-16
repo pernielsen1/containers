@@ -366,22 +366,47 @@ def api_actor_launch(name):
     return jsonify({"status": "ready" if ready else "launched, not yet ready"})
 
 
+def stop_actor(actor):
+    """Requests /stop, then waits for the actor to actually go unreachable (docker-exec'd actors
+    have no Popen handle to wait() on, so liveness is polled the same way is_running() does it)
+    before reaping any real Popen handle this monitor holds (upstream_host/downstream_host only -
+    see launch_actor()). Returns True once confirmed stopped, False if it's still answering after
+    the 10s deadline. Factored out of api_actor_stop so test_resilience.py can reuse it directly,
+    matching router_py's/router_java's monitor.main - see routers/to_do_java_cpp.md."""
+    try:
+        requests.post(f"http://localhost:{actor['command_port']}/stop",
+                     headers=auth_headers(actor), timeout=5)
+    except Exception:
+        pass
+
+    stopped = False
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        if not is_running(actor):
+            stopped = True
+            break
+        time.sleep(0.5)
+
+    with _processes_lock:
+        proc = _processes.get(actor["name"])
+    if proc is not None:
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        with _processes_lock:
+            if _processes.get(actor["name"]) is proc:
+                del _processes[actor["name"]]
+    return stopped
+
+
 @app.route("/api/actor/<name>/stop", methods=["POST"])
 def api_actor_stop(name):
     actor = get_actor(name)
     if not actor:
         return jsonify({"error": "unknown actor"}), 404
-    try:
-        requests.post(f"http://localhost:{actor['command_port']}/stop",
-                     headers=auth_headers(actor), timeout=5)
-    except Exception as e:
-        return jsonify({"error": f"stop request failed: {e}"}), 500
-
-    deadline = time.time() + 10
-    while time.time() < deadline:
-        if not is_running(actor):
-            return jsonify({"status": "stopped"})
-        time.sleep(0.5)
+    if stop_actor(actor):
+        return jsonify({"status": "stopped"})
     return jsonify({"status": "stop requested, still running"}), 202
 
 

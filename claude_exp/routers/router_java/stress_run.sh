@@ -70,12 +70,25 @@ UPSTREAM_CMD=8083
 # own stop_event and its process exits on its own. crypto_host is deliberately excluded here -
 # it's the shared container, not one of this run's own actors, and must stay up for the next
 # implementation's run.
+#
+# STARTED_CONTAINER (set below, right before the ./start.sh call) tracks whether *this run* is
+# the one that brought the router_java container up. Unlike router_cpp's stress_run.sh (which
+# always tears its container down via ./stop.sh - it never has a persistent-dev-container concept
+# to preserve), router_java's container is meant to double as a long-lived `docker exec` dev
+# environment, so a run that found it already up (e.g. mid interactive dev session) must leave it
+# running - only a run that started it itself for this perf sweep should stop it again. Missing
+# this distinction is exactly why the container used to be observed lingering after every soak/
+# stress run, unlike crypto_host (deliberately always-on) and router_cpp (always torn down).
+STARTED_CONTAINER=0
 cleanup() {
   if [ "$MANUAL" -eq 0 ]; then
     if [ "$ROUTER_HOST" = "127.0.0.1" ]; then
       for port in "$DS_CMD" "$ROUTER_CMD"; do
         curl -s -o /dev/null -X POST "http://127.0.0.1:${port}/stop" || true
       done
+      if [ "$STARTED_CONTAINER" -eq 1 ]; then
+        ./stop.sh >&2 || true
+      fi
     fi
     curl -s -o /dev/null -X POST "http://127.0.0.1:${UPSTREAM_CMD}/stop" || true
     [ -n "$REMOTE_SERVER" ] && ssh "$REMOTE_SERVER" "docker rm -f router_java 2>/dev/null" >&2 || true
@@ -107,6 +120,7 @@ if [ "$MANUAL" -eq 0 ]; then
     if [ "$(docker inspect -f '{{.State.Running}}' router_java 2>/dev/null || echo false)" != "true" ]; then
       echo "router_java container not running - starting it..." >&2
       ./start.sh >&2
+      STARTED_CONTAINER=1
     fi
 
     # Redirected to stderr for consistency with the other actors' launches below - any Maven output

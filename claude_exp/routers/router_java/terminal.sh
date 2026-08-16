@@ -5,7 +5,7 @@
 #   java -cp target/router_java.jar com.router.router.RouterMain --config config/router_1.json
 #   java -cp target/router_java.jar com.router.simulators.cryptohost.CryptoHostMain --config config/crypto_host.json
 # (there is no monitor.sh yet in this port - the monitor dashboard is a later iteration, see
-# briefs/java_container_router.md - so actors are started/stopped by hand or via run_test.sh
+# briefs/old/java_container_router.md - so actors are started/stopped by hand or via run_test.sh
 # for now, either from here or with `docker exec router_java ...` directly.)
 set -euo pipefail
 

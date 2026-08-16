@@ -12,14 +12,23 @@ IDE and this session closed, avoids that.
 needed. `number_of_minutes` defaults to 10; the cooldown between phases is always
 `number_of_minutes / 5`:
 
-1. **router_py (Python) @ 80 tps for `number_of_minutes` minutes.**
+1. **router_py (Python) @ 100 tps for `number_of_minutes` minutes.**
 2. **Idle cooldown** of `number_of_minutes / 5` minutes (just a sleep, nothing running).
 3. **router_java (Java) @ 100 tps for `number_of_minutes` minutes.**
 4. **Idle cooldown** of `number_of_minutes / 5` minutes.
 5. **router_cpp (C++) @ 100 tps for `number_of_minutes` minutes.**
 
-(router_java's 100 tps rate no longer needs a preceding 5-minute validation pass — confirmed
-clean, 0 errors, directly at 100 tps/600s.)
+(All three now run at 100 tps — router_py was bumped up from 80 tps on 2026-08-16 once a
+crypto_host TCP_NODELAY fix collapsed its p50 from ~90ms to ~5ms, closing most of the gap that
+made 80 tps the safe ceiling before. router_java's 100 tps rate no longer needs a preceding
+5-minute validation pass either — confirmed clean, 0 errors, directly at 100 tps/600s.)
+
+`router_java/stress_run.sh` (used by phase 3) used to leave the `router_java` Docker container
+running after every soak/stress run, unlike `router_cpp` which always tears its container down —
+fixed 2026-08-16 (it now only stops the container if that same run is the one that started it, so
+an interactive dev session with the container already up is left alone). Worth knowing if you're
+tracking down what's holding memory after a run: `crypto_host` staying up is expected, `router_java`
+lingering afterward is not, and now shouldn't happen.
 
 At the default 10 minutes, total runtime is ~32 minutes. Each phase prints a `RESULT: <line>` to
 stdout, and every run also appends a row to `csv_results/stress_results.csv`,

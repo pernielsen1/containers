@@ -5,15 +5,21 @@ Tracks fixes made in `router_py` (or the shared Python actors) that still need p
 
 ## Open
 
-- **Live-process resilience scenario suite (`router_py/test_resilience.py`-style) — not ported.**
-  Only *unit-level* Dispatcher tests exist for router_java/router_cpp
-  (`DispatcherResilienceTest.java`, `router_cpp/test/dispatcher_test.cpp`). router_py's live
-  scenario suite — spinning up real actor subprocesses and killing/reconnecting them mid-flight
-  (e.g. `scenario_stuck_pending_on_downstream_teardown`) — has no equivalent in either language
-  yet. **In progress as of 2026-08-09, resuming 2026-08-10** — see
-  `project_routers_monorepo.md` memory for full session recap and the environmental gotcha (both
-  languages' non-`upstream_host` actors only launch via `docker exec` into a pre-built container,
-  unlike router_py's plain host subprocesses) that the port needs to account for.
+- **Live-process resilience scenario suite — ported 2026-08-16, not yet live-verified.**
+  `router_java/test_resilience.py` and `router_cpp/test_resilience.py` now exist (both use
+  `docker exec` into a pre-built container for every actor except `upstream_host`/
+  `downstream_host`, unlike router_py's plain host subprocesses). router_java's port is a
+  near-direct copy - its monitor.main actor-lifecycle helpers and actor names
+  (`router_1`/`upstream_1`/etc.) match router_py's 1:1. router_cpp's needed real adaptation: its
+  actor names differ (`router_cpp-router`/`upstream_host`, not `router_1`/`upstream_1`), and its
+  `is_running()` takes the actor dict rather than a name string; also added a `stop_actor(actor)`
+  helper to `router_cpp/monitor/main.py` (factored out of its `/api/actor/<name>/stop` route),
+  which didn't have a reusable one like the other two languages. Both ports compile/import clean
+  and got a matching `test_resilience.sh` wrapper, but neither has actually been run live yet -
+  deferred because this host was at ~70MB free RAM when the ports were finished (router_java's
+  container up, router_cpp's not even built), and a live run kills/restarts real actor processes
+  repeatedly for ~4-5 minutes per language. Same OOM risk `run_soak.md` documents for soak runs -
+  **run both suites standalone (VS Code + Claude Code session closed) before trusting them.**
 
 ## Done
 
@@ -38,7 +44,7 @@ Tracks fixes made in `router_py` (or the shared Python actors) that still need p
   and each language's `CryptoHostMain`/`crypto_host_main.cpp` stub - `downstream_host` already had
   this in both languages).
 
-- **Round 5 debug/tracing initiative (`briefs/debug_trace_master.md`) — all 5 phases now ported to
+- **Round 5 debug/tracing initiative (`briefs/old/debug_trace_master.md`) — all 5 phases now ported to
   all three languages**, done 2026-08-09:
   - Phase 1 (`router_stan` correlation ID) — done 2026-08-08.
   - Session-teardown silent-pending-drop fix — done 2026-08-08.

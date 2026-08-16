@@ -55,6 +55,20 @@ class DownstreamConnection:
         return read_response(self._from_sock)
 
     def close(self) -> None:
+        # shutdown() before close() matters here: recv() (see above) runs on a separate
+        # ds-receiver thread and can be blocked in it at the exact moment teardown calls close().
+        # A bare close() releases the fd number immediately, racing a blocked recv() on that same
+        # fd against the kernel handing the number to a brand-new socket (e.g. this same session's
+        # own reconnect, or an unrelated connection) before the blocked syscall notices - the
+        # observed symptom was "Bad file descriptor" appearing right after a fresh "downstream
+        # connected" log line. shutdown(SHUT_RDWR) forces any in-progress blocking recv() on this
+        # exact socket to return immediately with a clean error tied to *this* connection, before
+        # the fd is released for reuse.
+        for sock in (self._to_sock, self._from_sock):
+            try:
+                sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
         for sock in (self._to_sock, self._from_sock):
             try:
                 sock.close()
