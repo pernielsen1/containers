@@ -61,6 +61,12 @@ class UpstreamHostSim:
 
         self._conn = None
         self._conn_lock = threading.Lock()
+        # Guards writes to self._conn: _send_loop (stress/functional sends) and _keepalive_loop
+        # (periodic 0800s) run on separate threads and both write to the same connection. Under
+        # plain TCP that silently worked; under TLS, two threads calling SSL_write() concurrently
+        # on the same SSLSocket corrupts the record stream (seen as a DECRYPTION_FAILED_OR_BAD_
+        # RECORD_MAC on the router's side, killing the connection almost immediately).
+        self._write_lock = threading.Lock()
 
         self._stan_counter = count(1)
 
@@ -82,6 +88,9 @@ class UpstreamHostSim:
         self.run_start_time = None
         self.run_end_time = None
         self.run_sent = 0
+        # Set for the duration of a warmup phase (see _run_with_warmup) - _receive_loop checks
+        # this to discard warmup responses instead of counting them into stress stats.
+        self._warmup_active = False
 
         self.cmd = CommandServer(cfg["command_port"], self.stats, self.stop_event)
         self._register_routes()
@@ -124,6 +133,12 @@ class UpstreamHostSim:
             # duration elapses - used by stress_run.sh, not by the functional run_test.sh.
             rate = request.args.get("rate", type=float)
             duration = request.args.get("duration", type=float)
+            # Real traffic sent at the same rate for warmup_s seconds before the measured clock
+            # starts - primes the same live connection/TLS session/thread pools the measured run
+            # will use (a throwaway separate run would just tear all of that back down), so the
+            # cold-start cost (TLS handshake, connection-pool fill, JIT warmup on router_java)
+            # lands in the discarded warmup window instead of the first measured bucket.
+            warmup_s = request.args.get("warmup_s", default=0.0, type=float)
 
             with self.pending_lock:
                 self.pending.clear()
@@ -140,7 +155,7 @@ class UpstreamHostSim:
             self.run_sent = 0
 
             threading.Thread(
-                target=self._send_loop, args=(conn, rows, rate, duration), daemon=True
+                target=self._run_with_warmup, args=(conn, rows, rate, duration, warmup_s), daemon=True
             ).start()
             return jsonify({"rows": len(rows)})
 
@@ -221,6 +236,40 @@ class UpstreamHostSim:
         with self._conn_lock:
             return self._conn
 
+    def _run_with_warmup(self, conn, rows, rate, duration, warmup_s) -> None:
+        if warmup_s:
+            self._warmup_active = True
+            self._send_loop(conn, rows, rate, warmup_s)
+            # Wait for in-flight warmup responses to actually land before clearing `pending`,
+            # rather than guessing a fixed grace window - a slow backend (e.g. router_java's
+            # per-thread crypto-client warmup: up to 16 dispatcher threads each doing a real TLS
+            # handshake to crypto_host, serialized through one gate) can leave far more than a
+            # couple seconds of warmup traffic outstanding. Clearing `pending` while those
+            # responses are still in flight makes them arrive as unmatched STANs once the
+            # measured phase starts - logged as "no pending request" and counted as errors
+            # instead of being silently absorbed by the warmup they belong to. Capped so a
+            # response that's never coming (dead connection, breaker stuck open) can't hang the
+            # run forever.
+            drain_deadline = time.monotonic() + max(warmup_s, 30.0)
+            while time.monotonic() < drain_deadline:
+                with self.pending_lock:
+                    if not self.pending:
+                        break
+                time.sleep(0.1)
+            self._warmup_active = False
+
+        with self.pending_lock:
+            self.pending.clear()
+        self.send_times.clear()
+        with self.results_lock:
+            self.results.clear()
+        self.latencies.clear()
+        self.latency_records.clear()
+        self.run_start_time = time.monotonic()
+        self.run_end_time = None
+        self.run_sent = 0
+        self._send_loop(conn, rows, rate, duration)
+
     def _send_loop(self, conn, rows, rate=None, duration=None) -> None:
         interval = (1.0 / rate) if rate else 0.02
         deadline = (time.monotonic() + duration) if duration else None
@@ -253,7 +302,8 @@ class UpstreamHostSim:
 
             try:
                 encoded, _ = iso8583.encode(msg, self.spec)
-                write_message(conn, bytes(encoded), self.framing)
+                with self._write_lock:
+                    write_message(conn, bytes(encoded), self.framing)
                 self.stats.record_sent()
                 self.run_sent += 1
             except OSError:
@@ -294,6 +344,9 @@ class UpstreamHostSim:
                 continue
 
             send_time = self.send_times.pop(stan, None)
+            if self._warmup_active:
+                continue  # warmup traffic: matched to keep pending/receive clean, not measured
+
             if send_time is not None and len(self.latencies) < self._MAX_LATENCY_SAMPLES:
                 recv_time = time.monotonic()
                 latency = recv_time - send_time
@@ -310,7 +363,8 @@ class UpstreamHostSim:
     def _keepalive_loop(self, conn, disc_evt: threading.Event) -> None:
         while not disc_evt.is_set() and not self.stop_event.is_set():
             try:
-                write_message(conn, build_0800(self.spec), self.framing)
+                with self._write_lock:
+                    write_message(conn, build_0800(self.spec), self.framing)
                 self.stats.record_sent()
             except OSError:
                 return

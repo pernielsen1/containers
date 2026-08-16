@@ -67,6 +67,10 @@ public final class RouterSession {
         MessageFactory<IsoMessage> upstreamFactory = cfg.upstreamIsoEncoding() != null
                 ? IsoUtils.loadFactory(cfg.isoSpec(), cfg.upstreamIsoEncoding())
                 : factory;
+        // Constructing CryptoClient here validates ssl_active's cert/key/ca paths eagerly (fails
+        // fast on a bad config) but does not warm up any dispatcher worker thread's own client -
+        // each worker/response-worker thread warms its own on first entering its loop, see
+        // Dispatcher.workerLoop/responseWorkerLoop and CryptoClient.warmup()'s own doc.
         CryptoClient crypto = new CryptoClient(cfg.crypto(), cfg.cryptoBreakerThreshold(), cfg.cryptoBreakerCooldownSeconds());
         StopEvent reconnectEvent = new StopEvent();
         Dispatcher dispatcher = new Dispatcher(cfg, downstream, crypto, factory, stats, reconnectEvent, upstreamFactory);

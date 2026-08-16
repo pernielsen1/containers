@@ -11,7 +11,7 @@ RUN if [ -f /tmp/ccr-optional/ca-bundle.crt ]; then \
     fi
 ENV NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/build-proxy-ca.crt
 
-RUN apt-get update && apt-get install -y openjdk-21-jdk maven nodejs npm curl python3-pip \
+RUN apt-get update && apt-get install -y openjdk-25-jdk maven nodejs npm curl python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # Needed only so RouterFullStackTest.java (mvn test, run via `docker exec router_java mvn test`) can

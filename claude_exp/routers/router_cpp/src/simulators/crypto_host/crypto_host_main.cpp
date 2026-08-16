@@ -74,6 +74,11 @@ int main(int argc, char** argv) {
             plugin_server_ptr = std::make_unique<httplib::Server>();
         }
         httplib::Server& plugin_server = *plugin_server_ptr;
+        // cpp-httplib defaults keep_alive_max_count to 5: with SSL active, every persistent
+        // connection recycling past that count forces a fresh (RSA) TLS handshake, which under
+        // concurrent load saturates the server and surfaces as "fatal alert: internal_error" on
+        // the client side (see crypto_host/src/simulators/crypto_host/crypto_host_main.cpp).
+        plugin_server.set_keep_alive_max_count(10000);
         plugin_server.Post(
             "/sys/v1/plugins/([^/]+)",
             [&](const httplib::Request& req, httplib::Response& res) {

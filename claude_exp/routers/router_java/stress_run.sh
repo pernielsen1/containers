@@ -17,7 +17,12 @@
 # routers/crypto_host/start.sh) - it is not launched or torn down here.
 #
 # Usage:
-#   ./stress_run.sh [--manual] <tps> <duration_s> <csv_file>
+#   ./stress_run.sh [--manual] <tps> <duration_s> <csv_file> [warmup_s]
+#
+# warmup_s (default 10): upstream_host sends real traffic at the same rate for this many seconds
+# over the same live connection before the measured clock starts, so the first measured bucket
+# isn't distorted by one-time cold-start cost (TLS handshake, connection-pool fill, JIT warmup on
+# router_java) - see upstream_host/main.py's _run_with_warmup. Pass 0 to disable.
 set -euo pipefail
 
 MANUAL=0
@@ -29,8 +34,9 @@ fi
 TPS="${1:-}"
 DURATION="${2:-}"
 CSV_FILE="${3:-}"
+WARMUP_S="${4:-10}"
 if [ -z "$TPS" ] || [ -z "$DURATION" ] || [ -z "$CSV_FILE" ]; then
-  echo "Usage: $0 [--manual] <tps> <duration_s> <csv_file>" >&2
+  echo "Usage: $0 [--manual] <tps> <duration_s> <csv_file> [warmup_s]" >&2
   exit 1
 fi
 if [ ! -f "$CSV_FILE" ]; then
@@ -41,6 +47,13 @@ CSV_FILE="$(cd "$(dirname "$CSV_FILE")" && pwd)/$(basename "$CSV_FILE")"
 
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_ROOT"
+
+# Per-run timestamp, used both to tag the actor log files below and (further down) the
+# slow_responses/latency_buckets CSV rows - captured at launch rather than at the end so it
+# actually lines up with the log files' contents if a run dies partway through.
+RUN_TS="$(date -Iseconds)"
+LOG_DIR="$PROJECT_ROOT/logs"
+mkdir -p "$LOG_DIR"
 
 ROUTER_HOST="${ROUTER_HOST:-127.0.0.1}"
 REMOTE_SERVER=""
@@ -103,11 +116,17 @@ if [ "$MANUAL" -eq 0 ]; then
     docker exec router_java mvn -q -DskipTests package >&2
 
     echo "Launching downstream_host (shared routers/downstream_host, host-side not docker exec)..." >&2
-    python3 "$PROJECT_ROOT/../downstream_host/main.py" --config config/downstream_host_perf.json >&2 &
+    python3 "$PROJECT_ROOT/../downstream_host/main.py" --config config/downstream_host_perf.json \
+      > >(tee -a "$LOG_DIR/downstream_host_${RUN_TS}.log" >&2) 2>&1 &
 
+    # No longer `docker exec -d` (detached) - that discards the process's output entirely (not
+    # even reachable via `docker logs`, which only captures the container's PID 1), which left
+    # nothing to diagnose a run that died partway through. Backgrounding the plain `docker exec`
+    # at the shell level instead keeps the script non-blocking while making the output real.
     echo "Launching router_1 (perf config -> shared crypto_host)..." >&2
-    docker exec -d router_java java -cp target/router_java.jar com.router.router.RouterMain \
-      --config config/router_1_perf.json >&2
+    docker exec router_java java -cp target/router_java.jar com.router.router.RouterMain \
+      --config config/router_1_perf.json \
+      > >(tee -a "$LOG_DIR/router_1_${RUN_TS}.log" >&2) 2>&1 &
   else
     echo "Starting router_java on $ROUTER_HOST (perf config -> shared crypto_host)..." >&2
     ssh "$REMOTE_SERVER" bash -s >&2 <<'SSH_EOF'
@@ -117,7 +136,8 @@ SSH_EOF
   fi
 
   echo "Launching upstream_1 (shared routers/upstream_host, host-side not docker exec)..." >&2
-  python3 "$PROJECT_ROOT/../upstream_host/main.py" --config "$PROJECT_ROOT/../upstream_host/config_perf.json" --router-host "$ROUTER_HOST" >&2 &
+  python3 "$PROJECT_ROOT/../upstream_host/main.py" --config "$PROJECT_ROOT/../upstream_host/config_perf.json" --router-host "$ROUTER_HOST" \
+    > >(tee -a "$LOG_DIR/upstream_1_${RUN_TS}.log" >&2) 2>&1 &
 else
   echo "Manual mode: assuming actors are already running." >&2
 fi
@@ -130,10 +150,10 @@ wait_for_stats "$UPSTREAM_CMD" "upstream_1" "127.0.0.1"
 echo "Uploading CSV: $CSV_FILE" >&2
 curl -s -f -X POST "http://127.0.0.1:${UPSTREAM_CMD}/upload" -F "file=@${CSV_FILE}" >/dev/null
 
-echo "Starting stress send (tps=${TPS} duration=${DURATION}s)..." >&2
+echo "Starting stress send (tps=${TPS} duration=${DURATION}s warmup_s=${WARMUP_S})..." >&2
 START_OK=0
 for _ in $(seq 1 15); do
-  if curl -s -f "http://127.0.0.1:${UPSTREAM_CMD}/start?rate=${TPS}&duration=${DURATION}" >/dev/null; then
+  if curl -s -f "http://127.0.0.1:${UPSTREAM_CMD}/start?rate=${TPS}&duration=${DURATION}&warmup_s=${WARMUP_S}" >/dev/null; then
     START_OK=1
     break
   fi
@@ -144,9 +164,11 @@ if [ "$START_OK" -ne 1 ]; then
   exit 1
 fi
 
-# Give the send loop the full duration plus a grace window to let in-flight responses land.
+# Give the warmup window, the send loop's full duration, and a grace window to let in-flight
+# responses land - warmup_s + 2s internal post-warmup drain (see _run_with_warmup) happen before
+# the measured clock even starts.
 GRACE=5
-sleep "$(python3 -c "print(${DURATION} + ${GRACE})")"
+sleep "$(python3 -c "print(${WARMUP_S} + 2 + ${DURATION} + ${GRACE})")"
 
 echo "Fetching /stress_stats..." >&2
 curl -s -f "http://127.0.0.1:${UPSTREAM_CMD}/stress_stats" | python3 -c "
@@ -165,7 +187,6 @@ if [ ! -f "$SLOW_CSV" ]; then
   echo "timestamp;implementation;target_tps;duration_s;rank;sent_offset_s;latency_ms" > "$SLOW_CSV"
 fi
 echo "Fetching /slow_responses..." >&2
-RUN_TS="$(date -Iseconds)"
 curl -s -f "http://127.0.0.1:${UPSTREAM_CMD}/slow_responses?n=10" | python3 -c "
 import json, sys
 rows = json.load(sys.stdin)

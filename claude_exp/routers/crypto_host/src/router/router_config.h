@@ -33,6 +33,11 @@ struct CryptoConfig {
     int command_port = 8082;   // crypto_host simulator's own CommandServer port
     std::string plugin_id;
     std::string bearer_token;
+
+    bool ssl_active = false;
+    std::string certfile;
+    std::string keyfile;
+    std::string cafile;
 };
 
 struct RouterConfig {

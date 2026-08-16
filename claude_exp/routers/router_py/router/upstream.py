@@ -30,13 +30,21 @@ class UpstreamServer:
             except OSError:
                 return None
             if self.cfg.ssl_active:
-                conn = wrap_server_socket(
-                    conn,
-                    ssl_active=True,
-                    certfile=self.cfg.certfile,
-                    keyfile=self.cfg.keyfile,
-                    cafile=self.cfg.cafile,
-                )
+                try:
+                    conn = wrap_server_socket(
+                        conn,
+                        ssl_active=True,
+                        certfile=self.cfg.certfile,
+                        keyfile=self.cfg.keyfile,
+                        cafile=self.cfg.cafile,
+                    )
+                except OSError as e:
+                    # A single bad handshake (stray probe, client reconnecting too fast, ...)
+                    # must not kill this accept loop - that would permanently strand the router
+                    # with no way to ever accept an upstream connection again.
+                    logger.warning("upstream handshake failed from %s: %s", addr, e)
+                    conn.close()
+                    continue
             conn.settimeout(None)
             logger.info("upstream connected from %s", addr)
             return conn, addr, threading.Lock()

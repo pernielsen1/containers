@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds (if needed) and starts the router_java dev container: Java 21 + Maven + Node/Claude Code CLI,
+# Builds (if needed) and starts the router_java dev container: Java 25 + Maven + Node/Claude Code CLI,
 # with the project directory bind-mounted so editing happens on the host (VSCode etc.) while
 # build/run/test happens inside the container via `docker exec`.
 set -euo pipefail

@@ -126,6 +126,15 @@ class DispatcherResilienceTest {
         public String validate(String endpoint, String pan, String f47, String routerStan) {
             return "";
         }
+
+        // CryptoClient.warmup() now calls a private validate() overload directly (for a longer
+        // one-time timeout, see CryptoClient's own doc) rather than the overridable 4-arg
+        // validate() above, so it would otherwise bypass this no-op double and attempt a real
+        // network call to the fake host:port passed to the constructor. This double never had a
+        // real cold start to pay for, so it just does nothing.
+        @Override
+        public void warmup() {
+        }
     }
 
     @Test

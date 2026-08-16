@@ -12,7 +12,12 @@
 # routers/crypto_host/start.sh) - it is not launched or torn down here.
 #
 # Usage:
-#   ./stress_run.sh [--manual] <tps> <duration_s> <csv_file>
+#   ./stress_run.sh [--manual] <tps> <duration_s> <csv_file> [warmup_s]
+#
+# warmup_s (default 10): upstream_host sends real traffic at the same rate for this many seconds
+# over the same live connection before the measured clock starts, so the first measured bucket
+# isn't distorted by one-time cold-start cost (TLS handshake, connection-pool fill, JIT warmup on
+# router_java) - see upstream_host/main.py's _run_with_warmup. Pass 0 to disable.
 set -euo pipefail
 
 MANUAL=0
@@ -24,8 +29,9 @@ fi
 TPS="${1:-}"
 DURATION="${2:-}"
 CSV_FILE="${3:-}"
+WARMUP_S="${4:-10}"
 if [ -z "$TPS" ] || [ -z "$DURATION" ] || [ -z "$CSV_FILE" ]; then
-  echo "Usage: $0 [--manual] <tps> <duration_s> <csv_file>" >&2
+  echo "Usage: $0 [--manual] <tps> <duration_s> <csv_file> [warmup_s]" >&2
   exit 1
 fi
 if [ ! -f "$CSV_FILE" ]; then
@@ -110,12 +116,12 @@ wait_for_stats "$UPSTREAM_CMD" "upstream_1" "127.0.0.1"
 echo "Uploading CSV: $CSV_FILE" >&2
 curl -s -f -X POST "http://127.0.0.1:${UPSTREAM_CMD}/upload" -F "file=@${CSV_FILE}" >/dev/null
 
-echo "Starting stress send (tps=${TPS} duration=${DURATION}s)..." >&2
+echo "Starting stress send (tps=${TPS} duration=${DURATION}s warmup_s=${WARMUP_S})..." >&2
 # /start returns 503 until upstream_1 finishes its TCP handshake with the router - that connect
 # race isn't covered by the /stats readiness checks above, so retry briefly.
 START_OK=0
 for _ in $(seq 1 15); do
-  if curl -s -f "http://127.0.0.1:${UPSTREAM_CMD}/start?rate=${TPS}&duration=${DURATION}" >/dev/null; then
+  if curl -s -f "http://127.0.0.1:${UPSTREAM_CMD}/start?rate=${TPS}&duration=${DURATION}&warmup_s=${WARMUP_S}" >/dev/null; then
     START_OK=1
     break
   fi
@@ -126,9 +132,11 @@ if [ "$START_OK" -ne 1 ]; then
   exit 1
 fi
 
-# Give the send loop the full duration plus a grace window to let in-flight responses land.
+# Give the warmup window, the send loop's full duration, and a grace window to let in-flight
+# responses land - warmup_s + 2s internal post-warmup drain (see _run_with_warmup) happen before
+# the measured clock even starts.
 GRACE=5
-sleep "$(python3 -c "print(${DURATION} + ${GRACE})")"
+sleep "$(python3 -c "print(${WARMUP_S} + 2 + ${DURATION} + ${GRACE})")"
 
 echo "Fetching /stress_stats..." >&2
 curl -s -f "http://127.0.0.1:${UPSTREAM_CMD}/stress_stats" | python3 -c "

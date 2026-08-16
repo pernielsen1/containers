@@ -133,6 +133,7 @@ public final class Dispatcher {
     }
 
     private void workerLoop() {
+        crypto.warmup();
         while (true) {
             RoutedMessage msg;
             try {
@@ -160,6 +161,7 @@ public final class Dispatcher {
     }
 
     private void responseWorkerLoop() {
+        crypto.warmup();
         while (true) {
             ResponseItem item;
             try {

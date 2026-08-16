@@ -51,7 +51,7 @@ access to any other project or directory is required or assumed.
 ```
 project/
 ├── pom.xml                       # single Maven module, shaded jar
-├── Dockerfile                    # Java 21 + Maven + Node/Claude Code CLI
+├── Dockerfile                    # Java 25 + Maven + Node/Claude Code CLI
 ├── start.sh / stop.sh            # container lifecycle (bind-mount + docker exec, no devcontainer.json)
 ├── dockerstart.sh                # ensures the Docker daemon itself is running
 ├── terminal.sh                   # interactive shell into the running container
@@ -106,7 +106,7 @@ second instance) scenario — deferred, router_py is the only implementation wit
 
 ```xml
 <properties>
-  <maven.compiler.release>21</maven.compiler.release>
+  <maven.compiler.release>25</maven.compiler.release>
   <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 </properties>
 <dependencies>
@@ -672,6 +672,96 @@ Callers only overwrite their working `f47` when the return value is non-empty �
 (breaker open, HTTP error, bad auth, unknown plugin_id, malformed response) leaves the original
 `f47` unchanged, so a down or misconfigured crypto host degrades to "PIN/ARQC/CVV2/AAV checks
 silently skipped," never to a crash.
+
+**Two stacked SSL bugs trip the breaker on every SSL run — found and fixed 2026-08-15.** Both
+needed fixing together; fixing only the first (which looked sufficient in isolation) still left the
+breaker tripping under the real router's concurrency.
+
+*Bug 1 — JVM TLS cold start.* Building the custom `SSLContext`/`HttpClient`
+(`SslUtils.buildClientContext` + `HttpClient.newBuilder().sslContext(...).build()`) and making the
+*first* HTTPS request through it are both genuinely slow the first time any JVM process does it —
+measured in isolation, on an otherwise idle host: ~0.5-1.4s just to build the client, then
+~1-2s for a first request. This isn't crypto_host being slow - a genuinely simultaneous 8-way burst
+against crypto_host itself (Python `threading.Barrier`, not just backgrounded processes) completed
+in ~60-80ms per request, 5 rounds straight, no issue. It's pure JVM-side class-loading/JIT cold
+start, paid once per `HttpClient` instance the first time it's used.
+
+*Bug 2 — concurrent construction/first-use of independent `HttpClient` instances is itself unsafe.*
+Isolated outside the router entirely: 8 threads, each given its own fully independent
+`SSLContext`/`HttpClient` (no shared state at all) but all built and first-used *concurrently*,
+reliably fails 1-2 of the 8 with `javax.net.ssl.SSLException: (internal_error) Received fatal alert:
+internal_error` - reproduced whether the `SSLContext` was shared or not, so the trigger is
+concurrent `HttpClient` construction/first-use itself, not certificate/trust-manager sharing. The
+same 8 clients built *sequentially* (a plain for-loop) and then used concurrently afterward: 0
+failures across every run. This rules out crypto_host/OpenSSL entirely (also confirmed separately:
+a real simultaneous burst against crypto_host from Python succeeds every time) and points at a
+genuine `java.net.http.HttpClient` concurrency bug specific to standing up several brand-new mTLS
+connections at once.
+
+Originally, `CryptoClient` held one `HttpClient` **shared** across all 8 dispatcher worker threads
+(`worker_threads: 8`) - exactly the trigger for Bug 2, on every single router_java SSL run, since
+`Dispatcher.start()` launches all worker/response-worker threads together and they immediately
+start calling `crypto.validate()` concurrently. The circuit breaker (`breakerThreshold` defaults to
+5) sees a burst of near-simultaneous failures (Bug 1's slow first request and/or Bug 2's outright
+alert) and opens before the JVM/connections ever stabilize - silently skipping crypto validation
+(`f47` left unenriched) for whichever transactions land in that opening window, every run.
+
+**Fix (both bugs together):**
+- `CryptoClient` now holds a `ThreadLocal<HttpClient>` (`clientTL`) instead of one shared client -
+  each dispatcher worker/response-worker thread gets its own fully independent `HttpClient`/
+  `SSLContext`, eliminating Bug 2 (concurrent *use* of already-built, independent clients is fine;
+  only concurrent *construction/first-use* was ever unsafe). The constructor still eagerly builds
+  and discards one `SSLContext` purely to fail fast on a bad cert/key/ca path at startup, same as
+  before.
+- `CryptoClient.warmup()` - a synchronous dummy `validate("validate_0100", "0", "", "warmup")` -
+  is now called once from *inside* `Dispatcher.workerLoop`/`responseWorkerLoop`, as the first thing
+  each thread does, so it warms and first-uses *that thread's own* `ThreadLocal` client (calling it
+  from `RouterSession.connect()`, on a different thread, would only warm a client nobody else uses -
+  tried this first, looked right, didn't fix anything, because it warmed the wrong thread).
+- `CryptoClient` also gets a `Semaphore(1)` (`warmupGate`) guarding only the `warmup()` call - this
+  is Bug 2's actual fix: `ThreadLocal` alone still lets every worker thread race to build+first-use
+  its (now independent) client concurrently at startup, reproducing Bug 2 again (confirmed live -
+  switching to `ThreadLocal` alone still failed every worker's `warmup()` call itself, all at once,
+  with the exact same alert). The gate serializes that one-time moment per thread without touching
+  anything else. **First attempt, reverted**: making `Dispatcher.start()` launch worker/response-
+  worker threads one at a time - starting a thread, then blocking on a per-thread `CountDownLatch`
+  until its warm-up finished, before starting the next - also fixed the alert, but delayed
+  `Dispatcher.start()` (and therefore the router's upstream-accept readiness, which starts *after*
+  it in `RouterSession.runUntilDisconnect()`) by roughly `(workerThreads + responseWorkerThreads) *
+  ~1-1.5s` - long enough to blow past `stress_run.sh`'s own "wait for upstream_1 to connect"
+  timeout, confirmed live (`Timed out waiting for upstream_1 to connect to the router`). The
+  semaphore gets the same serialization without blocking the launcher: each worker thread still
+  self-serializes its own warm-up moment against the others, but `Dispatcher.start()` returns
+  immediately as before, so router readiness is unaffected - only real crypto traffic on each
+  worker is delayed a few seconds behind that worker's own warm-up, which is the intended tradeoff.
+- The one-time warm-up call also gets its own longer timeout (`WARMUP_TIMEOUT`, 20s vs. the
+  standard `REQUEST_TIMEOUT`, 5s) - `validate(String,String,String,String)` (public, still the
+  method test doubles like `DispatcherResilienceTest`'s `NoOpCrypto` override) now delegates to a
+  private `validate(..., Duration timeout)` overload; `warmup()` calls that private overload
+  directly with `WARMUP_TIMEOUT` instead of the public one. **Gotcha this caused**: `warmup()`
+  bypassing the public, overridable method meant `NoOpCrypto` (whose `validate()` override returns
+  `""` with zero network I/O) no longer intercepted the warm-up call - `warmup()` was silently
+  attempting a real connection to `NoOpCrypto`'s fake `localhost:1` in every Dispatcher test, only
+  caught by an unrelated-looking timing failure (`DispatcherResilienceTest.stanCollisionIsLogged`,
+  a 300ms sleep no longer enough). Fixed by also overriding `warmup()` itself in `NoOpCrypto` as a
+  true no-op, rather than trying to route the longer timeout back through the overridable method.
+
+**Status: Bug 2 (data corruption) is fixed and verified - zero `internal_error` alerts across every
+run since the `ThreadLocal` fix, including all the runs below.** A *different*, not fully understood
+problem remains open, discovered only once testing with longer, more realistic run durations:
+`HTTP connect timed out` warnings that don't stay confined to the one-time warm-up window - a 30s
+duration / 60s warmup run kept hitting them roughly every 5s **throughout the entire run**, with
+surviving transactions showing p50 latency around 30s. This is not a cold-start signature anymore.
+`crypto_host` itself was idle between runs (0.02% CPU, 0 open connections) each time it was
+checked, which doesn't confirm the server side, but doesn't clearly indict it either. Two
+untested hypotheses, not distinguished: (a) a per-thread `HttpClient`'s connection pool getting
+into a bad state after one slow/failed connect and never recovering for that thread's remaining
+requests (nothing currently rebuilds a `ThreadLocal` client once created), or (b) genuine
+contention on this specific WSL2 dev host after several hours of continuous testing in one session,
+impossible to cleanly separate from a real bug without a fresh host state. **Deliberately left
+open** (user's call, 2026-08-16) rather than continuing to redesign against an increasingly
+uncertain signal - next session should retest on a quiet/fresh host before assuming this is a real
+remaining bug in the fix above.
 
 **Response envelope — unverified assumption, flag before pointing at a real Fortanix tenant.**
 Fortanix's published schema for this endpoint defines the 2XX response body as `PluginOutput`:
@@ -1266,7 +1356,7 @@ or reversal in this simulation.
 
 ## Container
 
-`Dockerfile`: `mcr.microsoft.com/devcontainers/base:ubuntu` + `openjdk-21-jdk` + `maven` +
+`Dockerfile`: `mcr.microsoft.com/devcontainers/base:ubuntu` + `openjdk-25-jdk` + `maven` +
 `nodejs`/`npm` (+ `npm install -g @anthropic-ai/claude-code`, matching this repo family's existing
 container convention so Claude Code itself can also run from inside the container — omit this line
 if that convention doesn't apply in the target environment). `WORKDIR /workspace`.

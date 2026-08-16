@@ -40,6 +40,10 @@ add_library(crypto_host_shared STATIC
 target_include_directories(crypto_host_shared PUBLIC src)
 target_link_libraries(crypto_host_shared PUBLIC httplib nlohmann_json::nlohmann_json
                                                  OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
+# PUBLIC: cpp-httplib (header-only) gates its SSLClient/SSLServer classes behind this macro,
+# checked at whatever TU first includes httplib.h - every target linking crypto_host_shared needs
+# it too, not just this library's own .cpp files (see router_cpp/CMakeLists.txt, same pattern).
+target_compile_definitions(crypto_host_shared PUBLIC CPPHTTPLIB_OPENSSL_SUPPORT)
 
 add_executable(crypto_host src/simulators/crypto_host/crypto_host_main.cpp)
 target_include_directories(crypto_host PRIVATE src)
