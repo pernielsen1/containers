@@ -16,6 +16,7 @@ import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -94,14 +95,27 @@ public final class Dispatcher {
     }
 
     public void start() {
+        // Blocks until every worker/response-worker thread has completed its own
+        // crypto.warmup() (see CryptoClient's warmupGate doc) before start() returns. Previously
+        // start() returned immediately, so early-finishing threads could already be sending real
+        // traffic through their now-hot client while other threads were still mid warmup-gate
+        // queue doing their own first-ever TLS handshake - two genuinely independent HttpClients,
+        // but concurrent all the same, which is exactly the java.net.http.HttpClient bug
+        // warmupGate exists to avoid ("fatal alert: internal_error", reproduced against this
+        // router's own soak run: a burst of ~9 failures ~30s after startup, breaker never fully
+        // recovering). Making start() wait here closes that gap at the cost of delaying
+        // upstream-accept readiness by roughly (workerThreads + responseWorkerThreads) * the
+        // per-thread warmup cost - see stress_run.sh's correspondingly longer /start retry
+        // window.
+        CountDownLatch warmupLatch = new CountDownLatch(cfg.workerThreads() + cfg.responseWorkerThreads());
         for (int i = 0; i < cfg.workerThreads(); i++) {
-            Thread t = new Thread(this::workerLoop, "worker-" + i);
+            Thread t = new Thread(() -> workerLoop(warmupLatch), "worker-" + i);
             t.setDaemon(true);
             t.start();
             workerThreads.add(t);
         }
         for (int i = 0; i < cfg.responseWorkerThreads(); i++) {
-            Thread t = new Thread(this::responseWorkerLoop, "response-worker-" + i);
+            Thread t = new Thread(() -> responseWorkerLoop(warmupLatch), "response-worker-" + i);
             t.setDaemon(true);
             t.start();
             responseWorkerThreads.add(t);
@@ -109,6 +123,11 @@ public final class Dispatcher {
         reaperThread = new Thread(this::pendingReaper, "pending-reaper");
         reaperThread.setDaemon(true);
         reaperThread.start();
+        try {
+            warmupLatch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /** Blocking enqueue (backpressure). */
@@ -132,8 +151,9 @@ public final class Dispatcher {
                 + " (response_queue_depth=" + responseQueue.size() + ")");
     }
 
-    private void workerLoop() {
+    private void workerLoop(CountDownLatch warmupLatch) {
         crypto.warmup();
+        warmupLatch.countDown();
         while (true) {
             RoutedMessage msg;
             try {
@@ -160,8 +180,9 @@ public final class Dispatcher {
         }
     }
 
-    private void responseWorkerLoop() {
+    private void responseWorkerLoop(CountDownLatch warmupLatch) {
         crypto.warmup();
+        warmupLatch.countDown();
         while (true) {
             ResponseItem item;
             try {

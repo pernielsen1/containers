@@ -115,7 +115,26 @@ int main(int argc, char** argv) {
         // thread pool to 32 was tried and made every tps level *worse* (including regressing an
         // already-passing 100 tps run to p50=5070ms) - this host is CPU-constrained, and more
         // server threads than cores oversubscribes it rather than adding real capacity. Left at
-        // the cpp-httplib default (max(8, hardware_concurrency()-1)).
+        // the cpp-httplib default (max(8, hardware_concurrency()-1)) at the time.
+        //
+        // NOTE (2026-08-16): that earlier measurement predates set_keep_alive_max_count(10000)
+        // below (was still the cpp-httplib default of 5), so every one of those 32 threads was
+        // regularly doing real CPU-bound RSA handshake work - genuine oversubscription on this
+        // 8-core host. cpp-httplib is thread-per-connection: a thread stays pinned to its
+        // connection for the connection's whole lifetime, including idle time between keep-alive
+        // requests, not just while actively handling a request. With keep-alive connections now
+        // long-lived, router_java's Dispatcher alone holds up to workerThreads +
+        // responseWorkerThreads = 16 of them open simultaneously - one router_stan's crypto call
+        // routed to the 9th+ concurrently-open connection then has to wait for one of the
+        // hardware_concurrency()-1 = 7 (i.e. 8, the max(8,...) floor) pool threads to free up,
+        // which under all-10000-keep-alive it never does, surfacing as connect timeouts / TLS
+        // "internal_error" (reproduced directly: 16 same-JVM threads holding open connections,
+        // exactly 8 succeed and 8 hang until timeout, matching this host's core count exactly).
+        // Sized to comfortably clear that 16-connection worst case with headroom rather than
+        // matched 1:1 - these extra threads sit blocked on an idle keep-alive read almost all the
+        // time now (one-time-per-connection handshake cost, not per-request), so this does not
+        // reintroduce the CPU oversubscription the 07-31 measurement found; it isn't 32 CPU-bound
+        // threads, it's a handful of active threads plus many idle ones.
         std::unique_ptr<httplib::Server> plugin_server_ptr;
         if (cfg.crypto.ssl_active) {
             plugin_server_ptr = std::make_unique<httplib::SSLServer>(
@@ -132,6 +151,11 @@ int main(int argc, char** argv) {
         // the client side. Raised well past any single run's request count per connection so
         // handshakes happen once per connection, not once per 5 requests.
         plugin_server.set_keep_alive_max_count(10000);
+        // Must accompany the keep_alive bump above, not stand alone - see this block's own NOTE
+        // (2026-08-16) above the plugin_server_ptr construction for why. 24 clears router_java's
+        // 16-connection worst case (workerThreads + responseWorkerThreads) with headroom for the
+        // command-server thread and any other concurrent client, without matching it 1:1.
+        plugin_server.new_task_queue = [] { return new httplib::ThreadPool(24); };
         plugin_server.Post(
             "/sys/v1/plugins/([^/]+)",
             [&](const httplib::Request& req, httplib::Response& res) {

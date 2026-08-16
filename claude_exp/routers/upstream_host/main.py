@@ -407,7 +407,18 @@ class UpstreamHostSim:
         retry_seconds = self.cfg.get("retry_seconds", 5)
         while not self.stop_event.is_set():
             try:
-                sock = socket.create_connection((router_cfg["host"], router_cfg["port"]), timeout=5)
+                # This timeout stays set on the socket (not just for the raw connect - see
+                # settimeout(None) below) through wrap_client_socket's TLS handshake too, so it
+                # doubles as the handshake's deadline. router_java's Dispatcher.start() now blocks
+                # until every worker/response-worker thread finishes its own crypto_host warmup
+                # call before its upstream socket starts accept()ing (see Dispatcher.java) -
+                # worst case ~3.5s/thread * 16 threads = ~56s before a connecting client's TLS
+                # handshake even begins being serviced. 60s covers that with a little headroom;
+                # the old 5s reliably lost this race once that startup blocking landed (TCP
+                # connect succeeds into the accept backlog, but the handshake read then times out
+                # before router_java's delayed accept() gets to it, and the client backs off and
+                # retries into the same losing race next attempt).
+                sock = socket.create_connection((router_cfg["host"], router_cfg["port"]), timeout=60)
                 sock = wrap_client_socket(
                     sock,
                     ssl_active=self.cfg.get("ssl_active", False),
@@ -416,7 +427,7 @@ class UpstreamHostSim:
                     cafile=self.cfg.get("cafile"),
                     server_hostname=router_cfg["host"],
                 )
-                sock.settimeout(None)  # switch to blocking; timeout=5 above is connect-only
+                sock.settimeout(None)  # switch to blocking; timeout above covered connect+handshake only
             except OSError:
                 self.stop_event.wait(retry_seconds)
                 continue

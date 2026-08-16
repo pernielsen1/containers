@@ -116,9 +116,13 @@ with open('${CSV_FILE}', newline='', encoding='utf-8-sig') as f:
 
 echo "Starting send (${EXPECTED_ROWS} rows)..."
 # /start returns 503 until upstream_1 finishes its TCP handshake with the router - that connect
-# race isn't covered by the /stats readiness checks above, so retry briefly.
+# race isn't covered by the /stats readiness checks above, so retry briefly. Dispatcher.start()
+# now blocks until every worker/response-worker thread finishes its own crypto.warmup() before
+# the router's upstream socket starts accepting (see Dispatcher.java and stress_run.sh's matching
+# comment) - worst case ~3.5s/thread * 16 threads (worker_threads=8 + response default 8) here
+# too, since router_1.json also runs ssl_active mTLS end to end.
 START_OK=0
-for _ in $(seq 1 15); do
+for _ in $(seq 1 75); do
   if curl -s -f "http://127.0.0.1:${UPSTREAM_CMD}/start" >/dev/null; then
     START_OK=1
     break

@@ -151,8 +151,15 @@ echo "Uploading CSV: $CSV_FILE" >&2
 curl -s -f -X POST "http://127.0.0.1:${UPSTREAM_CMD}/upload" -F "file=@${CSV_FILE}" >/dev/null
 
 echo "Starting stress send (tps=${TPS} duration=${DURATION}s warmup_s=${WARMUP_S})..." >&2
+# Dispatcher.start() now blocks until every worker/response-worker thread has completed its own
+# crypto.warmup() (see Dispatcher.java) before the router's upstream socket starts accepting -
+# closing the concurrent-first-TLS-handshake race that used to trip crypto_host's breaker early
+# in a perf run. Worst-case measured per-thread warmup cost is ~3.5s (client build + first
+# request); with worker_threads=8 and response_worker_threads defaulting to 8, that's up to ~56s
+# before upstream_1 can connect at all - 75 one-second attempts gives that comfortable headroom
+# (was 15, sized for the pre-warmup-blocking startup path).
 START_OK=0
-for _ in $(seq 1 15); do
+for _ in $(seq 1 75); do
   if curl -s -f "http://127.0.0.1:${UPSTREAM_CMD}/start?rate=${TPS}&duration=${DURATION}&warmup_s=${WARMUP_S}" >/dev/null; then
     START_OK=1
     break

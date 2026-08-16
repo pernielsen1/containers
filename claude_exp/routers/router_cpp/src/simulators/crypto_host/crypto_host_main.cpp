@@ -79,6 +79,16 @@ int main(int argc, char** argv) {
         // concurrent load saturates the server and surfaces as "fatal alert: internal_error" on
         // the client side (see crypto_host/src/simulators/crypto_host/crypto_host_main.cpp).
         plugin_server.set_keep_alive_max_count(10000);
+        // Must accompany the keep_alive bump above: cpp-httplib is thread-per-connection (a
+        // thread stays pinned to its connection for the connection's whole lifetime, including
+        // idle time between keep-alive requests), so with connections now long-lived, the
+        // cpp-httplib default thread pool (max(8, hardware_concurrency()-1)) can only hold that
+        // many concurrent keep-alive connections open at once - any beyond that hang until one
+        // frees, which under all-10000-keep-alive never happens (see the shared crypto_host's own
+        // crypto_host_main.cpp for the full diagnosis and reproduction). Sized with headroom
+        // above a single router's worker_threads=8 for the command-server thread and any other
+        // concurrent client.
+        plugin_server.new_task_queue = [] { return new httplib::ThreadPool(24); };
         plugin_server.Post(
             "/sys/v1/plugins/([^/]+)",
             [&](const httplib::Request& req, httplib::Response& res) {
