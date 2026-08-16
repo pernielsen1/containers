@@ -30,6 +30,14 @@ httplib::Client CryptoClient::make_client() const {
         client.set_connection_timeout(5, 0);
         client.set_read_timeout(5, 0);
         client.set_write_timeout(5, 0);
+        // httplib::Client defaults keep_alive_ to false, which closes (and for SSL, shuts down)
+        // the socket after every single request regardless of this thread_local Client object
+        // being reused across the thread's lifetime (see validate() below) - so without this,
+        // every request pays a full mTLS handshake, not just the first one per thread. Matches
+        // crypto_host_main.cpp's set_keep_alive_max_count(10000) on the server side, which only
+        // helps if the client actually holds the connection open long enough to use it.
+        client.set_keep_alive(true);
+        client.set_tcp_nodelay(true);
         return client;
     }
 
@@ -37,6 +45,8 @@ httplib::Client CryptoClient::make_client() const {
     client.set_connection_timeout(5, 0);
     client.set_read_timeout(5, 0);
     client.set_write_timeout(5, 0);
+    client.set_keep_alive(true);
+    client.set_tcp_nodelay(true);
     return client;
 }
 

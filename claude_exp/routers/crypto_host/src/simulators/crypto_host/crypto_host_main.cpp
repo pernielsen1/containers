@@ -151,6 +151,7 @@ int main(int argc, char** argv) {
         // the client side. Raised well past any single run's request count per connection so
         // handshakes happen once per connection, not once per 5 requests.
         plugin_server.set_keep_alive_max_count(10000);
+        plugin_server.set_tcp_nodelay(true);
         // Must accompany the keep_alive bump above, not stand alone - see this block's own NOTE
         // (2026-08-16) above the plugin_server_ptr construction for why. 24 clears router_java's
         // 16-connection worst case (workerThreads + responseWorkerThreads) with headroom for the
