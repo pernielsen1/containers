@@ -56,7 +56,7 @@ project/
 ├── dockerstart.sh                # ensures the Docker daemon itself is running
 ├── terminal.sh                   # interactive shell into the running container
 ├── run_test.sh                   # end-to-end CLI driver, run on the HOST
-├── monitor.sh / monitor_stop.sh   # dashboard lifecycle, run on the HOST
+├── monitor.sh / monitor_stop.sh   # delegate to ../monitor_host/{start,stop}.sh router_java
 ├── config/
 │   ├── test_spec.xml             # j8583 ConfigParser XML — per-MTI field lists
 │   ├── pans_defined.json         # card + key data for simulators and crypto host
@@ -74,7 +74,7 @@ project/
 │                                  # shared routers/upstream_host/ component
 ├── test_csv_files/                # mirror of routers/test_csv_files/ (the master) - local
 │   └── test.csv                    # convenience only; re-sync via routers/sync_test_csv.sh
-├── monitor/                      # Python, runs on the HOST
+├── monitor/                      # retired 2026-08-17, inert — superseded by ../monitor_host/
 │   ├── main.py
 │   └── static/index.html
 ├── src/
@@ -123,8 +123,9 @@ crypto is standard JCE (`javax.crypto`) — neither needs a library.
 **j8583 note**: the Maven groupId (`net.sf.j8583`) differs from the library's own Java package
 (`com.solab.iso8583`) — both are correct, just don't confuse them when writing imports vs. the POM.
 
-**Monitor (Python, host-side) dependencies**: `flask`, `requests`. No `requirements.txt` file is
-required by this spec; install however the target environment prefers.
+**Monitor dependencies**: now `../monitor_host/requirements.txt` (`flask`, `requests`, `pyiso8583`),
+installed inside the `monitor_host` container image — nothing to install on the host for this
+anymore.
 
 ---
 
@@ -1161,146 +1162,52 @@ ends (internally consistent, but not matching Python/C++). Fixed with one
 
 ---
 
-## Monitor (`monitor/main.py`, Python, runs on the **host**)
+## Monitor
 
-The monitor is deliberately **not** part of the Java build — it is a thin, language-agnostic
-dashboard that talks to every actor's `CommandServer` purely over HTTP (`/stats`, `/stop`,
-`/log_level`, `/logs`, plus upstream's `/start`/`/results`/`/upload`). It has no idea, and no
-reason to care, whether the process behind a command port is a JVM or anything else — the only
-contract that matters is the HTTP routes above, specified exactly (paths, methods, JSON shapes) in
-the `CommandServer` and per-simulator sections above. **Any future rewrite of an individual actor
-into a different language stays compatible with this monitor for free, provided that HTTP contract
-is preserved exactly** — this is the one guarantee that must never be broken by a future change to
-any actor.
+Consolidated 2026-08-17 into the shared `../monitor_host/` container — see
+`../monitor_host/build_router.md` for the full route table, actor-lifecycle plumbing, and static UI
+documentation (all identical across the three implementations, only the backend module differs).
+`router_java/monitor/main.py` and `router_java/monitor/static/index.html` are retired and inert
+(nothing launches them), kept in place only until the consolidated UI has been eyeballed for all
+three targets. `monitor.sh`/`monitor_stop.sh` now delegate to
+`../monitor_host/start.sh router_java` / `../monitor_host/stop.sh router_java`.
 
-Runs on the host via `monitor.sh`/`monitor_stop.sh` (pidfile-based lifecycle; deliberately
-**not** `pgrep -f "monitor/main.py"` to find the process — a pattern like that can match unrelated
-processes and kill or report the wrong one). Flask app, default port 8090.
+`router_java`'s backend, `monitor_host/backends/router_java.py`: `CONTAINER_NAME = "router_java"`,
+`HOST_SUBPROCESS_TYPES = {"upstream", "downstream"}` — `router`/`downstream`/`crypto` launch via
+`docker exec -d <container> bash -c "mkdir -p logs && java -cp target/router_java.jar <MainClass>
+--config <relative-config-path> > logs/<name>.console.log 2>&1"` (the `bash -c` wrapper exists
+specifically to capture stdout/stderr to a per-actor log file, since `docker exec -d`'s own client
+process detaches and exits the instant the command starts); `upstream` is a plain host
+`subprocess.Popen` against the shared `routers/upstream_host/main.py`.
+`discover_actors()` scans every `*.json` file directly under `config/` (this project keeps all
+actor configs flat in one directory, one file per actor), keeping only entries with a `name` and a
+`type` in `MAIN_CLASS_BY_TYPE = {"router": "com.router.router.RouterMain", "downstream":
+"com.router.simulators.downstreamhost.DownstreamHostMain", "crypto":
+"com.router.simulators.cryptohost.CryptoHostMain"}`, plus one explicit synthesized entry for
+`upstream_host`'s config (which now lives outside `config/` entirely, in the shared component).
 
-**Actor discovery** (`discover_actors()`, cached once per monitor lifetime — restart the monitor to
-pick up config changes): scan every `*.json` file directly under `config/` (this project keeps all
-actor configs flat in one directory, one file per actor, rather than nested one-per-actor-folder);
-load each, keep it only if it has a `name` and a `type` present in the actor-type table below;
-default `is_active` to `true` if the key is absent. Since `upstream_host` is the shared
-`routers/upstream_host/` component now, its config lives outside `config/` entirely — the walk can
-never find it, so `discover_actors()` adds one explicit synthesized entry for it (reading
-`routers/upstream_host/config.json` directly) after the walk.
-
-```
-MAIN_CLASS_BY_TYPE = {
-    "router":     "com.router.router.RouterMain",
-    "downstream": "com.router.simulators.downstreamhost.DownstreamHostMain",
-    "crypto":     "com.router.simulators.cryptohost.CryptoHostMain",
-}
-STARTUP_ORDER = {"crypto": 0, "downstream": 1, "router": 2, "upstream": 3}
-```
-
-**`launch_actor(actor)`**: for `router`/`downstream`/`crypto`, `docker exec -d <container> bash -c
-"mkdir -p logs && java -cp target/router_java.jar <MainClass> --config <relative-config-path> >
-logs/<name>.console.log 2>&1"`. The `bash -c` wrapper (rather than invoking `java` bare) exists
-specifically to capture stdout/stderr to a per-actor log file — `docker exec -d`'s own client
-process detaches and exits the instant the command starts, so without redirecting to a file inside
-the container, JVM startup banners and any uncaught stack trace would go nowhere retrievable. The
-log file is truncated on every (re)launch (`>`, not `>>`) so a live `tail -F` always reflects the
-current run. For `upstream`, a plain host `subprocess.Popen([sys.executable,
-"routers/upstream_host/main.py", "--config", "routers/upstream_host/config.json"])` instead — a
-real Popen handle exists for this one actor type, unlike the `docker exec -d` ones, so
-`actor_kill_command()` can show a plain `kill <pid>` for it rather than the `jps`-based script the
-other types need.
-
-**`is_running(name)`**: there is no OS process handle to poll — `docker exec -d`'s client exits
-immediately once the detached command starts inside the container, so "the subprocess is still
-running" is not an available signal. Liveness is instead defined as "the actor's own `/stats`
-endpoint answers HTTP 200" — arguably more honest for a dev tool regardless of the transport, since
-a process that's alive but wedged wouldn't help an operator either.
-
-**`wait_for_ready(actor, timeout=10)`**: polls `/stats` until it answers 200, **and** — for routers,
-until `connections.downstream == true`; for upstreams, until `connections.router == true`; every
-other actor type is ready as soon as `/stats` answers. Skipping the connection check means a
-`/start` call issued immediately after "Start All" can 503 with "not connected to router" even
-though `/stats` itself already answers 200 — the HTTP server coming up and the actor's own
-TCP-level connection to its peer coming up are two different milestones.
-
-**Monitor API routes**:
-
-| Route | Purpose |
-|---|---|
-| `GET /` | serve `static/index.html` |
-| `GET /api/actors` | ordered list: name/type/command_port/running/is_active |
-| `GET /api/routers_by_partner` | dict `partner_id → [{name, command_port}]` |
-| `GET /api/status` | parallel `/stats` health check; green/yellow/red per actor |
-| `GET /api/starting` | `{"starting": bool}` — true while a background "start all" is in flight |
-| `GET /api/csv_files` | CSVs under `test_csv_files/` plus each upstream's own `input_dir` |
-| `GET /api/commands` | `{"shell": "docker exec -it <container> bash"}` |
-| `GET /api/actor/<name>/commands` | `{"kill": <script>, "tail": <command>}` — see below |
-| `POST /api/actor/<name>/launch` | start if not already running |
-| `POST /api/actor/<name>/stop` | proxy to the actor's `/stop`, then poll liveness down to confirm |
-| `GET /api/actor/<name>/stats` | proxy `/stats` |
-| `GET /api/actor/<name>/start` | proxy `/start` (upstream only) |
-| `GET /api/actor/<name>/results` | proxy `/results` (upstream only) |
-| `GET\|POST /api/actor/<name>/log_level` | proxy log level |
-| `GET /api/actor/<name>/logs` | proxy `/logs`; `?format=text` for plain text |
-| `POST /api/actor/<name>/upload` | proxy multipart CSV upload |
-| `POST /api/actor/<name>/upload_path` | upload by project-relative path `{"path": "..."}` |
-| `POST /api/actor/<name>/dispatcher/purge` | router only; proxies the protected `/dispatcher/purge` |
-| `POST /api/start_all` | launch all active actors in `STARTUP_ORDER`, waiting up to 10s each |
-| `POST /api/stop_all` | stop all running actors in reverse order |
-| `POST /stop` | stop the monitor itself (best-effort `/stop` to every running actor first, then exit) |
-
-**Status logic** (per actor, for `/api/status`): fetch `/stats`; non-200 or unreachable → red; no
-`yellow_threshold_seconds` in the response → green; `seconds_since_last_recv` is `null` or exceeds
-the threshold → yellow; otherwise green.
-
-**Shutdown safety net**: on `POST /stop`, the monitor spawns a background thread that best-effort
-POSTs `/stop` to every currently-running actor, then calls `os._exit(0)`. There is no process
-handle to fall back on if an actor ignores `/stop` (unlike a design where the monitor holds a real
-subprocess handle per actor and can forcibly kill it) — the container itself (`./stop.sh`) is the
-hard backstop if an actor's HTTP `/stop` doesn't work.
-
-**Container console visibility** (`/api/actor/<name>/commands`): rather than embedding a real
-interactive terminal in the browser (rejected — the monitor binds `0.0.0.0:8090`, LAN-reachable,
-and shipping an unauthenticated shell into the container over HTTP was judged not worth it for a
-dev tool), the dashboard hands the operator two copy-pasteable commands per actor:
-- **`kill`**: a small multi-line script, not a single one-liner (so an operator can read it before
-  running it) — `PATTERN="<main class> --config <relative config path>"`, look up the PID via
-  `docker exec <container> jps -lm | grep -F "$PATTERN" | cut -d" " -f1` (only `jps` itself needs
-  `docker exec`; the grep/cut run in the operator's own shell — this is what avoids the
-  nested-quoting a single `bash -c '...'` one-liner would need), then `docker exec <container> kill
-  -9 "$PID"`, with an explicit "no matching process" message and non-zero exit if nothing matched.
-  Matching on the **full class+config string**, not just the class name, is what keeps this safe
-  when multiple instances would otherwise share a bare class name (e.g. two router instances in a
-  future multi-router scenario) — matching on class name alone could target the wrong instance.
+**Container console visibility** (`docker_actor_commands()`): the dashboard hands the operator two
+copy-pasteable commands per actor rather than embedding a real interactive terminal in the browser
+(rejected — the dashboard binds `0.0.0.0:8090`, LAN-reachable, and shipping an unauthenticated
+shell into the container over HTTP wasn't worth it for a dev tool):
+- **`kill`**: a small multi-line script — `PATTERN="<main class> --config <relative config path>"`,
+  look up the PID via `docker exec <container> jps -lm | grep -F "$PATTERN" | cut -d" " -f1` (only
+  `jps` itself needs `docker exec`), then `docker exec <container> kill -9 "$PID"`. Matching on the
+  **full class+config string**, not just the class name, is what keeps this safe if multiple
+  instances would otherwise share a bare class name (e.g. a future multi-router scenario).
 - **`tail`**: `docker exec <container> tail -F logs/<name>.console.log`.
 
-### `monitor/static/index.html`
-
-Single-page vanilla JS, no build step, no framework.
-
-**Layout**: header (title + Start All / Stop All + a "starting…" spinner while `/api/starting` is
-true) → router-partner groups (aggregate stats + a grid of compact per-router cards) → simulator
-cards (crypto/downstream/upstream) → a test-runner panel (upstream selector, CSV picker,
-Upload/Start buttons, a results table).
-
-**Per-actor card**: status dot, per-connection dots, 30s/60s and total sent/recv counters,
-last-recv time, a log-level `<select>`, Logs/Commands/Start/Stop buttons. Router cards additionally
-show `queue_depth`/`pending_count` gauges and a confirmation-gated Purge Queue button.
-
-**Polling**: `/api/status` and `/api/starting` every 2 seconds.
-
-**Results table columns**: PAN, RC (highlighted green when `"00"`), Auth code (field 38), Field 47
-(truncated).
-
-**Log viewer modal**: fetches `/logs`, auto-refreshes every 2s, has an export-to-file button.
-
-**Known open bug, not fixed in this spec's baseline** (carry forward, do not silently "fix" as
-part of an unrelated change without calling it out): the log-level `<select>` always re-renders as
-`INFO` on every 2-second poll tick regardless of the actor's actual current level, because
-`renderCard()` rebuilds each card's entire HTML — including the dropdown — from scratch every tick
-and always hardcodes `<option value="INFO" selected>`. The `change` handler does correctly POST
-`/log_level`, so the actor's real level does change; only the displayed dropdown value is wrong,
-snapping back within ~2 seconds and making the control look broken. A correct fix needs both:
-reading back and reflecting the actor's real current level when rendering, and not clobbering the
-control while it currently has focus or a pending unsent change.
+**Known open bug in this target's `static/index.html`, not fixed** (carry forward — do not
+silently "fix" as part of an unrelated change without calling it out; already fixed in
+`router_cpp`'s copy, see `../monitor_host/build_router.md`'s note on the three `static/<target>/`
+files diverging): the log-level `<select>` always re-renders as `INFO` on every 2-second poll tick
+regardless of the actor's actual current level, because `renderCard()` rebuilds each card's entire
+HTML — including the dropdown — from scratch every tick and always hardcodes `<option value="INFO"
+selected>`. The `change` handler does correctly POST `/log_level`, so the actor's real level does
+change; only the displayed dropdown value is wrong, snapping back within ~2 seconds and making the
+control look broken. A correct fix needs both: reading back and reflecting the actor's real current
+level when rendering, and not clobbering the control while it currently has focus or a pending
+unsent change.
 
 ---
 
@@ -1401,7 +1308,7 @@ Build inside the container: `docker exec router_java mvn -q -DskipTests package`
 ```bash
 ./start.sh                          # build + start the container (idle, ready for docker exec)
 docker exec router_java mvn -q -DskipTests package
-./monitor.sh                        # dashboard on http://localhost:8090, on the HOST
+./monitor.sh                        # dashboard on http://localhost:8090, via ../monitor_host/
 # work in the dashboard: Start All -> upload a CSV -> Start -> watch /results
 ./monitor_stop.sh
 ./stop.sh

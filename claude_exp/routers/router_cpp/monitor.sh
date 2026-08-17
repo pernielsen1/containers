@@ -1,14 +1,8 @@
 #!/usr/bin/env bash
-# Runs the router_cpp dashboard (Flask app, http://localhost:8090) against the running stack. Runs on
-# the host, not in the container -- network_mode: host on the router_cpp service means the
-# container's command ports (8080-8083) are reachable at localhost directly.
+# Delegates to the shared monitor_host/ container (see monitor_host/main.py's docstring) - the
+# per-language monitor/main.py copy this used to run is retired. Runs against the running stack
+# the same way: --network host on both this and the router_cpp service means the container's
+# command ports (8080-8083) are reachable at localhost directly.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
-
-python3 -c "import requests, flask" 2>/dev/null || {
-    echo "Missing dependency: requests and/or flask. Install with: pip install requests flask" >&2
-    exit 1
-}
-
-echo "Dashboard starting at http://localhost:8090 -- Ctrl+C to stop."
-python3 monitor/main.py
+exec ../monitor_host/start.sh router_cpp "$@"

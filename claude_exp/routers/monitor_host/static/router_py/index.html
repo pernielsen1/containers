@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ISO 8583 Router Monitor</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, Segoe UI, Arial, sans-serif; margin: 0; padding: 0 1.5rem 3rem; background: #f4f5f7; color: #1a1a1a; }
+  header { display: flex; align-items: center; gap: 0.75rem; padding: 1rem 0; position: sticky; top: 0; background: #f4f5f7; z-index: 5; }
+  header h1 { font-size: 1.25rem; margin: 0; }
+  header .crumb { color: #888; font-size: 1rem; }
+  header .spacer { flex: 1; }
+  button { cursor: pointer; border: 1px solid #ccc; background: #fff; border-radius: 6px; padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+  button:hover { background: #eee; }
+  button.danger { border-color: #c0392b; color: #c0392b; }
+  button.primary { border-color: #2563eb; color: #2563eb; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  #spinner { font-size: 0.8rem; color: #888; }
+  section { margin-bottom: 1.5rem; }
+  section h2 { font-size: 1rem; margin: 0 0 0.5rem; }
+  .cards { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 0.75rem 1rem; min-width: 220px; flex: 1 1 220px; cursor: pointer; }
+  .card:hover { border-color: #2563eb; }
+  .card-title { display: flex; align-items: center; gap: 0.4rem; font-weight: 600; margin-bottom: 0.4rem; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: #999; flex-shrink: 0; }
+  .dot.green { background: #2ecc71; }
+  .dot.yellow { background: #f1c40f; }
+  .dot.red { background: #e74c3c; }
+  .stats-row { font-size: 0.75rem; color: #444; margin: 0.15rem 0; }
+  .partner-list { background: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+  .partner-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0.75rem; border-bottom: 1px solid #eee; font-size: 0.82rem; cursor: pointer; }
+  .partner-row:last-child { border-bottom: none; }
+  .partner-row:hover { background: #f7f8fa; }
+  .partner-row .expand-caret { width: 1em; color: #888; flex-shrink: 0; }
+  .partner-row .name { font-weight: 600; min-width: 7em; }
+  .partner-row .status-summary { min-width: 5.5em; color: #444; }
+  .partner-row .totals { color: #666; flex: 1; }
+  .partner-row .row-actions { display: flex; gap: 0.35rem; }
+  .partner-row .row-actions button { font-size: 0.72rem; padding: 0.2rem 0.5rem; }
+  .partner-actors { display: none; flex-wrap: wrap; gap: 0.5rem; padding: 0.5rem 0.75rem 0.75rem 2.1rem; background: #fafafa; border-bottom: 1px solid #eee; }
+  .partner-actors.expanded { display: flex; }
+  .actor-chip { display: flex; align-items: center; gap: 0.4rem; border: 1px solid #ddd; border-radius: 20px; padding: 0.3rem 0.7rem; font-size: 0.8rem; cursor: pointer; background: #fafafa; }
+  .actor-chip:hover { border-color: #2563eb; }
+  .actor-chip small { color: #888; }
+  .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+  .panel { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 0.75rem 1rem; }
+  .panel h3 { font-size: 0.9rem; margin: 0 0 0.5rem; }
+  .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; }
+  pre.log-box { max-height: 55vh; overflow: auto; margin: 0; padding: 0.6rem 0.75rem; font-size: 0.72rem; white-space: pre-wrap; overflow-wrap: anywhere; background: #111; color: #ddd; border-radius: 6px; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.8rem; }
+  th, td { border-bottom: 1px solid #eee; text-align: left; padding: 0.3rem 0.5rem; }
+  td.rc-ok { color: #2ecc71; font-weight: 600; }
+  td.rc-bad { color: #e74c3c; font-weight: 600; }
+  #landing-view, #actor-view { display: none; }
+  #landing-view.active, #actor-view.active { display: block; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #16181d; color: #e6e6e6; }
+    header { background: #16181d; }
+    .card, .partner-list, .panel { background: #20232b; border-color: #333; }
+    .partner-row { border-color: #333; }
+    .partner-row:hover { background: #262a33; }
+    .partner-actors { background: #1b1e24; border-color: #333; }
+    .actor-chip { background: #262a33; border-color: #3a3a3a; }
+    button { background: #2a2d36; border-color: #444; color: #e6e6e6; }
+    button:hover { background: #343844; }
+    th, td { border-color: #333; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Router Monitor</h1>
+  <span class="crumb" id="crumb" style="display:none;"></span>
+  <span class="spacer"></span>
+  <span id="spinner"></span>
+  <button id="btn-refresh">Refresh</button>
+  <button id="start-all">Start All</button>
+  <button id="stop-all">Stop All</button>
+</header>
+
+<div id="landing-view">
+  <section>
+    <h2 style="display:flex; align-items:center; gap:0.6rem;">
+      Infra
+      <button id="btn-infra-start" style="font-size:0.75rem;">Start supporting</button>
+      <button id="btn-infra-stop" class="danger" style="font-size:0.75rem;">Stop supporting</button>
+    </h2>
+    <div class="cards" id="infra-cards"></div>
+  </section>
+  <section>
+    <h2>Partners</h2>
+    <div id="partners"></div>
+  </section>
+</div>
+
+<div id="actor-view">
+  <div class="row" style="margin-bottom:1rem;">
+    <span class="dot" id="d-dot"></span>
+    <strong id="d-name" style="font-size:1.1rem;"></strong>
+    <small id="d-type" style="color:#888;"></small>
+    <span class="spacer"></span>
+    <label style="font-size:0.8rem;">log level
+      <select id="d-log-level"></select>
+    </label>
+    <button id="d-start">Start</button>
+    <button id="d-stop" class="danger">Stop</button>
+  </div>
+
+  <div class="detail-grid">
+    <div class="panel">
+      <h3>Transactions I/O</h3>
+      <div class="stats-row">sent 30s/60s: <span id="d-sent-30">-</span> / <span id="d-sent-60">-</span> &nbsp; total: <span id="d-sent-total">-</span></div>
+      <div class="stats-row">recv 30s/60s: <span id="d-recv-30">-</span> / <span id="d-recv-60">-</span> &nbsp; total: <span id="d-recv-total">-</span></div>
+      <div class="stats-row">last recv: <span id="d-last-recv">-</span></div>
+      <div class="stats-row" id="d-connections"></div>
+      <div class="stats-row" id="d-gauges"></div>
+      <div class="stats-row" id="d-latency"></div>
+    </div>
+
+    <div class="panel" id="d-pending-panel" style="display:none;">
+      <h3>Pending</h3>
+      <div class="row">
+        <button id="d-purge" class="danger">Purge Queue</button>
+      </div>
+      <pre class="log-box" id="d-pending-body"></pre>
+    </div>
+
+    <div class="panel" id="d-trace-panel" style="display:none;">
+      <h3>Trace mode</h3>
+      <div class="row">
+        <label style="font-size:0.75rem;">count <input id="trace-count" type="number" min="1" value="5" style="width:4em;"></label>
+        <label style="font-size:0.75rem;">stan <input id="trace-stan" type="text" placeholder="optional" style="width:7em;"></label>
+        <label style="font-size:0.75rem;">pan <input id="trace-pan" type="text" placeholder="optional" style="width:9em;"></label>
+        <button id="trace-arm">Arm capture</button>
+        <span id="trace-status" style="font-size:0.75rem;"></span>
+      </div>
+      <pre class="log-box" id="trace-body"></pre>
+    </div>
+
+    <div class="panel" id="d-upload-panel" style="display:none;">
+      <h3>Test file / run</h3>
+      <div class="row">
+        <label>CSV: <select id="tr-csv"></select></label>
+        <button id="tr-upload">Upload from repo</button>
+        <input type="file" id="tr-file" style="display:none">
+        <button id="tr-upload-file">Upload file...</button>
+        <button id="tr-start" class="primary">Start test run</button>
+        <span id="tr-status" style="font-size:0.75rem;color:#666;"></span>
+      </div>
+      <table id="tr-results">
+        <thead><tr><th>PAN</th><th>RC</th><th>Auth Code</th><th>Field 47</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 style="display:flex; justify-content:space-between; align-items:center;">
+      <span>Logs (newest first)</span>
+      <button id="log-export">Export</button>
+    </h3>
+    <pre class="log-box" id="d-logs"></pre>
+  </div>
+</div>
+
+<script>
+const POLL_MS = 2000;
+const LOG_LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR"];
+
+let actorsCache = [];
+let partnersCache = {};
+let expandedPartners = new Set();
+let view = "landing";       // "landing" | "actor"
+let currentActorName = null;
+
+async function getJSON(url, opts) {
+  const resp = await fetch(url, opts);
+  return resp.json();
+}
+
+function fmtSeconds(s) {
+  if (s === null || s === undefined) return "-";
+  return s.toFixed(1) + "s";
+}
+
+function isTypingInField() {
+  // Mirrors the earlier modal-era fix: never let a poll tick blow away an element the user is
+  // mid-interaction with (an open <select> keeps focus while its popup is open; text inputs
+  // just shouldn't be clobbered while being typed into).
+  const el = document.activeElement;
+  if (!el) return false;
+  return el.tagName === "SELECT" || el.tagName === "INPUT";
+}
+
+// ---------- routing ----------
+
+function parseHash() {
+  const m = /^#\/actor\/(.+)$/.exec(location.hash);
+  if (m) return { view: "actor", name: decodeURIComponent(m[1]) };
+  return { view: "landing", name: null };
+}
+
+function applyRoute() {
+  const r = parseHash();
+  view = r.view;
+  currentActorName = r.name;
+  document.getElementById("landing-view").classList.toggle("active", view === "landing");
+  document.getElementById("actor-view").classList.toggle("active", view === "actor");
+  const crumb = document.getElementById("crumb");
+  if (view === "actor") {
+    crumb.style.display = "";
+    crumb.textContent = `‹ ${currentActorName}`;
+    crumb.onclick = () => { location.hash = ""; };
+    crumb.style.cursor = "pointer";
+  } else {
+    crumb.style.display = "none";
+  }
+  tick();
+}
+
+window.addEventListener("hashchange", applyRoute);
+
+function openActor(name) {
+  location.hash = `#/actor/${encodeURIComponent(name)}`;
+}
+
+// ---------- landing ----------
+
+function statDot(status) {
+  return `<span class="dot ${status || 'red'}"></span>`;
+}
+
+function renderInfraCard(actor, stats, status) {
+  stats = stats || {};
+  return `
+  <div class="card" data-actor="${actor.name}">
+    <div class="card-title">${statDot(status)}${actor.name} <small style="font-weight:400;color:#888;">(${actor.type})</small></div>
+    <div class="stats-row">sent 30s/60s: ${stats.sent_30s ?? '-'} / ${stats.sent_60s ?? '-'} &nbsp; recv 30s/60s: ${stats.recv_30s ?? '-'} / ${stats.recv_60s ?? '-'}</div>
+  </div>`;
+}
+
+async function refreshLanding(statusByName, statsByName) {
+  const infraDiv = document.getElementById("infra-cards");
+  const infraActors = actorsCache.filter((a) => !a.partner_id);
+  infraDiv.innerHTML = infraActors
+    .map((a) => renderInfraCard(a, statsByName[a.name], statusByName[a.name]))
+    .join("");
+  infraDiv.querySelectorAll(".card").forEach((el) => {
+    el.onclick = () => openActor(el.dataset.actor);
+  });
+
+  // Rendered as compact one-line-per-partner rows, not expanded stat cards - at a realistic
+  // scale (~10 partners, each with several routers/upstreams under them) a fully-expanded view
+  // would be unreadably tall. Expansion state is tracked separately (expandedPartners) rather
+  // than relying on the DOM, since this whole list is re-rendered from scratch every poll tick.
+  const partnersDiv = document.getElementById("partners");
+  let rows = "";
+  for (const [partnerId, members] of Object.entries(partnersCache)) {
+    let sent30 = 0, sent60 = 0, recv30 = 0, recv60 = 0, sentTotal = 0, recvTotal = 0;
+    let up = 0;
+    const chips = members
+      .map((m) => {
+        const stats = statsByName[m.name] || {};
+        const st = statusByName[m.name];
+        if (st === "green") up += 1;
+        sent30 += stats.sent_30s || 0;
+        sent60 += stats.sent_60s || 0;
+        recv30 += stats.recv_30s || 0;
+        recv60 += stats.recv_60s || 0;
+        sentTotal += stats.sent_total || 0;
+        recvTotal += stats.recv_total || 0;
+        return `<span class="actor-chip" data-actor="${m.name}">${statDot(st)}${m.name} <small>(${m.type})</small></span>`;
+      })
+      .join("");
+    const expanded = expandedPartners.has(partnerId);
+    rows += `<div class="partner-row" data-partner="${partnerId}">
+        <span class="expand-caret">${expanded ? "▾" : "▸"}</span>
+        <span class="name">${partnerId}</span>
+        <span class="status-summary">${up}/${members.length} up</span>
+        <span class="totals">sent 30s/60s: ${sent30}/${sent60} (Σ${sentTotal}) &nbsp; recv 30s/60s: ${recv30}/${recv60} (Σ${recvTotal})</span>
+        <span class="row-actions">
+          <button class="btn-partner-start" data-partner="${partnerId}">Start</button>
+          <button class="btn-partner-stop danger" data-partner="${partnerId}">Stop</button>
+        </span>
+      </div>
+      <div class="partner-actors${expanded ? " expanded" : ""}" data-partner="${partnerId}">${chips}</div>`;
+  }
+  partnersDiv.innerHTML = `<div class="partner-list">${rows}</div>`;
+  partnersDiv.querySelectorAll(".actor-chip").forEach((el) => {
+    el.onclick = (ev) => { ev.stopPropagation(); openActor(el.dataset.actor); };
+  });
+  partnersDiv.querySelectorAll(".partner-row").forEach((el) => {
+    el.onclick = () => {
+      const id = el.dataset.partner;
+      if (expandedPartners.has(id)) expandedPartners.delete(id);
+      else expandedPartners.add(id);
+      refreshLanding(statusByName, statsByName);
+    };
+  });
+  partnersDiv.querySelectorAll(".btn-partner-start").forEach((btn) => {
+    btn.onclick = (ev) => {
+      ev.stopPropagation();
+      fetch(`/api/partner/${encodeURIComponent(btn.dataset.partner)}/start`, { method: "POST" });
+    };
+  });
+  partnersDiv.querySelectorAll(".btn-partner-stop").forEach((btn) => {
+    btn.onclick = (ev) => {
+      ev.stopPropagation();
+      fetch(`/api/partner/${encodeURIComponent(btn.dataset.partner)}/stop`, { method: "POST" });
+    };
+  });
+}
+
+// ---------- actor detail ----------
+
+function fmtLogEntry(entry) {
+  let line = `${entry.ts ?? ""} ${entry.level ?? ""} ${entry.logger ?? ""}: ${entry.message ?? ""}`;
+  if (entry.router_stan) line += ` router_stan=${entry.router_stan}`;
+  return line;
+}
+
+function fmtPendingEntry(e) {
+  return `router_stan=${e.router_stan}  upstream_stan=${e.upstream_stan}  age=${e.age_seconds.toFixed(1)}s`;
+}
+
+function fmtHop(h) {
+  const known = new Set(["stage", "elapsed_ms"]);
+  const extras = Object.keys(h)
+    .filter((k) => !known.has(k))
+    .map((k) => `${k}=${h[k]}`)
+    .join(" ");
+  return `    [${h.elapsed_ms.toFixed(3)}ms] ${h.stage.padEnd(16)} ${extras}`;
+}
+
+function fmtTraceEntry(e) {
+  const header = `router_stan=${e.router_stan} upstream_stan=${e.upstream_stan} pan=${e.pan} mti=${e.mti}` +
+    (e.incomplete ? "  [INCOMPLETE - session torn down mid-capture]" : "");
+  return [header, ...e.hops.map(fmtHop)].join("\n");
+}
+
+function renderResults(rows) {
+  const tbody = document.querySelector("#tr-results tbody");
+  tbody.innerHTML = rows
+    .map((r) => {
+      const rc = r.resp_39 || "";
+      const rcClass = rc === "00" ? "rc-ok" : "rc-bad";
+      const f47 = (r.resp_47 || "").slice(0, 40);
+      return `<tr><td>${r["2"] || ""}</td><td class="${rcClass}">${rc}</td><td>${r.resp_38 || ""}</td><td>${f47}</td></tr>`;
+    })
+    .join("");
+}
+
+async function refreshActorView(actor, statusByName, statsByName) {
+  const stats = statsByName[actor.name] || {};
+  document.getElementById("d-dot").className = `dot ${statusByName[actor.name] || 'red'}`;
+  document.getElementById("d-name").textContent = actor.name;
+  document.getElementById("d-type").textContent = actor.partner_id ? `${actor.type} · ${actor.partner_id}` : actor.type;
+
+  document.getElementById("d-sent-30").textContent = stats.sent_30s ?? "-";
+  document.getElementById("d-sent-60").textContent = stats.sent_60s ?? "-";
+  document.getElementById("d-sent-total").textContent = stats.sent_total ?? "-";
+  document.getElementById("d-recv-30").textContent = stats.recv_30s ?? "-";
+  document.getElementById("d-recv-60").textContent = stats.recv_60s ?? "-";
+  document.getElementById("d-recv-total").textContent = stats.recv_total ?? "-";
+  document.getElementById("d-last-recv").textContent =
+    `${stats.last_recv_datetime ?? '-'} (${fmtSeconds(stats.seconds_since_last_recv)} ago)`;
+
+  const conns = stats.connections || {};
+  document.getElementById("d-connections").innerHTML = Object.keys(conns).length
+    ? "connections: " + Object.keys(conns).map((k) => `<span class="dot ${conns[k] ? 'green' : 'red'}" style="width:8px;height:8px;"></span>${k}`).join(" &nbsp; ")
+    : "";
+
+  const gauges = stats.gauges || {};
+  document.getElementById("d-gauges").textContent = actor.type === "router"
+    ? `queue_depth=${gauges.queue_depth ?? "-"} pending_count=${gauges.pending_count ?? "-"}`
+    : "";
+
+  document.getElementById("d-latency").textContent = stats.latency
+    ? Object.entries(stats.latency).map(([name, b]) => `${name}=${b.p50_ms.toFixed(2)}/${b.p95_ms.toFixed(2)}ms`).join(" ")
+    : "";
+
+  document.getElementById("d-pending-panel").style.display = actor.type === "router" ? "" : "none";
+  document.getElementById("d-trace-panel").style.display = actor.type === "router" ? "" : "none";
+  document.getElementById("d-upload-panel").style.display = actor.type === "upstream" ? "" : "none";
+
+  // getJSON() doesn't check response.ok, so a stopped actor's 502 proxy error still resolves
+  // (as {error: ...}) rather than throwing - without the explicit levelResp.level check below,
+  // that silently rendered every LOG_LEVELS <option> with none marked selected, and a <select>
+  // with no selected option defaults to showing its FIRST one ("DEBUG") - misleadingly implying
+  // that's the actor's real level rather than "unknown, actor isn't running".
+  if (!isTypingInField()) {
+    const levelResp = await getJSON(`/api/actor/${actor.name}/log_level`).catch(() => ({}));
+    const sel = document.getElementById("d-log-level");
+    if (levelResp && levelResp.level) {
+      sel.disabled = false;
+      sel.innerHTML = LOG_LEVELS.map((l) => `<option value="${l}"${l === levelResp.level ? " selected" : ""}>${l}</option>`).join("");
+    } else {
+      sel.disabled = true;
+      sel.innerHTML = `<option selected>(not running)</option>`;
+    }
+  }
+
+  const logsEl = document.getElementById("d-logs");
+  const entries = await getJSON(`/api/actor/${actor.name}/logs`).catch(() => null);
+  if (Array.isArray(entries)) {
+    logsEl.textContent = entries.length
+      ? entries.slice().reverse().map(fmtLogEntry).join("\n")
+      : "(no log lines yet)";
+  } else {
+    logsEl.textContent = "(actor is not running - start it to see logs)";
+  }
+
+  if (actor.type === "router") {
+    try {
+      const pending = await getJSON(`/api/actor/${actor.name}/pending`);
+      document.getElementById("d-pending-body").textContent =
+        pending.length ? pending.map(fmtPendingEntry).join("\n") : "(no in-flight transactions)";
+    } catch (e) { /* leave existing */ }
+
+    try {
+      const snap = await getJSON(`/api/actor/${actor.name}/trace`);
+      if (!snap.error) {
+        document.getElementById("trace-status").textContent =
+          snap.armed ? `armed, ${snap.remaining} remaining` : "not armed";
+        document.getElementById("trace-body").textContent =
+          snap.entries.length ? snap.entries.map(fmtTraceEntry).join("\n\n") : "(no captures yet)";
+      }
+    } catch (e) { /* leave existing */ }
+  }
+
+  if (actor.type === "upstream") {
+    if (!isTypingInField()) {
+      const csvFiles = await getJSON("/api/csv_files");
+      const csvSelect = document.getElementById("tr-csv");
+      const current = csvSelect.value;
+      csvSelect.innerHTML = csvFiles.map((f) => `<option value="${f}">${f}</option>`).join("");
+      if (current) csvSelect.value = current;
+    }
+    try {
+      const rows = await getJSON(`/api/actor/${actor.name}/results`);
+      renderResults(rows);
+    } catch (e) { /* leave existing */ }
+  }
+}
+
+function wireActorViewButtons() {
+  document.getElementById("d-start").onclick = () => fetch(`/api/actor/${currentActorName}/launch`, { method: "POST" });
+  document.getElementById("d-stop").onclick = () => fetch(`/api/actor/${currentActorName}/stop`, { method: "POST" });
+  document.getElementById("d-log-level").onchange = (e) => {
+    fetch(`/api/actor/${currentActorName}/log_level`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ level: e.target.value }),
+    });
+  };
+  document.getElementById("d-purge").onclick = () => {
+    if (confirm(`Purge in-flight queue/pending for ${currentActorName}?`)) {
+      fetch(`/api/actor/${currentActorName}/dispatcher/purge`, { method: "POST" });
+    }
+  };
+  document.getElementById("log-export").onclick = () => {
+    window.open(`/api/actor/${currentActorName}/logs?format=text`, "_blank");
+  };
+  // These handlers deliberately avoid `async () => { await fetch(...) }` - triggered by a real
+  // click event, that pattern was observed to never resolve (the fetch is issued but its
+  // response/promise-continuation is silently dropped; a plain fetch(...).then() from the same
+  // click resolves instantly). Root cause not fully pinned down, but it reproduced consistently
+  // regardless of load/concurrency, so every one-shot action handler here uses .then()/.catch()
+  // instead - this is what "upload from repo did not work" (build/monitor.md) traced back to.
+  document.getElementById("trace-arm").onclick = () => {
+    const count = parseInt(document.getElementById("trace-count").value, 10) || 1;
+    const stan = document.getElementById("trace-stan").value.trim();
+    const pan = document.getElementById("trace-pan").value.trim();
+    const body = { count };
+    if (stan) body.stan = stan;
+    if (pan) body.pan = pan;
+    fetch(`/api/actor/${currentActorName}/trace`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).catch((e) => console.error("arm capture failed", e));
+  };
+  function setTrStatus(text, isError) {
+    const el = document.getElementById("tr-status");
+    el.textContent = text;
+    el.style.color = isError ? "#c0392b" : "#2ecc71";
+  }
+  document.getElementById("tr-upload").onclick = () => {
+    const path = document.getElementById("tr-csv").value;
+    if (!path) return;
+    setTrStatus("uploading...", false);
+    fetch(`/api/actor/${currentActorName}/upload_path`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    })
+      .then((r) => r.json())
+      .then((body) => setTrStatus(body.error ? `failed: ${body.error}` : `uploaded ${path}`, !!body.error))
+      .catch((e) => setTrStatus(`failed: ${e}`, true));
+  };
+  document.getElementById("tr-upload-file").onclick = () => document.getElementById("tr-file").click();
+  document.getElementById("tr-file").onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const form = new FormData();
+    form.append("file", file);
+    setTrStatus("uploading...", false);
+    fetch(`/api/actor/${currentActorName}/upload`, { method: "POST", body: form })
+      .then((r) => r.json())
+      .then((body) => setTrStatus(body.error ? `failed: ${body.error}` : `uploaded ${file.name}`, !!body.error))
+      .catch((err) => setTrStatus(`failed: ${err}`, true));
+  };
+  document.getElementById("tr-start").onclick = () => {
+    setTrStatus("starting run...", false);
+    fetch(`/api/actor/${currentActorName}/start`)
+      .then((r) => r.json())
+      .then((body) => setTrStatus(body.error ? `failed: ${body.error}` : "run started", !!body.error))
+      .catch((e) => setTrStatus(`failed: ${e}`, true));
+  };
+}
+wireActorViewButtons();
+
+// ---------- poll loop ----------
+
+async function refreshLists() {
+  actorsCache = await getJSON("/api/actors");
+  partnersCache = await getJSON("/api/actors_by_partner");
+}
+
+async function tick() {
+  try {
+    const [status, startingInfo] = await Promise.all([
+      getJSON("/api/status"),
+      getJSON("/api/starting"),
+    ]);
+    document.getElementById("spinner").textContent = startingInfo.starting ? "Starting actors..." : "";
+
+    const statsByName = {};
+    await Promise.all(
+      actorsCache.map(async (a) => {
+        try {
+          statsByName[a.name] = await getJSON(`/api/actor/${a.name}/stats`);
+        } catch (e) {
+          statsByName[a.name] = {};
+        }
+      })
+    );
+
+    if (view === "landing") {
+      await refreshLanding(status, statsByName);
+    } else if (view === "actor") {
+      const actor = actorsCache.find((a) => a.name === currentActorName);
+      if (actor) await refreshActorView(actor, status, statsByName);
+    }
+  } catch (e) {
+    console.error("poll failed", e);
+  }
+}
+
+document.getElementById("btn-refresh").onclick = () => tick();
+document.getElementById("start-all").onclick = () => fetch("/api/start_all", { method: "POST" });
+document.getElementById("stop-all").onclick = () => fetch("/api/stop_all", { method: "POST" });
+document.getElementById("btn-infra-start").onclick = () => fetch("/api/infra/start", { method: "POST" });
+document.getElementById("btn-infra-stop").onclick = () => fetch("/api/infra/stop", { method: "POST" });
+
+(async function init() {
+  await refreshLists();
+  applyRoute();
+  setInterval(async () => {
+    if (isTypingInField()) return;
+    await refreshLists();
+    await tick();
+  }, POLL_MS);
+})();
+</script>
+</body>
+</html>

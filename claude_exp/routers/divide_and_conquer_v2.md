@@ -32,7 +32,7 @@ not just history.
 | **crypto_host (stub)** | No | `<impl>/simulators/crypto_host` | Kept local, no OpenSSL, just a PAN-presence check — lets each implementation build/functionally-test standalone without the shared container running |
 | **upstream_host** | Yes | `routers/upstream_host/` | Pure test infrastructure (load generator), zero comparison value — three reimplementations existed only for parity, not because the language mattered |
 | **downstream_host** | Yes | `routers/downstream_host/` | Trivial IMS-Connect-style echo/approve-decline stub, zero comparison value — same reasoning as `upstream_host`, consolidated in the same round-5-adjacent readability pass. Configs stay per-implementation (each language's `pans_defined.json` test data genuinely differs) even though the code is now shared |
-| **monitor** | No (but a common pattern) | `<impl>/monitor/` | Three ported copies, not one shared instance — they bind the same host ports and are mutually exclusive, and each needed different actor-launch mechanics (`docker exec`, host subprocess, `docker compose`) matching its implementation's own lifecycle |
+| **monitor** | Yes (since 2026-08-17) | `routers/monitor_host/` | Was three ported copies (`<impl>/monitor/`, now retired/inert) — "mutually exclusive, same host ports" turned out not to require separate code, only a `--target` flag: one shared Flask app + lifecycle plumbing, with per-target discovery/launch mechanics (`docker exec`, host subprocess) factored into a small `backends/<target>.py` module instead of duplicated whole-file |
 
 ### Round 1 — `crypto_host` (see `divide_and_conquer.md` part 1)
 
@@ -64,9 +64,9 @@ over `localhost` regardless of implementation (host networking throughout), so c
 load generator would buy no real isolation, only a rebuild-cycle tax on the one piece that gets
 iterated on most during perf work. The three per-language reimplementations (Java's
 `UpstreamHostMain.java`, C++'s `upstream_host_main.cpp`) were deleted; each implementation's
-`stress_run.sh`/`run_test.sh`/`monitor/main.py` now launches the shared component instead
-(`docker exec`/native-binary launches replaced with a host `subprocess.Popen` of the same shared
-script everywhere).
+`stress_run.sh`/`run_test.sh`, and the shared dashboard (`monitor_host/`, see "The monitor got
+consolidated too" below), now launch the shared component instead (`docker exec`/native-binary
+launches replaced with a host `subprocess.Popen` of the same shared script everywhere).
 
 **Two real cross-language wire-format bugs surfaced doing this** — both invisible before the
 migration because each router had only ever been tested against its own same-language
@@ -179,6 +179,19 @@ half-described for the plaintext read path.
 `router_tests`) — cosmetic leftovers from the pre-2026-08-01 `xv6java`/`xv7cpp` names that survived
 the directory rename, done here since this pass already touched most of the same files.
 
+**The monitor got consolidated too (2026-08-17).** Same story as `upstream_host`/`downstream_host`:
+each implementation had its own ~600-line `<impl>/monitor/main.py` + `static/index.html`, and the
+copies had already drifted (router_cpp's `is_running()` took an actor dict where the other two took
+a name string — see `to_do_java_cpp.md`). Collapsed into `monitor_host/`: one shared Flask app +
+actor-lifecycle plumbing, driven by a small per-target `backends/<target>.py` module supplying
+discovery + launch/stop mechanics. Unlike `upstream_host`/`downstream_host`, this one *is*
+containerized (`--network host` + the repo bind-mounted in + `docker.sock` mounted in, so it can
+`docker exec` into `router_java`/`router_cpp` the same way a bare host process could) — see
+`monitor_host/build_router.md` for the full architecture and backend contract. Each implementation's
+`monitor.sh`/`monitor_stop.sh`/`kill_monitor.sh` now delegate to `monitor_host/start.sh`/`stop.sh`
+rather than running their own copy; the old `<impl>/monitor/` directories are inert, kept only until
+the consolidated UI has been eyeballed for all three targets.
+
 ## Current repository layout
 
 ```
@@ -218,12 +231,18 @@ routers/
 │   ├── downstream_shared/        # forked copy of router_py/shared's small utility modules
 │   └── build_router.md           # configs stay per-implementation — see this doc for why
 │
+├── monitor_host/                # SHARED — dashboard, containerized (network host + docker.sock)
+│   ├── main.py                   # actor-lifecycle plumbing, identical across targets
+│   ├── backends/{router_py,router_java,router_cpp}.py   # per-target discovery + launch/stop
+│   ├── static/{router_py,router_java,router_cpp}/index.html   # per-target, not shared
+│   └── build_router.md
+│
 ├── router_py/                         # Python router — under comparison
 │   ├── router/, shared/, simulators/{crypto_host (stub), upstream_2}
 │   │   router/router_2/config.json — second partner, disabled by default, EBCDIC upstream leg
 │   │   (see Round 3); simulators/downstream_host/{config.json,config_perf.json} — this
 │   │   implementation's own config for the shared downstream_host component
-│   ├── monitor/                  # own instance, launches actors as host subprocesses
+│   ├── monitor/                  # retired 2026-08-17, inert — see monitor_host/ above
 │   └── stress_run.sh / run_test.sh
 │
 ├── router_java/                     # Java router — under comparison
@@ -231,7 +250,7 @@ routers/
 │   │   config/router_2.json + config/upstream_2.json — same second-partner pattern
 │   │   config/downstream_host.json + downstream_host_perf.json — this implementation's own
 │   │   config for the shared downstream_host component
-│   ├── monitor/                  # own instance, launches actors via `docker exec -d`
+│   ├── monitor/                  # retired 2026-08-17, inert — see monitor_host/ above
 │   └── stress_run.sh / run_test.sh
 │
 └── router_cpp/                       # C++ router — under comparison
@@ -239,7 +258,7 @@ routers/
     │   config/router_2.json + config/upstream_2.json — same second-partner pattern
     │   config/downstream_host.json + downstream_host_perf.json — this implementation's own
     │   config for the shared downstream_host component
-    ├── monitor/                   # own instance, synthesizes actors from config file(s)
+    ├── monitor/                   # retired 2026-08-17, inert — see monitor_host/ above
     └── stress_run.sh / run_test.sh
 ```
 
@@ -251,15 +270,16 @@ flowchart LR
     R -->|"0110"| U
     R -->|"validate_0100/0110<br/>(HTTP, Fortanix-shaped)"| C["crypto_host<br/>(shared container, real OpenSSL)"]
     R -->|"0100/0110 relay"| D["downstream_host<br/>(shared, host process)"]
-    M["monitor<br/>(per-implementation, host process)"] -.->|"HTTP: /stats /start /stop"| U
+    M["monitor_host<br/>(shared, containerized,<br/>--network host)"] -.->|"HTTP: /stats /start /stop"| U
     M -.-> R
     M -.-> C
     M -.-> D
 ```
 
-Only `router` is containerized per implementation; `crypto_host`, `upstream_host`, and
-`downstream_host` are shared; `monitor` is a per-implementation host process that just proxies
-HTTP to whichever actors are currently running.
+Only `router` is containerized per implementation; `crypto_host`, `upstream_host`,
+`downstream_host`, and now `monitor_host` are all shared — `monitor_host` runs one target at a time
+(`--target router_py|router_java|router_cpp`) and just proxies HTTP to whichever actors are
+currently running, same as the per-implementation monitor it replaced.
 
 ## How to run things
 

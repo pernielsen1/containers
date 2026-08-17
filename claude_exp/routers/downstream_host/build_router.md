@@ -91,9 +91,10 @@ No build step — it's a plain Python script.
 python3 main.py --config <path-to-a-downstream_host-config.json>
 ```
 
-Each implementation's `run_test.sh`/`stress_run.sh`/`monitor/main.py` launches this as a bare host
-subprocess (`python3 <path-to-here>/main.py --config <path> &`), the same way `upstream_host` is
-launched — not via `docker exec` or a compose `command:` block.
+Each implementation's `run_test.sh`/`stress_run.sh`, and the shared `../monitor_host/` dashboard
+(via each target's `backends/<target>.py`), launch this as a bare host subprocess (`python3
+<path-to-here>/main.py --config <path> &`), the same way `upstream_host` is launched — not via
+`docker exec` or a compose `command:` block.
 
 ### Manual smoke test
 

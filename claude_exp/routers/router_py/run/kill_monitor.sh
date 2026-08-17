@@ -1,21 +1,5 @@
 #!/bin/bash
+# Delegates to the shared monitor_host/ container's stop.sh - see monitor_host/stop.sh for why
+# a docker container name replaced this script's old pidfile-based kill.
 cd "$(dirname "$0")/.."
-PIDFILE="run/.monitor.pid"
-
-curl -s -X POST http://127.0.0.1:8090/stop > /dev/null 2>&1 || true
-
-if [ -f "$PIDFILE" ]; then
-  PID=$(cat "$PIDFILE")
-  for _ in $(seq 1 30); do
-    if ! kill -0 "$PID" 2>/dev/null; then
-      break
-    fi
-    sleep 1
-  done
-  if kill -0 "$PID" 2>/dev/null; then
-    kill -9 "$PID" 2>/dev/null || true
-  fi
-  rm -f "$PIDFILE"
-fi
-
-echo "monitor stopped"
+exec ../monitor_host/stop.sh router_py "$@"

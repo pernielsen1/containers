@@ -59,7 +59,7 @@ project/
 ├── docker-compose.yml             # one service, network_mode: host, launches all four actors
 ├── start.sh                       # docker compose up -d --build, then polls localhost:8080/stats
 ├── stop.sh                        # docker compose down
-├── monitor.sh                     # runs the dashboard (Flask, port 8090) on the HOST
+├── monitor.sh / monitor_stop.sh   # delegate to ../monitor_host/{start,stop}.sh router_cpp
 ├── .gitignore                     # build/, logs/, upstream_1_input/, *.log, __pycache__/
 ├── config/
 │   ├── router_1.json              # single shared config, read by all four binaries
@@ -70,7 +70,7 @@ project/
 ├── test_csv_files/                # mirror of routers/test_csv_files/ (the master), re-synced via
 │                                   # routers/sync_test_csv.sh; host-side CSVs offered by the
 │                                   # dashboard's CSV dropdown
-├── monitor/                       # Python + Flask, runs on the HOST -- never bundled into the container
+├── monitor/                       # retired 2026-08-17, inert — superseded by ../monitor_host/
 │   ├── main.py
 │   └── static/index.html
 ├── src/
@@ -1385,17 +1385,28 @@ rather than by any shared source of truth (see the note in `../divide_and_conque
 
 ---
 
-## Monitor (`monitor/main.py`, Python + Flask, runs on the **host**)
+## Monitor
 
-A thin dashboard that talks to every actor's `CommandServer` purely over HTTP (`/stats`, `/stop`,
-`/log_level`, `/logs`, plus `upstream_host`'s `/start`/`/results`/`/upload`) — it has no idea, and no
-reason to care, what language runs behind a command port; the only contract that matters is those
-HTTP routes, specified exactly above. Never bundled into the container image (no Python in the
-`Dockerfile`, deliberately) — it only needs plain HTTP to `localhost`, which `network_mode: host` on
-the `router_cpp` service already provides.
+Consolidated 2026-08-17 into the shared `../monitor_host/` container — see
+`../monitor_host/build_router.md` for the full route table, actor-lifecycle plumbing, and static UI
+documentation (all identical across the three implementations, only the backend module differs).
+`router_cpp/monitor/main.py` and `router_cpp/monitor/static/index.html` are retired and inert
+(nothing launches them), kept in place only until the consolidated UI has been eyeballed for all
+three targets. `monitor.sh` now delegates to `../monitor_host/start.sh router_cpp`;
+`monitor_stop.sh` (new, added for parity with `router_java`'s — the old foreground/`Ctrl+C`
+lifecycle had no separate stop script) delegates to `../monitor_host/stop.sh router_cpp`.
 
-**Dependencies**: `flask`, `requests`, installed on the host (not the container) via
-`pip install flask requests` or equivalent.
+`router_cpp`'s backend, `monitor_host/backends/router_cpp.py`: `CONTAINER_NAME = "router_cpp"`,
+`HOST_SUBPROCESS_TYPES = {"upstream", "downstream"}` — `router`/`crypto` launch via `docker exec
+-d`; `upstream`/`downstream` are plain host subprocesses. It talks to every actor's `CommandServer`
+purely over HTTP (`/stats`, `/stop`, `/log_level`, `/logs`, plus `upstream_host`'s
+`/start`/`/results`/`/upload`) — it has no idea, and no reason to care, what language runs behind a
+command port; the only contract that matters is those HTTP routes, specified exactly above.
+
+**A regression was found and fixed here during the consolidation**: `discover_actors()`'s
+`downstream_host` entry briefly pointed at a config path that doesn't exist
+(`downstream_host/config.json` instead of this project's own `config/downstream_host.json`) — see
+`../monitor_host/build_router.md`'s "downstream_host config path" note for the full story.
 
 **Pitfall — actor discovery must be adapted for this project's single-shared-config reality.** A
 prior design for this kind of monitor (used by an earlier, structurally different sibling project in
@@ -1517,55 +1528,14 @@ monitor starts (`docker-compose` launches them directly at container start — s
 — `launch_actor` matters for restarting one specific actor after it was stopped or killed, not for
 the common "everything's already up" case.
 
-**`is_running(actor)`**: there is no OS process handle to poll — `docker exec -d`'s client exits
-immediately once the detached command starts inside the container, and even the actors started
-directly by `docker-compose`'s own entrypoint script aren't spawned by *this* Python process either
-way. Liveness is instead defined as "the actor's own `/stats` endpoint answers HTTP 200" —
-arguably more honest for a dev tool regardless of the transport, since a process that's alive but
-wedged wouldn't help an operator either.
-
-**`wait_for_ready(actor, timeout=10)`**: polls `/stats` until it answers 200, **and** — for the
-router, until `connections.downstream == true`; for `upstream_host`, until `connections.router ==
-true`; every other actor type is ready as soon as `/stats` answers. Skipping the connection check
-means launching an upstream and immediately calling `/start` can 503 with "not connected to router"
-even though `/stats` itself already answers 200 — the HTTP server coming up and the actor's own
-TCP-level connection to its peer coming up are two different milestones.
-
-**Monitor API routes**:
-
-| Route | Purpose |
-|---|---|
-| `GET /` | serve `static/index.html` |
-| `GET /api/actors` | list: name/type/command_port/running/is_active/partner_id |
-| `GET /api/routers_by_partner` | dict `partner_id → [{name, command_port}]` (falls back to the literal key `"default"` when `partner_id` is unset, since this project's `router_1.json` doesn't set one) |
-| `GET /api/status` | parallel `/stats` health check per actor; green/yellow/red |
-| `GET /api/starting` | `{"starting": bool}` — true while a background "start all" is in flight |
-| `GET /api/csv_files` | `*.csv` under `test_csv_files/` at the project root (host-side; does not enumerate an upstream's own in-container `input_dir`) |
-| `GET /api/commands` | `{"shell": "docker exec -it router_cpp bash"}` |
-| `GET /api/actor/<name>/commands` | `{"kill": <script>, "tail": <command>}` — see below |
-| `POST /api/actor/<name>/launch` | start if not already running |
-| `POST /api/actor/<name>/stop` | proxy to the actor's `/stop`, then poll liveness down to confirm |
-| `GET /api/actor/<name>/stats` | proxy `/stats` |
-| `GET /api/actor/<name>/start` | proxy `/start` (`upstream` type only — 404 otherwise) |
-| `GET /api/actor/<name>/results` | proxy `/results` (`upstream` type only) |
-| `GET\|POST /api/actor/<name>/log_level` | proxy log level (auth header added on POST if the actor has a token) |
-| `GET /api/actor/<name>/logs` | proxy `/logs`; `?format=text` for plain text |
-| `POST /api/actor/<name>/upload` | proxy a multipart CSV upload (`upstream` type only) |
-| `POST /api/actor/<name>/upload_path` | upload a host-relative file by path (`{"path": "..."}`) — path is resolved and checked against the project root (`Path.is_relative_to`) before opening, to reject anything that escapes it |
-| `POST /api/actor/<name>/dispatcher/purge` | `router` type only; proxies the protected `/dispatcher/purge` with the router's auth header |
-| `POST /api/start_all` | background thread: launch every active actor not already running, in `STARTUP_ORDER`, waiting up to 10s each for readiness |
-| `POST /api/stop_all` | stop every running actor, in reverse `STARTUP_ORDER` |
-| `POST /stop` | stop the monitor itself: best-effort `/stop` to every running actor first (background thread), then `os._exit(0)` after a short delay so the HTTP response can actually be sent before the process exits |
-
-**Status logic** (per actor, for `/api/status`): fetch `/stats`; non-200 or unreachable → red; no
-`yellow_threshold_seconds` key in the response → green; `seconds_since_last_recv` is `null` or
-exceeds that threshold → yellow; otherwise green.
-
-**Shutdown safety net**: `POST /stop` spawns a background thread that best-effort `POST`s `/stop` to
-every currently-running actor (swallowing any error per actor, since one unreachable actor shouldn't
-block the rest), waits briefly, then calls `os._exit(0)`. There is no process handle to fall back on
-if an actor ignores its own `/stop` — `./stop.sh` (`docker compose down`, tearing down the whole
-container) is the hard backstop if an actor's HTTP `/stop` doesn't work.
+`is_running`/`wait_for_ready`/the route table/status logic/shutdown safety net are generic
+plumbing in `monitor_host/main.py`, identical across all three targets — see
+`../monitor_host/build_router.md`. Two things worth noting that are specific to this target: the
+route table's `/api/routers_by_partner` falls back to the literal key `"default"` when
+`partner_id` is unset, since this project's `router_1.json` doesn't set one; and every route that
+proxies to a protected actor route (`/stop`, `POST /log_level`, `/dispatcher/purge`) must send
+`X-Router-Auth: <auth_token>` only when the target actor's descriptor has one (see "Auth headers
+are per-actor" above).
 
 **Container console visibility** (`/api/actor/<name>/commands`) — rather than embedding a real
 interactive terminal in the browser (rejected: the monitor binds `0.0.0.0:8090`, LAN-reachable, and
@@ -1604,17 +1574,13 @@ dashboard hands the operator two copy-pasteable commands per actor:
   `docker compose logs -f`), so `tail`-ing that file will report "no such file" until the actor is
   restarted through the dashboard at least once.
 
-### `monitor/static/index.html`
+### `static/router_cpp/index.html` (now served from `../monitor_host/`)
 
-Single-page vanilla JS, no build step, no framework — talks only to the monitor's own `/api/*`
-routes above.
-
-**Layout**: header (title + Start All / Stop All + a "starting…" indicator while `/api/starting` is
-true) → router-partner groups (one `<h2>` + card grid per distinct `partner_id`, `"default"` when
-unset) → a "Simulators" heading with a card grid for `crypto_host`/`downstream_host`/`upstream_host`
-→ a test-runner panel (upstream selector, a CSV dropdown sourced from `/api/csv_files` plus a raw
-file-upload input, a **Refresh List** button next to the dropdown, Upload/Start buttons, a results
-table).
+Single-page vanilla JS, no build step, no framework — talks only to the dashboard's own `/api/*`
+routes (see `../monitor_host/build_router.md` for layout/polling/per-actor-card details, which are
+shared across all three targets' UIs). The two pitfalls below are specific to this target's copy of
+the file and remain live even after the consolidation, since each target's `static/<target>/`
+`index.html` was carried over unmodified rather than merged.
 
 **Pitfall — the CSV dropdown is empty by default, and looks broken rather than "just empty" until
 you know why.** `test_csv_files/` isn't created by `git clone`/a from-scratch checkout (nothing
@@ -1631,24 +1597,10 @@ or the **Refresh List** button next to the dropdown is clicked; this is delibera
 polling, which is genuinely time-sensitive), but a user unaware of that button will reload the whole
 page unnecessarily.
 
-**Per-actor card**: a status dot (from `/api/status`), one small dot per key in `stats.connections`
-(green if `true`, red if `false`), sent/recv counters (total, 30s, 60s), last-recv time, a log-level
-`<select>`, and Logs/Commands/Start/Stop buttons. The router's card additionally shows
-`gauges.queue_depth`/`gauges.pending_count` and a confirmation-gated ("this will drop in-flight
-transactions") Purge Queue button, proxying `POST /api/actor/<name>/dispatcher/purge`.
-
-**Polling**: `/api/actors`, `/api/status`, and `/api/starting` every 2 seconds (one combined refresh
-cycle re-renders every card).
-
-**Results table columns**: PAN (field `2`), RC (field `39`, highlighted green when `"00"`), Auth
-code (field `38`), Field 47 (truncated to ~40 characters with the full value in a hover tooltip).
-
-**Log viewer modal**: fetches `/logs?format=text` for the selected actor, auto-refreshes every 2s
-while open, has an export-to-file button (client-side `Blob`/`URL.createObjectURL`, no server round
-trip needed for the download itself).
-
-**Log-level display (fixed; this was an open bug in the Java doc's original design, carried forward
-once in this doc and now corrected)**: `actor_status()` on the monitor backend fetches `GET
+**Log-level display (fixed here; this is an open bug in `router_java`'s and `router_py`'s copies of
+`index.html` — see the "Monitor" section in each's `build_router.md`, and
+`../monitor_host/build_router.md`'s note that the three UIs diverged before the consolidation and
+weren't merged)**: `actor_status()` on the monitor backend fetches `GET
 /log_level` alongside `GET /stats` and folds the result into `stats.log_level`, so `/api/status`
 reports each actor's real current level, not just its traffic counters. On the frontend, the
 `<select>`'s `selected` option is computed from `stats.log_level` instead of being hardcoded to
@@ -1866,12 +1818,12 @@ circuits an invocation where nothing changed).
 `router_main` directly (see the `exec` note above); no actor-level graceful-shutdown handling is
 required for this to work, since the whole container is being torn down anyway, not just one actor.
 
-**`monitor.sh`**: checks that the `requests` and `flask` Python packages are importable, then runs
-`python3 monitor/main.py` in the foreground (`Ctrl+C`, or the dashboard's Stop-All-then-`/stop`
-path, to end it). Runs on the **host**, never bundled into the container image — the container has
-no Python at all, deliberately, since the monitor's only job is to talk to each actor's
-`CommandServer` over plain HTTP, and `network_mode: host` already makes every command port reachable
-at `localhost` without any in-container Python needed to bridge that.
+**`monitor.sh`** / **`monitor_stop.sh`**: delegate to `../monitor_host/start.sh router_cpp` /
+`../monitor_host/stop.sh router_cpp` (see `../monitor_host/build_router.md`) — the dashboard now
+runs in its own container, not on the bare host. `router_cpp`'s own container still has no Python
+at all, deliberately: the dashboard's only job is to talk to each actor's `CommandServer` over
+plain HTTP, and `--network host` on both containers already makes every command port reachable at
+`localhost` without any in-container Python needed to bridge that.
 
 Build inside the container (only needed again after editing source without rebuilding the image,
 e.g. while iterating): `docker exec router_cpp bash -c "cd build && cmake --build . -j2"`. Run tests:
@@ -1942,8 +1894,9 @@ same time; accepted drop-in-replacement tradeoff, same as the "Coexistence" deci
 
 ```bash
 ./start.sh      # docker compose up -d --build; polls localhost:8080/stats until ready
-./monitor.sh    # dashboard on http://localhost:8090, on the HOST (Ctrl+C to stop)
+./monitor.sh    # dashboard on http://localhost:8090, via ../monitor_host/
 # work in the dashboard: Start All -> upload a CSV -> Start -> watch /results
+./monitor_stop.sh
 ./stop.sh       # docker compose down
 ```
 

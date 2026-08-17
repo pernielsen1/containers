@@ -119,10 +119,11 @@ python3 main.py --config config.json
 
 Each implementation's `stress_run.sh`/`run_test.sh` launches this as a bare host subprocess
 (`python3 <path-to-here>/main.py --config <path-to-here>/config.json &`), the same way router_py always
-launched its own copy — not via `docker exec` or a compose `command:` block. Each implementation's
-`monitor` (`<impl>/monitor/main.py`) launches/tracks it the same way, with an explicit synthesized
-actor entry pointing at this directory's `config.json` (since each monitor's actor auto-discovery
-walks its own project tree, which no longer contains upstream_host's config).
+launched its own copy — not via `docker exec` or a compose `command:` block. The shared dashboard
+(`../monitor_host/`, see its `build_router.md`) launches/tracks it the same way, via each target's
+`backends/<target>.py`, with an explicit synthesized actor entry pointing at this directory's
+`config.json` (since each backend's actor auto-discovery walks its own project tree, which no
+longer contains upstream_host's config).
 
 ### Manual smoke test
 

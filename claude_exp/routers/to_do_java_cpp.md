@@ -14,7 +14,18 @@ Tracks fixes made in `router_py` (or the shared Python actors) that still need p
   actor names differ (`router_cpp-router`/`upstream_host`, not `router_1`/`upstream_1`), and its
   `is_running()` takes the actor dict rather than a name string; also added a `stop_actor(actor)`
   helper to `router_cpp/monitor/main.py` (factored out of its `/api/actor/<name>/stop` route),
-  which didn't have a reusable one like the other two languages. Both ports compile/import clean
+  which didn't have a reusable one like the other two languages.
+
+  **Note (2026-08-17): this `is_running(actor)` vs. `is_running(name)` drift was one of the two
+  concrete examples that motivated consolidating the three `<impl>/monitor/` copies into
+  `../monitor_host/` (see its `build_router.md`) — that inconsistency no longer exists architecturally
+  going forward (each target's `backends/<target>.py` is its own module now, not a shared
+  signature). It's called out here only because these two test suites still import
+  `router_java/monitor/main.py` / `router_cpp/monitor/main.py` directly, not `monitor_host/` — both
+  old `monitor/` directories are being kept in place (inert for the dashboard itself) until this
+  dependency is confirmed still needed or these suites are re-pointed at `monitor_host/backends/`.**
+
+  Both ports compile/import clean
   and got a matching `test_resilience.sh` wrapper, but neither has actually been run live yet -
   deferred because this host was at ~70MB free RAM when the ports were finished (router_java's
   container up, router_cpp's not even built), and a live run kills/restarts real actor processes

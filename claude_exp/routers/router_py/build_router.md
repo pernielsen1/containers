@@ -93,7 +93,7 @@ project/
 │   └── crypto_host/
 │       ├── main.py
 │       └── config.json
-├── monitor/
+├── monitor/                 # retired 2026-08-17, inert — superseded by ../monitor_host/
 │   ├── main.py
 │   └── static/
 │       └── index.html
@@ -102,8 +102,8 @@ project/
 │   ├── downstream_host.sh
 │   ├── router_1.sh / router_2.sh
 │   ├── upstream_1.sh / upstream_2.sh
-│   ├── monitor.sh           # writes its own PID to run/.monitor.pid before exec
-│   └── kill_monitor.sh      # POST /stop, poll PID from run/.monitor.pid up to 30s, SIGKILL fallback
+│   ├── monitor.sh           # delegates to ../monitor_host/start.sh router_py
+│   └── kill_monitor.sh      # delegates to ../monitor_host/stop.sh router_py
 ├── tests/
 │   ├── test_framing.py        # length-prefix framing round-trip
 │   ├── test_stats.py          # rolling-window counters
@@ -1024,98 +1024,22 @@ fallback is the original, unenriched f47.
 
 ## Monitor
 
-### `monitor/main.py`
+Consolidated 2026-08-17 into the shared `../monitor_host/` container — see
+`../monitor_host/build_router.md` for the full route table, actor-lifecycle plumbing, and static UI
+documentation (all identical across the three implementations, only the backend module differs).
+`router_py/monitor/main.py` and `router_py/monitor/static/index.html` are retired and inert
+(nothing launches them), kept in place only until the consolidated UI has been eyeballed for all
+three targets.
 
-Flask app on port 8090 (default, `--port` arg). Manages and proxies all actors.
-
-**Actor discovery** (`discover_actors()`):
-- Walk entire project tree looking for `config.json` files
-- Skip `monitor/` directory
-- Load each config; require `name` and `type` in `SCRIPTS_BY_TYPE`
-- Read `is_active` from each config (default `True` when absent)
-- `SCRIPTS_BY_TYPE = {"router": "router/main.py", "upstream": "<routers/upstream_host>/main.py", "downstream": "simulators/downstream_host/main.py", "crypto": "simulators/crypto_host/main.py"}`
-  — `upstream` points outside this project entirely now (the shared component), so the walk above
-  can never find its config; one explicit synthesized entry is added after the walk instead (see
-  "`upstream_host`" above)
-- Actors requiring `--config` arg: `{"router", "upstream"}`
-- Startup order: crypto(0) → downstream(1) → router(2) → upstream(3)
-- Result is cached once per monitor lifetime; restart monitor to pick up config changes
-
-**`_start_all_worker()`**:
-```python
-for actor in get_actors():
-    if not actor["is_active"]:
-        continue            # skip actors with is_active=false
-    if not is_running(actor["name"]):
-        launch_actor(actor)
-    wait_for_ready(actor, timeout=10)
-```
-
-**`wait_for_ready(actor, timeout=10)`** — polls `/stats` until:
-- Any actor type: HTTP 200 received
-- Router: `connections.downstream == true`
-- Upstream: `connections.router == true`
-Without the connection check, a `/start` called immediately after "Start All" can 503 with
-"not connected to router" even though every `/stats` already answers 200.
-
-**Monitor API routes:**
-| Route | Purpose |
-|---|---|
-| `GET /` | Serve `static/index.html` |
-| `GET /api/actors` | Ordered list with name/type/command_port/running/is_active |
-| `GET /api/routers_by_partner` | Dict `partner_id → [{name, command_port}]` |
-| `GET /api/status` | Parallel health check; green/yellow/red per actor |
-| `GET /api/starting` | `{"starting": bool}` |
-| `GET /api/csv_files` | List CSVs from `test_csv_files/` and each upstream's `input/` dir |
-| `POST /api/actor/<name>/launch` | Start subprocess if not running |
-| `POST /api/actor/<name>/stop` | Proxy to actor's `/stop` |
-| `GET /api/actor/<name>/stats` | Proxy to actor's `/stats` |
-| `GET /api/actor/<name>/start` | Proxy to actor's `/start` (upstream only) |
-| `GET /api/actor/<name>/results` | Proxy to actor's `/results` |
-| `GET\|POST /api/actor/<name>/log_level` | Proxy log level |
-| `GET /api/actor/<name>/logs` | Proxy logs; `?format=text` for plain text |
-| `POST /api/actor/<name>/upload` | Proxy multipart CSV upload |
-| `POST /api/actor/<name>/upload_path` | Upload by relative project path `{"path": "..."}` |
-| `POST /api/actor/<name>/dispatcher/purge` | Router only; proxies protected `/dispatcher/purge` |
-| `POST /api/start_all` | Start active actors in order, waiting up to 10s each |
-| `POST /api/stop_all` | Stop actors in reverse order |
-| `POST /stop` | Stop monitor process (terminates all managed subprocesses) |
-
-**Status logic** (per actor): fetch `/stats` → if `yellow_threshold_seconds` present, check `seconds_since_last_recv`; yellow if None or above threshold; green otherwise. Red if unreachable.
-
-**Subprocess management:** `_processes` dict `name → Popen`. `atexit` handler terminates all on
-exit, **and** a `signal.signal(signal.SIGTERM, ...)` handler calls the same termination routine
-before `os._exit(0)`. Both are required: Python's `atexit` handlers do **not** run on a bare
-`SIGTERM` (only on normal interpreter exit), so without the explicit signal handler, `kill <pid>`
-orphans every actor subprocess, silently leaking processes and squatting on their ports.
-
-Note this covers the case where the **monitor itself** is killed. It does not cover the case
-where the **script that launched the monitor** (e.g. `run_test.sh`) dies first while the monitor
-keeps running underneath it — see "Glue-script safety checklist" below for that failure mode,
-which is a different bug with the same symptom (orphaned actor processes).
-
-**Quiet logs:** every actor sets `logging.getLogger("werkzeug").setLevel(logging.ERROR)` —
-Flask's default per-request access log would otherwise flood the console every 2 seconds.
-
-### `monitor/static/index.html`
-
-Single-page vanilla JS app (no build step, no framework).
-
-**Layout:**
-- Header: title + "Start All" / "Stop All" buttons + optional "Starting actors…" spinner
-- Router Partners section: partner groups, each showing aggregate 30s/total stats and a grid of compact router cards
-- Simulators section: cards for crypto, downstream, upstream actors
-- Test Runner panel: upstream selector, CSV picker, Upload + Start buttons, results table
-
-**Per-actor card (full size):** status dot, connection dots, 30s/60s and total sent/recv counters,
-last-recv time, log-level selector, Logs / Start / Stop buttons. Router cards additionally show
-`queue_depth`/`pending_count` gauges and a **Purge Queue** button (confirmation required).
-
-**Polling:** `/api/status` + `/api/starting` every 2 seconds.
-
-**Results table columns:** PAN, RC (green if "00"), Auth code (field 38), Field 47 (truncated).
-
-**Log viewer modal:** fetches `/logs`, auto-refreshes every 2s, export to file.
+`router_py`'s backend, `monitor_host/backends/router_py.py`: `CONTAINER_NAME = None`,
+`HOST_SUBPROCESS_TYPES = {"router", "upstream", "downstream", "crypto"}` — every actor type is a
+plain host `Popen` (router_py has no actor-launching container of its own; its `docker-compose.yml`
+is a separate all-at-once deploy mode, unrelated to the dashboard). `discover_actors()` walks the
+whole project tree for `config.json` files (skipping `monitor/`), keyed by `SCRIPTS_BY_TYPE =
+{"router": "router/main.py", "upstream": "<routers/upstream_host>/main.py", "downstream":
+"simulators/downstream_host/main.py", "crypto": "simulators/crypto_host/main.py"}`, plus one
+explicit synthesized entry for `upstream_host`'s config since that now lives outside this project
+tree entirely (the shared component).
 
 ---
 
@@ -1259,8 +1183,8 @@ dict directly, so fixing the one function's definition was sufficient — no cal
 ./start.sh
 # ./stop.sh to tear down
 
-# All at once via monitor (host-launched actors, no container):
-python3 monitor/main.py --port 8090
+# All at once via monitor (containerized dashboard, host-launched actors):
+../monitor_host/start.sh router_py
 # Open http://localhost:8090 → Start All
 
 # Individual actors (host-launched, no container):
@@ -1278,11 +1202,9 @@ is a special case — it lives flat in its own directory with `upstream_shared/`
 child, so it's a single `os.path.dirname()` call; see `../upstream_host/build_router.md`).
 
 Equivalent `run/*.sh` wrappers exist for every instance, plus:
-- `run/monitor.sh` — starts the monitor, first writing its own PID to `run/.monitor.pid`
-  (`echo $$ > run/.monitor.pid` before `exec`)
-- `run/kill_monitor.sh` — `POST /stop`, poll PID from `run/.monitor.pid` for up to 30s,
-  then `SIGKILL` if not exited, then remove pidfile. Do not use `pgrep -f "monitor/main.py"`
-  to find the PID — it can match unrelated processes and kill the wrong thing.
+- `run/monitor.sh` — delegates to `../monitor_host/start.sh router_py` (see
+  `../monitor_host/build_router.md`)
+- `run/kill_monitor.sh` — delegates to `../monitor_host/stop.sh router_py`
 
 Default port assignments:
 - Router upstream listen: 5000 (router_1), 5003 (router_1.01), 5010 (router_2, client mode)

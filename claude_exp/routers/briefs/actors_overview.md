@@ -1,6 +1,7 @@
 
 Four actors, one instance each, all defined under `config/`. All run inside the `router_java`
-container; the monitor dashboard (not an actor itself) runs on the host and drives them over HTTP.
+container; the monitor dashboard (not an actor itself) runs in its own `monitor_host` container
+(`--network host`, see `../monitor_host/build_router.md`) and drives them over HTTP.
 Full behavioral spec for each is in `build_router.md` — this file is just the current
 wiring: who talks to whom, on which ports, from which config file.
 

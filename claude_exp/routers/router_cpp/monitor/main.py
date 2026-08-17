@@ -166,9 +166,15 @@ def auth_headers(actor):
     return {"X-Router-Auth": token} if token else {}
 
 
-def is_running(actor):
+def is_running(name):
     """No process handle to poll -- docker exec -d's client exits immediately once the detached
-    command starts. Liveness is "the actor's own /stats endpoint answers HTTP 200"."""
+    command starts. Liveness is "the actor's own /stats endpoint answers HTTP 200". Takes a name
+    (not the actor dict) to match router_py's/router_java's monitor.main - this used to take the
+    actor dict directly, the one real signature drift between the three monitors, which cost the
+    2026-08-16 resilience-suite port real friction (see routers/to_do_java_cpp.md)."""
+    actor = get_actor(name)
+    if actor is None:
+        return False
     try:
         r = requests.get(f"http://localhost:{actor['command_port']}/stats", timeout=2)
         return r.status_code == 200
@@ -300,7 +306,7 @@ def api_actors():
             "name": a["name"],
             "type": a["type"],
             "command_port": a["command_port"],
-            "running": is_running(a),
+            "running": is_running(a["name"]),
             "is_active": a["is_active"],
             "partner_id": a.get("partner_id"),
         }
@@ -356,7 +362,7 @@ def api_actor_launch(name):
     actor = get_actor(name)
     if not actor:
         return jsonify({"error": "unknown actor"}), 404
-    if is_running(actor):
+    if is_running(actor["name"]):
         return jsonify({"status": "already running"})
     try:
         launch_actor(actor)
@@ -382,7 +388,7 @@ def stop_actor(actor):
     stopped = False
     deadline = time.time() + 10
     while time.time() < deadline:
-        if not is_running(actor):
+        if not is_running(actor["name"]):
             stopped = True
             break
         time.sleep(0.5)
@@ -542,7 +548,7 @@ def _start_all_worker():
     try:
         actors = sorted(discover_actors(), key=lambda a: STARTUP_ORDER.get(a["type"], 99))
         for actor in actors:
-            if not actor["is_active"] or is_running(actor):
+            if not actor["is_active"] or is_running(actor["name"]):
                 continue
             try:
                 launch_actor(actor)
@@ -569,7 +575,7 @@ def api_stop_all():
     actors = sorted(discover_actors(), key=lambda a: STARTUP_ORDER.get(a["type"], 99), reverse=True)
     results = {}
     for actor in actors:
-        if not is_running(actor):
+        if not is_running(actor["name"]):
             results[actor["name"]] = "not running"
             continue
         try:
@@ -584,7 +590,7 @@ def api_stop_all():
 def _shutdown_worker():
     for actor in discover_actors():
         try:
-            if is_running(actor):
+            if is_running(actor["name"]):
                 requests.post(f"http://localhost:{actor['command_port']}/stop",
                              headers=auth_headers(actor), timeout=3)
         except Exception:
