@@ -32,6 +32,14 @@ MOUTH
 echo "[startmeup] checking Docker daemon..."
 ./start_docker.sh
 
+# Offer to prune unused Docker objects (images, containers, networks, volumes)
+read -r -p "[startmeup] Prune unused Docker images/containers/volumes? (y/N) " __PRUNE_ANSWER
+__PRUNE_ANSWER=${__PRUNE_ANSWER:-N}
+if [[ "$__PRUNE_ANSWER" =~ ^[Yy]$ ]]; then
+  echo "[startmeup] pruning unused Docker objects (this may remove images, containers, networks, and volumes)..."
+  docker system prune -af --volumes
+fi
+
 echo "[startmeup] kicking off a quick 10s/impl sweep to force rebuilds..."
 ./stress_test.sh --tps 50 --duration 10
 
