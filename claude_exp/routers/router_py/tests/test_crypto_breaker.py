@@ -13,6 +13,38 @@ class _UnreachableCfg:
     bearer_token = "test-token"
 
 
+class _FakeResponse:
+    def __init__(self, status: int, body: bytes):
+        self.status = status
+        self._body = body
+
+    def read(self) -> bytes:
+        return self._body
+
+
+class _FakeConnection:
+    """Stands in for http.client.HTTPConnection: records calls, returns a canned response."""
+
+    def __init__(self, response: _FakeResponse):
+        self.response = response
+        self.request_count = 0
+
+    def request(self, method, path, body=None, headers=None):
+        self.request_count += 1
+
+    def getresponse(self):
+        return self.response
+
+    def close(self):
+        pass
+
+
+def _success_response() -> _FakeResponse:
+    envelope = json.dumps({"f47": '{"response_code":"00"}'})
+    b64_envelope = base64.b64encode(envelope.encode("utf-8")).decode("ascii")
+    return _FakeResponse(200, json.dumps(b64_envelope).encode("utf-8"))
+
+
 def test_breaker_opens_after_threshold_failures_and_short_circuits():
     client = CryptoClient(_UnreachableCfg(), breaker_threshold=3, breaker_cooldown_seconds=2)
 
@@ -21,9 +53,9 @@ def test_breaker_opens_after_threshold_failures_and_short_circuits():
 
     assert time.time() < client._open_until
 
-    client._session.post = MagicMock(side_effect=AssertionError("should not be called while breaker is open"))
+    client._get_connection = MagicMock(side_effect=AssertionError("should not be called while breaker is open"))
     assert client.validate("validate_0100", "4111111111111111", "{}") == ""
-    client._session.post.assert_not_called()
+    client._get_connection.assert_not_called()
 
 
 def test_breaker_closes_after_cooldown_and_retries():
@@ -34,16 +66,10 @@ def test_breaker_closes_after_cooldown_and_retries():
 
     time.sleep(0.4)
 
-    original_post = client._session.post
-    call_count = {"n": 0}
-
-    def spy_post(*args, **kwargs):
-        call_count["n"] += 1
-        return original_post(*args, **kwargs)
-
-    client._session.post = spy_post
+    fake_conn = _FakeConnection(_success_response())
+    client._thread_local.conn = fake_conn
     client.validate("validate_0100", "4111111111111111", "{}")
-    assert call_count["n"] == 1
+    assert fake_conn.request_count == 1
 
 
 def test_successful_call_resets_failure_counter():
@@ -51,12 +77,7 @@ def test_successful_call_resets_failure_counter():
     client.validate("validate_0100", "4111111111111111", "{}")
     assert client._failure_count == 1
 
-    envelope = json.dumps({"f47": '{"response_code":"00"}'})
-    b64_envelope = base64.b64encode(envelope.encode("utf-8")).decode("ascii")
-    fake_response = MagicMock()
-    fake_response.raise_for_status = MagicMock()
-    fake_response.json.return_value = b64_envelope
-    client._session.post = MagicMock(return_value=fake_response)
+    client._thread_local.conn = _FakeConnection(_success_response())
 
     result = client.validate("validate_0100", "4111111111111111", "{}")
     assert result == '{"response_code":"00"}'

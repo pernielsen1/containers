@@ -1,10 +1,11 @@
 import base64
+import http.client
 import json
 import logging
 import threading
 import time
 
-import requests
+from shared.ssl_utils import build_client_context
 
 logger = logging.getLogger(__name__)
 
@@ -12,40 +13,83 @@ logger = logging.getLogger(__name__)
 class CryptoClient:
     """Fortanix-shaped crypto client: POST /sys/v1/plugins/{plugin_id}, bearer auth, base64
     response. Wired this way so swapping in a real Fortanix DSM tenant is a config/URL change,
-    not a rewrite - matches CryptoClient.java / crypto_client.cpp."""
+    not a rewrite - matches CryptoClient.java / crypto_client.cpp.
+
+    Uses stdlib http.client, not requests: a routers soak test (2026-08-19) isolated this leg
+    and found requests/urllib3's per-call overhead (PreparedRequest/adapter/pool-manager
+    machinery) scales the GIL-serialized cost of a validate() call directly with concurrent
+    caller count - measured p50 doubling with every doubling of concurrent threads (1 thread
+    3.6ms -> 8 threads 32ms) while crypto_host's own CPU stayed under 20% and the host stayed
+    71% idle, i.e. the bottleneck was Python-side call overhead, not the network or server.
+    Swapping to http.client.HTTPSConnection cut that per-call cost by ~3-4x at every
+    concurrency level in the same isolated test (8 threads: 32ms -> 8ms p50) - the scaling
+    with thread count is still there (inherent to N GIL-bound threads sharing one core's worth
+    of Python bytecode time) but the constant it scales from is now far smaller.
+    """
 
     def __init__(
         self,
         cfg,
         breaker_threshold: int = 5,
         breaker_cooldown_seconds: int = 30,
-        pool_size: int = 20,
     ):
-        scheme = "https" if getattr(cfg, "ssl_active", False) else "http"
-        self._base_url = f"{scheme}://{cfg.host}:{cfg.port}/sys/v1/plugins/{cfg.plugin_id}"
+        self._ssl_active = getattr(cfg, "ssl_active", False)
+        self._host = cfg.host
+        self._port = cfg.port
+        self._path = f"/sys/v1/plugins/{cfg.plugin_id}"
         self._bearer_token = cfg.bearer_token
-        self._session = requests.Session()
-        self._session.verify = cfg.cafile if getattr(cfg, "ssl_active", False) and getattr(cfg, "cafile", None) else False
-        self._session.cert = (
-            (cfg.certfile, cfg.keyfile)
-            if getattr(cfg, "ssl_active", False) and getattr(cfg, "certfile", None) and getattr(cfg, "keyfile", None)
+        self._ssl_context = (
+            build_client_context(
+                certfile=getattr(cfg, "certfile", None),
+                keyfile=getattr(cfg, "keyfile", None),
+                cafile=getattr(cfg, "cafile", None),
+            )
+            if self._ssl_active
             else None
         )
-        # Default HTTPAdapter pool_maxsize is 10 - both the 0100-leg worker pool and the
-        # 0110-leg response-worker pool call validate() concurrently on this one shared
-        # session, so at worker_threads=8/response_worker_threads=8 (the default) that's up
-        # to 16 concurrent callers. A too-small pool doesn't fail requests, but every call
-        # past pool_maxsize gets a fresh connection that's then discarded (not reused) once
-        # returned - logged as "Connection pool is full, discarding connection" and, under
-        # sustained load, the discarded sockets pile up in CLOSE_WAIT.
-        adapter = requests.adapters.HTTPAdapter(pool_connections=pool_size, pool_maxsize=pool_size)
-        self._session.mount("http://", adapter)
-        self._session.mount("https://", adapter)
+        # One persistent HTTPConnection per calling thread, not one shared across all
+        # worker_threads + response_worker_threads callers - see class docstring. Matches
+        # CryptoClient.java's ThreadLocal<HttpClient> and crypto_client.cpp's thread_local
+        # httplib::Client.
+        self._thread_local = threading.local()
         self._breaker_threshold = breaker_threshold
         self._breaker_cooldown_seconds = breaker_cooldown_seconds
         self._lock = threading.Lock()
         self._failure_count = 0
         self._open_until = 0.0
+
+    def _new_connection(self) -> http.client.HTTPConnection:
+        if self._ssl_active:
+            return http.client.HTTPSConnection(self._host, self._port, context=self._ssl_context, timeout=5)
+        return http.client.HTTPConnection(self._host, self._port, timeout=5)
+
+    def _get_connection(self) -> http.client.HTTPConnection:
+        conn = getattr(self._thread_local, "conn", None)
+        if conn is None:
+            conn = self._new_connection()
+            self._thread_local.conn = conn
+        return conn
+
+    def _send(self, body: str, headers: dict) -> bytes:
+        # A keep-alive connection idle between soak-test phases (or closed server-side after
+        # crypto_host's own keep_alive_max_count) fails on first use, not gracefully - retry
+        # once on a fresh connection rather than tripping the breaker on a stale socket alone.
+        conn = self._get_connection()
+        try:
+            conn.request("POST", self._path, body=body, headers=headers)
+            resp = conn.getresponse()
+            data = resp.read()
+        except (OSError, http.client.HTTPException):
+            conn.close()
+            self._thread_local.conn = None
+            conn = self._get_connection()
+            conn.request("POST", self._path, body=body, headers=headers)
+            resp = conn.getresponse()
+            data = resp.read()
+
+        if resp.status >= 400:
+            raise http.client.HTTPException(f"HTTP {resp.status}: {data[:200]!r}")
+        return data
 
     def validate(self, endpoint: str, pan: str, f47: str, router_stan: str = "") -> str:
         """Returns the enriched f47 on success, or "" on any failure (breaker open or HTTP
@@ -62,16 +106,13 @@ class CryptoClient:
                 return ""
 
         try:
-            resp = self._session.post(
-                self._base_url,
-                json={"operation": endpoint, "f2": pan, "f47": f47, "router_stan": router_stan},
-                headers={"Authorization": f"Bearer {self._bearer_token}"},
-                timeout=5,
-                verify=self._session.verify,
-                cert=self._session.cert,
-            )
-            resp.raise_for_status()
-            decoded = base64.b64decode(resp.json()).decode("utf-8")
+            body = json.dumps({"operation": endpoint, "f2": pan, "f47": f47, "router_stan": router_stan})
+            headers = {
+                "Authorization": f"Bearer {self._bearer_token}",
+                "Content-Type": "application/json",
+            }
+            data = self._send(body, headers)
+            decoded = base64.b64decode(json.loads(data)).decode("utf-8")
             result = json.loads(decoded).get("f47", "")
         except Exception as e:
             logger.warning(

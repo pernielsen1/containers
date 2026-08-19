@@ -62,7 +62,6 @@ class RouterSession:
             cfg.crypto,
             breaker_threshold=cfg.crypto_breaker_threshold,
             breaker_cooldown_seconds=cfg.crypto_breaker_cooldown_seconds,
-            pool_size=cfg.worker_threads + cfg.response_worker_threads,
         )
         reconnect_event = threading.Event()
         dispatcher = Dispatcher(
