@@ -2,7 +2,7 @@
 # Stress-test CLI driver: launches router as a `docker exec -d` process inside the router_java
 # container, and downstream_host/upstream_host as bare host subprocesses (the shared
 # routers/downstream_host and routers/upstream_host Python components, not per-language actors
-# anymore - see ../divide_and_conquer.md, ../downstream_host/build_router.md and
+# anymore - see ../old/divide_and_conquer.md, ../downstream_host/build_router.md and
 # ../upstream_host/build_router.md), the same way run_test.sh does,
 # uploads the given CSV, calls /start?rate=&duration= (upstream_host cycles the CSV rows at the
 # requested rate for the requested duration instead of a single pass), waits for the run to
@@ -57,7 +57,15 @@ mkdir -p "$LOG_DIR"
 
 ROUTER_HOST="${ROUTER_HOST:-127.0.0.1}"
 REMOTE_SERVER=""
-[ "$ROUTER_HOST" != "127.0.0.1" ] && REMOTE_SERVER="${SERVER_USER:?SERVER_USER must be set for remote stress}@serverhp.home"
+if [ "$ROUTER_HOST" != "127.0.0.1" ]; then
+  REMOTE_SERVER="${SERVER_USER:?SERVER_USER must be set for remote stress}@serverhp.home"
+  # ROUTER_HOST (e.g. "serverhp.home") may only resolve via ~/.ssh/config, not real DNS/hosts -
+  # curl/python's socket resolver can't use that, so resolve it to an IP here for the plain
+  # HTTP/TCP calls below; ssh itself is unaffected since it reads ~/.ssh/config directly.
+  if ! getent hosts "$ROUTER_HOST" >/dev/null 2>&1; then
+    ROUTER_HOST="$(ssh -G "$ROUTER_HOST" 2>/dev/null | awk '/^hostname /{print $2; exit}')"
+  fi
+fi
 
 CRYPTO_CMD=8099  # shared crypto_host (local port 8099 or remote server port 8099)
 DS_CMD=8081
@@ -142,11 +150,8 @@ if [ "$MANUAL" -eq 0 ]; then
       --config config/router_1_perf.json \
       > >(tee -a "$LOG_DIR/router_1_${RUN_TS}.log" >&2) 2>&1 &
   else
-    echo "Starting router_java on $ROUTER_HOST (perf config -> shared crypto_host)..." >&2
-    ssh "$REMOTE_SERVER" bash -s >&2 <<'SSH_EOF'
-docker rm -f router_java 2>/dev/null || true
-docker run -d --name router_java --network host --init -e ROUTER_CONFIG=router_1_perf.json router_java
-SSH_EOF
+    echo "Starting router_java + downstream_host on $ROUTER_HOST via server_start.sh..." >&2
+    "$PROJECT_ROOT/../server_start.sh" java >&2
   fi
 
   echo "Launching upstream_1 (shared routers/upstream_host, host-side not docker exec)..." >&2
@@ -203,28 +208,29 @@ print(f'router_java;${TPS};${DURATION};{s[\"sent\"]};{s[\"received\"]};{s[\"erro
 # long run it happened (e.g. a GC pause partway through a multi-minute soak test). Same shared CSV
 # as router_py's.
 mkdir -p "$PROJECT_ROOT/../csv_results"
+ENV_NAME="${ENV_NAME:-$(hostname)}"
 SLOW_CSV="$PROJECT_ROOT/../csv_results/slow_responds.csv"
 if [ ! -f "$SLOW_CSV" ]; then
-  echo "timestamp;implementation;target_tps;duration_s;rank;sent_offset_s;latency_ms" > "$SLOW_CSV"
+  echo "timestamp;env;implementation;target_tps;duration_s;rank;sent_offset_s;latency_ms" > "$SLOW_CSV"
 fi
 echo "Fetching /slow_responses..." >&2
 curl -s -f "http://127.0.0.1:${UPSTREAM_CMD}/slow_responses?n=10" | python3 -c "
 import json, sys
 rows = json.load(sys.stdin)
 for i, r in enumerate(rows, 1):
-    print(f'${RUN_TS};router_java;${TPS};${DURATION};{i};{r[\"sent_offset_s\"]};{r[\"latency_ms\"]}')
+    print(f'${RUN_TS};${ENV_NAME};router_java;${TPS};${DURATION};{i};{r[\"sent_offset_s\"]};{r[\"latency_ms\"]}')
 " >> "$SLOW_CSV"
 
 # Time-bucketed p50 (30s windows by default) - tells a smooth queueing-backlog ramp apart from
 # scattered GC-pause spikes, which a top-10-slowest list alone can't distinguish.
 BUCKETS_CSV="$PROJECT_ROOT/../csv_results/latency_buckets.csv"
 if [ ! -f "$BUCKETS_CSV" ]; then
-  echo "timestamp;implementation;target_tps;duration_s;bucket_start_s;count;p50_ms;max_ms" > "$BUCKETS_CSV"
+  echo "timestamp;env;implementation;target_tps;duration_s;bucket_start_s;count;p50_ms;max_ms" > "$BUCKETS_CSV"
 fi
 echo "Fetching /latency_buckets..." >&2
 curl -s -f "http://127.0.0.1:${UPSTREAM_CMD}/latency_buckets?bucket_s=30" | python3 -c "
 import json, sys
 rows = json.load(sys.stdin)
 for r in rows:
-    print(f'${RUN_TS};router_java;${TPS};${DURATION};{r[\"bucket_start_s\"]};{r[\"count\"]};{r[\"p50_ms\"]};{r[\"max_ms\"]}')
+    print(f'${RUN_TS};${ENV_NAME};router_java;${TPS};${DURATION};{r[\"bucket_start_s\"]};{r[\"count\"]};{r[\"p50_ms\"]};{r[\"max_ms\"]}')
 " >> "$BUCKETS_CSV"

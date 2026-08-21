@@ -46,9 +46,10 @@ fi
 CSV_FILE="$(cd "$(dirname "$CSV_FILE")" && pwd)/$(basename "$CSV_FILE")"
 
 mkdir -p "$PROJECT_ROOT/csv_results"
+ENV_NAME="${ENV_NAME:-$(hostname)}"
 RESULTS_CSV="$PROJECT_ROOT/csv_results/stress_results.csv"
 if [ ! -f "$RESULTS_CSV" ]; then
-  echo "timestamp;implementation;target_tps;duration_s;sent;received;errors;achieved_tps;p50_ms;p90_ms;p95_ms;p99_ms;max_ms" > "$RESULTS_CSV"
+  echo "timestamp;env;implementation;target_tps;duration_s;sent;received;errors;achieved_tps;p50_ms;p90_ms;p95_ms;p99_ms;max_ms" > "$RESULTS_CSV"
 fi
 
 # The shared crypto_host container (real OpenSSL-backed crypto) is started once, here, and stays
@@ -105,7 +106,7 @@ for impl in "${IMPLS[@]}"; do
       echo "Run failed for $impl @ ${tps} tps - skipping, continuing sweep" >&2
       continue
     }
-    echo "$(date -Iseconds);${ROW}" >> "$RESULTS_CSV"
+    echo "$(date -Iseconds);${ENV_NAME};${ROW}" >> "$RESULTS_CSV"
     echo "  -> ${ROW}" >&2
   done
 done

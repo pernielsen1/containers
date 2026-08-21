@@ -2,7 +2,7 @@
 
 This host only has ~2.8GB RAM, and running Claude Code + VS Code (with its Java language
 servers) alongside a ~40-minute back-to-back stress test pushed it into real OOM territory during
-an earlier attempt (see `performance.md`, "2026-07-31, stress test part 2" — a
+an earlier attempt (see `../old/performance.md`, "2026-07-31, stress test part 2" — a
 logged kernel OOM-kill landed mid-run and corrupted the results). Running it standalone, with the
 IDE and this session closed, avoids that.
 
@@ -39,6 +39,11 @@ The sequence itself also writes two more files in `csv_results/`, both semicolon
 comma decimal point (utf-8-sig BOM, same convention as every other CSV in this repo):
 `soak_results.csv` (one full row per phase: sent/received/errors/achieved_tps/p50/p90/p95/p99/max)
 and `soak_summary.csv` (just the p50/p90/p99 columns, for a quick read).
+
+This covers the local-host sequence only. To run the same three phases against a remote host
+(e.g. `serverhp.home`) instead, use `run_soak_remote.sh` — same phases, same cooldown formula,
+same CSV outputs (tagged with that host's `env` name instead of this laptop's), see its own
+header comment for `SERVER_USER` setup.
 
 ## Steps
 

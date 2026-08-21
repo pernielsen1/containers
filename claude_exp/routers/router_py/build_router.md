@@ -298,7 +298,7 @@ successor file: the real cryptographic logic now lives only in the shared
 `/home/perni/containers/claude_exp/routers/crypto_host/` container (C++/OpenSSL), used by all
 three implementations (router_py/router_java/router_cpp) so the same code is the performance bottleneck for
 all three instead of each language comparing itself against its own crypto simulator. See
-`routers/divide_and_conquer.md` for the full rationale. This implementation's own
+`routers/old/divide_and_conquer.md` for the full rationale. This implementation's own
 `simulators/crypto_host/main.py` is now a stub (see its section below) — no OpenSSL, no
 PIN/ARQC/CVV2/AAV math — kept only so router_py can still be built and tested standalone without the
 shared container running.
@@ -885,7 +885,7 @@ Simulates an IMS Connect authorization host.
 
 `upstream_host` was promoted out of router_py into a standalone component shared by all three
 implementations (`routers/upstream_host/`, host-side Python process, not containerized) — see
-`../divide_and_conquer.md` (part 2) for why, and `../upstream_host/build_router.md` for its full
+`../old/divide_and_conquer.md` (part 2) for why, and `../upstream_host/build_router.md` for its full
 spec (endpoints, config schema, framing, CSV format, `_send_loop`/`_receive_loop`/keepalive
 internals). router_py's own copy (`simulators/upstream_host/`, `simulators/upstream_1/`) was deleted;
 nothing below is router_py-specific implementation detail anymore, only integration points that remain
@@ -1320,7 +1320,7 @@ once by `routers/stress_test.sh` (or manually via `routers/crypto_host/start.sh`
 or torn down by this script. This is deliberate: perf runs must hit the same real crypto bottleneck
 across all three implementations for the comparison to be meaningful, not each implementation's
 own lightweight stub (see "Real crypto validation has moved to a shared container" above and
-`routers/divide_and_conquer.md` for the full rationale).
+`routers/old/divide_and_conquer.md` for the full rationale).
 
 **Pitfall — a backgrounded process's own stdout leaks past `2>` redirection.** `stress_run.sh`
 launches each actor it does spawn as `python3 ... &`, and Flask's werkzeug dev server prints its

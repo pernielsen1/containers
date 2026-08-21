@@ -45,7 +45,15 @@ cd "$PROJECT_ROOT"
 
 ROUTER_HOST="${ROUTER_HOST:-127.0.0.1}"
 REMOTE_SERVER=""
-[ "$ROUTER_HOST" != "127.0.0.1" ] && REMOTE_SERVER="${SERVER_USER:?SERVER_USER must be set for remote stress}@serverhp.home"
+if [ "$ROUTER_HOST" != "127.0.0.1" ]; then
+  REMOTE_SERVER="${SERVER_USER:?SERVER_USER must be set for remote stress}@serverhp.home"
+  # ROUTER_HOST (e.g. "serverhp.home") may only resolve via ~/.ssh/config, not real DNS/hosts -
+  # curl/python's socket resolver can't use that, so resolve it to an IP here for the plain
+  # HTTP/TCP calls below; ssh itself is unaffected since it reads ~/.ssh/config directly.
+  if ! getent hosts "$ROUTER_HOST" >/dev/null 2>&1; then
+    ROUTER_HOST="$(ssh -G "$ROUTER_HOST" 2>/dev/null | awk '/^hostname /{print $2; exit}')"
+  fi
+fi
 
 CRYPTO_CMD=8099  # shared crypto_host (local port 8099 or remote server port 8099)
 DS_CMD=8081
@@ -91,14 +99,8 @@ if [ "$MANUAL" -eq 0 ]; then
     python3 router/main.py --config router/router_1/config_perf.json >&2 &
     PIDS+=("$!")
   else
-    echo "Starting router_py on $ROUTER_HOST (perf config, no embedded crypto)..." >&2
-    ssh "$REMOTE_SERVER" bash -s >&2 <<'SSH_EOF'
-docker rm -f router_py 2>/dev/null || true
-docker run -d --name router_py --network host --init router_py bash -c "
-  python3 ../downstream_host/main.py --config simulators/downstream_host/config_perf.json >&2 &
-  python3 router/main.py --config router/router_1/config_perf.json >&2 &
-  sleep infinity"
-SSH_EOF
+    echo "Starting router_py + downstream_host on $ROUTER_HOST via server_start.sh..." >&2
+    "$PROJECT_ROOT/../server_start.sh" py >&2
   fi
 
   echo "Launching upstream_1 (shared routers/upstream_host)..." >&2
@@ -149,9 +151,10 @@ print(f'router_py;${TPS};${DURATION};{s[\"sent\"]};{s[\"received\"]};{s[\"errors
 # to routers/csv_results/slow_responds.csv - lets a slow response be correlated with *when* in a
 # long run it happened (e.g. a GC pause partway through a multi-minute soak test).
 mkdir -p "$PROJECT_ROOT/../csv_results"
+ENV_NAME="${ENV_NAME:-$(hostname)}"
 SLOW_CSV="$PROJECT_ROOT/../csv_results/slow_responds.csv"
 if [ ! -f "$SLOW_CSV" ]; then
-  echo "timestamp;implementation;target_tps;duration_s;rank;sent_offset_s;latency_ms" > "$SLOW_CSV"
+  echo "timestamp;env;implementation;target_tps;duration_s;rank;sent_offset_s;latency_ms" > "$SLOW_CSV"
 fi
 echo "Fetching /slow_responses..." >&2
 RUN_TS="$(date -Iseconds)"
@@ -159,19 +162,19 @@ curl -s -f "http://127.0.0.1:${UPSTREAM_CMD}/slow_responses?n=10" | python3 -c "
 import json, sys
 rows = json.load(sys.stdin)
 for i, r in enumerate(rows, 1):
-    print(f'${RUN_TS};router_py;${TPS};${DURATION};{i};{r[\"sent_offset_s\"]};{r[\"latency_ms\"]}')
+    print(f'${RUN_TS};${ENV_NAME};router_py;${TPS};${DURATION};{i};{r[\"sent_offset_s\"]};{r[\"latency_ms\"]}')
 " >> "$SLOW_CSV"
 
 # Time-bucketed p50 (30s windows by default) - tells a smooth queueing-backlog ramp apart from
 # scattered GC-pause spikes, which a top-10-slowest list alone can't distinguish.
 BUCKETS_CSV="$PROJECT_ROOT/../csv_results/latency_buckets.csv"
 if [ ! -f "$BUCKETS_CSV" ]; then
-  echo "timestamp;implementation;target_tps;duration_s;bucket_start_s;count;p50_ms;max_ms" > "$BUCKETS_CSV"
+  echo "timestamp;env;implementation;target_tps;duration_s;bucket_start_s;count;p50_ms;max_ms" > "$BUCKETS_CSV"
 fi
 echo "Fetching /latency_buckets..." >&2
 curl -s -f "http://127.0.0.1:${UPSTREAM_CMD}/latency_buckets?bucket_s=30" | python3 -c "
 import json, sys
 rows = json.load(sys.stdin)
 for r in rows:
-    print(f'${RUN_TS};router_py;${TPS};${DURATION};{r[\"bucket_start_s\"]};{r[\"count\"]};{r[\"p50_ms\"]};{r[\"max_ms\"]}')
+    print(f'${RUN_TS};${ENV_NAME};router_py;${TPS};${DURATION};{r[\"bucket_start_s\"]};{r[\"count\"]};{r[\"p50_ms\"]};{r[\"max_ms\"]}')
 " >> "$BUCKETS_CSV"

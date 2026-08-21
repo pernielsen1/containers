@@ -2,7 +2,7 @@
 # End-to-end CLI driver (not JUnit): launches crypto_host/router as background `docker exec -d`
 # processes inside the router_java container, and downstream_host/upstream_host as bare host
 # subprocesses (the shared routers/downstream_host and routers/upstream_host Python components -
-# see ../divide_and_conquer.md, ../downstream_host/build_router.md and
+# see ../old/divide_and_conquer.md, ../downstream_host/build_router.md and
 # ../upstream_host/build_router.md - downstream_host must stay co-located with wherever the
 # router itself runs, since the router connects out to it at "localhost:<port>", unlike
 # upstream_host which the router listens for and which can run anywhere reachable), waits for

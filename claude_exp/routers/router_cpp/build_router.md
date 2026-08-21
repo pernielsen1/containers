@@ -642,7 +642,7 @@ HMAC-SHA1 plumbing) that used to live in this project — have been **deleted fr
 That real, OpenSSL-backed crypto logic is now the basis of a new standalone shared container at
 `routers/crypto_host/` (its own CMake/C++ project), used by all three sibling implementations
 (router_py, router_java, router_cpp) so that performance comparisons measure the same crypto backend instead of
-each implementation's own simulator. See `routers/divide_and_conquer.md` for the full rationale and
+each implementation's own simulator. See `routers/old/divide_and_conquer.md` for the full rationale and
 `routers/crypto_host/build_router.md` for that container's own spec — not repeated here.
 
 router_cpp's own `crypto_host` (`src/simulators/crypto_host/crypto_host_main.cpp`) is now just a
@@ -1352,7 +1352,7 @@ flight when the to-conn's first frame (the pipe-cleaner ping) arrives.
 `upstream_host_main.cpp` was deleted (and its CMake target removed) — `upstream_host` was
 promoted out of all three implementations into a standalone Python component shared by
 router_py/router_java/router_cpp (`routers/upstream_host/`, host-side process, not containerized). See
-`../divide_and_conquer.md` (part 2) for why, and `../upstream_host/build_router.md` for the full
+`../old/divide_and_conquer.md` (part 2) for why, and `../upstream_host/build_router.md` for the full
 spec (endpoints, config schema, framing, CSV format, send/receive/keepalive loop internals — all
 a straight line-by-line port of what used to be documented here, unchanged in behavior).
 
@@ -1364,7 +1364,7 @@ ends (internally consistent, but not matching Python/Java). Fixed in `iso_codec.
 `encode()`/`decode()` to read/write the MTI as 4 ASCII bytes directly instead of round-tripping
 through a `uint16_t`. The bitmap encoding needed no fix — this codec already used raw binary
 bytes for it (`std::array<uint8_t, 16> bitmap`), matching pyiso8583's convention by coincidence
-rather than by any shared source of truth (see the note in `../divide_and_conquer.md` about
+rather than by any shared source of truth (see the note in `../old/divide_and_conquer.md` about
 `test_spec` needing to become that source of truth, not per-language hardcoded assumptions).
 
 **Integration points that remain locally relevant:**

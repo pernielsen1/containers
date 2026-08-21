@@ -6,7 +6,7 @@ Trivial echo/approve-decline authorization host used to functionally test and st
 three router implementations (`../router_py`, `../router_java`, `../router_cpp`). Promoted out of
 `router_py/simulators/downstream_host/` (the original, and only, implementation — router_java's
 and router_cpp's copies were line-by-line ports of it) into this standalone component, the same
-treatment `../upstream_host` got in Round 2 (see `../divide_and_conquer.md`, part 2) — it's pure
+treatment `../upstream_host` got in Round 2 (see `../old/divide_and_conquer.md`, part 2) — it's pure
 test infrastructure with zero language-comparison value, and three reimplementations existed only
 for parity, not because the language mattered.
 

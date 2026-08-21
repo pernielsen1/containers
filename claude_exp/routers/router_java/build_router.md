@@ -356,7 +356,7 @@ M/Chip UDK/session-key derivation, Retail MAC ARQC verification, ARPC Method 1, 
 Format-0 PIN block verification, MasterCard CVV2 verification, HMAC-SHA1 AAV verification — all
 pure JCE code, no I/O). That class (and its test, `CryptoUtilsTest`) has been **deleted**. The real
 math now lives only in the shared `routers/crypto_host/` container (C++/OpenSSL, not Java) —
-see `routers/divide_and_conquer.md` for the full rationale; in short, crypto_host was the
+see `routers/old/divide_and_conquer.md` for the full rationale; in short, crypto_host was the
 performance bottleneck across all three sibling implementations (python/java/c++), and testing
 each one against its own crypto simulator was muddying the cross-implementation comparison this
 project exists to produce.
@@ -1128,7 +1128,7 @@ frames on that startup race rather than requiring the two connections to be stri
 
 `UpstreamHostMain.java` was deleted — `upstream_host` was promoted out of all three
 implementations into a standalone Python component shared by router_py/router_java/router_cpp
-(`routers/upstream_host/`, host-side process, not containerized). See `../divide_and_conquer.md`
+(`routers/upstream_host/`, host-side process, not containerized). See `../old/divide_and_conquer.md`
 (part 2) for why, and `../upstream_host/build_router.md` for the full spec (endpoints, config
 schema, framing, CSV format, send/receive/keepalive loop internals — all a straight line-by-line
 port of what used to be documented here, unchanged in behavior).

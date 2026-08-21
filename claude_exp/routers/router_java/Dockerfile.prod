@@ -1,18 +1,19 @@
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM maven:3.9-eclipse-temurin-25 AS build
 WORKDIR /build
 COPY pom.xml .
 RUN mvn dependency:resolve -q
 COPY src ./src
 RUN mvn -q -DskipTests package
 
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:25-jre-jammy
 WORKDIR /app
 COPY --from=build /build/target/router_java.jar .
 COPY config ./config
 EXPOSE 5000 5001 5002 8080 8081 8082 8083
 ENV ROUTER_CONFIG=router_1.json
+# downstream_host is the shared routers/downstream_host Python component, run as a separate
+# host subprocess (see router_cpp/docker-compose.yml's matching note) - not bundled here.
 CMD ["/bin/bash", "-c", "\
-  java -cp router_java.jar com.xv6.simulators.cryptohost.CryptoHostMain   --config config/crypto_host.json & \
-  java -cp router_java.jar com.xv6.simulators.downstreamhost.DownstreamHostMain --config config/downstream_host.json & \
-  java -cp router_java.jar com.xv6.router.RouterMain --config config/${ROUTER_CONFIG} & \
+  java -cp router_java.jar com.router.simulators.cryptohost.CryptoHostMain --config config/crypto_host.json & \
+  java -cp router_java.jar com.router.router.RouterMain --config config/${ROUTER_CONFIG} & \
   wait"]

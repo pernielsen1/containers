@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Edit these two lines once you know them, then run this script.
+IP=192.168.39.177
+USER=perni
+
+if [[ "$IP" == "CHANGE_ME" || "$USER" == "CHANGE_ME" ]]; then
+    echo "Edit IP and USER at the top of this script first." >&2
+    exit 1
+fi
+
+SSH_CONFIG="$HOME/.ssh/config"
+mkdir -p "$HOME/.ssh"
+touch "$SSH_CONFIG"
+
+# Drop any previous serverhp.home block, then append a fresh one, so
+# re-running this script after an IP change just updates it in place.
+tmp="$(mktemp)"
+awk '
+    /^Host serverhp\.home$/ { skip=1 }
+    skip && /^Host / && !/^Host serverhp\.home$/ { skip=0 }
+    !skip { print }
+' "$SSH_CONFIG" > "$tmp"
+mv "$tmp" "$SSH_CONFIG"
+
+cat >> "$SSH_CONFIG" <<EOF
+Host serverhp.home
+    HostName $IP
+    User $USER
+EOF
+
+echo "Added serverhp.home -> $USER@$IP to $SSH_CONFIG"
+echo "Try: ssh serverhp.home"

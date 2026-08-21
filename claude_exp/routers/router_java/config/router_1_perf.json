@@ -5,6 +5,7 @@
   "partner_id": "partner_a",
   "log_level": "INFO",
   "command_port": 8080,
+  "command_bind_host": "0.0.0.0",
   "upstream": {
     "port": 5000,
     "framing": {

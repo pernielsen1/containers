@@ -58,7 +58,10 @@ class DownstreamHostSim:
         self._auth_code_counter = 0
         self._auth_code_lock = threading.Lock()
 
-        self.cmd = CommandServer(cfg["command_port"], self.stats, self.stop_event)
+        self.cmd = CommandServer(
+            cfg["command_port"], self.stats, self.stop_event,
+            bind_host=cfg.get("command_bind_host", "127.0.0.1"),
+        )
         self._listen_sock = None
 
     def _next_auth_code(self) -> str:

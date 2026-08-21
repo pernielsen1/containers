@@ -1,6 +1,7 @@
 services:
   router_cpp:
     build: .
+    image: router_cpp
     container_name: router_cpp
     network_mode: host
     init: true

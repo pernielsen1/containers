@@ -5,7 +5,9 @@
   "partner_id": "partner_a",
   "log_level": "INFO",
   "command_port": 8080,
+  "command_bind_host": "0.0.0.0",
   "upstream": {
+    "host": "0.0.0.0",
     "port": 5000,
     "framing": {
       "header_hex": "",

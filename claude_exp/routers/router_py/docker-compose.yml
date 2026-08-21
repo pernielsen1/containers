@@ -1,6 +1,7 @@
 services:
   router_py:
     build: .
+    image: router_py
     container_name: router_py
     network_mode: host
     init: true

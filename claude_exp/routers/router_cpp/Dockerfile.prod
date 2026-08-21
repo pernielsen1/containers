@@ -1,0 +1,40 @@
+FROM ubuntu:22.04
+
+RUN apt-get update && apt-get install -y \
+    cmake \
+    g++ \
+    git \
+    libssl-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+
+# Explicit COPY list (not `COPY . .`) rather than relying on .dockerignore for this Dockerfile:
+# the plain .dockerignore deliberately excludes config/ (it's volume-mounted at runtime for local
+# dev via docker-compose - see its own comment), but this prod image has no bind mount and needs
+# config baked in. See Dockerfile.prod.dockerignore, which overrides the plain one for this file.
+COPY CMakeLists.txt .
+COPY src ./src
+COPY test ./test
+COPY config ./config
+
+# See Dockerfile's matching note on -j2 vs -j1 (OOM risk under parallelism on memory-constrained
+# build hosts).
+RUN mkdir -p build && \
+    cd build && \
+    cmake -DCMAKE_BUILD_TYPE=Release .. && \
+    make -j2
+
+ENV LD_LIBRARY_PATH=/usr/local/lib:/usr/lib
+ENV PATH=/src/build:$PATH
+
+EXPOSE 5000 5001 5002 8080 8081 8082 8083
+
+# downstream_host is the shared routers/downstream_host Python component, deployed and started
+# separately (see ../downstream_host/Dockerfile, ../server_start.sh) - not bundled here.
+ENV ROUTER_CONFIG=router_1.json
+CMD ["/bin/bash", "-c", "\
+  /src/build/crypto_host --config /src/config/router_1.json & \
+  /src/build/router_main --config /src/config/${ROUTER_CONFIG} & \
+  wait"]

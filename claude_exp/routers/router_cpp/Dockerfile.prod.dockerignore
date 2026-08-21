@@ -1,0 +1,7 @@
+# Overrides the plain .dockerignore for `docker build -f Dockerfile.prod` (BuildKit picks
+# <dockerfile-name>.dockerignore over the plain one when present). Dockerfile.prod's COPY list is
+# already explicit (CMakeLists.txt, src/, test/, config/), so this only needs to keep local build
+# artifacts out - unlike the plain .dockerignore it must NOT exclude config/, since this image has
+# no runtime bind mount and needs it baked in.
+build/
+build_local/

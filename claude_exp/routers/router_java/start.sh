@@ -26,7 +26,7 @@ if docker ps -a --format '{{.Names}}' | grep -qx router_java; then
 fi
 
 # /upstream_host, /downstream_host: the shared routers/upstream_host and routers/downstream_host
-# Python components (see ../divide_and_conquer.md). Not under $PROJECT_ROOT, so they need their
+# Python components (see ../old/divide_and_conquer.md). Not under $PROJECT_ROOT, so they need their
 # own bind mounts - RouterFullStackTest.java launches them as subprocesses from these fixed
 # container paths.
 docker run -d --name router_java --network host \

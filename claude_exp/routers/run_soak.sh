@@ -18,6 +18,10 @@ set -uo pipefail
 
 ROUTERS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROUTER_HOST="${ROUTER_HOST:-127.0.0.1}"
+# Which physical machine this run happened on (dev laptop / other laptop / serverhp.home) - lets
+# csv_results rows be compared/filtered by environment. Override with ENV_NAME if $(hostname)
+# isn't a meaningful name for a given host.
+ENV_NAME="${ENV_NAME:-$(hostname)}"
 # Master copy at the repo root, not any implementation's local test_csv_files/ - those are
 # per-implementation mirrors (see sync_test_csv.sh) for that implementation's own local
 # convenience only, not the source of truth for stress/soak runs.
@@ -34,10 +38,10 @@ mkdir -p "$ROUTERS_ROOT/csv_results"
 SOAK_RESULTS_CSV="$ROUTERS_ROOT/csv_results/soak_results.csv"
 SOAK_SUMMARY_CSV="$ROUTERS_ROOT/csv_results/soak_summary.csv"
 if [ ! -f "$SOAK_RESULTS_CSV" ]; then
-  printf '\xEF\xBB\xBF%s\n' "timestamp;implementation;target_tps;duration_s;sent;received;errors;achieved_tps;p50_ms;p90_ms;p95_ms;p99_ms;max_ms" > "$SOAK_RESULTS_CSV"
+  printf '\xEF\xBB\xBF%s\n' "timestamp;env;implementation;target_tps;duration_s;sent;received;errors;achieved_tps;p50_ms;p90_ms;p95_ms;p99_ms;max_ms" > "$SOAK_RESULTS_CSV"
 fi
 if [ ! -f "$SOAK_SUMMARY_CSV" ]; then
-  printf '\xEF\xBB\xBF%s\n' "timestamp;implementation;target_tps;duration_s;p50_ms;p90_ms;p99_ms" > "$SOAK_SUMMARY_CSV"
+  printf '\xEF\xBB\xBF%s\n' "timestamp;env;implementation;target_tps;duration_s;p50_ms;p90_ms;p99_ms" > "$SOAK_SUMMARY_CSV"
 fi
 
 wait_for_ports_free() {
@@ -71,11 +75,11 @@ record_result() {
   local row="$1"
   local ts
   ts="$(date -Iseconds)"
-  echo "${ts};${row//./,}" >> "$SOAK_RESULTS_CSV"
+  echo "${ts};${ENV_NAME};${row//./,}" >> "$SOAK_RESULTS_CSV"
 
   local impl tps dur sent recv err atps p50 p90 p95 p99 mx
   IFS=';' read -r impl tps dur sent recv err atps p50 p90 p95 p99 mx <<< "$row"
-  echo "${ts};${impl};${tps};${dur};${p50//./,};${p90//./,};${p99//./,}" >> "$SOAK_SUMMARY_CSV"
+  echo "${ts};${ENV_NAME};${impl};${tps};${dur};${p50//./,};${p90//./,};${p99//./,}" >> "$SOAK_SUMMARY_CSV"
 }
 
 run_phase() {

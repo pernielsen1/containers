@@ -10,7 +10,7 @@ behind a load balancer, and it's the actual performance bottleneck for all three
 implementations alike. Testing each implementation against its own bundled crypto simulator
 muddied the python-vs-java-vs-c++ performance comparison the project's `stress_test.sh` exists to
 produce — this container gives all three the same crypto backend to measure against. See
-`../divide_and_conquer.md` for the original design discussion.
+`../old/divide_and_conquer.md` for the original design discussion.
 
 Each of router_py/router_java/router_cpp still keeps its own lightweight **stub** crypto_host (no OpenSSL, no
 PIN/ARQC/CVV2/AAV math — just a PAN-presence check returning response_code `"00"`/`"14"`) so each

@@ -1,9 +1,18 @@
 # Divide and conquer v2 — architecture overview
 
-`divide_and_conquer.md` is a chronological decision log (proposal → discussion → "Done:" write-up,
-repeated per round). This file is not that — it's a clean snapshot of where the three rounds
-documented there actually left the architecture, for anyone who wants the current "what and why"
-without reading the whole discussion history.
+`old/divide_and_conquer.md` is a chronological decision log (proposal → discussion → "Done:"
+write-up, repeated per round). This file is not that — it's a clean snapshot of where the three
+rounds documented there actually left the architecture, for anyone who wants the current "what and
+why" without reading the whole discussion history.
+
+**Current status (2026-08-21):** python (`router_py`) is now the primary implementation — proven
+good enough (100 TPS, 0 errors) even on the oldest/weakest host in the lineup, and it's the most
+readable/maintainable of the three. Java and cpp remain in the repo as contenders for comparison,
+not as competing production candidates. New work lands in python first, gets verified working and
+measured against python's own baseline, and only then gets ported to java/cpp. See `statistics.md`'s
+"Strategy decision: python-first, python-primary" section for the full reasoning — that section is
+the actual decision record, this file's "comparison goal" below predates it and is kept for
+architectural context.
 
 ## The comparison goal
 
@@ -34,7 +43,7 @@ not just history.
 | **downstream_host** | Yes | `routers/downstream_host/` | Trivial IMS-Connect-style echo/approve-decline stub, zero comparison value — same reasoning as `upstream_host`, consolidated in the same round-5-adjacent readability pass. Configs stay per-implementation (each language's `pans_defined.json` test data genuinely differs) even though the code is now shared |
 | **monitor** | Yes (since 2026-08-17) | `routers/monitor_host/` | Was three ported copies (`<impl>/monitor/`, now retired/inert) — "mutually exclusive, same host ports" turned out not to require separate code, only a `--target` flag: one shared Flask app + lifecycle plumbing, with per-target discovery/launch mechanics (`docker exec`, host subprocess) factored into a small `backends/<target>.py` module instead of duplicated whole-file |
 
-### Round 1 — `crypto_host` (see `divide_and_conquer.md` part 1)
+### Round 1 — `crypto_host` (see `old/divide_and_conquer.md` part 1)
 
 Real OpenSSL-backed EMV validation (PIN/ARQC/CVV2/AAV verification, ARPC computation) was
 extracted out of router_cpp — where it started — into its own container: `routers/crypto_host/`, a
@@ -49,7 +58,7 @@ Fortanix-shaped protocol (`POST /sys/v1/plugins/{plugin_id}`, bearer auth, base6
 still spoke a bespoke `POST /validate_0100` with no auth. Fixed forward so all three could plug
 into the one shared container.
 
-### Round 2 — `upstream_host` (see `divide_and_conquer.md` part 2)
+### Round 2 — `upstream_host` (see `old/divide_and_conquer.md` part 2)
 
 The stress-test load generator — uploads a CSV, sends `0100`s at a configured rate, collects
 `0110`s, exposes the `/stress_stats`/`/slow_responses`/`/latency_buckets` HTTP API — was
@@ -83,7 +92,7 @@ quietly picking its own encoding-convention interpretation, discovered only by t
 shouldn't be hardcoded per implementation. `test_spec` should become the actual single source of
 truth for wire-encoding choices, not just field shapes — and it may need multiple variants, one
 per real-world partner being emulated (different partners can genuinely use different bitmap/MTI
-conventions, not just different field lists). See `divide_and_conquer.md`'s "Note for next round."
+conventions, not just different field lists). See `old/divide_and_conquer.md`'s "Note for next round."
 Round 3 delivered the "multiple variants, one per partner" half of this (`test_spec.json` vs
 `test_spec_ebcdic.json`, selected per router instance) but not the more ambitious "spec file
 itself declares its own encoding convention, read uniformly by every language's codec" half — each
@@ -93,7 +102,7 @@ generic mechanism. Still open, if a future partner needs more variation than ASC
 
 ### Round 3 — rename, `router_2`/`upstream_2`, EBCDIC
 
-(See `divide_and_conquer.md`'s "renames, missing functionality and iso specs" section for the
+(See `old/divide_and_conquer.md`'s "renames, missing functionality and iso specs" section for the
 original request and clarifying-question resolution.)
 
 Three related pieces of work, done together as one round:
@@ -196,7 +205,7 @@ the consolidated UI has been eyeballed for all three targets.
 
 ```
 routers/
-├── divide_and_conquer.md       # decision log (chronological, all three rounds)
+├── old/divide_and_conquer.md       # decision log (chronological, all three rounds)
 ├── divide_and_conquer_v2.md    # this file — architecture snapshot
 ├── stress_test.sh              # sweeps a TPS list across all three implementations
 ├── run_soak.sh / run_soak.md   # standalone multi-phase soak sequence + its runbook

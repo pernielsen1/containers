@@ -4,7 +4,7 @@
 # `command` - there is no separate long-lived dev container to `docker exec` into, unlike
 # router_java's), then launches downstream_host/upstream_host as bare host subprocesses (the
 # shared routers/downstream_host and routers/upstream_host Python components - see
-# ../divide_and_conquer.md, ../downstream_host/build_router.md and
+# ../old/divide_and_conquer.md, ../downstream_host/build_router.md and
 # ../upstream_host/build_router.md - not this implementation's own binaries anymore), waits for
 # each /stats endpoint to come up, uploads the given CSV to upstream_host, calls /start, polls
 # /results until all rows have a response (30s deadline), then prints a PAN/RC/auth-code/field-47
@@ -44,7 +44,7 @@ ROUTER_CMD=8080
 UPSTREAM_CMD=8083
 
 # downstream_host/upstream_host are the shared routers/downstream_host and routers/upstream_host
-# Python components (see ../divide_and_conquer.md) - host subprocesses, not part of the compose
+# Python components (see ../old/divide_and_conquer.md) - host subprocesses, not part of the compose
 # stack's background processes anymore. ./stop.sh (compose down) doesn't reach them, so cleanup
 # also stops them via their own /stop routes.
 cleanup() {

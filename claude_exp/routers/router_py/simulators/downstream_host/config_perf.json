@@ -4,6 +4,7 @@
   "is_active": true,
   "port": 5001,
   "command_port": 8081,
+  "command_bind_host": "0.0.0.0",
   "ssl_active": true,
   "certfile": "../../certs/downstream_ssl_active_true_cert.pem",
   "keyfile": "../../certs/downstream_ssl_active_true_key.pem",

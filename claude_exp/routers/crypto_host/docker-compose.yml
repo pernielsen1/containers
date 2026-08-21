@@ -1,6 +1,7 @@
 services:
   crypto_host:
     build: .
+    image: crypto_host
     container_name: crypto_host
     network_mode: host
     init: true

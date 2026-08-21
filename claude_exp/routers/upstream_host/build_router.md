@@ -14,7 +14,7 @@ messages at a configured rate for a configured duration, tracks round-trip laten
 language-comparison value of its own. Running it as a plain host-side Python process, alongside the
 existing per-implementation `monitor` tooling (also host-side), avoids a docker build/rebuild cycle
 on the piece that's actively iterated on during perf-harness work, and removes the three duplicate
-reimplementations that existed only for parity. See `../divide_and_conquer.md` (part 2) for the
+reimplementations that existed only for parity. See `../old/divide_and_conquer.md` (part 2) for the
 original design discussion.
 
 `downstream_host` (a trivial echo) got the same treatment later — see
@@ -40,7 +40,7 @@ internally-consistent-but-different convention on either side never surfaced unt
   `factory.setUseBinaryBitmap(true)` to match.
 - router_cpp's hand-rolled codec used to encode the MTI as 2 binary bytes; this spec's `t` field is 4
   ASCII characters ("0100"). Fixed in `iso_codec.cpp`.
-See `../divide_and_conquer.md` for the "test_spec should be the single source of truth for
+See `../old/divide_and_conquer.md` for the "test_spec should be the single source of truth for
 encoding conventions, not per-language hardcoded assumptions" follow-up this prompted.
 
 HTTP command API (`CommandServer`, same shared module every actor in this project uses):

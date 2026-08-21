@@ -2,7 +2,7 @@
 # Stress-test CLI driver: brings up the router_cpp docker-compose stack via ./start.sh
 # (crypto_host, router_main run as background processes inside one container), launches
 # downstream_host/upstream_host as bare host subprocesses (the shared routers/downstream_host and
-# routers/upstream_host Python components - see ../divide_and_conquer.md - not this
+# routers/upstream_host Python components - see ../old/divide_and_conquer.md - not this
 # implementation's own binaries anymore), uploads the given CSV, calls /start?rate=&duration=
 # (upstream_host cycles the CSV rows at the requested rate for the requested duration instead of
 # a single pass), waits for the run to finish, then prints exactly ONE line to stdout: a
@@ -51,7 +51,15 @@ cd "$PROJECT_ROOT"
 
 ROUTER_HOST="${ROUTER_HOST:-127.0.0.1}"
 REMOTE_SERVER=""
-[ "$ROUTER_HOST" != "127.0.0.1" ] && REMOTE_SERVER="${SERVER_USER:?SERVER_USER must be set for remote stress}@serverhp.home"
+if [ "$ROUTER_HOST" != "127.0.0.1" ]; then
+  REMOTE_SERVER="${SERVER_USER:?SERVER_USER must be set for remote stress}@serverhp.home"
+  # ROUTER_HOST (e.g. "serverhp.home") may only resolve via ~/.ssh/config, not real DNS/hosts -
+  # curl/python's socket resolver can't use that, so resolve it to an IP here for the plain
+  # HTTP/TCP calls below; ssh itself is unaffected since it reads ~/.ssh/config directly.
+  if ! getent hosts "$ROUTER_HOST" >/dev/null 2>&1; then
+    ROUTER_HOST="$(ssh -G "$ROUTER_HOST" 2>/dev/null | awk '/^hostname /{print $2; exit}')"
+  fi
+fi
 
 CRYPTO_CMD=8099  # shared crypto_host (local port 8099 or remote server port 8099)
 DS_CMD=8081
@@ -101,11 +109,8 @@ if [ "$MANUAL" -eq 0 ]; then
     wait_for_stats "$DS_CMD" "downstream_host"
     wait_for_stats "$ROUTER_CMD" "router_1"
   else
-    echo "Starting router_cpp on $ROUTER_HOST (perf config -> shared crypto_host)..." >&2
-    ssh "$REMOTE_SERVER" bash -s >&2 <<'SSH_EOF'
-docker rm -f router_cpp 2>/dev/null || true
-docker run -d --name router_cpp --network host --init -e ROUTER_CONFIG=router_1_perf.json router_cpp
-SSH_EOF
+    echo "Starting router_cpp + downstream_host on $ROUTER_HOST via server_start.sh..." >&2
+    "$PROJECT_ROOT/../server_start.sh" cpp >&2
   fi
 
   # upstream_1 connects to the router as a client, so it must start after the router is up -
@@ -156,9 +161,10 @@ print(f'router_cpp;${TPS};${DURATION};{s[\"sent\"]};{s[\"received\"]};{s[\"error
 # long run it happened (e.g. a GC/allocator pause partway through a multi-minute soak test). Same
 # shared CSV as router_py's/router_java's.
 mkdir -p "$PROJECT_ROOT/../csv_results"
+ENV_NAME="${ENV_NAME:-$(hostname)}"
 SLOW_CSV="$PROJECT_ROOT/../csv_results/slow_responds.csv"
 if [ ! -f "$SLOW_CSV" ]; then
-  echo "timestamp;implementation;target_tps;duration_s;rank;sent_offset_s;latency_ms" > "$SLOW_CSV"
+  echo "timestamp;env;implementation;target_tps;duration_s;rank;sent_offset_s;latency_ms" > "$SLOW_CSV"
 fi
 echo "Fetching /slow_responses..." >&2
 RUN_TS="$(date -Iseconds)"
@@ -166,19 +172,19 @@ curl -s -f "http://127.0.0.1:${UPSTREAM_CMD}/slow_responses?n=10" | python3 -c "
 import json, sys
 rows = json.load(sys.stdin)
 for i, r in enumerate(rows, 1):
-    print(f'${RUN_TS};router_cpp;${TPS};${DURATION};{i};{r[\"sent_offset_s\"]};{r[\"latency_ms\"]}')
+    print(f'${RUN_TS};${ENV_NAME};router_cpp;${TPS};${DURATION};{i};{r[\"sent_offset_s\"]};{r[\"latency_ms\"]}')
 " >> "$SLOW_CSV"
 
 # Time-bucketed p50 (30s windows by default) - tells a smooth queueing-backlog ramp apart from
 # scattered GC/allocator-pause spikes, which a top-10-slowest list alone can't distinguish.
 BUCKETS_CSV="$PROJECT_ROOT/../csv_results/latency_buckets.csv"
 if [ ! -f "$BUCKETS_CSV" ]; then
-  echo "timestamp;implementation;target_tps;duration_s;bucket_start_s;count;p50_ms;max_ms" > "$BUCKETS_CSV"
+  echo "timestamp;env;implementation;target_tps;duration_s;bucket_start_s;count;p50_ms;max_ms" > "$BUCKETS_CSV"
 fi
 echo "Fetching /latency_buckets..." >&2
 curl -s -f "http://127.0.0.1:${UPSTREAM_CMD}/latency_buckets?bucket_s=30" | python3 -c "
 import json, sys
 rows = json.load(sys.stdin)
 for r in rows:
-    print(f'${RUN_TS};router_cpp;${TPS};${DURATION};{r[\"bucket_start_s\"]};{r[\"count\"]};{r[\"p50_ms\"]};{r[\"max_ms\"]}')
+    print(f'${RUN_TS};${ENV_NAME};router_cpp;${TPS};${DURATION};{r[\"bucket_start_s\"]};{r[\"count\"]};{r[\"p50_ms\"]};{r[\"max_ms\"]}')
 " >> "$BUCKETS_CSV"
