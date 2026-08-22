@@ -1,7 +1,6 @@
-#!/bin/bash
-# Stops and removes the router_java dev container. Does not touch the Docker daemon itself.
+#!/usr/bin/env bash
+# Stops and removes the router_java container started by start.sh.
 set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")"
 
-docker stop router_java 2>/dev/null || true
-docker rm router_java 2>/dev/null || true
-echo "router_java container stopped and removed."
+docker compose down

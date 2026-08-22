@@ -201,6 +201,32 @@ containerized (`--network host` + the repo bind-mounted in + `docker.sock` mount
 rather than running their own copy; the old `<impl>/monitor/` directories are inert, kept only until
 the consolidated UI has been eyeballed for all three targets.
 
+**`router_java` moved onto `router_py`/`router_cpp`'s container pattern (2026-08-22).**
+`router_java` used to be the odd one out: a *persistent* `docker run -d ... tail -f /dev/null` dev
+container, built and kept alive by `start.sh`/`dockerstart.sh`, with `docker exec`
+(`mvn -q -DskipTests package`, then per-actor `docker exec -d`) doing all the real work — a
+leftover from when it was first ported (`briefs/old/java_container_router.md`) as an actual
+VSCode+`docker exec`+Claude-Code-in-container dev environment, predating the comparison-focused
+compose pattern `router_py`/`router_cpp` adopted later. That split wasn't deliberate, and it had a
+real cost: `stress_run.sh` needed `STARTED_CONTAINER` bookkeeping to avoid tearing down a container
+a dev session had left running, `run_test.sh` needed a manual build step before every run, and
+`monitor_host`'s `router_java` backend depended on `jps` (a JDK-only tool) for process discovery.
+
+Moved to the same ephemeral `docker compose up -d --build` pattern as `router_py`/`router_cpp`: the
+Dockerfile became multi-stage (`maven:3.9-eclipse-temurin-25` build stage producing the jar,
+`eclipse-temurin:25-jre-jammy` runtime stage — no JDK, no Maven, no Node/Claude-Code tooling in the
+shipped image), `docker-compose.yml` bind-mounts `config/` and launches crypto+router as the
+container's own background processes (matching `router_cpp`'s shape more than `router_py`'s, since
+`router_java`'s config directory is multi-file like `router_cpp`'s rather than a single toggle),
+and `stress_run.sh`/`run_test.sh` now call `./start.sh`/`./stop.sh` unconditionally instead of
+tracking whether they own the container. `monitor_host`'s `docker exec -d`-driven individual-actor
+restart still works (the container stays up via `sleep infinity`, same as `router_cpp`) but now
+matches processes via `ps` instead of `jps`, since the runtime image has no JDK. JUnit tests
+(`RouterFullStackTest`, previously `docker exec router_java mvn test` against the persistent
+container) now run via a new `run_tests.sh`, a one-shot container built from the Dockerfile's
+`build` stage. `Dockerfile.prod` (remote deploy, `deploy.sh`/`server_start.sh`) was already correct
+and untouched by this change.
+
 ## Current repository layout
 
 ```

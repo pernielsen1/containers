@@ -19,6 +19,10 @@ from flask import Flask, jsonify, request, send_from_directory
 # instead of a Popen handle, since `docker exec -d` detaches immediately - see is_running()).
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONTAINER_NAME = "router_java"
+# The container only bind-mounts router_java/config/ at /config (see ../docker-compose.yml), not
+# the whole project, and the runtime image has no `target/` build tree - just /app/router_java.jar.
+JAR_PATH_IN_CONTAINER = "/app/router_java.jar"
+LOGS_DIR_IN_CONTAINER = "/app/logs"
 
 # upstream_host/downstream_host are shared across all three implementations
 # (routers/upstream_host/, routers/downstream_host/), not Java actors anymore - see their
@@ -158,22 +162,23 @@ def launch_actor(actor):
         return
 
     main_class = MAIN_CLASS_BY_TYPE[actor["type"]]
-    rel_config = os.path.relpath(actor["config_path"], PROJECT_ROOT)
+    config_abs_path_in_container = f"/config/{os.path.basename(actor['config_path'])}"
     # stdout/stderr redirected to a file inside the container (truncated each launch, so
     # `tail -F` always reflects the current run) so an operator can `docker exec ... tail -F` it
     # by hand - see /api/actor/<name>/commands. `docker exec -d`'s own stdout/stderr would
     # otherwise just be discarded, since the client detaches immediately.
     java_cmd = (
-        f"mkdir -p logs && java -cp target/router_java.jar {main_class} "
-        f"--config {rel_config} > logs/{actor['name']}.console.log 2>&1"
+        f"mkdir -p {LOGS_DIR_IN_CONTAINER} && java -cp {JAR_PATH_IN_CONTAINER} {main_class} "
+        f"--config {config_abs_path_in_container} "
+        f"> {LOGS_DIR_IN_CONTAINER}/{actor['name']}.console.log 2>&1"
     )
     cmd = ["docker", "exec", "-d", CONTAINER_NAME, "bash", "-c", java_cmd]
-    subprocess.run(cmd, check=True, cwd=PROJECT_ROOT)
+    subprocess.run(cmd, check=True)
     logger.info("launched %s via docker exec (%s)", actor["name"], main_class)
 
 
 def actor_console_log_path(actor):
-    return f"logs/{actor['name']}.console.log"
+    return f"{LOGS_DIR_IN_CONTAINER}/{actor['name']}.console.log"
 
 
 def actor_kill_command(actor):
@@ -187,19 +192,26 @@ def actor_kill_command(actor):
         return f"kill -9 {pid}"
 
     main_class = MAIN_CLASS_BY_TYPE[actor["type"]]
-    rel_config = os.path.relpath(actor["config_path"], PROJECT_ROOT)
-    # jps -lm prints "<pid> <main class> <program args>" - matching on class+config together
-    # (not just class) disambiguates actors that share a main class but differ by config, e.g.
-    # multiple router instances (see /api/routers_by_partner). Presented as a small multi-line
-    # script rather than a single `bash -c '...'` one-liner: it's meant to be read and pasted by
-    # an operator, and running jps/grep/cut on the operator's own host shell (only `jps` and the
-    # final `kill` actually need `docker exec`) avoids the nested-quoting a one-liner would need
-    # to protect $PID/$(...) from the operator's shell while still letting it reach the inner one.
-    pattern = f"{main_class} --config {rel_config}"
+    config_abs_path_in_container = f"/config/{os.path.basename(actor['config_path'])}"
+    # Matching on class+config together (not just class) disambiguates actors that share a main
+    # class but differ by config, e.g. multiple router instances (see /api/routers_by_partner).
+    # Uses `ps -eo pid,args` rather than `jps -lm` - the runtime image ships no JDK, only a JRE, so
+    # `jps` isn't available (see ../monitor_host/backends/router_java.py's matching helper, which
+    # this mirrors). The match must be anchored to the start of the command (after stripping the
+    # PID column), not a bare substring search: PID 1 is docker-init/tini, whose argv is the
+    # entire wrapped shell script text (every actor's invocation concatenated together), which
+    # trivially contains any single actor's pattern as a substring otherwise. Presented as a small
+    # multi-line script rather than a single `bash -c '...'` one-liner: it's meant to be read and
+    # pasted by an operator, and running ps/awk on the operator's own host shell (only the final
+    # `ps`/`kill` calls actually need `docker exec`) avoids the nested-quoting a one-liner would
+    # need to protect $PID/$(...) from the operator's shell while still letting it reach the inner one.
+    pattern = f"{main_class} --config {config_abs_path_in_container}"
     return "\n".join([
         "#!/usr/bin/env bash",
         f'PATTERN="{pattern}"',
-        f'PID=$(docker exec {CONTAINER_NAME} jps -lm | grep -F "$PATTERN" | cut -d" " -f1)',
+        f'PID=$(docker exec {CONTAINER_NAME} sh -c "ps -eo pid,args" | '
+        'awk -v pat="$PATTERN" \'{cmd=$0; sub(/^[ \\t]*[0-9]+[ \\t]+/, "", cmd); '
+        'if (index(cmd, pat) == 1) print $1}\')',
         'if [ -z "$PID" ]; then',
         '  echo "No matching process found for: $PATTERN" >&2',
         "  exit 1",

@@ -1,32 +1,34 @@
-FROM mcr.microsoft.com/devcontainers/base:ubuntu
-
-ENV DEBIAN_FRONTEND=noninteractive
+FROM maven:3.9-eclipse-temurin-25 AS build
 
 # Optional sandboxed-session trust files: start.sh copies these in from /root/.ccr/ only when
-# present, and this build stage is a no-op otherwise (start.sh's own comments explain why).
+# present, and this stage is a no-op otherwise - needed so `mvn dependency:resolve` below can
+# reach Maven Central through this sandbox's loopback build proxy. Has nothing to do with the
+# router's own runtime TLS (it builds its own explicit SSLContext from config/certs/, resolved
+# relative to whichever --config file is passed - see RouterConfig.java/CryptoHostMain.java), so
+# this shim stays confined to this build stage only.
 COPY .ccr-optional/ /tmp/ccr-optional/
 RUN if [ -f /tmp/ccr-optional/ca-bundle.crt ]; then \
       cp /tmp/ccr-optional/ca-bundle.crt /usr/local/share/ca-certificates/build-proxy-ca.crt && \
       update-ca-certificates; \
     fi
-ENV NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/build-proxy-ca.crt
-
-RUN apt-get update && apt-get install -y openjdk-25-jdk maven nodejs npm curl python3-pip \
-    && rm -rf /var/lib/apt/lists/*
-
-# Needed only so RouterFullStackTest.java (mvn test, run via `docker exec router_java mvn test`) can
-# launch the shared routers/upstream_host Python component as a real subprocess for its full-stack
-# test - upstream_host stopped having a Java reimplementation of its own once the three
-# implementations' load generators were consolidated into one shared Python component (see
-# ../divide_and_conquer.md and ../upstream_host/build_router.md).
-RUN pip install --break-system-packages "pyiso8583>=4.0.0" "flask>=3.0.0" "requests>=2.31.0"
-
-# JVM tools (Maven, and any Java code making HTTPS calls) use their own cacerts store, not the
-# OS store update-ca-certificates just updated. If the sandbox's ready-made JVM truststore was
-# copied in, use it; otherwise this points at a nonexistent file and the JDK's own default
-# cacerts apply (harmless outside a sandboxed session).
 ENV JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStore=/tmp/ccr-optional/java-truststore.p12 -Djavax.net.ssl.trustStorePassword=changeit -Djavax.net.ssl.trustStoreType=PKCS12"
 
-RUN npm install -g @anthropic-ai/claude-code
+# RouterFullStackTest (mvn test) spawns the shared routers/upstream_host and
+# routers/downstream_host Python components as real subprocesses - see run_tests.sh, which bind-
+# mounts them into this stage at /upstream_host, /downstream_host.
+RUN apt-get update && apt-get install -y python3-pip && rm -rf /var/lib/apt/lists/* \
+    && pip install --break-system-packages "pyiso8583>=4.0.0" "flask>=3.0.0" "requests>=2.31.0"
 
-WORKDIR /workspace
+WORKDIR /build
+COPY pom.xml .
+RUN mvn dependency:resolve -q
+COPY src ./src
+RUN mvn -q -DskipTests package
+
+FROM eclipse-temurin:25-jre-jammy
+# procps: monitor_host's docker-exec-based actor kill matches processes via `ps -eo pid,args` (see
+# ../monitor_host/backends/router_java.py) - this runtime image ships no JDK, so `jps` isn't an
+# option the way it was in the old persistent devcontainer image.
+RUN apt-get update && apt-get install -y procps && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=build /build/target/router_java.jar .

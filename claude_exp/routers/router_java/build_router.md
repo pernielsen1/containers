@@ -1153,12 +1153,13 @@ ends (internally consistent, but not matching Python/C++). Fixed with one
   `actor["type"] == "upstream"` to use a host `subprocess.Popen` instead of `docker exec -d`.
 - **`RouterFullStackTest.java`** (the JUnit full-stack test, direct analog of router_py's
   `test_router.py`) used to instantiate `UpstreamHostMain` in-process; it now launches the shared
-  `main.py` as a real subprocess via `ProcessBuilder` instead. Since this test runs inside the
-  `router_java` dev container (`docker exec router_java mvn test`), which only bind-mounts `router_java/`
-  itself, `start.sh` adds a second bind mount (`routers/upstream_host` → `/upstream_host` in the
-  container) so the test can reach it at a fixed path; the `router_java` image's Dockerfile also
-  gained `python3-pip` + `pip install pyiso8583/flask/requests` for this one test's sake (nothing
-  else inside the container needs Python).
+  `main.py` as a real subprocess via `ProcessBuilder` instead. This test runs via `./run_tests.sh`
+  (a throwaway container built from the Dockerfile's `build` stage, not the persistent dev
+  container this used to be — see "## Container" above), which bind-mounts `routers/upstream_host`
+  → `/upstream_host` and `routers/downstream_host` → `/downstream_host` so the test can reach them
+  at fixed paths; the Dockerfile's build stage also has `python3-pip` +
+  `pip install pyiso8583/flask/requests` for this one test's sake (nothing else needs Python — the
+  runtime image ships neither Python nor a JDK, just a JRE).
 
 ---
 
@@ -1173,29 +1174,36 @@ three targets. `monitor.sh`/`monitor_stop.sh` now delegate to
 `../monitor_host/start.sh router_java` / `../monitor_host/stop.sh router_java`.
 
 `router_java`'s backend, `monitor_host/backends/router_java.py`: `CONTAINER_NAME = "router_java"`,
-`HOST_SUBPROCESS_TYPES = {"upstream", "downstream"}` — `router`/`downstream`/`crypto` launch via
-`docker exec -d <container> bash -c "mkdir -p logs && java -cp target/router_java.jar <MainClass>
---config <relative-config-path> > logs/<name>.console.log 2>&1"` (the `bash -c` wrapper exists
-specifically to capture stdout/stderr to a per-actor log file, since `docker exec -d`'s own client
-process detaches and exits the instant the command starts); `upstream` is a plain host
-`subprocess.Popen` against the shared `routers/upstream_host/main.py`.
-`discover_actors()` scans every `*.json` file directly under `config/` (this project keeps all
-actor configs flat in one directory, one file per actor), keeping only entries with a `name` and a
-`type` in `MAIN_CLASS_BY_TYPE = {"router": "com.router.router.RouterMain", "downstream":
-"com.router.simulators.downstreamhost.DownstreamHostMain", "crypto":
-"com.router.simulators.cryptohost.CryptoHostMain"}`, plus one explicit synthesized entry for
-`upstream_host`'s config (which now lives outside `config/` entirely, in the shared component).
+`HOST_SUBPROCESS_TYPES = {"upstream", "downstream"}` — `router`/`crypto` launch via
+`docker exec -d <container> bash -c "mkdir -p /app/logs && java -cp /app/router_java.jar
+<MainClass> --config /config/<name>.json > /app/logs/<name>.console.log 2>&1"` (the `bash -c`
+wrapper exists specifically to capture stdout/stderr to a per-actor log file, since `docker exec
+-d`'s own client process detaches and exits the instant the command starts); `upstream`/
+`downstream` are plain host `subprocess.Popen`s against the shared `routers/upstream_host/main.py`/
+`routers/downstream_host/main.py`. `discover_actors()` scans every `*.json` file directly under
+`config/` (this project keeps all actor configs flat in one directory, one file per actor), keeping
+only entries with a `name` and a `type` in `MAIN_CLASS_BY_TYPE = {"router":
+"com.router.router.RouterMain", "crypto": "com.router.simulators.cryptohost.CryptoHostMain"}`,
+plus one explicit synthesized entry for `upstream_host`'s config (which now lives outside `config/`
+entirely, in the shared component). Container paths (`/app/router_java.jar`, `/config/<name>.json`)
+differ from host paths on purpose — the container only bind-mounts `router_java/config/` at
+`/config` (see "## Container" above), not the whole project.
 
 **Container console visibility** (`docker_actor_commands()`): the dashboard hands the operator two
 copy-pasteable commands per actor rather than embedding a real interactive terminal in the browser
 (rejected — the dashboard binds `0.0.0.0:8090`, LAN-reachable, and shipping an unauthenticated
 shell into the container over HTTP wasn't worth it for a dev tool):
-- **`kill`**: a small multi-line script — `PATTERN="<main class> --config <relative config path>"`,
-  look up the PID via `docker exec <container> jps -lm | grep -F "$PATTERN" | cut -d" " -f1` (only
-  `jps` itself needs `docker exec`), then `docker exec <container> kill -9 "$PID"`. Matching on the
+- **`kill`**: a small multi-line script — `PATTERN="<main class> --config /config/<name>.json"`,
+  look up the PID via `docker exec <container> ps -eo pid,args`, matching the pattern anchored to
+  the start of the command after stripping the PID column (an `awk` one-liner — see
+  `router_cpp.py`'s matching helper, which this mirrors; `ps` rather than `jps`, since the runtime
+  image ships no JDK, only a JRE), then `docker exec <container> kill -9 "$PID"`. Matching on the
   **full class+config string**, not just the class name, is what keeps this safe if multiple
-  instances would otherwise share a bare class name (e.g. a future multi-router scenario).
-- **`tail`**: `docker exec <container> tail -F logs/<name>.console.log`.
+  instances would otherwise share a bare class name (e.g. a future multi-router scenario); anchoring
+  to the start of the command (not a bare substring search) is what keeps it safe from PID 1
+  (`docker-init`/`tini`, whose argv is the entire wrapped `command:` script — a substring match
+  would hit it first and kill the whole container).
+- **`tail`**: `docker exec <container> tail -F /app/logs/<name>.console.log`.
 
 **Known open bug in this target's `static/index.html`, not fixed** (carry forward — do not
 silently "fix" as part of an unrelated change without calling it out; already fixed in
@@ -1263,19 +1271,33 @@ or reversal in this simulation.
 
 ## Container
 
-`Dockerfile`: `mcr.microsoft.com/devcontainers/base:ubuntu` + `openjdk-25-jdk` + `maven` +
-`nodejs`/`npm` (+ `npm install -g @anthropic-ai/claude-code`, matching this repo family's existing
-container convention so Claude Code itself can also run from inside the container — omit this line
-if that convention doesn't apply in the target environment). `WORKDIR /workspace`.
+Same *ephemeral* `docker compose up -d --build` pattern as `router_py`/`router_cpp` (this router
+used to run as a persistent `docker exec`-driven dev container instead — see
+`../divide_and_conquer_v2.md`'s consolidation round for why that changed).
 
-`start.sh`: ensures the Docker daemon is running (see `dockerstart.sh` below), `docker build
---network host` the image, remove any pre-existing `router_java` container, then `docker run -d --name
-router_java --network host -v <project>:/workspace -w /workspace router_java tail -f /dev/null` — the
-container just idles; all actual work happens via `docker exec`. `--network host` means the
-container shares the host's ports directly, so this variant and any other variant of the same
-project using the same default ports (5000-5002, 8080-8083, 8090) cannot run at the same time.
+`Dockerfile`: multi-stage. Build stage (`maven:3.9-eclipse-temurin-25`) runs `mvn -q -DskipTests
+package`, producing `target/router_java.jar`; a `.ccr-optional/`-driven CA/truststore shim (copied
+in by `start.sh` from `/root/.ccr/` when present) lets that stage's Maven dependency resolution
+reach Maven Central through this sandbox's loopback build proxy — it has nothing to do with the
+router's own runtime TLS, which builds its own explicit `SSLContext` from `config/certs/` (see
+Bug 1 below), so it's confined to the build stage only. Runtime stage (`eclipse-temurin:25-jre-
+jammy`, JRE only, plus `procps` for `monitor_host`'s `ps`-based actor kill matching) copies just
+the jar to `/app/router_java.jar`. `config/` is **not** baked into this image — it's bind-mounted
+at compose runtime (see `docker-compose.yml`), matching `router_cpp`'s local Dockerfile rather than
+`router_py`'s bake-it-in approach, since this config directory is multi-file (per-actor
+`config/<name>.json`, `certs/`, optional `router_2`/`upstream_2`).
 
-`stop.sh`: `docker stop router_java && docker rm router_java`.
+`docker-compose.yml`: `network_mode: host`, `./config:/config` bind mount, `command:` launches
+`CryptoHostMain` + `RouterMain` as background processes plus `sleep infinity` (so the container
+stays up for `monitor_host`'s `docker exec -d`-driven individual-actor restarts, same as
+`router_cpp`). `ROUTER_CONFIG` on the host env before `./start.sh` swaps `RouterMain`'s config
+(`router_1.json` functional vs `router_1_perf.json` perf, pointing at the shared `crypto_host`
+instead of this container's own stub) — see `stress_run.sh`.
+
+`start.sh`: runs `dockerstart.sh` (daemon bootstrap, see below), then `docker compose up -d
+--build` and polls `localhost:8080/stats` for up to 30s. `stop.sh`: `docker compose down`.
+`--network host` means this variant and any other variant of the same project using the same
+default ports (5000-5002, 8080-8083, 8090) cannot run at the same time.
 
 `dockerstart.sh`: separate from `start.sh` so it can be re-run standalone (e.g. after a VM restart)
 without triggering a rebuild. Checks `docker info`; if the daemon isn't up, tries `sudo service
@@ -1286,10 +1308,16 @@ group only lets the *client* talk to an already-running daemon — so this will 
 password when run interactively and simply fails fast in a non-interactive session with no prompt
 available.
 
-`terminal.sh`: `docker exec -it router_java bash` — interactive shell into the running container.
+`Dockerfile.prod` (remote deploy only, see `../deploy.sh`): the same multi-stage build, but
+`config/` is baked in via an explicit `COPY config ./config` instead of bind-mounted, and the CMD
+uses `wait` instead of `sleep infinity` — unlike the local ephemeral-but-restartable container, a
+remote deploy that loses an actor is expected to be re-started wholesale via `server_start.sh`, not
+individually `docker exec`'d back to life.
 
-Build inside the container: `docker exec router_java mvn -q -DskipTests package` → produces
-`target/router_java.jar`. Run tests: `docker exec router_java mvn test`.
+Run tests (no persistent container to `docker exec` into anymore): `./run_tests.sh` — builds the
+Dockerfile's `build` stage, then runs `mvn test` in a throwaway container with `config/` and the
+shared `upstream_host`/`downstream_host` directories bind-mounted (the full-stack integration test
+spawns them as real `python3` subprocesses).
 
 **Default port assignments** (single-instance-per-type, this spec's scope):
 - Router upstream listen: 5000 (router_1), 5010 (router_2, client mode)
@@ -1306,37 +1334,38 @@ Build inside the container: `docker exec router_java mvn -q -DskipTests package`
 ## Running
 
 ```bash
-./start.sh                          # build + start the container (idle, ready for docker exec)
-docker exec router_java mvn -q -DskipTests package
+./start.sh                          # docker compose up -d --build: crypto_host + router_1 up
 ./monitor.sh                        # dashboard on http://localhost:8090, via ../monitor_host/
 # work in the dashboard: Start All -> upload a CSV -> Start -> watch /results
 ./monitor_stop.sh
-./stop.sh
+./stop.sh                           # docker compose down
 ```
 
-Individual actors, each as `docker exec -d router_java java -cp target/router_java.jar <MainClass>
---config config/<name>.json`, using the `MainClass` names from the `MAIN_CLASS_BY_TYPE` table
-above.
+Individual actors can be restarted inside the already-running container, each as `docker exec -d
+router_java java -cp /app/router_java.jar <MainClass> --config /config/<name>.json`, using the
+`MainClass` names from the `MAIN_CLASS_BY_TYPE` table above — this is how `monitor_host`'s
+dashboard and `test_resilience.py` bring individual actors back after killing them, without
+tearing down the whole compose stack.
 
 `run_test.sh <csv_file>` — an end-to-end CLI driver (not JUnit), run on the **host**:
-1. Builds the jar (`mvn -q -DskipTests package`) unless run with `--manual`.
-2. Launches all four actors via `docker exec -d`, as above.
+1. Launches `downstream_host` as a host subprocess, then brings up the compose stack via
+   `./start.sh` (crypto_host + router_1), unless run with `--manual`.
+2. Launches `upstream_host` as a host subprocess.
 3. Polls each actor's `/stats` with `curl -s -o /dev/null -f` (fail-fast on non-2xx — see the
    glue-script safety checklist below) up to 30 times, 1s apart.
 4. Uploads the CSV to the upstream's `/upload`.
-5. Retries `GET /start` up to 15 times, 1s apart, tolerating an initial 503 while the upstream is
+5. Retries `GET /start` up to 75 times, 1s apart, tolerating an initial 503 while the upstream is
    still completing its TCP handshake with the router (a race not covered by the `/stats`
    readiness checks, since the HTTP server and the TCP client connection come up on different
-   schedules).
+   schedules — 75s of headroom covers `Dispatcher.start()`'s per-worker crypto warmup, see below).
 6. Polls `/results` (guarding the `curl | parse` pipeline's exit code so a transient miss doesn't
    propagate through `set -e` — see below) until every row has a response or 30 seconds elapse.
 7. Prints a PAN/RC/auth-code/field-47 report and the router's 30-second stats.
-8. On any exit path (`trap cleanup EXIT`), POSTs `/stop` to every actor's command port — **not** a
-   host-side PID kill: actors run inside the container's own PID namespace via `docker exec -d`,
-   and a host-side kill of the exec client process does not reach (and cannot signal) the `java`
-   process it launched inside the container. Every actor already exposes `/stop` via
-   `CommandServer`, so going through HTTP is both the correct mechanism here and consistent with
-   how `monitor_stop.sh` also stops its target via HTTP rather than a raw signal.
+8. On any exit path (`trap cleanup EXIT`), stops `downstream_host`/`upstream_host` via their own
+   `/stop` command routes (a host-side PID kill wouldn't reach the router/crypto actors anyway —
+   they run inside the container's own PID namespace) and tears the compose stack down via
+   `./stop.sh`, consistent with how `monitor_stop.sh` also stops its target via HTTP rather than a
+   raw signal.
 
 `run_test.sh --manual <csv_file>` skips steps 1–2 and drives already-running actors.
 

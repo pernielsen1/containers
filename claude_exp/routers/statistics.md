@@ -384,3 +384,48 @@ implementations (see `big_question.md`'s maintainability arguments), the decisio
   (see `project_routers_monorepo` memory), adding an explicit performance-verification gate ahead
   of the port instead of only checking correctness. Java and cpp ports remain required (to keep
   them usable as contenders), just sequenced after python is both working and measured.
+
+### Ten-minute soak, laptop (2026-08-22, 20:18–20:53) — the step hits two implementations in one run
+
+`run_soak.sh 10` (600s/phase, 100 TPS, py→java→cpp, LAPTOP-P5P268SM). Longest same-host soak run
+to date. Zero errors on all three, sent==received throughout:
+
+| impl | sent/recv | achieved TPS | p50 | p90 | p95 | p99 | max |
+|---|---|---|---|---|---|---|---|
+| router_py | 57,698 | 96.16% | 3.22ms | 4.50ms | 4.76ms | 11.44ms | 75.9ms |
+| router_java | 54,055 | 90.09% | 11.80ms | 12.67ms | 12.83ms | 13.16ms | 46.0ms |
+| router_cpp | 54,963 | 91.60% | 5.46ms | 6.17ms | 6.77ms | 12.21ms | 44.4ms |
+
+Those summary p50s are misleading on their own — the per-30s buckets (`latency_buckets.csv`) show
+why. Selected buckets, bucket-start offset in seconds into that phase:
+
+| impl | 0s | 60s | 90s | 270s | 540s | 570s (last) |
+|---|---|---|---|---|---|---|
+| router_py | 4.36ms | 4.37ms | 2.95ms | 3.21ms | 3.15ms | 4.52ms |
+| router_java | 7.30ms | 7.12ms | **11.88ms** | 11.86ms | 11.87ms | 11.92ms |
+| router_cpp | 5.53ms | 5.26ms | 5.53ms | 4.94ms | 5.52ms | **11.75ms** |
+
+router_java steps up at the 90s mark and never comes back down — flat ~11.8–12ms for the remaining
+~510s (85% of its own phase), the worst achieved-TPS of the three as a direct consequence (queue
+backing up behind the slower responses). router_cpp runs flat and fast (~5.2–5.5ms) for the first
+540s, then steps up in exactly the last bucket (570s) to 11.75ms p50 / 44.4ms max — same shape,
+same ballpark magnitude (~11-12ms), just compressed into the tail instead of holding for most of
+the run. router_py stays close to flat the whole 600s, aside from a mildly elevated first ~90s
+(~4.4ms, plausibly ordinary warm-up) and one 75.9ms outlier in its own last bucket.
+
+**This is the first run where the step has hit two different implementations in the same soak**,
+at very different offsets into their own phase (90s into java's 600s run vs. 570s into cpp's) —
+previously it was one implementation per session, alternating between java and cpp across separate
+days (see the 2026-08-20/21 sections above). That rules out two remaining candidate explanations
+at once: a JVM-internal cause (cpp did it too, and cpp has no JIT/GC to blame), and a fixed
+elapsed-time trigger or a connection artifact left over from the *previous* phase (the two offsets
+don't line up with each other, with phase order, or with each other's position in a 600s window).
+Checked `dmesg -T` for the WSL2 TimeSync stall that explained some earlier spikes: there's a
+`hv_utils: TimeSync IC version 4.0` line at 20:18:01, right as the whole run started (plausibly
+explains router_py's mildly elevated first 90s), but nothing near java's step (~20:32) or cpp's
+step (~20:52) — so TimeSync doesn't explain these two either. Net read: five data points now (java
+2026-08-20 daytime, cpp 2026-08-20 evening, cpp 2026-08-21 comparable run, and both java-at-90s and
+cpp-at-570s here), all landing in the same ~11-12ms magnitude, split across java and cpp and never
+python — still not root-caused, but the "host/Docker/crypto_host-side, not per-language" theory
+keeps getting stronger with every new occurrence, and python keeps being the one implementation
+that never shows it.

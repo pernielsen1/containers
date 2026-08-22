@@ -1,6 +1,13 @@
 """router_java backend: router/crypto actor types run via `docker exec -d` into the already-built
-router_java container (see routers/router_java/start.sh); upstream/downstream are the shared
-upstream_host/downstream_host components, always plain host subprocesses regardless of target."""
+router_java container (see routers/router_java/docker-compose.yml); upstream/downstream are the
+shared upstream_host/downstream_host components, always plain host subprocesses regardless of
+target.
+
+Container paths differ from host paths: the container only bind-mounts router_java/config/ (at
+/config), not the whole project (see docker-compose.yml), and the runtime image has no `target/`
+build tree - just /app/router_java.jar. discover_actors() still walks the *host* config/ tree for
+discovery; CONFIG_ABS_PATH_IN_CONTAINER below maps each discovered config's basename to its
+in-container path."""
 import json
 import os
 import subprocess
@@ -15,6 +22,8 @@ HOST_DIR_BY_TYPE = {"upstream": UPSTREAM_HOST_DIR, "downstream": DOWNSTREAM_HOST
 
 CONTAINER_NAME = "router_java"
 HOST_SUBPROCESS_TYPES = {"upstream", "downstream"}
+JAR_PATH_IN_CONTAINER = "/app/router_java.jar"
+LOGS_DIR_IN_CONTAINER = "/app/logs"
 
 MAIN_CLASS_BY_TYPE = {
     "router": "com.router.router.RouterMain",
@@ -73,6 +82,10 @@ def _consider(found, path):
         "type": actor_type,
         "command_port": cfg.get("command_port"),
         "config_path": path,
+        # The container only bind-mounts router_java/config/ at /config (see
+        # docker-compose.yml) - every discoverable router/crypto config lives directly under
+        # that directory, so its in-container path is just /config/<basename>.
+        "config_abs_path_in_container": f"/config/{os.path.basename(path)}",
         "is_active": cfg.get("is_active", True),
         "partner_id": cfg.get("partner_id"),
         "auth_token": cfg.get("command_auth_token"),
@@ -86,33 +99,33 @@ def host_subprocess_cmd(actor):
 
 def launch_docker_actor(actor):
     main_class = MAIN_CLASS_BY_TYPE[actor["type"]]
-    rel_config = os.path.relpath(actor["config_path"], PROJECT_ROOT)
     # stdout/stderr redirected to a file inside the container (truncated each launch) so an
     # operator can `docker exec ... tail -F` it by hand - see docker_actor_commands() below.
     java_cmd = (
-        f"mkdir -p logs && java -cp target/router_java.jar {main_class} "
-        f"--config {rel_config} > logs/{actor['name']}.console.log 2>&1"
+        f"mkdir -p {LOGS_DIR_IN_CONTAINER} && java -cp {JAR_PATH_IN_CONTAINER} {main_class} "
+        f"--config {actor['config_abs_path_in_container']} "
+        f"> {LOGS_DIR_IN_CONTAINER}/{actor['name']}.console.log 2>&1"
     )
-    subprocess.run(["docker", "exec", "-d", CONTAINER_NAME, "bash", "-c", java_cmd], check=True, cwd=PROJECT_ROOT)
+    subprocess.run(["docker", "exec", "-d", CONTAINER_NAME, "bash", "-c", java_cmd], check=True)
 
 
 def docker_actor_commands(actor):
+    """Match must be anchored to the start of the command (after stripping the PID column), not a
+    bare substring search -- PID 1 is docker-init/tini, and `ps` shows its own argv as the entire
+    wrapped shell script text (every actor's invocation concatenated together), which trivially
+    contains any single actor's pattern as a substring. A plain grep -F would match PID 1 first
+    and kill the whole container instead of the intended single actor. Uses `ps` rather than `jps`
+    (see router_cpp.py's matching helper) - the runtime image ships no JDK, only a JRE, so `jps`
+    isn't available."""
     main_class = MAIN_CLASS_BY_TYPE[actor["type"]]
-    rel_config = os.path.relpath(actor["config_path"], PROJECT_ROOT)
-    # jps -lm prints "<pid> <main class> <program args>" - matching on class+config together
-    # (not just class) disambiguates actors that share a main class but differ by config, e.g.
-    # multiple router instances.
-    pattern = f"{main_class} --config {rel_config}"
-    kill = "\n".join([
-        "#!/usr/bin/env bash",
-        f'PATTERN="{pattern}"',
-        f'PID=$(docker exec {CONTAINER_NAME} jps -lm | grep -F "$PATTERN" | cut -d" " -f1)',
-        'if [ -z "$PID" ]; then',
-        '  echo "No matching process found for: $PATTERN" >&2',
-        "  exit 1",
-        "fi",
-        'echo "Killing PID $PID ($PATTERN)"',
-        f'docker exec {CONTAINER_NAME} kill -9 "$PID"',
-    ])
-    tail = f"docker exec {CONTAINER_NAME} tail -F logs/{actor['name']}.console.log"
+    pattern = f"{main_class} --config {actor['config_abs_path_in_container']}"
+    kill = (
+        f'PATTERN="{pattern}"\n'
+        f'PID=$(docker exec {CONTAINER_NAME} sh -c "ps -eo pid,args" | '
+        f"awk -v pat=\"$PATTERN\" '{{cmd=$0; sub(/^[ \\t]*[0-9]+[ \\t]+/, \"\", cmd); "
+        f"if (index(cmd, pat) == 1) print $1}}')\n"
+        f'if [ -z "$PID" ]; then echo "no matching process"; exit 1; fi\n'
+        f'docker exec {CONTAINER_NAME} kill -9 "$PID"'
+    )
+    tail = f"docker exec {CONTAINER_NAME} tail -F {LOGS_DIR_IN_CONTAINER}/{actor['name']}.console.log"
     return {"kill": kill, "tail": tail}

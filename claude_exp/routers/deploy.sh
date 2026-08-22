@@ -60,7 +60,14 @@ for t in "${targets[@]}"; do
     esac
 done
 
-echo "All images loaded on $SERVER. Starting server..."
+echo "All images loaded on $SERVER. Pruning old images/containers/cache..."
+# Every deploy transmits a fresh image under the same tag (see push_image) - the previous image
+# with that tag becomes dangling the moment the new one loads, and stopped containers/build cache
+# pile up the same way over repeated deploys. Prune every time rather than letting serverhp's disk
+# fill up silently.
+ssh "$SERVER" docker system prune -f
+
+echo "Starting server..."
 # downstream_host has no lifecycle of its own (see server_start.sh) - it only starts paired with
 # whichever router is requested, so "downstream" alone is build+push-only here, nothing to start.
 start_targets=()

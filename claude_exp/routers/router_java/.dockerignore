@@ -1,0 +1,23 @@
+# Only pom.xml and src/ are actually needed to build the image (Dockerfile's multi-stage `mvn
+# package`). Everything else here is host-side tooling/docs/config that has zero effect on the
+# built jar but, without this file, still busts COPY's cache layer on every edit - see
+# router_cpp/.dockerignore's matching note. config/ is deliberately excluded: it's bind-mounted at
+# compose runtime (see docker-compose.yml), not baked into this image (Dockerfile.prod, which has
+# no runtime bind mount, COPYs it explicitly instead).
+build_router.md
+resilience.md
+stress_run.sh
+run_test.sh
+run_tests.sh
+start.sh
+stop.sh
+dockerstart.sh
+monitor.sh
+monitor_stop.sh
+monitor/
+test_resilience.py
+test_resilience.sh
+test_csv_files/
+config/
+target/
+logs/

@@ -1,0 +1,28 @@
+services:
+  router_java:
+    build:
+      context: .
+      network: host
+    image: router_java
+    container_name: router_java
+    network_mode: host
+    init: true
+    volumes:
+      - ./config:/config
+    # Only router_main's config varies: perf runs (routers/stress_run.sh) export
+    # ROUTER_CONFIG=router_1_perf.json on the HOST before calling ./start.sh, to point the
+    # router's crypto client at the shared routers/crypto_host container instead of this
+    # container's own local crypto_host stub - everything else keeps using router_1.json
+    # unchanged. `${ROUTER_CONFIG:-router_1.json}` is substituted by docker compose itself from
+    # the host environment at `docker compose up` time (compose interpolates the whole file
+    # against the host env / .env, not against an `environment:` block - a bare `${ROUTER_CONFIG}`
+    # with no default here silently blanks out and breaks RouterMain's --config flag if
+    # ROUTER_CONFIG isn't exported on the host). Matches router_cpp/docker-compose.yml's comment.
+    command:
+      - bash
+      - -c
+      - |
+        java -cp /app/router_java.jar com.router.simulators.cryptohost.CryptoHostMain --config /config/crypto_host.json &
+        java -cp /app/router_java.jar com.router.router.RouterMain --config /config/${ROUTER_CONFIG:-router_1.json} &
+        sleep infinity
+    depends_on: []
