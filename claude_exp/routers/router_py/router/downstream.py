@@ -1,9 +1,10 @@
 import logging
 import socket
+import ssl
 import threading
 
 from shared.ims_connect import PING_TRANSCODE, build_frame, read_response
-from shared.ssl_utils import wrap_client_socket
+from shared.ssl_utils import is_cert_desync_error, wrap_client_socket
 
 logger = logging.getLogger(__name__)
 
@@ -20,22 +21,45 @@ class DownstreamConnection:
     def connect(cls, cfg) -> "DownstreamConnection":
         to_sock = socket.create_connection((cfg.host, cfg.port))
         from_sock = socket.create_connection((cfg.host, cfg.port))
-        to_sock = wrap_client_socket(
-            to_sock,
-            ssl_active=cfg.ssl_active,
-            certfile=cfg.certfile,
-            keyfile=cfg.keyfile,
-            cafile=cfg.cafile,
-            server_hostname=cfg.host,
-        )
-        from_sock = wrap_client_socket(
-            from_sock,
-            ssl_active=cfg.ssl_active,
-            certfile=cfg.certfile,
-            keyfile=cfg.keyfile,
-            cafile=cfg.cafile,
-            server_hostname=cfg.host,
-        )
+        try:
+            to_sock = wrap_client_socket(
+                to_sock,
+                ssl_active=cfg.ssl_active,
+                certfile=cfg.certfile,
+                keyfile=cfg.keyfile,
+                cafile=cfg.cafile,
+                server_hostname=cfg.host,
+            )
+            from_sock = wrap_client_socket(
+                from_sock,
+                ssl_active=cfg.ssl_active,
+                certfile=cfg.certfile,
+                keyfile=cfg.keyfile,
+                cafile=cfg.cafile,
+                server_hostname=cfg.host,
+            )
+        except ssl.SSLError as e:
+            to_sock.close()
+            from_sock.close()
+            # Only a genuine cert-verification failure gets the ERROR treatment - see
+            # is_cert_desync_error(). Anything else (e.g. SSLEOFError from a peer that dropped
+            # the TCP connection mid-handshake) is ordinary connectivity flapping and is left to
+            # propagate silently, same as a plain ConnectionRefusedError would: the caller
+            # (router/main.py's reconnect loop) already logs one WARNING for any OSError here,
+            # so logging here too would just duplicate that line for the non-cert case.
+            if is_cert_desync_error(e):
+                # Unlike a plain connection-refused/host-down failure, this can't self-heal by
+                # retrying - the certs on the two sides are actually out of sync and need a
+                # human to fix them. Still re-raised so the existing retry loop keeps this
+                # router ready to reconnect the moment that happens, but the ERROR (not
+                # WARNING) distinguishes it from ordinary connectivity flapping for anyone
+                # watching the logs/alerts.
+                logger.error(
+                    "TLS handshake failed connecting downstream to %s:%d - certificates may be "
+                    "out of sync and this cannot self-recover, needs manual intervention: %s",
+                    cfg.host, cfg.port, e,
+                )
+            raise
 
         resume_frame = build_frame(0x80, cfg.irm_id, cfg.client_id)
         from_sock.sendall(resume_frame)

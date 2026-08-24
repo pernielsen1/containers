@@ -8,10 +8,18 @@ close() must promptly and cleanly unblock a thread stuck in recv(), rather than 
 or silently returning some other connection's data.
 """
 import socket
+import ssl
 import threading
 import time
+import types
+from pathlib import Path
+
+import pytest
 
 from router.downstream import DownstreamConnection
+from shared.ssl_utils import build_server_context
+
+CERTS_DIR = Path(__file__).resolve().parent.parent / "certs"
 
 
 def _loopback_pair():
@@ -52,3 +60,53 @@ def test_close_promptly_unblocks_pending_recv():
 
     for s in (to_peer, from_peer):
         s.close()
+
+
+def test_connect_logs_error_and_closes_sockets_on_cert_mismatch(caplog):
+    """Real end-to-end TLS handshake, deliberately desynced: the server presents downstream's
+    real self-signed cert, but the client is configured to trust crypto_host's (unrelated) CA -
+    exactly the "certs changed and we're not synced" scenario from resilience_v2.md. Verifies
+    the client raises (not swallowed), logs at ERROR with a manual-intervention message rather
+    than the WARNING used for ordinary connectivity failures, and closes both sockets rather
+    than leaking them.
+    """
+    server_ctx = build_server_context(
+        str(CERTS_DIR / "downstream_ssl_active_true_cert.pem"),
+        str(CERTS_DIR / "downstream_ssl_active_true_key.pem"),
+    )
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(2)
+    host, port = listener.getsockname()
+
+    def serve_two():
+        for _ in range(2):
+            raw, _ = listener.accept()
+            try:
+                server_ctx.wrap_socket(raw, server_side=True)
+            except ssl.SSLError:
+                pass  # expected: client rejects our cert and aborts the handshake
+
+    server_thread = threading.Thread(target=serve_two, daemon=True)
+    server_thread.start()
+
+    cfg = types.SimpleNamespace(
+        host=host,
+        port=port,
+        ssl_active=True,
+        certfile=None,
+        keyfile=None,
+        cafile=str(CERTS_DIR / "crypto_host_ssl_active_true_ca.pem"),  # wrong CA on purpose
+    )
+
+    with caplog.at_level("ERROR"):
+        with pytest.raises(ssl.SSLError):
+            DownstreamConnection.connect(cfg)
+
+    error_records = [r for r in caplog.records if r.levelname == "ERROR"]
+    assert len(error_records) == 1
+    assert "certificates may be out of sync" in error_records[0].message
+    assert "manual intervention" in error_records[0].message
+
+    server_thread.join(timeout=2)
+    listener.close()

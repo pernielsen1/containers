@@ -303,6 +303,16 @@ class UpstreamHostSim:
             try:
                 encoded, _ = iso8583.encode(msg, self.spec)
                 with self._write_lock:
+                    # conn can go stale mid-batch: a chaos-style kill/reconnect between rows
+                    # closes this exact conn and _client_connect_loop/_server_accept_loop hands
+                    # out a brand new socket, which on Linux is very likely to reuse the just-
+                    # freed fd number. Without this check a write here would - depending on
+                    # timing - either fail (fine, caught below) or land on the reused fd, i.e. on
+                    # someone else's brand new connection. Checked and written inside the same
+                    # _write_lock critical section as _run_connection's close() (see there) so
+                    # there's no window between the check and the write for that close to land.
+                    if conn is not self._get_conn():
+                        break
                     write_message(conn, bytes(encoded), self.framing)
                 self.stats.record_sent()
                 self.run_sent += 1
@@ -364,6 +374,9 @@ class UpstreamHostSim:
         while not disc_evt.is_set() and not self.stop_event.is_set():
             try:
                 with self._write_lock:
+                    # See the matching check in _send_loop - same stale-conn/reused-fd hazard.
+                    if conn is not self._get_conn():
+                        return
                     write_message(conn, build_0800(self.spec), self.framing)
                 self.stats.record_sent()
             except OSError:
@@ -395,10 +408,22 @@ class UpstreamHostSim:
                 self._conn = None
         self.stats.set_connection("router", False)
         logger.info("connection to router lost")
-        try:
-            sock.close()
-        except OSError:
-            pass
+        # Closing under _write_lock, with shutdown() first, closes two races at once: (1) a
+        # concurrent _send_loop/_keepalive_loop write that already passed its "is this still the
+        # live conn" check can't have this socket - and its fd number - pulled out from under it
+        # mid-write, since close() now waits for that write to finish; (2) shutdown() forces
+        # _receive_loop's blocked read on this exact socket to return promptly instead of
+        # potentially staying stuck for a long time (see router_py's DownstreamConnection.close()
+        # and RouterSession._teardown() for the same fix on the router side of this same link).
+        with self._write_lock:
+            try:
+                sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            try:
+                sock.close()
+            except OSError:
+                pass
         recv_thread.join(timeout=2)
         keepalive_thread.join(timeout=2)
 

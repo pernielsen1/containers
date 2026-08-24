@@ -1,4 +1,5 @@
 import logging
+import socket
 import threading
 
 import iso8583
@@ -225,17 +226,33 @@ class RouterSession:
                 logger.exception("unexpected error dispatching downstream message mti=%s", resp.get("t"))
 
     def _teardown(self, up_thread) -> None:
+        logger.debug("_teardown: start, drain_and_stop")
         self.dispatcher.drain_and_stop()
+        logger.debug("_teardown: drain_and_stop done")
 
         with self._up_ref_lock:
             ref = self._upstream_ref
             self._upstream_ref = None
         if ref is not None:
             conn, _lock = ref
+            # shutdown() before close() - same reasoning as DownstreamConnection.close(): the
+            # up-server/up-client thread can be blocked in a read on this exact socket right now
+            # (_handle_upstream's read_upstream loop), and a bare close() from this thread doesn't
+            # reliably interrupt that blocked read. Confirmed via chaos_monkey.py: without this,
+            # up_thread.join(timeout=5) below timed out with the thread still alive, and the
+            # peer (upstream_1) didn't learn its connection was gone for 15+ seconds - long past
+            # when the next reconnect attempt needed it torn down.
+            try:
+                conn.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
             try:
                 conn.close()
             except OSError:
                 pass
+        logger.debug("_teardown: upstream conn closed (ref was %s)", ref is not None)
 
         self.downstream.close()
+        logger.debug("_teardown: downstream closed, joining up_thread")
         up_thread.join(timeout=5)
+        logger.debug("_teardown: up_thread joined (alive=%s)", up_thread.is_alive())
