@@ -64,9 +64,19 @@ class RouterSession:
             breaker_threshold=cfg.crypto_breaker_threshold,
             breaker_cooldown_seconds=cfg.crypto_breaker_cooldown_seconds,
         )
+        # Separate instance (own connection, own breaker state) for the response leg - a
+        # deliberately short timeout so a stuck validate_0110 can't tie up a response-worker
+        # thread for the request leg's full timeout. See CryptoConfig.crypto_response_timeout_seconds.
+        crypto_response = CryptoClient(
+            cfg.crypto,
+            breaker_threshold=cfg.crypto_breaker_threshold,
+            breaker_cooldown_seconds=cfg.crypto_breaker_cooldown_seconds,
+            timeout_seconds=cfg.crypto_response_timeout_seconds,
+        )
         reconnect_event = threading.Event()
         dispatcher = Dispatcher(
-            cfg, downstream, crypto, spec, stats, reconnect_event, upstream_spec=upstream_spec
+            cfg, downstream, crypto, spec, stats, reconnect_event,
+            upstream_spec=upstream_spec, crypto_response=crypto_response,
         )
 
         return cls(

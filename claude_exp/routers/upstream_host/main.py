@@ -7,6 +7,7 @@ import socket
 import sys
 import threading
 import time
+from datetime import datetime
 from itertools import count
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -28,6 +29,10 @@ logger = logging.getLogger(__name__)
 
 _STAN_MODULUS = 1_000_000
 _RESPONSE_MTIS = ("0110", "0130", "0430")
+# briefs/resilience_v2.md: a 0100 that times out gets both a 0420 (reversal - "forget my 0100")
+# and a 0120 (advice - the STIP decision made on the cardholder's behalf) independently, each
+# store-and-forward until its own ack arrives.
+_ADVICE_ACK_MTI = {"0420": "0430", "0120": "0130"}
 
 
 def load_config(path=None):
@@ -38,6 +43,9 @@ def load_config(path=None):
     base_dir = os.path.dirname(os.path.abspath(path))
     cfg["iso_spec"] = os.path.normpath(os.path.join(base_dir, cfg["iso_spec"]))
     cfg["input_dir"] = os.path.normpath(os.path.join(base_dir, cfg.get("input_dir", "input")))
+    cfg["error_csv"] = os.path.normpath(
+        os.path.join(base_dir, cfg.get("error_csv", "error_0120_0420.csv"))
+    )
     for key in ("certfile", "keyfile", "cafile"):
         if cfg.get(key):
             cfg[key] = os.path.normpath(os.path.join(base_dir, cfg[key]))
@@ -74,6 +82,21 @@ class UpstreamHostSim:
         self.pending_lock = threading.Lock()
         self.results = []
         self.results_lock = threading.Lock()
+
+        # Advice/reversal (briefs/resilience_v2.md): a 0100 with no 0110 within
+        # advice_timeout_seconds gets both a 0420 and a 0120, each tracked here keyed by its own
+        # (fresh) STAN and store-and-forward retried until its ack (0430/0130) arrives or
+        # advice_max_retries is exhausted. Separate from `pending` above (which is real
+        # transaction round-trip tracking) since these carry no crypto/latency/results semantics
+        # of their own - just "did this get acknowledged."
+        self.advice_timeout_seconds = cfg.get("advice_timeout_seconds", 1.0)
+        self.advice_max_retries = cfg.get("advice_max_retries", 5)
+        self.advice_backoff_multiplier = cfg.get("advice_backoff_multiplier", 15.0)
+        # load_config() normalizes this to an absolute path; falls back to a bare relative name
+        # for callers (tests) that construct UpstreamHostSim directly with a hand-built cfg dict.
+        self.error_csv_path = cfg.get("error_csv", "error_0120_0420.csv")
+        self.advice_pending = {}
+        self.advice_lock = threading.Lock()
 
         # Stress-run state: send timestamps keyed by STAN, and a bounded latency-sample list.
         # Capped at 200k - plenty for any run duration/rate used here, keeps memory bounded on a
@@ -147,6 +170,9 @@ class UpstreamHostSim:
                 self.results.clear()
             self.latencies.clear()
             self.latency_records.clear()
+            with self.advice_lock:
+                self.advice_pending.clear()
+            self._set_advice_gauge()
             # monotonic, not wall-clock: a mid-run NTP/hv_utils clock resync (observed on this
             # WSL2 host) would otherwise show up as a bogus multi-minute latency spike on
             # whichever requests were in flight at that moment.
@@ -236,6 +262,22 @@ class UpstreamHostSim:
         with self._conn_lock:
             return self._conn
 
+    def _write_frame(self, conn, encoded: bytes) -> bool:
+        """Shared by every writer (_send_loop, _keepalive_loop, the advice loops below): the
+        conn-staleness check + _write_lock + OSError handling every one of them needs. Returns
+        False instead of raising - a stale/dead conn or write failure is routine here (a chaos
+        kill, a reconnect race - see _send_loop's own comment on why the staleness check
+        matters), not something callers should treat as exceptional."""
+        try:
+            with self._write_lock:
+                if conn is not self._get_conn():
+                    return False
+                write_message(conn, encoded, self.framing)
+            self.stats.record_sent()
+            return True
+        except OSError:
+            return False
+
     def _run_with_warmup(self, conn, rows, rate, duration, warmup_s) -> None:
         if warmup_s:
             self._warmup_active = True
@@ -265,6 +307,9 @@ class UpstreamHostSim:
             self.results.clear()
         self.latencies.clear()
         self.latency_records.clear()
+        with self.advice_lock:
+            self.advice_pending.clear()
+        self._set_advice_gauge()
         self.run_start_time = time.monotonic()
         self.run_end_time = None
         self.run_sent = 0
@@ -300,24 +345,15 @@ class UpstreamHostSim:
                 self.pending[stan] = row
             self.send_times[stan] = time.monotonic()
 
-            try:
-                encoded, _ = iso8583.encode(msg, self.spec)
-                with self._write_lock:
-                    # conn can go stale mid-batch: a chaos-style kill/reconnect between rows
-                    # closes this exact conn and _client_connect_loop/_server_accept_loop hands
-                    # out a brand new socket, which on Linux is very likely to reuse the just-
-                    # freed fd number. Without this check a write here would - depending on
-                    # timing - either fail (fine, caught below) or land on the reused fd, i.e. on
-                    # someone else's brand new connection. Checked and written inside the same
-                    # _write_lock critical section as _run_connection's close() (see there) so
-                    # there's no window between the check and the write for that close to land.
-                    if conn is not self._get_conn():
-                        break
-                    write_message(conn, bytes(encoded), self.framing)
-                self.stats.record_sent()
-                self.run_sent += 1
-            except OSError:
+            # conn can go stale mid-batch: a chaos-style kill/reconnect between rows closes this
+            # exact conn and _client_connect_loop/_server_accept_loop hands out a brand new
+            # socket, which on Linux is very likely to reuse the just-freed fd number. _write_frame's
+            # staleness check (against the same _write_lock _run_connection's close() uses) is
+            # what prevents a write here from landing on someone else's brand new connection.
+            encoded, _ = iso8583.encode(msg, self.spec)
+            if not self._write_frame(conn, bytes(encoded)):
                 break
+            self.run_sent += 1
             time.sleep(interval)
         # Marks when active sending stopped, distinct from "now" - /stress_stats is queried
         # after a trailing grace window (letting in-flight responses land), and achieved_tps
@@ -350,6 +386,18 @@ class UpstreamHostSim:
             with self.pending_lock:
                 row = self.pending.pop(stan, None)
             if row is None:
+                # Not an ordinary transaction response - might be the ack (0430/0130) for an
+                # in-flight advice message instead, which lives in advice_pending, not pending.
+                with self.advice_lock:
+                    advice_entry = self.advice_pending.pop(stan, None)
+                if advice_entry is not None:
+                    logger.info(
+                        "advice %s stan=%s pan=%s acknowledged (%s) after %d retr%s",
+                        advice_entry["mti"], stan, advice_entry["pan"], mti,
+                        advice_entry["retries_done"], "y" if advice_entry["retries_done"] == 1 else "ies",
+                    )
+                    self._set_advice_gauge()
+                    continue
                 logger.warning("no pending request for STAN %s", stan)
                 continue
 
@@ -372,14 +420,7 @@ class UpstreamHostSim:
 
     def _keepalive_loop(self, conn, disc_evt: threading.Event) -> None:
         while not disc_evt.is_set() and not self.stop_event.is_set():
-            try:
-                with self._write_lock:
-                    # See the matching check in _send_loop - same stale-conn/reused-fd hazard.
-                    if conn is not self._get_conn():
-                        return
-                    write_message(conn, build_0800(self.spec), self.framing)
-                self.stats.record_sent()
-            except OSError:
+            if not self._write_frame(conn, build_0800(self.spec)):
                 return
             # interruptible wait for the rest of the interval
             elapsed = 0.0
@@ -388,6 +429,131 @@ class UpstreamHostSim:
                     return
                 time.sleep(min(1.0, self.ping_0800_seconds - elapsed))
                 elapsed += 1.0
+
+    def _stip_decision(self, row: dict) -> str:
+        """The STIP call upstream_host makes on the cardholder's behalf when downstream never
+        answered in time (briefs/resilience_v2.md: "smaller amounts will be approved"). No real
+        risk engine here - this is a resilience-test simulator, not a STIP implementation - always
+        approves. Its own method so a scenario can override this decision without touching the
+        timeout/retry machinery around it."""
+        return "00"
+
+    def _set_advice_gauge(self) -> None:
+        with self.advice_lock:
+            self.stats.set_gauge("advice_pending_count", len(self.advice_pending))
+
+    def _start_advice(self, conn, mti: str, row: dict, decision: str = None) -> None:
+        """Builds, registers, and sends the first attempt of one advice message (0420 or 0120)
+        for a 0100 that timed out. Gets its own fresh STAN - not the original 0100's - since it's
+        a genuinely new message needing its own request/response pairing on the wire; row's other
+        fields (PAN, amount, ...) carry over unchanged, matching how downstream_host's existing
+        0120/0420 handling just echoes them back with the MTI (and, for 0120, the decision in
+        field 39) changed."""
+        stan = self._next_stan()
+        msg = {k: v for k, v in row.items() if k in self.spec and k not in ("t", "p", "1")}
+        msg["t"] = mti
+        msg["11"] = stan
+        if decision is not None:
+            msg["39"] = decision
+        encoded, _ = iso8583.encode(msg, self.spec)
+
+        # First resend (if no ack) fires advice_timeout_seconds * advice_backoff_multiplier after
+        # this initial send; each subsequent resend multiplies that interval again - briefs/
+        # resilience_v2.md's own worked example: multiplier 15 gives resend waits of 15s, 225s,
+        # 3375s, ... after the initial send at t=advice_timeout_seconds.
+        interval = self.advice_timeout_seconds * self.advice_backoff_multiplier
+        entry = {
+            "mti": mti,
+            "ack_mti": _ADVICE_ACK_MTI[mti],
+            "encoded": bytes(encoded),
+            "pan": row.get("2", ""),
+            "retries_done": 0,
+            "interval": interval,
+            "next_retry_at": time.monotonic() + interval,
+        }
+        with self.advice_lock:
+            self.advice_pending[stan] = entry
+        self._set_advice_gauge()
+        self._write_frame(conn, entry["encoded"])
+        logger.info(
+            "advice: sent %s stan=%s pan=%s (initial send, up to %d retries)",
+            mti, stan, entry["pan"], self.advice_max_retries,
+        )
+
+    def _advice_timeout_loop(self, conn, disc_evt: threading.Event) -> None:
+        """Watches `pending` for 0100s that never got a matching 0110 within
+        advice_timeout_seconds - briefs/resilience_v2.md: real-world ISO 8583 doesn't wait
+        forever, it moves on to the next authorization. Fires both a 0420 (reversal) and a 0120
+        (STIP advice) independently for each one - see _start_advice - rather than picking one;
+        the two mean different things (unconditional "forget it" vs. "here's the decision I made
+        for the cardholder") and both apply on every timeout per this round's design."""
+        poll_interval = min(0.2, self.advice_timeout_seconds / 5)
+        while not disc_evt.is_set() and not self.stop_event.is_set():
+            now = time.monotonic()
+            timed_out = []
+            with self.pending_lock:
+                for stan, sent_at in list(self.send_times.items()):
+                    if now - sent_at >= self.advice_timeout_seconds and stan in self.pending:
+                        row = self.pending.pop(stan)
+                        self.send_times.pop(stan, None)
+                        timed_out.append((stan, row))
+            for stan, row in timed_out:
+                logger.warning(
+                    "0100 timed out waiting for 0110 (stan=%s, pan=%s) after %.1fs - sending 0420+0120",
+                    stan, row.get("2", ""), self.advice_timeout_seconds,
+                )
+                self._start_advice(conn, "0420", row)
+                self._start_advice(conn, "0120", row, decision=self._stip_decision(row))
+            time.sleep(poll_interval)
+
+    def _log_advice_error(self, stan: str, entry: dict) -> None:
+        """Store-and-forward give-up: after advice_max_retries resends with no ack, log it as a
+        genuine error rather than silently dropping the entry - semicolon/utf-8-sig, matching
+        every other CSV this repo writes (see feedback_csv_encoding)."""
+        path = self.error_csv_path
+        is_new = not os.path.exists(path)
+        with open(path, "a", encoding="utf-8-sig" if is_new else "utf-8", newline="") as f:
+            if is_new:
+                f.write("timestamp;mti;router_stan;pan;retries;reason\n")
+            ts = datetime.now().astimezone().isoformat(timespec="seconds")
+            f.write(f"{ts};{entry['mti']};{stan};{entry['pan']};{entry['retries_done']};no_ack_after_max_retries\n")
+        logger.error(
+            "advice %s stan=%s pan=%s exhausted %d retries with no ack - logged to %s",
+            entry["mti"], stan, entry["pan"], entry["retries_done"], path,
+        )
+
+    def _advice_retry_loop(self, conn, disc_evt: threading.Event) -> None:
+        while not disc_evt.is_set() and not self.stop_event.is_set():
+            now = time.monotonic()
+            due = []
+            exhausted = []
+            with self.advice_lock:
+                for stan, entry in list(self.advice_pending.items()):
+                    if now < entry["next_retry_at"]:
+                        continue
+                    if entry["retries_done"] >= self.advice_max_retries:
+                        exhausted.append((stan, entry))
+                        del self.advice_pending[stan]
+                    else:
+                        due.append((stan, entry))
+            for stan, entry in exhausted:
+                self._log_advice_error(stan, entry)
+            for stan, entry in due:
+                self._write_frame(conn, entry["encoded"])
+                with self.advice_lock:
+                    e = self.advice_pending.get(stan)
+                    if e is not None:
+                        e["retries_done"] += 1
+                        e["interval"] *= self.advice_backoff_multiplier
+                        e["next_retry_at"] = time.monotonic() + e["interval"]
+                        retries_done = e["retries_done"]
+                logger.info(
+                    "advice: retried %s stan=%s pan=%s (retry %d/%d)",
+                    entry["mti"], stan, entry["pan"], retries_done, self.advice_max_retries,
+                )
+            if exhausted or due:
+                self._set_advice_gauge()
+            time.sleep(0.2)
 
     def _run_connection(self, sock) -> None:
         with self._conn_lock:
@@ -400,6 +566,14 @@ class UpstreamHostSim:
         recv_thread.start()
         keepalive_thread = threading.Thread(target=self._keepalive_loop, args=(sock, disc_evt), daemon=True)
         keepalive_thread.start()
+        advice_timeout_thread = threading.Thread(
+            target=self._advice_timeout_loop, args=(sock, disc_evt), daemon=True
+        )
+        advice_timeout_thread.start()
+        advice_retry_thread = threading.Thread(
+            target=self._advice_retry_loop, args=(sock, disc_evt), daemon=True
+        )
+        advice_retry_thread.start()
 
         disc_evt.wait()
 
@@ -426,6 +600,8 @@ class UpstreamHostSim:
                 pass
         recv_thread.join(timeout=2)
         keepalive_thread.join(timeout=2)
+        advice_timeout_thread.join(timeout=2)
+        advice_retry_thread.join(timeout=2)
 
     def _client_connect_loop(self) -> None:
         router_cfg = self.cfg["router"]

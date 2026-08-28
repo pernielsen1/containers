@@ -20,5 +20,9 @@
   "iso_spec": "test_spec.json",
   "input_dir": "input",
   "ping_0800_seconds": 30,
-  "yellow_threshold_seconds": 40
+  "yellow_threshold_seconds": 40,
+  "advice_timeout_seconds": 1.0,
+  "advice_max_retries": 5,
+  "advice_backoff_multiplier": 15.0,
+  "error_csv": "error_0120_0420.csv"
 }

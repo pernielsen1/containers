@@ -32,8 +32,15 @@ class CryptoClient:
         cfg,
         breaker_threshold: int = 5,
         breaker_cooldown_seconds: int = 30,
+        timeout_seconds: float = 5.0,
     ):
         self._ssl_active = getattr(cfg, "ssl_active", False)
+        # Request-leg (validate_0100) and response-leg (validate_0110) callers use separate
+        # CryptoClient instances with separate timeouts (see router/session.py) - the response
+        # leg deliberately runs much shorter (briefs/resilience_v2.md: "fire and forget... no one
+        # cares about the result anymore" once downstream has already answered) so a stuck crypto
+        # call can't tie up a response-worker thread for the full default timeout.
+        self._timeout_seconds = timeout_seconds
         self._host = cfg.host
         self._port = cfg.port
         self._path = f"/sys/v1/plugins/{cfg.plugin_id}"
@@ -60,8 +67,10 @@ class CryptoClient:
 
     def _new_connection(self) -> http.client.HTTPConnection:
         if self._ssl_active:
-            return http.client.HTTPSConnection(self._host, self._port, context=self._ssl_context, timeout=5)
-        return http.client.HTTPConnection(self._host, self._port, timeout=5)
+            return http.client.HTTPSConnection(
+                self._host, self._port, context=self._ssl_context, timeout=self._timeout_seconds
+            )
+        return http.client.HTTPConnection(self._host, self._port, timeout=self._timeout_seconds)
 
     def _get_connection(self) -> http.client.HTTPConnection:
         conn = getattr(self._thread_local, "conn", None)

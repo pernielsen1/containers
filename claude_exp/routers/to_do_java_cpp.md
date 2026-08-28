@@ -5,6 +5,25 @@ Tracks fixes made in `router_py` (or the shared Python actors) that still need p
 
 ## Open
 
+- **Crypto response-leg fire-and-forget timeout split (resilience.md Round 7, 2026-08-27) — not
+  ported.** `router_py`'s `CryptoClient` (`router/crypto_client.py`) now takes a `timeout_seconds`
+  param; `router/session.py` builds *two* instances per session - request leg keeps the old 5s
+  default, response leg (`validate_0110`) gets a new, much shorter
+  `crypto_response_timeout_seconds` (0.2s default) so a stuck/slow card's response-leg call can't
+  tie up a response-worker thread for anywhere near the old ~10s (one attempt + the existing
+  single retry-on-failure). `Dispatcher` routes `validate_0110` through the response client,
+  `validate_0100` through the request client (new optional `crypto_response` constructor param,
+  defaults to the single client when omitted). `router_java`'s `CryptoClient.java` and
+  `router_cpp`'s `crypto_client.cpp` each still build **one** `CryptoClient` per session with a
+  single hardcoded 5s timeout shared by both legs - confirmed via `grep` (one `new CryptoClient(...)`
+  call site in `RouterSession.java`, one `CryptoClient::CryptoClient(...)` in `crypto_client.cpp`,
+  both with `timeout=5`-equivalent hardcoded, no per-leg split) - so both are still exposed to the
+  exact vulnerability Round 6 found: a stuck response call blocks a response-worker thread for the
+  full ~10s. Not blocking - self-contained at the `CryptoClient` boundary, doesn't intersect the
+  0120/0130/0400/0410 protocol work starting 2026-08-28 - but real, and worth batching in before
+  either language's own resilience-suite port (the item right below this one) gets attempted,
+  since that suite will otherwise "pass" without ever exercising the fix.
+
 - **Live-process resilience scenario suite — ported 2026-08-16, not yet live-verified.**
   `router_java/test_resilience.py` and `router_cpp/test_resilience.py` now exist (both use
   `docker exec` into a pre-built container for every actor except `upstream_host`/

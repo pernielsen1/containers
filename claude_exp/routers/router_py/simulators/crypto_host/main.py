@@ -42,6 +42,12 @@ class CryptoHostSim:
         self.cfg = cfg
         with open(cfg["pans_defined"]) as f:
             self.pans = json.load(f)
+        # Chaos hook (briefs/resilience_v2.md "build up a queue"): {pan: [operation, ...]}.
+        # Matching (pan, operation) requests never get a response at all - not an HTTP error,
+        # a real hang - to simulate a card whose crypto data makes validation itself get stuck
+        # rather than fail fast. Empty by default; no real PAN in pans_defined.json is ever
+        # listed here, so normal traffic is unaffected.
+        self.no_response_pans = cfg.get("no_response_pans", {})
 
         self.stats = Stats(yellow_threshold_seconds=cfg.get("yellow_threshold_seconds"))
         self.stop_event = threading.Event()
@@ -73,11 +79,29 @@ class CryptoHostSim:
             body = request.json or {}
             operation = body.get("operation", "")
             router_stan = body.get("router_stan", "")
+            pan = body.get("f2", "")
             if operation not in ("validate_0100", "validate_0110"):
                 return {"error": f"unknown operation: {operation}"}, 400
 
-            logger.debug("validate pan=%s router_stan=%s", body.get("f2", ""), router_stan)
-            result = self._validate(body.get("f2", ""), body.get("f47", ""))
+            if operation in self.no_response_pans.get(pan, []):
+                logger.warning(
+                    "chaos: simulating no response for pan=%s operation=%s router_stan=%s "
+                    "(request will just hang - caller's own timeout decides what happens next)",
+                    pan, operation, router_stan, extra={"router_stan": router_stan},
+                )
+                # Bounded, not forever: the caller's own timeout (CryptoClient's 5s request-leg
+                # / crypto_response_timeout_seconds response-leg default) always decides the
+                # caller-visible outcome well before this fires - this bound only reclaims the
+                # server-side thread/socket instead of leaking it permanently. Short (2s, not the
+                # original 10s) on purpose: at sustained real-traffic volume a longer bound lets
+                # stuck server threads/sockets pile up faster than they clear (measured directly:
+                # 10s let ~100 concurrent stuck threads accumulate under 10 hangs/sec, which then
+                # starved the dev server's own accept queue - see resilience.md).
+                threading.Event().wait(timeout=2)
+                return {"error": "chaos: no response"}, 504
+
+            logger.debug("validate pan=%s router_stan=%s", pan, router_stan)
+            result = self._validate(pan, body.get("f47", ""))
             envelope = json.dumps({"f47": result})
             b64 = base64.b64encode(envelope.encode("utf-8")).decode("ascii")
             self.stats.record_sent()
@@ -95,6 +119,10 @@ class CryptoHostSim:
                 port=self.cfg["port"],
                 use_reloader=False,
                 ssl_context=ssl_context,
+                # threaded=True: Flask's dev server defaults to handling one request at a
+                # time. A chaos no_response_pans hang (above) would otherwise stall every
+                # request - including unrelated PANs/operations - not just the targeted one.
+                threaded=True,
             ),
             daemon=True,
         ).start()

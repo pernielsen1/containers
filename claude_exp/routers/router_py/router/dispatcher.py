@@ -46,10 +46,17 @@ class Dispatcher:
     """Worker pool. Routes 0100 upstream -> crypto -> downstream.
     Routes 0110/0130/0430 downstream -> upstream (STAN lookup)."""
 
-    def __init__(self, cfg, downstream, crypto, spec, stats, reconnect_event, upstream_spec=None):
+    def __init__(
+        self, cfg, downstream, crypto, spec, stats, reconnect_event, upstream_spec=None,
+        crypto_response=None,
+    ):
         self.cfg = cfg
         self.downstream = downstream
         self.crypto = crypto
+        # Response-leg (validate_0110) calls use a separate CryptoClient - see
+        # router/session.py. Defaults to `crypto` (old single-client behavior) so callers that
+        # don't pass it (tests, in particular) are unaffected.
+        self.crypto_response = crypto_response if crypto_response is not None else crypto
         self.spec = spec
         # Upstream-facing leg can speak a different ISO 8583 encoding than the downstream leg
         # (e.g. router_2's EBCDIC partner spec vs the shared downstream_host's ASCII spec) -
@@ -220,7 +227,7 @@ class Dispatcher:
         if mti == "0110":
             pan = resp.get("2", "")
             crypto_start = time.monotonic()
-            result = self.crypto.validate("validate_0110", pan, resp.get("47", ""), router_stan=router_stan)
+            result = self.crypto_response.validate("validate_0110", pan, resp.get("47", ""), router_stan=router_stan)
             crypto_ms = (time.monotonic() - crypto_start) * 1000
             self.stats.record_latency("crypto_rtt", crypto_ms)
             if tracing:

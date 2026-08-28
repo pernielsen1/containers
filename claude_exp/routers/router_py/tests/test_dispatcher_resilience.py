@@ -34,6 +34,15 @@ class FakeCrypto:
         return ""
 
 
+class RecordingCrypto:
+    def __init__(self):
+        self.calls = []
+
+    def validate(self, endpoint, pan, f47, router_stan=""):
+        self.calls.append(endpoint)
+        return ""
+
+
 def _make_cfg(**overrides):
     framing = Framing(header_hex="", length_field_type="ASCII", length_field_bytes=4)
     upstream = UpstreamConfig(port=15000, framing=framing)
@@ -64,6 +73,47 @@ def _make_dispatcher(**overrides):
     reconnect_event = threading.Event()
     dispatcher = Dispatcher(cfg, downstream, crypto, SPEC, stats, reconnect_event)
     return dispatcher, cfg, downstream, stats
+
+
+def test_response_leg_uses_crypto_response_client_when_given():
+    """router/session.py wires a separate, shorter-timeout CryptoClient for validate_0110 -
+    see briefs/resilience_v2.md's "fire and forget" round. Confirms the routing, not the
+    timeout itself (that's crypto_client.py's own concern)."""
+    cfg = _make_cfg(pending_ttl_seconds=100)
+    stats = Stats()
+    downstream = FakeDownstream()
+    request_crypto = RecordingCrypto()
+    response_crypto = RecordingCrypto()
+    reconnect_event = threading.Event()
+    dispatcher = Dispatcher(
+        cfg, downstream, request_crypto, SPEC, stats, reconnect_event,
+        crypto_response=response_crypto,
+    )
+
+    up_conn, test_conn = socket.socketpair()
+    write_lock = threading.Lock()
+    try:
+        req = {"t": "0100", "2": "4111111111111111", "3": "000000", "4": "000000000100", "11": "000042"}
+        msg = RoutedMessage(req=req, up_conn=up_conn, up_write_lock=write_lock, up_addr=("x", 0))
+        dispatcher._process(msg)
+        assert request_crypto.calls == ["validate_0100"]
+        assert response_crypto.calls == []
+
+        router_stan = next(iter(dispatcher._pending))
+        resp = {"t": "0110", "11": router_stan, "39": "00"}
+        dispatcher.handle_response(resp)
+        assert request_crypto.calls == ["validate_0100"]
+        assert response_crypto.calls == ["validate_0110"]
+    finally:
+        up_conn.close()
+        test_conn.close()
+
+
+def test_dispatcher_defaults_crypto_response_to_crypto_when_omitted():
+    """Backward-compat default (matches every other _make_dispatcher() call in this file, which
+    doesn't pass crypto_response) - both legs land on the same client when only one is given."""
+    dispatcher, cfg, downstream, stats = _make_dispatcher(pending_ttl_seconds=100)
+    assert dispatcher.crypto_response is dispatcher.crypto
 
 
 def test_pending_entry_ttl_expiry_sends_local_decline():

@@ -76,6 +76,12 @@ class RouterConfig:
     pending_ttl_seconds: int = 30
     crypto_breaker_threshold: int = 5
     crypto_breaker_cooldown_seconds: int = 30
+    # Response-leg (validate_0110) crypto calls get their own, much shorter timeout than the
+    # request leg's default (CryptoClient's own 5.0s default, used for validate_0100) - see
+    # router/session.py and briefs/resilience_v2.md's "fire and forget" framing. 0.2s matches
+    # this dev laptop's own observed latency headroom; a real deployment (briefs' own estimate:
+    # 50-75ms typical crypto_host RTT) should tune this down accordingly.
+    crypto_response_timeout_seconds: float = 0.2
     reconnect_jitter_seconds: float = 2.0
     command_bind_host: str = "127.0.0.1"
     command_auth_token: Optional[str] = None

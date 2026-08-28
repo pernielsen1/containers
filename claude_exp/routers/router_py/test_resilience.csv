@@ -178,3 +178,109 @@
 2026-08-07T23:53:02+02:00;crypto_host;OBSERVED test.csv while down: [{'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"message_type":"0110","response_code":"00"}'}, {'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"message_type":"0110","response_code":"00"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"message_type":"0110","response_code":"01"}'}]
 2026-08-07T23:53:02+02:00;crypto_host;up
 2026-08-07T23:53:37+02:00;crypto_host;OBSERVED test.csv after recovery + breaker cooldown: [{'pan': '4111111111111111', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '4222222222222222', 'resp_39': '00', 'resp_47': '{"response_code":"00","message_type":"0110"}'}, {'pan': '9999999999999999', 'resp_39': '01', 'resp_47': '{"response_code":"14","message_type":"0110"}'}]
+2026-08-27T21:49:22+02:00;crypto_host;up
+2026-08-27T21:49:23+02:00;downstream_host;up
+2026-08-27T21:49:23+02:00;router_1;up
+2026-08-27T21:49:24+02:00;upstream_1;up
+2026-08-27T21:49:26+02:00;upstream_1;chaos PAN stress start status=200 body={"rows":1}
+
+2026-08-27T21:49:36+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=91 pending_count=91 | upstream_1: sent=100 received=0 errors=100
+2026-08-27T21:49:46+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=175 pending_count=175 | upstream_1: sent=199 received=16 errors=183
+2026-08-27T21:49:56+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=258 pending_count=258 | upstream_1: sent=298 received=32 errors=266
+2026-08-27T21:50:06+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=339 pending_count=305 | upstream_1: sent=398 received=84 errors=314
+2026-08-27T21:50:16+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=339 pending_count=305 | upstream_1: sent=497 received=184 errors=313
+2026-08-27T21:50:26+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=338 pending_count=305 | upstream_1: sent=596 received=283 errors=313
+2026-08-27T21:50:36+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=338 pending_count=304 | upstream_1: sent=695 received=383 errors=312
+2026-08-27T21:50:46+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=337 pending_count=304 | upstream_1: sent=795 received=482 errors=313
+2026-08-27T21:50:56+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=339 pending_count=304 | upstream_1: sent=894 received=582 errors=312
+2026-08-27T21:51:06+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=338 pending_count=303 | upstream_1: sent=993 received=682 errors=311
+2026-08-27T21:51:16+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=338 pending_count=303 | upstream_1: sent=1093 received=781 errors=312
+2026-08-27T21:51:26+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=338 pending_count=303 | upstream_1: sent=1192 received=881 errors=311
+2026-08-27T21:51:36+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=337 pending_count=303 | upstream_1: sent=1291 received=980 errors=311
+2026-08-27T21:51:46+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=338 pending_count=302 | upstream_1: sent=1390 received=1080 errors=310
+2026-08-27T21:51:56+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=337 pending_count=301 | upstream_1: sent=1490 received=1180 errors=310
+2026-08-27T21:52:06+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=337 pending_count=302 | upstream_1: sent=1589 received=1279 errors=310
+2026-08-27T21:52:16+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=337 pending_count=301 | upstream_1: sent=1688 received=1379 errors=309
+2026-08-27T21:52:26+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=335 pending_count=299 | upstream_1: sent=1785 received=1478 errors=307
+2026-08-27T21:52:32+02:00;router_1;post-attack recovery verdict=PASS rows=3/3 upstream_connection_ever_dropped_during_attack=False
+2026-08-27T22:11:39+02:00;crypto_host;up
+2026-08-27T22:11:40+02:00;downstream_host;up
+2026-08-27T22:11:41+02:00;router_1;up
+2026-08-27T22:11:42+02:00;upstream_1;up
+2026-08-27T22:11:44+02:00;crypto_host;chaos armed: {'no_response_probability': {'validate_0110': 0.1}}
+2026-08-27T22:11:44+02:00;upstream_1;TPS-under-chaos stress start status=200 body={"rows":4}
+
+2026-08-27T22:11:54+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=350 response_queue_depth=0 pending_count=0 | upstream_1: achieved_tps=90.35 sent=906 received=546 errors=360
+2026-08-27T22:12:04+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=655 response_queue_depth=0 pending_count=0 | upstream_1: achieved_tps=90.73 sent=1820 received=1155 errors=665
+2026-08-27T22:12:15+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=1000 response_queue_depth=0 pending_count=0 | upstream_1: achieved_tps=90.92 sent=2736 received=1691 errors=1045
+2026-08-27T22:12:25+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=1000 response_queue_depth=0 pending_count=0 | upstream_1: achieved_tps=91.21 sent=3659 received=2290 errors=1369
+2026-08-27T22:12:35+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=1000 response_queue_depth=0 pending_count=0 | upstream_1: achieved_tps=91.76 sent=4601 received=3311 errors=1290
+2026-08-27T22:12:44+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=966 response_queue_depth=0 pending_count=0 | upstream_1: achieved_tps=92.17 sent=5531 received=4556 errors=975
+2026-08-27T22:12:49+02:00;crypto_host;chaos disarmed: {'no_response_probability': {}}
+2026-08-27T22:12:49+02:00;upstream_1;TPS-under-chaos final: achieved_tps=92.17 target=100 sent=5531 received=5090 errors=441 tps_verdict=FAIL
+2026-08-27T22:12:58+02:00;router_1;post-attack recovery verdict=PASS rows=3/3
+2026-08-27T22:20:18+02:00;crypto_host;up
+2026-08-27T22:20:19+02:00;downstream_host;up
+2026-08-27T22:20:20+02:00;router_1;up
+2026-08-27T22:20:21+02:00;upstream_1;up
+2026-08-27T22:20:23+02:00;upstream_1;TPS-under-chaos stress start status=200 body={"rows":10}
+
+2026-08-27T22:20:33+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=340 response_queue_depth=161 pending_count=161 | upstream_1: achieved_tps=94.74 sent=949 received=431 errors=518
+2026-08-27T22:20:43+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=626 response_queue_depth=335 pending_count=335 | upstream_1: achieved_tps=94.95 sent=1902 received=921 errors=981
+2026-08-27T22:20:53+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=706 response_queue_depth=633 pending_count=633 | upstream_1: achieved_tps=95.25 sent=2862 received=1506 errors=1356
+2026-08-27T22:21:03+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=813 response_queue_depth=915 pending_count=915 | upstream_1: achieved_tps=95.41 sent=3823 received=2077 errors=1746
+2026-08-27T22:21:13+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=909 response_queue_depth=1000 pending_count=1203 | upstream_1: achieved_tps=95.53 sent=4785 received=2651 errors=2134
+2026-08-27T22:21:23+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=1000 response_queue_depth=1000 pending_count=1452 | upstream_1: achieved_tps=95.58 sent=5735 received=3193 errors=2542
+2026-08-27T22:21:28+02:00;upstream_1;TPS-under-chaos final: achieved_tps=95.58 target=100 sent=5735 received=3488 errors=2247 tps_verdict=PASS
+2026-08-27T22:21:43+02:00;router_1;post-attack recovery verdict=FAIL rows=0/3
+2026-08-27T22:26:03+02:00;crypto_host;up
+2026-08-27T22:26:04+02:00;downstream_host;up
+2026-08-27T22:26:04+02:00;router_1;up
+2026-08-27T22:26:05+02:00;upstream_1;up
+2026-08-27T22:26:07+02:00;upstream_1;TPS-under-chaos stress start status=200 body={"rows":10}
+
+2026-08-27T22:26:17+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=126 response_queue_depth=258 pending_count=258 | upstream_1: achieved_tps=95.88 sent=960 received=559 errors=401
+2026-08-27T22:26:27+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=228 response_queue_depth=540 pending_count=540 | upstream_1: achieved_tps=95.87 sent=1920 received=1136 errors=784
+2026-08-27T22:26:37+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=318 response_queue_depth=834 pending_count=834 | upstream_1: achieved_tps=95.93 sent=2882 received=1711 errors=1171
+2026-08-27T22:26:47+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=383 response_queue_depth=1000 pending_count=1146 | upstream_1: achieved_tps=95.95 sent=3844 received=2296 errors=1548
+2026-08-27T22:26:57+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=499 response_queue_depth=1000 pending_count=1427 | upstream_1: achieved_tps=95.97 sent=4807 received=2864 errors=1943
+2026-08-27T22:27:07+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=603 response_queue_depth=1000 pending_count=1710 | upstream_1: achieved_tps=95.96 sent=5758 received=3429 errors=2329
+2026-08-27T22:27:12+02:00;upstream_1;TPS-under-chaos final: achieved_tps=95.96 target=100 sent=5758 received=3711 errors=2047 tps_verdict=PASS
+2026-08-27T22:27:27+02:00;router_1;post-attack recovery verdict=FAIL rows=0/3
+2026-08-27T22:30:55+02:00;crypto_host;up
+2026-08-27T22:30:55+02:00;downstream_host;up
+2026-08-27T22:30:56+02:00;router_1;up
+2026-08-27T22:30:56+02:00;upstream_1;up
+2026-08-27T22:33:41+02:00;crypto_host;up
+2026-08-27T22:33:42+02:00;downstream_host;up
+2026-08-27T22:33:42+02:00;router_1;up
+2026-08-27T22:33:43+02:00;upstream_1;up
+2026-08-27T22:33:45+02:00;upstream_1;TPS-under-chaos stress start status=200 body={"rows":10}
+
+2026-08-27T22:33:55+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=0 pending_count=0 | upstream_1: achieved_tps=96.5 sent=966 received=958 errors=8
+2026-08-27T22:34:05+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=1 pending_count=1 | upstream_1: achieved_tps=96.45 sent=1931 received=1923 errors=8
+2026-08-27T22:34:15+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=0 pending_count=0 | upstream_1: achieved_tps=96.46 sent=2897 received=2890 errors=7
+2026-08-27T22:34:25+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=0 response_queue_depth=0 pending_count=0 | upstream_1: achieved_tps=96.43 sent=3862 received=3854 errors=8
+2026-08-27T22:34:35+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=12 response_queue_depth=11 pending_count=11 | upstream_1: achieved_tps=96.4 sent=4828 received=4787 errors=41
+2026-08-27T22:34:45+02:00;router_1;router_1: connections={'downstream': True, 'upstream': True} queue_depth=369 response_queue_depth=172 pending_count=172 | upstream_1: achieved_tps=96.06 sent=5764 received=5206 errors=558
+2026-08-27T22:34:45+02:00;upstream_1;TPS-under-chaos send-side: achieved_tps=96.06 target=100 sent=5764 verdict=PASS
+2026-08-27T22:34:53+02:00;router_1;post-attack backlog drained=True after 8.1s
+2026-08-27T22:34:53+02:00;router_1;post-attack recovery verdict=PASS rows=3/3 drained=True drain_elapsed_s=8.1
+2026-08-28T20:46:15+02:00;crypto_host;up
+2026-08-28T20:46:16+02:00;downstream_host;up
+2026-08-28T20:46:18+02:00;router_1;up
+2026-08-28T20:46:19+02:00;upstream_1;up
+2026-08-28T20:46:21+02:00;upstream_1;request-leg-outage send status=200 body={"rows":1}
+
+2026-08-28T20:46:41+02:00;upstream_1;advice fired=False acked=False
+2026-08-28T20:46:41+02:00;upstream_1;request-leg-outage verdict=FAIL fired=False acked=False error_csv_written=False
+2026-08-28T20:46:42+02:00;router_1;post-attack recovery verdict=PASS rows=3/3
+2026-08-28T20:49:06+02:00;crypto_host;up
+2026-08-28T20:49:07+02:00;downstream_host;up
+2026-08-28T20:49:09+02:00;router_1;up
+2026-08-28T20:49:11+02:00;upstream_1;up
+2026-08-28T20:49:13+02:00;upstream_1;request-leg-outage send status=200 body={"rows":1}
+
+2026-08-28T20:49:14+02:00;upstream_1;advice fired=True acked=True (sent=['0120', '0420'], acked=['0120', '0420'])
+2026-08-28T20:49:14+02:00;upstream_1;request-leg-outage verdict=PASS fired=True acked=True error_csv_written=False
+2026-08-28T20:49:15+02:00;router_1;post-attack recovery verdict=PASS rows=3/3

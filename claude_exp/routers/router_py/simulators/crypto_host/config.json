@@ -12,5 +12,9 @@
   "iso_spec": "../../test_spec.json",
   "yellow_threshold_seconds": 60,
   "plugin_id": "emv-plugin",
-  "bearer_token": "dev-fortanix-bearer-token"
+  "bearer_token": "dev-fortanix-bearer-token",
+  "no_response_pans": {
+    "8888888888888888": ["validate_0110"],
+    "7777777777777777": ["validate_0100"]
+  }
 }
