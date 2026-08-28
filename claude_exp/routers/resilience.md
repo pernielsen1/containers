@@ -503,3 +503,123 @@ messages fired and acknowledged, no error CSV entry, recovery `test.csv` round-t
 **Validation**: full suite 53/53 (50 from Round 7 + 3 new). No leftover processes after any live
 check (confirmed via `ps aux`).
 
+## Round 9 (2026-08-28) - resilience_v2.md: run_soak_resilience_light.sh / run_soak_resilience_hard.sh
+
+**TL;DR**: two new soak-scale (not pytest-scale) resilience scripts, `run_soak_resilience_light.sh`
+(`--fail_percentage`, default 10) and `run_soak_resilience_hard.sh` (`--crypto_fail_minutes`,
+default 2), both `router_py`-only on host - per resilience_v2.md's own "experiment python only in
+host" scope - against the full local stack (this repo's own `simulators/crypto_host` stub, not the
+shared OpenSSL container `run_soak.sh`/`stress_run.sh` use). Results land in the same
+`csv_results/soak_results.csv`/`soak_summary.csv` `run_soak.sh` writes to, implementation column
+suffixed by scenario/stage (`router_py_fail_pct10`, `router_py_before_kill`, `_during_kill`,
+`_after_kill`) rather than a separate output file.
+
+**Light script's `fail_percentage` hook, and a real bug it caught immediately.** Added a second,
+PAN-independent chaos hook to `simulators/crypto_host/main.py` alongside the existing
+`no_response_pans`: a flat percentage of matching requests get no response at all, CLI-overridable
+(`--fail-percentage`) so a soak script can set it per run. First version applied to *both*
+`validate_0100` and `validate_0110` - a 20% smoke test immediately collapsed the pipeline (received
+stuck at 0 for the full window, `queue_depth`/`response_queue_depth` pinned at their 1000-item cap)
+because the request leg blocks `router/dispatcher.py`'s forwarding decision on `CryptoClient`'s
+full, non-fire-and-forget default timeout - failing it at any real rate reproduces Round 6's
+queue-buildup collapse, not Round 7's "fire and forget, TPS still met" result this script is
+actually meant to soak-test. Fixed by scoping the hook to `validate_0110` only, matching both the
+brief's own framing ("crypto_host is Ok on the request... fails on handling the response") and
+Round 7's already-proven design. Re-verified at the brief's actual default (10%): 95.34 achieved
+TPS, backlog drains, `test.csv` recovery round-trips, zero rows in `error_0120_0420.csv` (as
+expected - a slow response leg is fire-and-forget territory, not advice/reversal territory).
+
+**Hard script's three-separate-stress-windows design.** `upstream_host`'s own `/start` fully resets
+its counters (`sent`, `latencies`, `results`) every call (`upstream_host/main.py`), so rather than
+one continuous `--duration` spanning the whole kill/restart cycle (which would only support a
+bucketed *approximation* of per-stage percentiles via `/latency_buckets`), the hard script runs
+three independent `/start...duration` windows back to back - before_kill (fixed 1 minute, per the
+brief), during_kill (`--crypto_fail_minutes`, `crypto_host` hard-`SIGKILL`ed exactly like
+`chaos_monkey.py`'s `hard_kill_actor` - a real crash, not a clean shutdown), after_kill (remainder
+of the requested total duration) - each yielding a full, independent `/stress_stats` row (real
+p50/p90/p95/p99, the same shape `stress_run.sh`'s own row uses) rather than a windowed
+approximation.
+
+**The brief's own open question - "this will trigger a bunch of 0120 and 0420 messages -
+interesting if we can keep up" - traced against what's actually built, not assumed either way.**
+0120/0420 fire when a full 0100->0110 round trip exceeds `advice_timeout_seconds` (1.0s production
+default) - not merely "crypto_host is unreachable." `router/dispatcher.py`'s crypto call already
+degrades gracefully on failure (unenriched `f47`, forwards anyway - Round 5's
+`chaos_slow.py` finding), and a killed process refuses new connections almost instantly (a TCP
+RST, not a hang), so a >1s round trip during the outage isn't a given the way Round 8's dedicated
+request-leg-hang PAN made it one. `soak_resilience_hard.py` doesn't assume either way - it counts
+0120/0420 log lines per stage from `router_1`'s own `/logs` and reports whatever actually happens.
+
+**Live smoke-tested, not just written** (`router_py`-only per the brief's own scope - this laptop's
+resource limits and this round's own finding below made a `router_java`/`router_cpp` port not worth
+pursuing yet). Both scripts run end-to-end cleanly - correct actor lifecycle, correct CSV rows in
+the shared `soak_results.csv`/`soak_summary.csv` schema, clean teardown confirmed via `ps aux` +
+port checks after every run (smoke-test rows were reverted out of the tracked CSVs afterward, not
+left in the shared results history). One transient `SSL: DECRYPTION_FAILED_OR_BAD_RECORD_MAC`
+disconnect appeared once on an early light-script run and didn't reproduce on retry - logged here
+as a known flake, not chased further this round.
+
+**A real 10-minute run (not a smoke test) found a genuine retry-storm feedback loop, once VSCode
+was closed to rule out memory pressure as the explanation for the earlier short-run stall.** At the
+brief's own defaults (100 TPS, 10% `fail_percentage`, full 10 minutes): `received` froze completely
+at 19,922 around the 2-minute mark and never moved again for the remaining ~8 minutes, while `sent`
+kept climbing past 54,000. Traced through the logs: the crypto-level chaos hook fired at ~8.4% of
+requests (right on target), but 34,300 transactions - 63% of everything sent - ended up exceeding
+`upstream_host`'s 1-second advice SLA and triggered a 0420+0120 pair each; `dispatcher.py`'s 30s
+pending-reaper fired 28,530 local "91" declines, and the session itself was torn down and rebuilt
+repeatedly (11,671 abandoned in-flight transactions across those teardowns). Root cause:
+`router/dispatcher.py` forwarded 0100 and 0120/0420 through the *same* shared queue/worker pool
+(`worker_threads=8`) on the outbound leg, and 0110 and 0130/0430 through the same shared pool on
+the inbound leg. Once the 10% chaos rate pushed some 0100s past their SLA, the 0420+0120 advice
+traffic those transactions triggered competed for the exact same threads and downstream connection
+new 0100s needed - delaying more of them past their own SLA, generating more advice traffic,
+compounding until the pipeline collapsed outright. Round 7 (fire-and-forget under crypto failure)
+and Round 8 (0120/0420 advice) each passed their own isolated tests fine - this feedback loop only
+exists where they compete for a shared resource, and only shows up under sustained real load, which
+is exactly why neither round's own (60s-scale) scenario test ever caught it. This is the value of a
+soak-scale test that a pytest-scale scenario can't provide.
+
+**Fix, per the user's own framing ("0120/0420... post the fact events... build this into the
+architecture"): dedicated queue + worker pool for advice/reversal traffic, fully decoupled from
+primary 0100/0110 capacity.** `RouterConfig` gained `advice_worker_threads`/
+`advice_response_worker_threads` (default 2 each - deliberately small: nothing on this path blocks
+on a slow external call the way 0100/0110 do, so even 2 threads have very high throughput, and a
+small pool doubles as a natural cap on how fast a genuine advice storm can hit the downstream
+connection). `Dispatcher` gained `_advice_queue`/`_advice_response_queue` and matching worker
+loops (`_worker_loop`/`_response_worker_loop` parameterized on which queue+gauge to use, rather
+than duplicated); `submit_advice()` is the new entry point for 0120/0420, `submit_response()` now
+routes 0130/0430 to the advice-response queue internally (0110 keeps using the ordinary one).
+`session.py`'s upstream-receive loop calls `submit()` for 0100 and `submit_advice()` for 0120/0420
+instead of both going through the same call. New gauges `advice_queue_depth`/
+`advice_response_queue_depth` alongside the existing `queue_depth`/`response_queue_depth`. Full
+`tests/` suite (53/53) still green - no existing test touched `_worker_loop`'s signature or
+`purge()`'s dict shape beyond additive keys.
+
+**Re-verified with the same real 10-minute run, same settings, isolating exactly the one variable
+changed.** Before the fix: permanent unbounded collapse (`response_queue_depth`/`pending_count`
+pinned at max, never recovering). After the fix: all four queues (including the two new ones)
+oscillate between near-0 and their cap instead of latching permanently, and `pending_count` trends
+back down by the end of the run (peaked ~6,500, ended ~800) instead of growing forever - the actual
+bug is fixed. `achieved_tps` still degraded gradually over the run (93 -> 70) and `received` stayed
+near 0 throughout even post-fix, at every combination tried (100 TPS/10%, /20%, /5%, and 80 TPS/10%)
+- `queue_depth`/`response_queue_depth` climbed steadily from the very first 10-second poll in every
+one of these, *before* `advice_queue_depth` ever built up, meaning this remaining ceiling isn't
+chaos-driven or TPS-choice-driven at all. Traced to a separate, pre-existing cause rather than
+chased further as a resilience bug: these soak scripts run against `simulators/crypto_host` (a
+plain Flask dev-server stub - "no OpenSSL, no PIN/ARQC/CVV2/AAV math", per its own docstring), not
+the shared C++ container `run_soak.sh` itself sustains 100 TPS/600s against cleanly. `crypto_client.py`'s
+own docstring already documents why: crypto calls are GIL-bound and their cost scales directly with
+concurrent-thread count on this exact code path (a 2026-08-19 finding, p50 latency doubling with
+every doubling of thread count). With 8+8+2+2 dispatcher threads all competing for one Python
+process's GIL on this laptop, plus the stub crypto_host's own Flask GIL on the other end, sustained
+80-100 TPS for many minutes exceeds this local stub's real throughput regardless of chaos settings
+- a known limitation of a functional-test stub, not a resilience gap. Left as documented, not
+chased into porting chaos hooks to the real C++ crypto_host - out of scope for this round.
+
+**Validation**: both scripts' actor lifecycle, teardown, and CSV-writing mechanics confirmed
+correct via live runs at every scale tried (2-minute smoke through full 10-minute soaks); the
+advice-queue fix confirmed by direct before/after comparison at identical settings; full `tests/`
+suite 53/53. No leftover processes/ports after any run (confirmed via `ps aux` + a port-busy
+check every time); every smoke/probe run's CSV rows reverted out of the tracked
+`csv_results/*.csv` afterward, not left in the shared results history.
+

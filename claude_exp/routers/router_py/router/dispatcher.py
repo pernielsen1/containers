@@ -70,6 +70,11 @@ class Dispatcher:
 
         self._queue = queue.Queue(maxsize=cfg.queue_maxsize)
         self._response_queue = queue.Queue(maxsize=cfg.queue_maxsize)
+        # Separate queues for 0120/0420 (outbound) and their 0130/0430 acks (inbound) - see
+        # RouterConfig.advice_worker_threads' own comment for why these can't share _queue/
+        # _response_queue with 0100/0110.
+        self._advice_queue = queue.Queue(maxsize=cfg.queue_maxsize)
+        self._advice_response_queue = queue.Queue(maxsize=cfg.queue_maxsize)
         self._pending = {}
         self._pending_lock = threading.Lock()
         self._stan_counter = 0
@@ -77,6 +82,8 @@ class Dispatcher:
         self._stop_event = threading.Event()
         self._worker_threads = []
         self._response_worker_threads = []
+        self._advice_worker_threads = []
+        self._advice_response_worker_threads = []
         self._reaper_thread = None
 
     def _next_stan(self) -> str:
@@ -86,41 +93,81 @@ class Dispatcher:
 
     def start(self) -> None:
         for i in range(self.cfg.worker_threads):
-            t = threading.Thread(target=self._worker_loop, name=f"worker-{i}", daemon=True)
+            t = threading.Thread(
+                target=self._worker_loop, args=(self._queue, "queue_depth"),
+                name=f"worker-{i}", daemon=True,
+            )
             t.start()
             self._worker_threads.append(t)
         for i in range(self.cfg.response_worker_threads):
             t = threading.Thread(
-                target=self._response_worker_loop, name=f"response-worker-{i}", daemon=True
+                target=self._response_worker_loop, args=(self._response_queue, "response_queue_depth"),
+                name=f"response-worker-{i}", daemon=True,
             )
             t.start()
             self._response_worker_threads.append(t)
+        for i in range(self.cfg.advice_worker_threads):
+            t = threading.Thread(
+                target=self._worker_loop, args=(self._advice_queue, "advice_queue_depth"),
+                name=f"advice-worker-{i}", daemon=True,
+            )
+            t.start()
+            self._advice_worker_threads.append(t)
+        for i in range(self.cfg.advice_response_worker_threads):
+            t = threading.Thread(
+                target=self._response_worker_loop,
+                args=(self._advice_response_queue, "advice_response_queue_depth"),
+                name=f"advice-response-worker-{i}", daemon=True,
+            )
+            t.start()
+            self._advice_response_worker_threads.append(t)
         self._reaper_thread = threading.Thread(
             target=self._pending_reaper, name="pending-reaper", daemon=True
         )
         self._reaper_thread.start()
 
     def submit(self, msg: RoutedMessage) -> None:
+        """0100 only - see submit_advice() for 0120/0420."""
         msg.enqueued_at = time.monotonic()
         self._queue.put(msg)
         qsize = self._queue.qsize()
         self.stats.set_gauge("queue_depth", qsize)
         logger.debug("dispatcher: queued mti=%s (queue_depth=%d)", msg.req.get("t"), qsize)
 
+    def submit_advice(self, msg: RoutedMessage) -> None:
+        """0120/0420 (store-and-forward advice/reversal) - own queue and worker pool, deliberately
+        not submit()'s _queue. See RouterConfig.advice_worker_threads for why."""
+        msg.enqueued_at = time.monotonic()
+        self._advice_queue.put(msg)
+        qsize = self._advice_queue.qsize()
+        self.stats.set_gauge("advice_queue_depth", qsize)
+        logger.debug("dispatcher: queued advice mti=%s (advice_queue_depth=%d)", msg.req.get("t"), qsize)
+
     def submit_response(self, resp: dict, raw: bytes = b"") -> None:
-        """Enqueues a downstream response (0110/0130/0430) for handling by the response
-        worker pool, instead of processing it inline on the caller's thread. This keeps the
-        0110 leg's crypto call (validate_0110) from being a single-threaded bottleneck that's
-        entirely separate from - and doesn't have to compete with - the 0100 leg's queue."""
+        """Enqueues a downstream response for handling by a response worker pool, instead of
+        processing it inline on the caller's thread. 0110 goes to the ordinary response pool
+        (keeps the validate_0110 crypto call from being a single-threaded bottleneck); 0130/0430
+        (advice/reversal acks - no crypto call, nothing upstream is still waiting on) go to their
+        own pool instead, for the same reason submit_advice() exists - see
+        RouterConfig.advice_worker_threads."""
+        if resp.get("t") in ("0130", "0430"):
+            self._advice_response_queue.put((resp, raw))
+            qsize = self._advice_response_queue.qsize()
+            self.stats.set_gauge("advice_response_queue_depth", qsize)
+            logger.debug(
+                "dispatcher: queued advice response mti=%s (advice_response_queue_depth=%d)",
+                resp.get("t"), qsize,
+            )
+            return
         self._response_queue.put((resp, raw))
         qsize = self._response_queue.qsize()
         self.stats.set_gauge("response_queue_depth", qsize)
         logger.debug("dispatcher: queued response mti=%s (response_queue_depth=%d)", resp.get("t"), qsize)
 
-    def _worker_loop(self) -> None:
+    def _worker_loop(self, q: "queue.Queue", gauge_name: str) -> None:
         while True:
-            msg = self._queue.get()
-            self.stats.set_gauge("queue_depth", self._queue.qsize())
+            msg = q.get()
+            self.stats.set_gauge(gauge_name, q.qsize())
             if msg is None:
                 return
             if msg.enqueued_at is not None:
@@ -133,10 +180,10 @@ class Dispatcher:
             except Exception:
                 logger.exception("unexpected error processing dispatched message")
 
-    def _response_worker_loop(self) -> None:
+    def _response_worker_loop(self, q: "queue.Queue", gauge_name: str) -> None:
         while True:
-            item = self._response_queue.get()
-            self.stats.set_gauge("response_queue_depth", self._response_queue.qsize())
+            item = q.get()
+            self.stats.set_gauge(gauge_name, q.qsize())
             if item is None:
                 return
             resp, raw = item
@@ -305,30 +352,34 @@ class Dispatcher:
         entries.sort(key=lambda e: e["age_seconds"], reverse=True)
         return entries
 
+    @staticmethod
+    def _drain_queue(q: "queue.Queue") -> int:
+        dropped = 0
+        while True:
+            try:
+                q.get_nowait()
+                dropped += 1
+            except queue.Empty:
+                return dropped
+
     def purge(self) -> dict:
-        dropped_queue = 0
-        while True:
-            try:
-                self._queue.get_nowait()
-                dropped_queue += 1
-            except queue.Empty:
-                break
-        dropped_response_queue = 0
-        while True:
-            try:
-                self._response_queue.get_nowait()
-                dropped_response_queue += 1
-            except queue.Empty:
-                break
+        dropped_queue = self._drain_queue(self._queue)
+        dropped_response_queue = self._drain_queue(self._response_queue)
+        dropped_advice_queue = self._drain_queue(self._advice_queue)
+        dropped_advice_response_queue = self._drain_queue(self._advice_response_queue)
         with self._pending_lock:
             dropped_pending = len(self._pending)
             self._pending.clear()
         self.stats.set_gauge("queue_depth", self._queue.qsize())
         self.stats.set_gauge("response_queue_depth", self._response_queue.qsize())
+        self.stats.set_gauge("advice_queue_depth", self._advice_queue.qsize())
+        self.stats.set_gauge("advice_response_queue_depth", self._advice_response_queue.qsize())
         self.stats.set_gauge("pending_count", 0)
         return {
             "dropped_queue": dropped_queue,
             "dropped_response_queue": dropped_response_queue,
+            "dropped_advice_queue": dropped_advice_queue,
+            "dropped_advice_response_queue": dropped_advice_response_queue,
             "dropped_pending": dropped_pending,
         }
 
@@ -338,9 +389,17 @@ class Dispatcher:
             self._queue.put(None)
         for _ in self._response_worker_threads:
             self._response_queue.put(None)
+        for _ in self._advice_worker_threads:
+            self._advice_queue.put(None)
+        for _ in self._advice_response_worker_threads:
+            self._advice_response_queue.put(None)
         for t in self._worker_threads:
             t.join(timeout=5)
         for t in self._response_worker_threads:
+            t.join(timeout=5)
+        for t in self._advice_worker_threads:
+            t.join(timeout=5)
+        for t in self._advice_response_worker_threads:
             t.join(timeout=5)
         if self._reaper_thread is not None:
             self._reaper_thread.join(timeout=5)

@@ -151,8 +151,15 @@ class RouterSession:
                 mti = req.get("t")
                 logger.debug("upstream recv mti=%s", mti)
                 try:
-                    if mti in ("0100", "0120", "0420"):
+                    if mti == "0100":
                         self.dispatcher.submit(
+                            RoutedMessage(req=req, up_conn=conn, up_write_lock=write_lock, up_addr=addr, raw=data)
+                        )
+                    elif mti in ("0120", "0420"):
+                        # Own queue/worker pool, not submit()'s - see
+                        # RouterConfig.advice_worker_threads for why 0120/0420 can't share
+                        # capacity with 0100.
+                        self.dispatcher.submit_advice(
                             RoutedMessage(req=req, up_conn=conn, up_write_lock=write_lock, up_addr=addr, raw=data)
                         )
                     elif mti == "0800":

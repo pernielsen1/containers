@@ -70,6 +70,22 @@ class RouterConfig:
     log_level: str = "INFO"
     worker_threads: int = 8
     response_worker_threads: int = 8
+    # Dedicated pools for 0120/0420 (advice/reversal, outbound to downstream) and their 0130/0430
+    # acks (inbound from downstream) - deliberately separate from worker_threads/
+    # response_worker_threads, not just a differently-sized share of the same queue. Found via a
+    # real soak run (briefs/resilience_v2.md's run_soak_resilience_light.sh, resilience.md Round
+    # 9): advice traffic sharing the primary queue with 0100/0110 created a feedback loop - a
+    # 0100 missing its SLA fires 0420+0120, which then compete with *new* 0100s for the same
+    # worker pool, delaying them past their own SLA, firing more advice traffic, compounding
+    # until the pool collapsed entirely. Advice/reversal messages are "post the fact events" (the
+    # user's own framing) - pure acknowledgement traffic, no crypto call, nothing upstream is
+    # still waiting on - so they neither need nor should compete with live-authorization
+    # capacity. Small pools are intentional, not under-provisioned: unlike 0100/0110, nothing
+    # here blocks on a slow external call, so even 2 threads have very high throughput - and a
+    # small pool doubles as a natural cap on how fast a genuine advice storm can hit the shared
+    # downstream connection.
+    advice_worker_threads: int = 2
+    advice_response_worker_threads: int = 2
     reestablish_seconds: int = 10
     yellow_threshold_seconds: int = 40
     queue_maxsize: int = 1000

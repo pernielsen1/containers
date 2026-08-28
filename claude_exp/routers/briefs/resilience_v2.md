@@ -36,3 +36,12 @@ STand In Processing - so a request (0100) times out - but the card holder is wai
 ## no crypto on 0400/0410 and 0120/0130
 we will not need to pass the crypto_host for the 0400/0410 & 0120/0130 
 basically the reply (0410) and (0130) is just an echo of inbound message (0400 and 0120) where the message type is changed - this acknoledge is done by issuer (downstream_host) but router should understand this and not try to send the message via the crypto_host (which actually was the original culprit in our faked scenario)
+
+# OK let's make resilience_soak.sh scripts
+## run_soak_resilience_light.sh
+in addition to the run_soak.sh we will have the possibility of adding --fail_percentage (defualt 10 %) which will ensure that fail_percentage.sh of the requests sent in will not generate a response from crypto_host.
+## run_soak_resilience_hard.sh 
+if addition ro run_soak.sh I can add a parameter --crypto_fail_minutes
+which means that the soak test runs and then after 1 minute the crypto_host is killed and will recover after --crypto_fail_minutes
+this will trigger a bunch of 0120 and 0420 messages - interesting if we can keep up 
+results should be in soak.sh - with numbers before the kill, during the kill and after the kill.. add to name of router in the stage it is in.

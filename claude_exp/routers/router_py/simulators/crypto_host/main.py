@@ -3,6 +3,7 @@ import base64
 import json
 import logging
 import os
+import random
 import sys
 import threading
 
@@ -48,6 +49,18 @@ class CryptoHostSim:
         # rather than fail fast. Empty by default; no real PAN in pans_defined.json is ever
         # listed here, so normal traffic is unaffected.
         self.no_response_pans = cfg.get("no_response_pans", {})
+        # Second, PAN-independent chaos hook (briefs/resilience_v2.md's "OK let's make
+        # resilience_soak.sh scripts" round): a flat percentage of validate_0110 (response-leg)
+        # requests, any PAN, get the same no-response treatment - run_soak_resilience_light.sh's
+        # --fail_percentage. Response leg only, not validate_0100 too - see the request-handler's
+        # own comment on why. Kept as a plain 0-100 float rather than reusing no_response_pans'
+        # PAN-keyed shape because the light soak scenario wants "some realistic slice of ordinary
+        # traffic fails" (brief: "10% ... a very high number"), not "this one card never works" -
+        # a soak run shouldn't need a bespoke bad-card CSV mix just to dial the failure rate.
+        # CLI-overridable (see __main__) so a soak script can set it per run without editing
+        # config.json; 0 by default, so normal traffic (including every other scenario/test in
+        # this file) is unaffected unless a caller opts in.
+        self.fail_percentage = float(cfg.get("fail_percentage", 0.0))
 
         self.stats = Stats(yellow_threshold_seconds=cfg.get("yellow_threshold_seconds"))
         self.stop_event = threading.Event()
@@ -83,11 +96,30 @@ class CryptoHostSim:
             if operation not in ("validate_0100", "validate_0110"):
                 return {"error": f"unknown operation: {operation}"}, 400
 
+            chaos_reason = None
             if operation in self.no_response_pans.get(pan, []):
+                chaos_reason = "no_response_pans"
+            elif (
+                operation == "validate_0110"
+                and self.fail_percentage > 0
+                and random.random() * 100 < self.fail_percentage
+            ):
+                # Response leg (validate_0110) only, deliberately - the request leg
+                # (validate_0100) blocks router/dispatcher.py's forwarding decision on
+                # CryptoClient's full (slow, non-fire-and-forget) default timeout, so failing it
+                # at any real percentage reproduces Round 6's queue-buildup collapse instead of
+                # Round 7's "fire and forget, TPS still met" result the brief is actually asking
+                # for here (brief itself frames it this way too - "crypto_host is Ok on the
+                # request... fails on handling the response"). Confirmed by hitting exactly that
+                # collapse (received stuck at 0, queues pinned at max) with an earlier version of
+                # this hook that applied to both legs - see resilience.md's Round 9 write-up.
+                chaos_reason = f"fail_percentage={self.fail_percentage}"
+            if chaos_reason:
                 logger.warning(
                     "chaos: simulating no response for pan=%s operation=%s router_stan=%s "
-                    "(request will just hang - caller's own timeout decides what happens next)",
-                    pan, operation, router_stan, extra={"router_stan": router_stan},
+                    "reason=%s (request will just hang - caller's own timeout decides what "
+                    "happens next)",
+                    pan, operation, router_stan, chaos_reason, extra={"router_stan": router_stan},
                 )
                 # Bounded, not forever: the caller's own timeout (CryptoClient's 5s request-leg
                 # / crypto_response_timeout_seconds response-leg default) always decides the
@@ -135,9 +167,16 @@ class CryptoHostSim:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config")
+    parser.add_argument(
+        "--fail-percentage", type=float, default=None,
+        help="Overrides config.json's fail_percentage - percent (0-100) of all requests, any "
+             "PAN, that get no response at all. Used by run_soak_resilience_light.sh.",
+    )
     args = parser.parse_args()
 
     cfg = load_config(args.config)
+    if args.fail_percentage is not None:
+        cfg["fail_percentage"] = args.fail_percentage
     configure_logging(level=logging.INFO)
 
     sim = CryptoHostSim(cfg)
