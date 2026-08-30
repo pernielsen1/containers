@@ -3,11 +3,13 @@
 #include <chrono>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 
 #include <httplib.h>
 
 #include "router/router_config.h"
+#include "shared/log_throttle.h"
 
 namespace router {
 
@@ -20,16 +22,20 @@ public:
     CryptoClient(const CryptoConfig& cfg, int breaker_threshold, int breaker_cooldown_seconds);
 
     // endpoint is "validate_0100" or "validate_0110". Returns the enriched f47 JSON string on
-    // success, or "" on any failure (breaker open, HTTP error, bad auth, unknown plugin_id,
-    // malformed response) -- callers must only overwrite their working f47 when this is
-    // non-empty, so a down/misconfigured crypto host degrades to "checks silently skipped."
+    // success (possibly "" if crypto_host genuinely had nothing to add), or std::nullopt on any
+    // genuine failure (breaker open, HTTP error, bad auth, unknown plugin_id, malformed response)
+    // -- mirrors router_py's crypto_client.py (None vs "") and router_java's CryptoClient.java
+    // (null vs ""). A caller that only needs "fail open" (the request leg) can keep treating both
+    // nullopt and "" as "don't overwrite"; a caller that must distinguish "no-op success" from
+    // "genuine failure" (the response leg, which needs to drop rather than forward unvalidated)
+    // must check has_value() specifically, not just emptiness.
     //
     // router_stan isn't part of the Fortanix plugin contract - it's passed through so
     // crypto_host's own logs can be joined with this router's logs on the same transaction
     // (mirrors router_py's crypto_client.py / router_java's CryptoClient.java). Empty string
     // when a caller has none.
-    std::string validate(const std::string& endpoint, const std::string& pan, const std::string& f47,
-                          const std::string& router_stan = "");
+    std::optional<std::string> validate(const std::string& endpoint, const std::string& pan, const std::string& f47,
+                                         const std::string& router_stan = "");
 
 private:
     void record_failure();
@@ -47,6 +53,7 @@ private:
     std::mutex breaker_mutex_;
     int failure_count_ = 0;
     std::chrono::steady_clock::time_point open_until_{};
+    shared::LogThrottle throttle_{200};
 };
 
 }  // namespace router

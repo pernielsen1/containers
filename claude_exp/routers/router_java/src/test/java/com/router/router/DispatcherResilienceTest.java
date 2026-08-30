@@ -78,13 +78,17 @@ class DispatcherResilienceTest {
         final Dispatcher dispatcher;
 
         TestHarness(int queueMaxsize, int pendingTtlSeconds, int workerThreads) throws Exception {
+            this(queueMaxsize, pendingTtlSeconds, workerThreads, new NoOpCrypto());
+        }
+
+        TestHarness(int queueMaxsize, int pendingTtlSeconds, int workerThreads, CryptoClient crypto) throws Exception {
             cfg = makeCfg(queueMaxsize, pendingTtlSeconds, workerThreads);
             factory = IsoUtils.loadFactory(SPEC_PATH);
             Socket[] pair = socketPair();
             dsA = pair[0];
             dsB = pair[1];
             DownstreamConnectionTestFactory downstreamStub = new DownstreamConnectionTestFactory(dsA);
-            dispatcher = new Dispatcher(cfg, downstreamStub.asDownstream(), new NoOpCrypto(), factory, stats, reconnectEvent);
+            dispatcher = new Dispatcher(cfg, downstreamStub.asDownstream(), crypto, factory, stats, reconnectEvent);
         }
 
         void close() {
@@ -132,6 +136,23 @@ class DispatcherResilienceTest {
         // validate() above, so it would otherwise bypass this no-op double and attempt a real
         // network call to the fake host:port passed to the constructor. This double never had a
         // real cold start to pay for, so it just does nothing.
+        @Override
+        public void warmup() {
+        }
+    }
+
+    /** Models a genuine crypto_host failure (breaker open or HTTP error) - real CryptoClient
+     * returns null here, distinct from NoOpCrypto's "" (a no-op success, still forwarded). */
+    private static final class FailingCrypto extends CryptoClient {
+        FailingCrypto() throws IOException {
+            super(new CryptoConfig("localhost", 1, "test-plugin-id", "test-bearer-token", false, null, null, null), 5, 30);
+        }
+
+        @Override
+        public String validate(String endpoint, String pan, String f47, String routerStan) {
+            return null;
+        }
+
         @Override
         public void warmup() {
         }
@@ -396,6 +417,43 @@ class DispatcherResilienceTest {
             h.close();
             upConn.close();
             pair[1].close();
+        }
+    }
+
+    @Test
+    void responseLegCryptoFailureDropsResponseInsteadOfForwarding() throws Exception {
+        // briefs/resilience_v2.md's crypto-kill scenario: crypto_host succeeds on the request leg
+        // but fails on the response leg, so upstream never gets its 0110 and falls back to its
+        // own advice_timeout_seconds -> 0420/0120. A genuine validate_0110 failure (null, not
+        // NoOpCrypto's "" no-op) must drop the response rather than forward it unvalidated.
+        TestHarness h = new TestHarness(5, 100, 1, new FailingCrypto());
+
+        Socket[] pair = socketPair();
+        Socket upConn = pair[0];
+        Socket testConn = pair[1];
+        ReentrantLock writeLock = new ReentrantLock();
+        try {
+            putPendingEntry(h.dispatcher, "000042",
+                    new PendingEntry(upConn, writeLock, "100042", System.nanoTime()));
+
+            Map<String, String> resp = new LinkedHashMap<>();
+            resp.put("t", "0110");
+            resp.put("11", "000042");
+            resp.put("39", "00");
+            h.dispatcher.handleResponse(resp, new byte[0]);
+
+            assertEquals(0, getPendingSize(h.dispatcher));
+            testConn.setSoTimeout(300);
+            try {
+                Framing.readMessage(testConn, new FramingConfig("", "ASCII", 4, Framing.DEFAULT_MAX_MESSAGE_BYTES));
+                org.junit.jupiter.api.Assertions.fail("expected no frame to be written to upstream");
+            } catch (java.net.SocketTimeoutException expected) {
+                // nothing arrived - the response was correctly dropped
+            }
+        } finally {
+            h.close();
+            upConn.close();
+            testConn.close();
         }
     }
 }

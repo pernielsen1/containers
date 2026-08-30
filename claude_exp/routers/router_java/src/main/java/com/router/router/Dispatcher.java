@@ -4,6 +4,7 @@ import com.solab.iso8583.IsoMessage;
 import com.solab.iso8583.MessageFactory;
 import com.router.shared.ImsConnect;
 import com.router.shared.IsoUtils;
+import com.router.shared.LogThrottle;
 import com.router.shared.Stats;
 import com.router.shared.StopEvent;
 
@@ -33,6 +34,7 @@ import java.util.logging.Logger;
 public final class Dispatcher {
 
     private static final Logger logger = Logger.getLogger(Dispatcher.class.getName());
+    private static final LogThrottle throttledLog = new LogThrottle(logger, 200);
     private static final int STAN_MODULUS = 1_000_000;
     private static final Set<String> RESPONSE_MTIS = Set.of("0110", "0130", "0430");
     private static final RoutedMessage POISON = new RoutedMessage(null, null, null, null);
@@ -221,10 +223,12 @@ public final class Dispatcher {
             if (tracing) {
                 Map<String, Object> extra = new LinkedHashMap<>();
                 extra.put("crypto_ms", Math.round(cryptoMs * 1000.0) / 1000.0);
-                extra.put("enriched", !result.isEmpty());
+                extra.put("enriched", result != null && !result.isEmpty());
                 trace.hop(routerStan, "crypto_call", null, extra);
             }
-            if (!result.isEmpty()) {
+            // briefs/resilience_v2.md: crypto_host is allowed to fail open on the request leg -
+            // both a genuine failure (null) and a legitimate no-op ("") mean "don't overwrite f47".
+            if (result != null && !result.isEmpty()) {
                 fwd.put("47", result);
             }
         }
@@ -292,8 +296,23 @@ public final class Dispatcher {
             if (tracing) {
                 Map<String, Object> extra = new LinkedHashMap<>();
                 extra.put("crypto_ms", Math.round(cryptoMs * 1000.0) / 1000.0);
-                extra.put("enriched", !result.isEmpty());
+                extra.put("enriched", result != null && !result.isEmpty());
                 trace.hop(routerStan, "crypto_call", null, extra);
+            }
+            if (result == null) {
+                // briefs/resilience_v2.md: crypto_host is allowed to fail open on the request leg
+                // (above), but a genuine failure here on the response leg means the cardholder's
+                // decision was never validated - drop the 0110 rather than forward it unvalidated.
+                // Upstream never gets a reply, times out on its own advice_timeout_seconds, and
+                // falls back to 0420/0120 store-and-forward - the whole point of the
+                // crypto_host-kill chaos scenario.
+                throttledLog.log(Level.WARNING, "validate_0110_failed",
+                        "validate_0110 failed for router_stan " + routerStan
+                                + " - dropping response, upstream will time out and fall back to advice/reversal");
+                if (tracing) {
+                    trace.finish(routerStan);
+                }
+                return;
             }
             if (!result.isEmpty()) {
                 fwd.put("47", result);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -38,6 +39,15 @@ struct CryptoConfig {
     std::string certfile;
     std::string keyfile;
     std::string cafile;
+
+    // Chaos hook (briefs/resilience_v2.md's "build up a queue" round): {pan: [operation, ...]}.
+    // A validate_0100/validate_0110 request matching one of these (pan, operation) pairs gets no
+    // real response at all - see crypto_host_main.cpp's handler - mirroring router_py's
+    // simulators/crypto_host/main.py::no_response_pans exactly, so the same PAN-keyed chaos
+    // scenarios (test_resilience.py) can run against this real container too, not just the
+    // per-language stub. Empty by default - no real PAN in pans_defined.json is ever listed here,
+    // so ordinary traffic is unaffected unless a config opts in.
+    std::map<std::string, std::vector<std::string>> no_response_pans;
 };
 
 struct RouterConfig {

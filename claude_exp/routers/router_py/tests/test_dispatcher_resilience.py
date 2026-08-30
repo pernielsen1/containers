@@ -5,6 +5,7 @@ import threading
 import time
 
 import iso8583
+import pytest
 
 from router.config import CryptoConfig, DownstreamConfig, Framing, RouterConfig, UpstreamConfig
 from router.dispatcher import Dispatcher, PendingEntry, RoutedMessage
@@ -41,6 +42,15 @@ class RecordingCrypto:
     def validate(self, endpoint, pan, f47, router_stan=""):
         self.calls.append(endpoint)
         return ""
+
+
+class FailingCrypto:
+    """Models a genuine crypto_host failure (breaker open or HTTP error) - real CryptoClient
+    returns None here, distinct from FakeCrypto's "" (a no-op success, still forwarded) - see
+    CryptoClient.validate's docstring."""
+
+    def validate(self, endpoint, pan, f47, router_stan=""):
+        return None
 
 
 def _make_cfg(**overrides):
@@ -114,6 +124,42 @@ def test_dispatcher_defaults_crypto_response_to_crypto_when_omitted():
     doesn't pass crypto_response) - both legs land on the same client when only one is given."""
     dispatcher, cfg, downstream, stats = _make_dispatcher(pending_ttl_seconds=100)
     assert dispatcher.crypto_response is dispatcher.crypto
+
+
+def test_response_leg_crypto_failure_drops_response_instead_of_forwarding():
+    """briefs/resilience_v2.md's crypto-kill scenario: crypto_host succeeds on the request leg
+    but fails on the response leg, so upstream never gets its 0110 and falls back to its own
+    advice_timeout_seconds -> 0420/0120. A genuine validate_0110 failure (None, not FakeCrypto's
+    "" no-op) must drop the response rather than forward it unvalidated."""
+    cfg = _make_cfg(pending_ttl_seconds=100)
+    stats = Stats()
+    downstream = FakeDownstream()
+    request_crypto = RecordingCrypto()
+    response_crypto = FailingCrypto()
+    reconnect_event = threading.Event()
+    dispatcher = Dispatcher(
+        cfg, downstream, request_crypto, SPEC, stats, reconnect_event,
+        crypto_response=response_crypto,
+    )
+
+    up_conn, test_conn = socket.socketpair()
+    write_lock = threading.Lock()
+    try:
+        req = {"t": "0100", "2": "4111111111111111", "3": "000000", "4": "000000000100", "11": "000042"}
+        msg = RoutedMessage(req=req, up_conn=up_conn, up_write_lock=write_lock, up_addr=("x", 0))
+        dispatcher._process(msg)
+        assert request_crypto.calls == ["validate_0100"]
+
+        router_stan = next(iter(dispatcher._pending))
+        resp = {"t": "0110", "11": router_stan, "39": "00"}
+        dispatcher.handle_response(resp)
+
+        test_conn.settimeout(0.2)
+        with pytest.raises(socket.timeout):
+            test_conn.recv(4096)
+    finally:
+        up_conn.close()
+        test_conn.close()
 
 
 def test_pending_entry_ttl_expiry_sends_local_decline():

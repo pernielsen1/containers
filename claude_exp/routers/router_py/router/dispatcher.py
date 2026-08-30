@@ -8,8 +8,13 @@ import iso8583
 from router.trace import TraceRecorder
 from router.upstream import write_upstream
 from shared.ims_connect import build_frame
+from shared.log_throttle import ThrottledLogger
 
 logger = logging.getLogger(__name__)
+# See router/crypto_client.py's own _throttled - a genuine validate_0110 failure fires here once
+# per dropped response, which the fail_percentage/crypto-kill chaos scenarios turn into a
+# sustained flood rather than a rare event.
+_throttled = ThrottledLogger(logger, every=200)
 
 _STAN_MODULUS = 1_000_000
 _RESPONSE_MTIS = ("0110", "0130", "0430")
@@ -279,6 +284,23 @@ class Dispatcher:
             self.stats.record_latency("crypto_rtt", crypto_ms)
             if tracing:
                 self.trace.hop(router_stan, "crypto_call", crypto_ms=round(crypto_ms, 3), enriched=bool(result))
+            if result is None:
+                # briefs/resilience_v2.md: crypto_host is allowed to fail open on the request
+                # leg (validate_0100, above) but a genuine failure here on the response leg
+                # means the cardholder's decision was never validated - drop the 0110 rather
+                # than forward it unvalidated. Upstream never gets a reply, times out on its
+                # own advice_timeout_seconds, and falls back to 0420/0120 store-and-forward -
+                # the whole point of the crypto_host-kill chaos scenario.
+                _throttled.log(
+                    logging.WARNING,
+                    "validate_0110_failed",
+                    "validate_0110 failed for router_stan %s - dropping response, "
+                    "upstream will time out and fall back to advice/reversal",
+                    router_stan, extra={"router_stan": router_stan},
+                )
+                if tracing:
+                    self.trace.finish(router_stan)
+                return
             if result:
                 fwd["47"] = result
 

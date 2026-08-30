@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -74,6 +75,7 @@ def discover_actors():
                     "name": name,
                     "type": actor_type,
                     "command_port": cfg.get("command_port"),
+                    "port": cfg.get("port"),
                     "config_path": path,
                     "is_active": cfg.get("is_active", True),
                     "partner_id": cfg.get("partner_id"),
@@ -92,6 +94,7 @@ def discover_actors():
                     "name": upstream_cfg.get("name"),
                     "type": upstream_cfg.get("type"),
                     "command_port": upstream_cfg.get("command_port"),
+                    "port": upstream_cfg.get("port"),
                     "config_path": upstream_config_path,
                     "is_active": upstream_cfg.get("is_active", True),
                     "partner_id": upstream_cfg.get("partner_id"),
@@ -167,11 +170,34 @@ def stop_actor(actor):
                 del _processes[actor["name"]]
 
 
+def _service_port_open(port, timeout=0.5):
+    """Bare TCP connect probe - deliberately not a full TLS handshake. crypto_host/downstream_host
+    (simulators/crypto_host/main.py's start(), same shape in downstream_host) start their command
+    server synchronously but launch their actual (SSL-wrapped) service listener in a separate
+    background thread afterward - Werkzeug/OpenSSL setup there takes real, variable startup time.
+    A plain connect() still can't succeed until that thread has gotten far enough to call
+    listen() (ECONNREFUSED until then), which is the actual long pole - so this is enough to
+    detect the gap without needing to complete a handshake."""
+    if port is None:
+        return True  # actor has no standalone service port to probe (e.g. router)
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
 def wait_for_ready(actor, timeout=10):
     """Polls /stats until the actor answers 200, and - for router/upstream - until its
     downstream/router connection is up. Without the connection check, a /start called
     immediately after "Start All" can 503 with "not connected to router" even though every
-    /stats already answers 200."""
+    /stats already answers 200.
+
+    For crypto_host/downstream_host, /stats answering 200 only proves the command server is up,
+    not the actual service port a router will dial (see _service_port_open) - a soak that resumes
+    traffic the moment /stats answers can hit a connection that queues at the kernel level and
+    comes back slow instead of fast-failing, well after everything reported "ready". So these
+    also get a direct probe of their own service port before being declared ready."""
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -184,7 +210,7 @@ def wait_for_ready(actor, timeout=10):
                 elif actor["type"] == "upstream":
                     if connections.get("router"):
                         return
-                else:
+                elif _service_port_open(actor.get("port")):
                     return
         except Exception:
             pass

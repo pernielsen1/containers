@@ -1,6 +1,7 @@
 package com.router.router;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.router.shared.LogThrottle;
 import com.router.shared.SslUtils;
 
 import java.io.IOException;
@@ -23,6 +24,7 @@ public class CryptoClient {
 
     private static final Logger logger = Logger.getLogger(CryptoClient.class.getName());
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final LogThrottle throttledLog = new LogThrottle(logger, 200);
 
     private final String baseUrl;
     private final String bearerToken;
@@ -103,6 +105,13 @@ public class CryptoClient {
     // to, where a slow crypto_host is a genuine problem worth detecting quickly.
     private static final Duration WARMUP_TIMEOUT = Duration.ofSeconds(20);
 
+    /** Returns the enriched f47 on success (possibly "" if crypto_host genuinely had nothing to
+     * add), or null on any genuine failure (breaker open or HTTP error) - mirrors router_py's
+     * crypto_client.py (None vs "") and router_cpp's CryptoClient (std::nullopt vs ""). A caller
+     * that only needs "fail open" (the request leg) can keep treating both null and "" as "don't
+     * overwrite"; a caller that must distinguish "no-op success" from "genuine failure" (the
+     * response leg, which needs to drop rather than forward unvalidated) must check for null
+     * specifically, not just isEmpty(). */
     public String validate(String endpoint, String pan, String f47, String routerStan) {
         return validate(endpoint, pan, f47, routerStan, REQUEST_TIMEOUT);
     }
@@ -110,7 +119,7 @@ public class CryptoClient {
     private String validate(String endpoint, String pan, String f47, String routerStan, Duration timeout) {
         synchronized (lock) {
             if (System.currentTimeMillis() < openUntilMillis) {
-                return "";
+                return null;
             }
         }
 
@@ -144,8 +153,9 @@ public class CryptoClient {
             }
             return result == null ? "" : result.toString();
         } catch (Exception e) {
-            logger.log(Level.WARNING, "crypto_host " + endpoint + " call failed (router_stan=" + routerStan
-                    + "): " + e.getMessage());
+            throttledLog.log(Level.WARNING, "crypto_call_failed:" + endpoint,
+                    "crypto_host " + endpoint + " call failed (router_stan=" + routerStan
+                            + "): " + e.getMessage());
             synchronized (lock) {
                 failureCount++;
                 if (failureCount >= breakerThreshold) {
@@ -154,7 +164,7 @@ public class CryptoClient {
                             + "s after " + failureCount + " consecutive failures");
                 }
             }
-            return "";
+            return null;
         }
     }
 

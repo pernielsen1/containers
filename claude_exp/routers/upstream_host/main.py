@@ -7,6 +7,7 @@ import socket
 import sys
 import threading
 import time
+from collections import deque
 from datetime import datetime
 from itertools import count
 
@@ -22,10 +23,12 @@ from upstream_shared.command_server import CommandServer  # noqa: E402
 from upstream_shared.framing import read_message, write_message  # noqa: E402
 from upstream_shared.iso_utils import build_0800, load_spec  # noqa: E402
 from upstream_shared.json_log import configure_logging  # noqa: E402
+from upstream_shared.log_throttle import ThrottledLogger  # noqa: E402
 from upstream_shared.ssl_utils import wrap_client_socket, wrap_server_socket  # noqa: E402
 from upstream_shared.stats import Stats  # noqa: E402
 
 logger = logging.getLogger(__name__)
+_throttled = ThrottledLogger(logger, every=200)
 
 _STAN_MODULUS = 1_000_000
 _RESPONSE_MTIS = ("0110", "0130", "0430")
@@ -97,6 +100,29 @@ class UpstreamHostSim:
         self.error_csv_path = cfg.get("error_csv", "error_0120_0420.csv")
         self.advice_pending = {}
         self.advice_lock = threading.Lock()
+        # briefs/resilience_v2.md ("have been evaluating the scenario"): unthrottled, a burst of
+        # 0100 timeouts (e.g. during a crypto_host kill) fires a burst of 0420/0120 sends with no
+        # relation to the 0100 pacing, competing for wire capacity with live 0100 traffic and
+        # clouding the achieved_tps numbers. advice_reversal_percentage caps how much of that
+        # capacity 0120/0420 traffic gets, expressed as one advice/reversal dispatch per N 0100
+        # sends - e.g. 10% -> N=9 (1 advice send per 9 0100 sends, brief's own worked example).
+        # None (0/unset) disables throttling entirely: every advice send fires immediately, same
+        # as before this feature existed (this is also what every existing advice test relies on,
+        # since none of their configs set this key).
+        pct = cfg.get("advice_reversal_percentage", 0)
+        self._advice_ratio = max(1, round((100 - pct) / pct)) if 0 < pct < 100 else None
+        # STANs waiting for their throttle slot - only used while self._advice_ratio is set and a
+        # 0100 stream is actively running (see _send_loop). Actual message data lives in
+        # advice_pending, keyed the same way; this just orders who gets the next slot.
+        self.advice_send_queue = deque()
+        self._advice_slot_counter = 0
+        # Per-run (since last /start) counts of 0120/0420 traffic, split by MTI and by
+        # sent-vs-acked - separate from advice_pending (current outstanding) and from
+        # run_sent/results (0100/0110 only, see _send_loop/_receive_loop) so /stress_stats can
+        # report advice-message volume for the same window the 0100 TPS numbers cover, without
+        # either polluting the other. "sent" includes every wire send (initial + each retry from
+        # _advice_retry_loop), not just the first attempt.
+        self.advice_counts = {"0120_sent": 0, "0420_sent": 0, "0120_acked": 0, "0420_acked": 0}
 
         # Stress-run state: send timestamps keyed by STAN, and a bounded latency-sample list.
         # Capped at 200k - plenty for any run duration/rate used here, keeps memory bounded on a
@@ -172,6 +198,10 @@ class UpstreamHostSim:
             self.latency_records.clear()
             with self.advice_lock:
                 self.advice_pending.clear()
+                self.advice_send_queue.clear()
+                for key in self.advice_counts:
+                    self.advice_counts[key] = 0
+            self._advice_slot_counter = 0
             self._set_advice_gauge()
             # monotonic, not wall-clock: a mid-run NTP/hv_utils clock resync (observed on this
             # WSL2 host) would otherwise show up as a bogus multi-minute latency spike on
@@ -195,6 +225,8 @@ class UpstreamHostSim:
             with self.results_lock:
                 received = len(self.results)
             sent = self.run_sent
+            with self.advice_lock:
+                advice_counts = dict(self.advice_counts)
             end_time = self.run_end_time if self.run_end_time is not None else time.monotonic()
             elapsed = (end_time - self.run_start_time) if self.run_start_time else 0.0
             samples = sorted(self.latencies)
@@ -217,6 +249,10 @@ class UpstreamHostSim:
                     "p95_ms": percentile(95),
                     "p99_ms": percentile(99),
                     "max_ms": round(samples[-1] * 1000, 2) if samples else None,
+                    "advice_0120_sent": advice_counts["0120_sent"],
+                    "advice_0120_acked": advice_counts["0120_acked"],
+                    "advice_0420_sent": advice_counts["0420_sent"],
+                    "advice_0420_acked": advice_counts["0420_acked"],
                 }
             )
 
@@ -309,6 +345,10 @@ class UpstreamHostSim:
         self.latency_records.clear()
         with self.advice_lock:
             self.advice_pending.clear()
+            self.advice_send_queue.clear()
+            for key in self.advice_counts:
+                self.advice_counts[key] = 0
+        self._advice_slot_counter = 0
         self._set_advice_gauge()
         self.run_start_time = time.monotonic()
         self.run_end_time = None
@@ -354,11 +394,46 @@ class UpstreamHostSim:
             if not self._write_frame(conn, bytes(encoded)):
                 break
             self.run_sent += 1
+
+            # briefs/resilience_v2.md advice_reversal throttle: one queued advice/reversal
+            # dispatch for every _advice_ratio 0100 sends, interleaved right here rather than let
+            # the advice loops fire independently - see __init__ for why.
+            if self._advice_ratio:
+                self._advice_slot_counter += 1
+                if self._advice_slot_counter >= self._advice_ratio:
+                    self._advice_slot_counter = 0
+                    stan = None
+                    with self.advice_lock:
+                        if self.advice_send_queue:
+                            stan = self.advice_send_queue.popleft()
+                    if stan is not None:
+                        with self.advice_lock:
+                            entry = self.advice_pending.get(stan)
+                        if entry is not None:
+                            self._write_advice_entry(conn, stan, entry)
+
             time.sleep(interval)
         # Marks when active sending stopped, distinct from "now" - /stress_stats is queried
         # after a trailing grace window (letting in-flight responses land), and achieved_tps
         # must reflect the actual send window, not that grace window too.
         self.run_end_time = time.monotonic()
+
+        # The throttle queue only drains on 0100 sends (above) - once those stop, anything still
+        # queued has no way to ever get a slot. It gets silently cleared like the rest of
+        # advice_pending on the next /start (briefs/resilience_v2.md: "just log how many are on
+        # queue" - not drain them, that's this run's own backlog and the next stage starts fresh
+        # same as advice_pending always has), so log it now while it's still known.
+        if self._advice_ratio:
+            with self.advice_lock:
+                queued_counts = {"0120": 0, "0420": 0}
+                for stan in self.advice_send_queue:
+                    entry = self.advice_pending.get(stan)
+                    if entry is not None:
+                        queued_counts[entry["mti"]] = queued_counts.get(entry["mti"], 0) + 1
+            logger.info(
+                "run ended: %d 0120 + %d 0420 advice/reversal message(s) still queued for a throttle slot",
+                queued_counts["0120"], queued_counts["0420"],
+            )
 
     def _receive_loop(self, conn, disc_evt: threading.Event) -> None:
         while not disc_evt.is_set():
@@ -390,15 +465,19 @@ class UpstreamHostSim:
                 # in-flight advice message instead, which lives in advice_pending, not pending.
                 with self.advice_lock:
                     advice_entry = self.advice_pending.pop(stan, None)
+                    if advice_entry is not None:
+                        self.advice_counts[f"{advice_entry['mti']}_acked"] += 1
                 if advice_entry is not None:
-                    logger.info(
+                    _throttled.log(
+                        logging.INFO,
+                        f"advice_ack:{advice_entry['mti']}",
                         "advice %s stan=%s pan=%s acknowledged (%s) after %d retr%s",
                         advice_entry["mti"], stan, advice_entry["pan"], mti,
                         advice_entry["retries_done"], "y" if advice_entry["retries_done"] == 1 else "ies",
                     )
                     self._set_advice_gauge()
                     continue
-                logger.warning("no pending request for STAN %s", stan)
+                _throttled.log(logging.WARNING, "no_pending_stan", "no pending request for STAN %s", stan)
                 continue
 
             send_time = self.send_times.pop(stan, None)
@@ -442,13 +521,68 @@ class UpstreamHostSim:
         with self.advice_lock:
             self.stats.set_gauge("advice_pending_count", len(self.advice_pending))
 
+    def _write_advice_entry(self, conn, stan: str, entry: dict) -> None:
+        """Writes one advice/reversal message - initial send or a resend - to the wire and
+        updates its bookkeeping. The single dispatch path used whether the send happens
+        immediately (throttling off, or no live 0100 stream to throttle against - see
+        _dispatch_or_queue) or via _send_loop's throttle slot once one opens."""
+        self._write_frame(conn, entry["encoded"])
+        with self.advice_lock:
+            e = self.advice_pending.get(stan)
+            if e is None:
+                return
+            was_initial = not e["dispatched"]
+            e["dispatched"] = True
+            e["queued"] = False
+            if was_initial:
+                retries_done = 0
+            else:
+                # First resend (if no ack) fires advice_timeout_seconds * advice_backoff_multiplier
+                # after the initial send; each subsequent resend multiplies that interval again -
+                # briefs/resilience_v2.md's own worked example: multiplier 15 gives resend waits of
+                # 15s, 225s, 3375s, ... after the initial send at t=advice_timeout_seconds.
+                e["retries_done"] += 1
+                e["interval"] *= self.advice_backoff_multiplier
+                retries_done = e["retries_done"]
+            e["next_retry_at"] = time.monotonic() + e["interval"]
+            mti = e["mti"]
+            pan = e["pan"]
+            self.advice_counts[f"{mti}_sent"] += 1
+        if was_initial:
+            _throttled.log(
+                logging.INFO,
+                f"advice_sent:{mti}",
+                "advice: sent %s stan=%s pan=%s (initial send, up to %d retries)",
+                mti, stan, pan, self.advice_max_retries,
+            )
+        else:
+            logger.info(
+                "advice: retried %s stan=%s pan=%s (retry %d/%d)",
+                mti, stan, pan, retries_done, self.advice_max_retries,
+            )
+
+    def _dispatch_or_queue(self, conn, stan: str, entry: dict) -> None:
+        """Sends immediately unless advice_reversal_percentage throttling is on for a currently
+        live 0100 stream, in which case this just marks the entry queued - _send_loop's own
+        interleave logic is what actually pops it and calls _write_advice_entry once its slot
+        comes up."""
+        if self._advice_ratio and self.run_end_time is None and self.run_start_time is not None:
+            with self.advice_lock:
+                e = self.advice_pending.get(stan)
+                if e is None:
+                    return
+                e["queued"] = True
+                self.advice_send_queue.append(stan)
+            return
+        self._write_advice_entry(conn, stan, entry)
+
     def _start_advice(self, conn, mti: str, row: dict, decision: str = None) -> None:
-        """Builds, registers, and sends the first attempt of one advice message (0420 or 0120)
-        for a 0100 that timed out. Gets its own fresh STAN - not the original 0100's - since it's
-        a genuinely new message needing its own request/response pairing on the wire; row's other
-        fields (PAN, amount, ...) carry over unchanged, matching how downstream_host's existing
-        0120/0420 handling just echoes them back with the MTI (and, for 0120, the decision in
-        field 39) changed."""
+        """Builds and registers one advice message (0420 or 0120) for a 0100 that timed out, then
+        dispatches or throttle-queues it (see _dispatch_or_queue). Gets its own fresh STAN - not
+        the original 0100's - since it's a genuinely new message needing its own request/response
+        pairing on the wire; row's other fields (PAN, amount, ...) carry over unchanged, matching
+        how downstream_host's existing 0120/0420 handling just echoes them back with the MTI (and,
+        for 0120, the decision in field 39) changed."""
         stan = self._next_stan()
         msg = {k: v for k, v in row.items() if k in self.spec and k not in ("t", "p", "1")}
         msg["t"] = mti
@@ -457,10 +591,6 @@ class UpstreamHostSim:
             msg["39"] = decision
         encoded, _ = iso8583.encode(msg, self.spec)
 
-        # First resend (if no ack) fires advice_timeout_seconds * advice_backoff_multiplier after
-        # this initial send; each subsequent resend multiplies that interval again - briefs/
-        # resilience_v2.md's own worked example: multiplier 15 gives resend waits of 15s, 225s,
-        # 3375s, ... after the initial send at t=advice_timeout_seconds.
         interval = self.advice_timeout_seconds * self.advice_backoff_multiplier
         entry = {
             "mti": mti,
@@ -470,15 +600,13 @@ class UpstreamHostSim:
             "retries_done": 0,
             "interval": interval,
             "next_retry_at": time.monotonic() + interval,
+            "dispatched": False,
+            "queued": False,
         }
         with self.advice_lock:
             self.advice_pending[stan] = entry
         self._set_advice_gauge()
-        self._write_frame(conn, entry["encoded"])
-        logger.info(
-            "advice: sent %s stan=%s pan=%s (initial send, up to %d retries)",
-            mti, stan, entry["pan"], self.advice_max_retries,
-        )
+        self._dispatch_or_queue(conn, stan, entry)
 
     def _advice_timeout_loop(self, conn, disc_evt: threading.Event) -> None:
         """Watches `pending` for 0100s that never got a matching 0110 within
@@ -498,7 +626,9 @@ class UpstreamHostSim:
                         self.send_times.pop(stan, None)
                         timed_out.append((stan, row))
             for stan, row in timed_out:
-                logger.warning(
+                _throttled.log(
+                    logging.WARNING,
+                    "0100_timeout",
                     "0100 timed out waiting for 0110 (stan=%s, pan=%s) after %.1fs - sending 0420+0120",
                     stan, row.get("2", ""), self.advice_timeout_seconds,
                 )
@@ -529,6 +659,8 @@ class UpstreamHostSim:
             exhausted = []
             with self.advice_lock:
                 for stan, entry in list(self.advice_pending.items()):
+                    if entry["queued"]:
+                        continue  # already waiting for a throttle slot - not due for another action
                     if now < entry["next_retry_at"]:
                         continue
                     if entry["retries_done"] >= self.advice_max_retries:
@@ -539,18 +671,7 @@ class UpstreamHostSim:
             for stan, entry in exhausted:
                 self._log_advice_error(stan, entry)
             for stan, entry in due:
-                self._write_frame(conn, entry["encoded"])
-                with self.advice_lock:
-                    e = self.advice_pending.get(stan)
-                    if e is not None:
-                        e["retries_done"] += 1
-                        e["interval"] *= self.advice_backoff_multiplier
-                        e["next_retry_at"] = time.monotonic() + e["interval"]
-                        retries_done = e["retries_done"]
-                logger.info(
-                    "advice: retried %s stan=%s pan=%s (retry %d/%d)",
-                    entry["mti"], stan, entry["pan"], retries_done, self.advice_max_retries,
-                )
+                self._dispatch_or_queue(conn, stan, entry)
             if exhausted or due:
                 self._set_advice_gauge()
             time.sleep(0.2)

@@ -12,6 +12,10 @@
     "ssl_active": true,
     "certfile": "certs/crypto_host_ssl_active_true_cert.pem",
     "keyfile": "certs/crypto_host_ssl_active_true_key.pem",
-    "cafile": "certs/crypto_host_ssl_active_true_ca.pem"
+    "cafile": "certs/crypto_host_ssl_active_true_ca.pem",
+    "no_response_pans": {
+      "8888888888888888": ["validate_0110"],
+      "7777777777777777": ["validate_0100"]
+    }
   }
 }

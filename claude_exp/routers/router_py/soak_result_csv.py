@@ -10,6 +10,12 @@ without needing a second set of output files.
 record_result(row) takes the same bare row shape stress_run.sh prints to stdout:
 "implementation;target_tps;duration_s;sent;received;errors;achieved_tps;p50_ms;p90_ms;p95_ms;
 p99_ms;max_ms" - dot-decimal, no timestamp/env yet (those get added here, same as run_soak.sh).
+Callers may optionally append four more fields - "advice_0120_sent;advice_0120_acked;
+advice_0420_sent;advice_0420_acked" (soak_resilience_hard.py's per-stage 0120/0420 wire-traffic
+counts, see upstream_host/main.py's /stress_stats) - only soak_resilience_hard.py currently does;
+every other producer's rows stay 12 fields and land short those 4 columns in soak_results.csv,
+same convention as the pre-existing env-column backfill (old rows stay short, not padded).
+soak_summary.csv only ever reads the first 12 fields, so it's unaffected either way.
 """
 import os
 from datetime import datetime
@@ -24,7 +30,8 @@ ENV_NAME = os.environ.get("ENV_NAME") or os.uname().nodename
 
 _RESULTS_HEADER = (
     "timestamp;env;implementation;target_tps;duration_s;sent;received;errors;achieved_tps;"
-    "p50_ms;p90_ms;p95_ms;p99_ms;max_ms\n"
+    "p50_ms;p90_ms;p95_ms;p99_ms;max_ms;advice_0120_sent;advice_0120_acked;advice_0420_sent;"
+    "advice_0420_acked\n"
 )
 _SUMMARY_HEADER = "timestamp;env;implementation;target_tps;duration_s;p50_ms;p90_ms;p99_ms\n"
 
@@ -46,7 +53,7 @@ def record_result(row: str) -> None:
         f.write(f"{ts};{ENV_NAME};{comma_row}\n")
 
     fields = row.split(";")
-    impl, tps, dur, _sent, _recv, _err, _atps, p50, p90, _p95, p99, _mx = fields
+    impl, tps, dur, _sent, _recv, _err, _atps, p50, p90, _p95, p99, _mx = fields[:12]
     with open(SOAK_SUMMARY_CSV, "a", encoding="utf-8", newline="") as f:
         f.write(f"{ts};{ENV_NAME};{impl};{tps};{dur};{p50.replace('.', ',')};"
                  f"{p90.replace('.', ',')};{p99.replace('.', ',')}\n")

@@ -19,6 +19,7 @@
 #include "router/downstream_connection.h"
 #include "router/router_config.h"
 #include "router/trace_recorder.h"
+#include "shared/log_throttle.h"
 #include "shared/stats.h"
 #include "shared/stop_event.h"
 
@@ -120,6 +121,7 @@ private:
     std::mutex pending_mutex_;
 
     TraceRecorder trace_;
+    shared::LogThrottle throttle_{200};
 
     std::atomic<int> stan_counter_{0};
 

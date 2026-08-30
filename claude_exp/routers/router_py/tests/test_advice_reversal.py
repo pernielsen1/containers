@@ -13,6 +13,7 @@ production default is so much steeper.
 import csv
 import itertools
 import os
+import threading
 import time
 
 import iso8583
@@ -160,3 +161,86 @@ def test_unacked_advice_exhausts_retries_and_logs_to_error_csv(stub_and_upstream
         assert r["pan"] == pan
         assert r["retries"] == str(cfg["advice_max_retries"])
         assert r["reason"] == "no_ack_after_max_retries"
+
+
+@pytest.fixture
+def throttled_stub_and_upstream(tmp_path):
+    """briefs/resilience_v2.md ("have been evaluating the scenario"): advice_reversal_percentage
+    caps how much of upstream_host's send capacity 0120/0420 traffic can use while a 0100 stream
+    is actively running - see UpstreamHostSim._dispatch_or_queue/_send_loop. Its own fixture
+    since it needs a real _send_loop run (run_start_time/run_end_time set) for the throttle gate
+    to engage at all - the other tests' `_send_0100` helper bypasses _send_loop entirely."""
+    router = StubRouter(SPEC, FRAMING, port=next(_next_port))
+    router.start()
+
+    cfg = {
+        "name": "test_upstream_throttled",
+        "type": "upstream",
+        "command_port": next(_next_port),
+        "router": {"host": "127.0.0.1", "port": router.port},
+        "framing": FRAMING,
+        "iso_spec": SPEC_PATH,
+        "input_dir": str(tmp_path / "input"),
+        "ping_0800_seconds": 3600,
+        "error_csv": str(tmp_path / "error_0120_0420.csv"),
+        "advice_timeout_seconds": 0.05,
+        "advice_max_retries": 5,
+        "advice_backoff_multiplier": 2.0,
+        "advice_reversal_percentage": 10,  # brief's own worked example: 1 advice send per 9 0100s
+    }
+    os.makedirs(cfg["input_dir"], exist_ok=True)
+
+    up = UpstreamHostSim(cfg)
+    up.start()
+
+    deadline = time.time() + 5
+    while up._get_conn() is None and time.time() < deadline:
+        time.sleep(0.05)
+    assert up._get_conn() is not None, "upstream never connected to stub router"
+
+    yield up, router, cfg
+
+    up.stop_event.set()
+    router.stop()
+
+
+def test_advice_reversal_percentage_throttles_advice_sends(throttled_stub_and_upstream):
+    up, router, cfg = throttled_stub_and_upstream
+    conn = up._get_conn()
+    # Every 0100 times out (never acked) -> each fires a 0420+0120 registration; also blackhole
+    # their acks so dispatched entries stay visible in advice_pending instead of clearing
+    # themselves out mid-test.
+    router.reply_policy["0100"] = False
+    router.reply_policy["0420"] = False
+    router.reply_policy["0120"] = False
+
+    assert up._advice_ratio == 9  # round((100-10)/10)
+
+    rows = [{"2": "4333333333333333", "3": "000000", "4": "000000000100"}]
+    rate = 20.0
+    duration = 1.0
+    thread = threading.Thread(
+        target=up._run_with_warmup, args=(conn, rows, rate, duration, 0.0), daemon=True
+    )
+    thread.start()
+    thread.join(timeout=duration + 3)
+    assert not thread.is_alive(), "stress run never finished"
+
+    with up.advice_lock:
+        registered = len(up.advice_pending)
+        dispatched = sum(1 for e in up.advice_pending.values() if e["dispatched"])
+        still_queued = len(up.advice_send_queue)
+        queued_entries_flagged = sum(1 for e in up.advice_pending.values() if e["queued"])
+
+    # Near-every 0100 timed out inside the 1s window (advice_timeout_seconds=0.05s), each
+    # registering both a 0420 and a 0120 - far more than the throttle could actually dispatch.
+    assert registered > 2 * (up.run_sent // 2), "expected most 0100s to have timed out by run end"
+    assert still_queued > 0, "throttle never built a backlog - did it actually engage?"
+    # Not a strict equality: _send_loop pops a stan off the queue, then writes the frame, then
+    # flips dispatched=True/queued=False - a real (harmless) window where a just-popped entry is
+    # momentarily counted in neither "still queued" nor "dispatched" yet.
+    assert abs((registered - dispatched) - still_queued) <= 1
+    assert abs(queued_entries_flagged - still_queued) <= 1
+    # At most one advice dispatch per _advice_ratio 0100 sends, plus a little slack for whichever
+    # send was mid-flight when the run ended.
+    assert dispatched <= (up.run_sent // up._advice_ratio) + 1

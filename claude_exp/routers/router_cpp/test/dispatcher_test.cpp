@@ -298,3 +298,39 @@ TEST_CASE("pending_snapshot reports age oldest first", "[dispatcher]") {
     REQUIRE(snapshot[0].upstream_stan == "100001");
     REQUIRE(snapshot[0].age_seconds > snapshot[1].age_seconds);
 }
+
+TEST_CASE("response leg crypto failure drops response instead of forwarding", "[dispatcher]") {
+    // briefs/resilience_v2.md's crypto-kill scenario: crypto_host succeeds on the request leg but
+    // fails on the response leg, so upstream never gets its 0110 and falls back to its own
+    // advice_timeout_seconds -> 0420/0120. A genuine validate_0110 failure (std::nullopt, not a
+    // legitimate "" no-op) must drop the response rather than forward it unvalidated.
+    // TestHarness's CryptoClient is pointed at an unreachable port (see make_cfg), so every
+    // validate() call here genuinely fails - no fake/mock CryptoClient needed.
+    TestHarness h(5, 100, 1);
+    // No start() - handle_response() is called directly on this thread, synchronously.
+
+    int fds[2];
+    REQUIRE(::socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
+    int up_a = fds[0];
+    int up_b = fds[1];
+    timeval tv{0, 300000};  // 300ms - nothing should ever arrive here, keep the test fast
+    ::setsockopt(up_b, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    auto write_lock = std::make_shared<std::mutex>();
+
+    PendingEntry entry;
+    entry.up_fd = up_a;
+    entry.up_write_lock = write_lock;
+    entry.upstream_stan = "100042";
+    entry.created_at = std::chrono::steady_clock::now();
+    DispatcherTestAccess::inject_pending(h.dispatcher, "000042", entry);
+
+    std::map<std::string, std::string> resp = {{"t", "0110"}, {"11", "000042"}, {"39", "00"}};
+    h.dispatcher.handle_response(resp);
+
+    REQUIRE(DispatcherTestAccess::pending_size(h.dispatcher) == 0);
+    FramingConfig upstream_framing;  // defaults already match router_1's ASCII/4-byte framing
+    REQUIRE_THROWS_AS(shared::read_message(up_b, upstream_framing), shared::FramingError);
+
+    ::close(up_a);
+    ::close(up_b);
+}

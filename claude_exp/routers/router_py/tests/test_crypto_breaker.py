@@ -39,6 +39,25 @@ class _FakeConnection:
         pass
 
 
+class _DyingConnection:
+    """Stands in for a connection whose socket is already dead (killed peer, expired keep-alive)
+    - every request() raises, same as a real closed/reset socket would."""
+
+    def __init__(self):
+        self.request_count = 0
+        self.closed = False
+
+    def request(self, method, path, body=None, headers=None):
+        self.request_count += 1
+        raise OSError("Connection reset by peer")
+
+    def getresponse(self):
+        raise AssertionError("getresponse() should not be reached - request() already raised")
+
+    def close(self):
+        self.closed = True
+
+
 def _success_response() -> _FakeResponse:
     envelope = json.dumps({"f47": '{"response_code":"00"}'})
     b64_envelope = base64.b64encode(envelope.encode("utf-8")).decode("ascii")
@@ -49,12 +68,12 @@ def test_breaker_opens_after_threshold_failures_and_short_circuits():
     client = CryptoClient(_UnreachableCfg(), breaker_threshold=3, breaker_cooldown_seconds=2)
 
     for _ in range(3):
-        assert client.validate("validate_0100", "4111111111111111", "{}") == ""
+        assert client.validate("validate_0100", "4111111111111111", "{}") is None
 
     assert time.time() < client._open_until
 
     client._get_connection = MagicMock(side_effect=AssertionError("should not be called while breaker is open"))
-    assert client.validate("validate_0100", "4111111111111111", "{}") == ""
+    assert client.validate("validate_0100", "4111111111111111", "{}") is None
     client._get_connection.assert_not_called()
 
 
@@ -66,8 +85,12 @@ def test_breaker_closes_after_cooldown_and_retries():
 
     time.sleep(0.4)
 
+    # Opening the breaker bumped _generation, so the connection this thread cached before the
+    # outage is presumed dead and never reused (see CryptoClient._generation) - stub
+    # _new_connection() rather than planting a connection directly, so the call gets one the way
+    # a real post-recovery call would: freshly built.
     fake_conn = _FakeConnection(_success_response())
-    client._thread_local.conn = fake_conn
+    client._new_connection = lambda: fake_conn
     client.validate("validate_0100", "4111111111111111", "{}")
     assert fake_conn.request_count == 1
 
@@ -82,3 +105,71 @@ def test_successful_call_resets_failure_counter():
     result = client.validate("validate_0100", "4111111111111111", "{}")
     assert result == '{"response_code":"00"}'
     assert client._failure_count == 0
+
+
+def test_dead_connection_is_forgotten_not_retried_inline():
+    """The whole point of _generation: a failed call is never rescued by retrying on a fresh
+    connection within the same validate() call - it's just forgotten, so the failure is real and
+    counts toward the breaker, and the *next* call (this thread's or another's) starts clean."""
+    client = CryptoClient(_UnreachableCfg(), breaker_threshold=5, breaker_cooldown_seconds=5)
+    dying = _DyingConnection()
+    client._thread_local.conn = dying
+    client._thread_local.conn_generation = client._generation
+
+    result = client.validate("validate_0100", "4111111111111111", "{}")
+
+    assert result is None
+    assert dying.request_count == 1  # exactly one attempt - no inline retry
+    assert dying.closed  # forgotten, not left cached for reuse
+    assert client._thread_local.conn is None
+    assert client._failure_count == 1
+
+
+def test_reset_breaker_closes_immediately_and_invalidates_cached_connections():
+    """reset_breaker() is for a caller that has *externally confirmed* the service is back and
+    doesn't want to wait out the breaker's own cooldown clock (see CryptoClient.reset_breaker
+    docstring) - it must close the breaker right away, not just eventually, and must invalidate
+    already-cached connections the same way a normal open/close cycle does."""
+    client = CryptoClient(_UnreachableCfg(), breaker_threshold=1, breaker_cooldown_seconds=300)
+
+    client.validate("validate_0100", "4111111111111111", "{}")
+    assert client._failure_count == 1
+    assert time.time() < client._open_until  # breaker open, would stay open for 300s untouched
+    generation_after_trip = client._generation
+
+    client.reset_breaker()
+
+    assert client._failure_count == 0
+    assert client._open_until == 0.0
+    assert client._generation == generation_after_trip + 1
+
+    fake_conn = _FakeConnection(_success_response())
+    client._new_connection = lambda: fake_conn
+    result = client.validate("validate_0100", "4111111111111111", "{}")
+    assert result == '{"response_code":"00"}'
+    assert fake_conn.request_count == 1
+
+
+def test_cached_connection_discarded_once_breaker_opens():
+    """A connection cached by this thread before crypto_host died must never be handed back out
+    once the breaker has opened - even though *this* thread never personally saw a failure.
+    threading.local() means the thread that trips the breaker can't reach into other threads'
+    cached sockets to close them directly, so staleness is tracked via _generation and checked
+    before any request is attempted, not discovered by trying and failing."""
+    client = CryptoClient(_UnreachableCfg(), breaker_threshold=1, breaker_cooldown_seconds=5)
+    stale = _FakeConnection(_success_response())
+    client._thread_local.conn = stale
+    client._thread_local.conn_generation = 0  # cached under the pre-outage generation
+
+    # Simulates another thread having just tripped the breaker - this thread hasn't made a call
+    # since, so its cache is still generation 0.
+    client._generation = 1
+
+    fresh = _FakeConnection(_success_response())
+    client._new_connection = lambda: fresh
+
+    conn = client._get_connection()
+
+    assert conn is fresh
+    assert stale.request_count == 0  # never reused
+    assert client._thread_local.conn_generation == 1

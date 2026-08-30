@@ -65,6 +65,18 @@ def run(cfg=None, stop_event=None, stats=None, _config_base=None):
             return jsonify({"error": "no active session"}), 503
         return jsonify(dispatcher.pending_snapshot())
 
+    @cmd.register("/crypto/reset_breaker", methods=["POST"], protected=True)
+    def crypto_reset_breaker_route():
+        # For a caller (soak/chaos script, or an ops runbook) that has independently confirmed
+        # crypto_host is back up and doesn't want to wait out the breaker's own self-renewing
+        # cooldown clock - see CryptoClient.reset_breaker().
+        dispatcher = active_dispatcher["current"]
+        if dispatcher is None:
+            return jsonify({"error": "no active session"}), 503
+        dispatcher.crypto.reset_breaker()
+        dispatcher.crypto_response.reset_breaker()
+        return jsonify({"status": "reset"})
+
     @cmd.register("/trace", methods=["GET", "POST"])
     def trace_route():
         dispatcher = active_dispatcher["current"]

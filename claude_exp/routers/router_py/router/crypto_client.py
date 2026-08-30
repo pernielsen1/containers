@@ -5,9 +5,15 @@ import logging
 import threading
 import time
 
+from shared.log_throttle import ThrottledLogger
 from shared.ssl_utils import build_client_context
 
 logger = logging.getLogger(__name__)
+# briefs/resilience_v2.md's fail_percentage/crypto-kill chaos scenarios turn a genuine crypto_host
+# failure from a rare event into a sustained, high-volume one (10% of steady traffic, or ~100% of
+# traffic for the duration of a kill) - unthrottled this floods stdout the same way unthrottled
+# advice/reversal traffic did on the upstream_host side (see that side's log_throttle.py).
+_throttled = ThrottledLogger(logger, every=200)
 
 
 class CryptoClient:
@@ -64,6 +70,15 @@ class CryptoClient:
         self._lock = threading.Lock()
         self._failure_count = 0
         self._open_until = 0.0
+        # Bumped every time the breaker opens - see validate()'s failure branch. A thread's
+        # cached connection is only trusted if it was built under the *current* generation;
+        # threading.local() means one thread can't reach into another thread's cached socket to
+        # close it directly when crypto_host dies, so instead every thread checks its own
+        # connection's generation the next time it needs one and discards it on mismatch, before
+        # ever trying to use it - see _get_connection(). Never retried inline (see _send()): a
+        # dead connection is forgotten and the call fails, on the theory that recovering *this*
+        # transaction isn't the goal - having a fresh connection ready for the next one is.
+        self._generation = 0
 
     def _new_connection(self) -> http.client.HTTPConnection:
         if self._ssl_active:
@@ -73,46 +88,60 @@ class CryptoClient:
         return http.client.HTTPConnection(self._host, self._port, timeout=self._timeout_seconds)
 
     def _get_connection(self) -> http.client.HTTPConnection:
+        with self._lock:
+            current_generation = self._generation
         conn = getattr(self._thread_local, "conn", None)
+        conn_generation = getattr(self._thread_local, "conn_generation", -1)
+        if conn is not None and conn_generation != current_generation:
+            conn.close()
+            conn = None
         if conn is None:
             conn = self._new_connection()
             self._thread_local.conn = conn
+            self._thread_local.conn_generation = current_generation
         return conn
 
+    def _forget_connection(self) -> None:
+        conn = getattr(self._thread_local, "conn", None)
+        if conn is not None:
+            conn.close()
+        self._thread_local.conn = None
+
     def _send(self, body: str, headers: dict) -> bytes:
-        # A keep-alive connection idle between soak-test phases (or closed server-side after
-        # crypto_host's own keep_alive_max_count) fails on first use, not gracefully - retry
-        # once on a fresh connection rather than tripping the breaker on a stale socket alone.
+        # Never retries a failed connection inline - see class docstring's _generation note. A
+        # keep-alive connection can go bad between soak-test phases (idle timeout, or crypto_host
+        # itself dying) or from ordinary server-side recycling (keep_alive_max_count); either way
+        # this call is forgotten, not rescued, so the next call - this thread's or another's -
+        # starts from a known-fresh connection instead of inheriting a guessing game.
         conn = self._get_connection()
         try:
             conn.request("POST", self._path, body=body, headers=headers)
             resp = conn.getresponse()
             data = resp.read()
         except (OSError, http.client.HTTPException):
-            conn.close()
-            self._thread_local.conn = None
-            conn = self._get_connection()
-            conn.request("POST", self._path, body=body, headers=headers)
-            resp = conn.getresponse()
-            data = resp.read()
+            self._forget_connection()
+            raise
 
         if resp.status >= 400:
             raise http.client.HTTPException(f"HTTP {resp.status}: {data[:200]!r}")
         return data
 
-    def validate(self, endpoint: str, pan: str, f47: str, router_stan: str = "") -> str:
-        """Returns the enriched f47 on success, or "" on any failure (breaker open or HTTP
-        error) - callers only overwrite their working f47 when this return value is truthy,
-        so any failure path leaves the original f47 untouched. Handles the Fortanix
-        PluginOutput envelope: response body is a base64-encoded JSON string, which we decode
-        to reach the inner {"f47": ...} object.
+    def validate(self, endpoint: str, pan: str, f47: str, router_stan: str = "") -> str | None:
+        """Returns the enriched f47 on success (possibly "" if crypto_host genuinely had
+        nothing to add), or None on any failure (breaker open or HTTP error) - callers only
+        overwrite their working f47 when this return value is truthy, so any failure or no-op
+        path leaves the original f47 untouched; a caller that needs to distinguish "no-op
+        success" from "failure" (see dispatcher.handle_response's 0110 leg, which drops the
+        message on a genuine failure rather than forwarding unvalidated) checks for None
+        specifically. Handles the Fortanix PluginOutput envelope: response body is a
+        base64-encoded JSON string, which we decode to reach the inner {"f47": ...} object.
 
         router_stan is passed through so crypto_host's own logs can be joined with this
         router's logs on the same transaction - it's not part of the Fortanix plugin contract,
         just an extra field crypto_host echoes into its log lines."""
         with self._lock:
             if time.time() < self._open_until:
-                return ""
+                return None
 
         try:
             body = json.dumps({"operation": endpoint, "f2": pan, "f47": f47, "router_stan": router_stan})
@@ -124,7 +153,9 @@ class CryptoClient:
             decoded = base64.b64decode(json.loads(data)).decode("utf-8")
             result = json.loads(decoded).get("f47", "")
         except Exception as e:
-            logger.warning(
+            _throttled.log(
+                logging.WARNING,
+                f"crypto_call_failed:{endpoint}",
                 "crypto_host %s call failed (router_stan=%s): %s",
                 endpoint, router_stan, e, extra={"router_stan": router_stan},
             )
@@ -132,13 +163,27 @@ class CryptoClient:
                 self._failure_count += 1
                 if self._failure_count >= self._breaker_threshold:
                     self._open_until = time.time() + self._breaker_cooldown_seconds
+                    self._generation += 1
                     logger.warning(
                         "crypto breaker open for %ds after %d consecutive failures",
                         self._breaker_cooldown_seconds,
                         self._failure_count,
                     )
-            return ""
+            return None
 
         with self._lock:
             self._failure_count = 0
         return result
+
+    def reset_breaker(self) -> None:
+        """Closes the breaker immediately rather than waiting for its own cooldown clock to
+        expire and self-renew (see class docstring's _generation note, and validate()'s failure
+        branch, which re-arms _open_until on every failed probe with no awareness of whether the
+        service actually recovered) - for a caller that has *externally confirmed* the service is
+        back (e.g. a TCP probe against its port) and wants the breaker to trust that immediately
+        instead of on its own delayed schedule. Bumps _generation like a normal open/close cycle
+        so every thread's cached connection is rebuilt fresh, matching a real recovery."""
+        with self._lock:
+            self._failure_count = 0
+            self._open_until = 0.0
+            self._generation += 1

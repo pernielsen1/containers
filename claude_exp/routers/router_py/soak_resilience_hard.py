@@ -2,8 +2,13 @@
 """briefs/resilience_v2.md ("OK let's make resilience_soak.sh scripts" -> run_soak_resilience_hard.sh):
 sustained TPS traffic against the full local host-python stack, hard-killing crypto_host (a real
 SIGKILL - see chaos_monkey.py's hard_kill_actor, "a real crash / abruptly severed connection, not
-a clean shutdown") after a fixed 1 minute of healthy traffic, holding it dead for
---crypto_fail_minutes, then restarting it - all while traffic keeps flowing throughout.
+a clean shutdown") after a before_kill stage of healthy traffic, holding it dead for
+--crypto_fail_minutes, then restarting it - all while traffic keeps flowing throughout. The
+brief's original spec fixed before_kill at 1 minute (sized for its 10-minute soak default);
+before_kill/during_kill/after_kill are now all fractions of the total `minutes` instead (with
+floors - see BEFORE_KILL_FRACTION etc. below), so a short experimental run isn't stuck paying a
+10-minute soak's fixed overhead - pass --crypto_fail_minutes explicitly to pin the brief's
+original real-world 2-minute value regardless of `minutes`.
 
 brief's own framing: "this will trigger a bunch of 0120 and 0420 messages - interesting if we can
 keep up". Traced against what's actually built (resilience.md Round 8): 0120/0420 fire when a full
@@ -28,18 +33,41 @@ issues the next /start and confirms it's accepted) means total wall-clock traffi
 perfectly continuous across stage boundaries - immaterial for a soak measuring sustained
 throughput per stage, not investigating sub-second gaps.
 
-Usage: python3 soak_resilience_hard.py [minutes] [crypto_fail_minutes]
-  minutes               total soak duration, in minutes (default 10). Must be large enough for a
-                         1-minute before_kill stage + crypto_fail_minutes + a >=30s after_kill
-                         stage, or this exits early with an error.
-  crypto_fail_minutes    how long crypto_host stays dead (default 2)
+Usage: python3 soak_resilience_hard.py [minutes] [crypto_fail_minutes] [--stub-crypto]
+  minutes               total soak duration, in minutes (default 2 - kept low for fast iteration
+                         while experimenting; before_kill/during_kill/after_kill stage lengths
+                         are all calculated as fractions of this, with floors below, rather than
+                         the fixed 60s/2min/30s the brief's original 10-minute soak used - so a
+                         short experimental run doesn't spend its whole budget on stages sized
+                         for a 10-minute soak). Must leave at least AFTER_KILL_MIN_S for
+                         after_kill once before_kill and during_kill are sized, or this exits
+                         early with an error.
+  crypto_fail_minutes    how long crypto_host stays dead. Default: a fraction of `minutes` (see
+                         DURING_KILL_FRACTION below) rather than a fixed value - pass this
+                         explicitly to pin it (e.g. the brief's real-world 2 minutes).
+  --stub-crypto          use this scenario's own lightweight Flask-dev-server crypto_host stub
+                         instead of the real, shared C++ container (the default - see below). Starts/
+                         kills/restarts the stub itself, like this script did before --real-crypto
+                         existed. Useful without docker (e.g. this repo's dev sandbox), or to
+                         reproduce the stub's own ~140 req/s ceiling (project_resilience_hard_soak.md
+                         memory, 2026-08-29) deliberately.
+Default (no flag): runs against the real, shared C++ crypto_host container (routers/crypto_host,
+port 5099/8099 - the one run_soak.sh/stress_run.sh use) - simplest path for a normal run, and the
+container doesn't have the stub's capacity ceiling (confirmed clean at 80 TPS, 2026-08-30). That
+container has to already be up (crypto_host/start.sh) - this script only docker-kills/docker-starts
+it, it does not build or first-start it. router_1 is pointed at it via
+router/router_1/config_perf.json (already used/verified by stress_run.sh's perf runs) instead of the
+default config.json.
 Output: console narration plus THREE rows in routers/csv_results/soak_results.csv +
-soak_summary.csv, implementation="router_py_before_kill" / "router_py_during_kill" /
-"router_py_after_kill".
-Prerequisite: none of the actors need to be running yet - starts the full local stack itself.
-Does NOT touch the shared routers/crypto_host container.
+soak_summary.csv, implementation="router_py_real_crypto_before_kill" / "..._during_kill" /
+"..._after_kill" by default, or "router_py_before_kill" / etc. with --stub-crypto - the two capacity
+profiles never land under the same label.
+Prerequisite: the real crypto_host container already running (crypto_host/start.sh) - unless
+--stub-crypto is passed, in which case none of the actors (including crypto_host) need to be
+running yet, this script starts the full local stack itself.
 """
 import os
+import subprocess
 import sys
 import time
 
@@ -64,13 +92,76 @@ from soak_result_csv import record_result  # noqa: E402
 import requests  # noqa: E402
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+# 100, the brief's original target - fine at the default real-crypto-container mode (confirmed
+# clean at 80 TPS against it, ~2ms crypto_rtt, 0 errors, 2026-08-30). Only lower this - or pass
+# --stub-crypto and lower it to 60 - if running against the local Flask stub, which has a measured
+# ~140 req/s ceiling (each transaction needs 2 crypto calls, so 100 TPS demands ~200 req/s, above
+# it); see project_resilience_hard_soak.md memory for both numbers.
 TPS_TARGET = 100
 POLL_INTERVAL_S = 10
 GRACE_S = 5
-BEFORE_KILL_S = 60  # fixed per the brief: "after 1 minute the crypto_host is killed"
-MIN_AFTER_KILL_S = 30
+# Stage lengths scale off total `minutes` instead of the brief's fixed 60s/2min/30s (sized for
+# its original 10-minute soak) - at a short experimental total those fixed values either eat the
+# whole run or don't leave enough of it for after_kill. Floors keep each stage long enough to be
+# meaningful (before_kill needs a few TPS-ramp cycles to settle; during_kill needs to clear
+# advice_timeout_seconds, 1.0s production default, several times over) even at a tiny `minutes`.
+BEFORE_KILL_FRACTION = 0.15
+BEFORE_KILL_MIN_S = 15
+DURING_KILL_FRACTION = 0.35  # used only when --crypto_fail_minutes isn't passed explicitly
+DURING_KILL_MIN_S = 15
+AFTER_KILL_MIN_S = 20
+
+# Real-crypto mode (default - see module docstring / --stub-crypto): the real container's command
+# API, docker container name (docker-compose.yml's container_name), and the router_1 config that
+# points at it instead of the local stub - reusing stress_run.sh's already-verified
+# config_perf.json rather than authoring a new one.
+REAL_CRYPTO_STATS_URL = "http://127.0.0.1:8099/stats"
+REAL_CRYPTO_CONTAINER = "crypto_host"
+ROUTER_1_REAL_CRYPTO_CONFIG = os.path.join(PROJECT_ROOT, "router", "router_1", "config_perf.json")
+
+REAL_CRYPTO = True  # default on - see --stub-crypto in main(); read by record_stage() for the CSV label
+IMPL_LABEL = "router_py_real_crypto"
 
 launched = []  # actors this script itself started - only these get torn down at the end
+
+
+def ensure_real_crypto_up():
+    """This script doesn't build or first-start the shared container - crypto_host/start.sh is the
+    user's own step (docker compose up -d --build, idempotent) - this only checks it's already
+    reachable, same check/message run_soak.sh already uses before its own perf runs."""
+    try:
+        if requests.get(REAL_CRYPTO_STATS_URL, timeout=2).status_code == 200:
+            return
+    except requests.RequestException:
+        pass
+    print(
+        "ERROR: shared crypto_host (port 8099) is not responding - start it first:\n"
+        "  cd crypto_host && ./start.sh",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+
+def docker_kill_crypto_host():
+    """SIGKILL via docker, not docker stop - same "real crash, no FIN" rationale as
+    hard_kill_actor() above, just against the container instead of a locally-launched process."""
+    subprocess.run(["docker", "kill", REAL_CRYPTO_CONTAINER], check=True, capture_output=True)
+
+
+def docker_start_crypto_host(timeout=15):
+    subprocess.run(["docker", "start", REAL_CRYPTO_CONTAINER], check=True, capture_output=True)
+    announce("waiting for real crypto_host container to become ready", 0, timeout)
+    start = time.time()
+    deadline = start + timeout
+    while time.time() < deadline:
+        try:
+            if requests.get(REAL_CRYPTO_STATS_URL, timeout=1).status_code == 200:
+                done_waiting("real crypto_host ready", time.time() - start)
+                return
+        except requests.RequestException:
+            pass
+        time.sleep(0.3)
+    raise RuntimeError(f"real crypto_host did not become ready within {timeout}s of docker start")
 
 
 def start_actor(name, timeout=15):
@@ -105,6 +196,23 @@ def hard_kill_actor(name):
             del monitor._processes[name]
     if actor in launched:
         launched.remove(actor)
+
+
+def reset_crypto_breaker():
+    """Tells router_1 crypto_host is back *now*, instead of letting its breaker discover that on
+    its own self-renewing cooldown clock (crypto_client.py's CryptoClient.validate() re-arms
+    _open_until on every failed probe with no awareness of restarts - see
+    project_resilience_hard_soak.md memory's after_kill spillover writeup, 2026-08-30). Called
+    right after start_actor("crypto_host") has already confirmed the real service port is open
+    (monitor.wait_for_ready's _service_port_open probe) - that confirmation is the "event" this
+    is event-driven off of. Best-effort: a stopped router or a request hiccup here just means the
+    breaker falls back to its own clock, same as before this existed."""
+    actor = get_actor("router_1")
+    port = actor["command_port"]
+    try:
+        requests.post(f"http://127.0.0.1:{port}/crypto/reset_breaker", timeout=3)
+    except requests.RequestException as e:
+        print(f"  (crypto breaker reset failed, falling back to its own cooldown clock: {e})")
 
 
 def teardown():
@@ -156,72 +264,121 @@ def run_stress_window(label, duration_s, tps=TPS_TARGET, warmup_s=0):
         u_stats = stress_stats("upstream_1") or {}
         conns = r_stats.get("connections", {})
         gauges = r_stats.get("gauges", {})
+        # Rolling (not per-window) p50/max per hop - see shared/stats.py's record_latency -
+        # pinpoints WHERE time goes (queue wait for a free worker vs. the crypto/downstream
+        # calls themselves) instead of guessing from queue_depth/errors alone.
+        latency = r_stats.get("latency", {})
+
+        def hop(name):
+            b = latency.get(name)
+            return f"{name}=p50:{b['p50_ms']}/max:{b['max_ms']}" if b else f"{name}=n/a"
+
         print(
             f"[{_now_str()}] router_1: connections={conns} queue_depth={gauges.get('queue_depth')} "
             f"response_queue_depth={gauges.get('response_queue_depth')} "
             f"advice_queue_depth={gauges.get('advice_queue_depth')} "
             f"advice_response_queue_depth={gauges.get('advice_response_queue_depth')} "
-            f"pending_count={gauges.get('pending_count')} | upstream_1: "
+            f"pending_count={gauges.get('pending_count')} | hops(ms): {hop('queue_wait')} "
+            f"{hop('crypto_rtt')} {hop('downstream_rtt')} {hop('total')} | upstream_1: "
             f"achieved_tps={u_stats.get('achieved_tps')} sent={u_stats.get('sent')} "
-            f"received={u_stats.get('received')} errors={u_stats.get('errors')}"
+            f"received={u_stats.get('received')} errors={u_stats.get('errors')} | advice: "
+            f"0120 sent={u_stats.get('advice_0120_sent')}/acked={u_stats.get('advice_0120_acked')} "
+            f"0420 sent={u_stats.get('advice_0420_sent')}/acked={u_stats.get('advice_0420_acked')}"
         )
 
     narrated_sleep(GRACE_S, f"{label}: letting the window's tail settle before reading final stats")
     final = stress_stats("upstream_1") or {}
     print(f"{label}: sent={final.get('sent')} received={final.get('received')} "
-          f"errors={final.get('errors')} achieved_tps={final.get('achieved_tps')}")
+          f"errors={final.get('errors')} achieved_tps={final.get('achieved_tps')} | advice: "
+          f"0120 sent={final.get('advice_0120_sent')}/acked={final.get('advice_0120_acked')} "
+          f"0420 sent={final.get('advice_0420_sent')}/acked={final.get('advice_0420_acked')}")
     return final
 
 
 def record_stage(label, duration_s, final):
     row = (
-        f"router_py_{label};{TPS_TARGET};{duration_s};{final.get('sent', 0)};"
+        f"{IMPL_LABEL}_{label};{TPS_TARGET};{duration_s};{final.get('sent', 0)};"
         f"{final.get('received', 0)};{final.get('errors', 0)};{final.get('achieved_tps', 0)};"
         f"{final.get('p50_ms', 0)};{final.get('p90_ms', 0)};{final.get('p95_ms', 0)};"
-        f"{final.get('p99_ms', 0)};{final.get('max_ms', 0)}"
+        f"{final.get('p99_ms', 0)};{final.get('max_ms', 0)};{final.get('advice_0120_sent', 0)};"
+        f"{final.get('advice_0120_acked', 0)};{final.get('advice_0420_sent', 0)};"
+        f"{final.get('advice_0420_acked', 0)}"
     )
     record_result(row)
 
 
 def main():
-    minutes = float(sys.argv[1]) if len(sys.argv) > 1 else 10
-    crypto_fail_minutes = float(sys.argv[2]) if len(sys.argv) > 2 else 2
-    during_kill_s = int(crypto_fail_minutes * 60)
+    global REAL_CRYPTO, IMPL_LABEL
+    args = sys.argv[1:]
+    if "--stub-crypto" in args:
+        args = [a for a in args if a != "--stub-crypto"]
+        REAL_CRYPTO = False
+        IMPL_LABEL = "router_py"
+
+    minutes = float(args[0]) if len(args) > 0 else 2
+    crypto_fail_arg = args[1] if len(args) > 1 else ""
+    explicit_crypto_fail = crypto_fail_arg.strip() != ""
+
     total_s = int(minutes * 60)
-    after_kill_s = total_s - BEFORE_KILL_S - during_kill_s
-    if after_kill_s < MIN_AFTER_KILL_S:
+    before_kill_s = max(BEFORE_KILL_MIN_S, round(total_s * BEFORE_KILL_FRACTION))
+    if explicit_crypto_fail:
+        crypto_fail_minutes = float(crypto_fail_arg)
+        during_kill_s = int(crypto_fail_minutes * 60)
+    else:
+        during_kill_s = max(DURING_KILL_MIN_S, round(total_s * DURING_KILL_FRACTION))
+        crypto_fail_minutes = during_kill_s / 60
+    after_kill_s = total_s - before_kill_s - during_kill_s
+    if after_kill_s < AFTER_KILL_MIN_S:
         print(
-            f"ERROR: {minutes:.1f} min total isn't enough for a {BEFORE_KILL_S}s before_kill "
-            f"stage + {during_kill_s}s during_kill (--crypto_fail_minutes={crypto_fail_minutes}) "
-            f"+ a >={MIN_AFTER_KILL_S}s after_kill stage. Increase minutes or lower "
-            f"crypto_fail_minutes.", file=sys.stderr,
+            f"ERROR: {minutes:.1f} min total isn't enough for a {before_kill_s}s before_kill "
+            f"stage + {during_kill_s}s during_kill (crypto_fail_minutes={crypto_fail_minutes:.2f}"
+            f"{'' if explicit_crypto_fail else ', auto'}) + a >={AFTER_KILL_MIN_S}s after_kill "
+            f"stage. Increase minutes or lower --crypto_fail_minutes.", file=sys.stderr,
         )
         sys.exit(1)
 
-    print(f"[{_now_str()}] soak_resilience_hard.py starting - {minutes:.0f} min total: "
-          f"{BEFORE_KILL_S}s before_kill, {during_kill_s}s during_kill "
-          f"(crypto_fail_minutes={crypto_fail_minutes}), {after_kill_s}s after_kill.")
+    print(f"[{_now_str()}] soak_resilience_hard.py starting - {minutes:.1f} min total: "
+          f"{before_kill_s}s before_kill, {during_kill_s}s during_kill "
+          f"(crypto_fail_minutes={crypto_fail_minutes:.2f}"
+          f"{'' if explicit_crypto_fail else ', auto'}), {after_kill_s}s after_kill.")
     print("  Every wait below is announced first with an expected min/max duration, and confirmed")
     print("  done afterward - nothing here is a silent gap.")
 
     try:
-        for name in ["crypto_host", "downstream_host", "router_1", "upstream_1"]:
+        if REAL_CRYPTO:
+            ensure_real_crypto_up()
+            print(f"[{_now_str()}] using the real, shared crypto_host container (port 5099/8099) "
+                  f"- router_1 pointed at it via {ROUTER_1_REAL_CRYPTO_CONFIG} "
+                  f"(pass --stub-crypto for the local Flask stub instead)")
+            get_actor("router_1")["config_path"] = ROUTER_1_REAL_CRYPTO_CONFIG
+            actor_names = ["downstream_host", "router_1", "upstream_1"]
+        else:
+            print(f"[{_now_str()}] --stub-crypto: using the local Flask crypto_host stub")
+            actor_names = ["crypto_host", "downstream_host", "router_1", "upstream_1"]
+        for name in actor_names:
             start_actor(name)
         narrated_sleep(2, "letting the topology settle before sustained traffic")
 
         before_advice = count_advice_log_lines()
-        before_final = run_stress_window("before_kill", BEFORE_KILL_S, warmup_s=10)
-        record_stage("before_kill", BEFORE_KILL_S, before_final)
+        before_final = run_stress_window("before_kill", before_kill_s, warmup_s=10)
+        record_stage("before_kill", before_kill_s, before_final)
 
         print("\n=== hard-killing crypto_host ===")
-        hard_kill_actor("crypto_host")
+        if REAL_CRYPTO:
+            docker_kill_crypto_host()
+        else:
+            hard_kill_actor("crypto_host")
 
         during_final = run_stress_window("during_kill", during_kill_s)
         record_stage("during_kill", during_kill_s, during_final)
         during_advice = count_advice_log_lines()
 
         print("\n=== restarting crypto_host ===")
-        start_actor("crypto_host")
+        if REAL_CRYPTO:
+            docker_start_crypto_host()
+        else:
+            start_actor("crypto_host")
+        reset_crypto_breaker()
 
         after_final = run_stress_window("after_kill", after_kill_s)
         record_stage("after_kill", after_kill_s, after_final)

@@ -1,8 +1,11 @@
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <exception>
+#include <map>
 #include <memory>
 #include <thread>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 
@@ -36,6 +39,15 @@ void send_json(httplib::Response& res, int status, const json& obj) {
     res.set_header("Content-Type", "application/json");
     res.set_content(obj.dump(), "application/json");
     res.status = status;
+}
+
+bool is_no_response_chaos(
+    const std::string& pan, const std::string& operation,
+    const std::map<std::string, std::vector<std::string>>& no_response_pans) {
+    auto it = no_response_pans.find(pan);
+    if (it == no_response_pans.end()) return false;
+    const auto& ops = it->second;
+    return std::find(ops.begin(), ops.end(), operation) != ops.end();
 }
 
 
@@ -178,10 +190,25 @@ int main(int argc, char** argv) {
                 try {
                     auto body = json::parse(req.body);
                     std::string pan = body.at("f2").get<std::string>();
+                    std::string operation = body.value("operation", std::string(""));
                     std::string f47_str = body.value("f47", std::string(""));
                     router_stan = body.value("router_stan", std::string(""));
                     json f47 = iso_codec::f47_decode(f47_str);
                     stats.record_recv();
+
+                    if (is_no_response_chaos(pan, operation, cfg.crypto.no_response_pans)) {
+                        // Bounded, not forever - the caller's own timeout (CryptoClient's
+                        // request-leg default / short response-leg default) always decides the
+                        // caller-visible outcome well before this fires; the bound only reclaims
+                        // this server thread instead of leaking it - see router_py's
+                        // simulators/crypto_host/main.py::no_response_pans, same rationale and
+                        // same 2s bound.
+                        LOG_WARNING("chaos: simulating no response for pan=" + pan +
+                                    " operation=" + operation + " router_stan=" + router_stan);
+                        std::this_thread::sleep_for(std::chrono::seconds(2));
+                        send_json(res, 504, {{"error", "chaos: no response"}});
+                        return;
+                    }
 
                     json enriched = validate(pan, f47, pans);
                     LOG_DEBUG("validated pan=" + pan + " router_stan=" + router_stan);

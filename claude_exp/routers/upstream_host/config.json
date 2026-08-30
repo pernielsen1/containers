@@ -24,5 +24,6 @@
   "advice_timeout_seconds": 1.0,
   "advice_max_retries": 5,
   "advice_backoff_multiplier": 15.0,
+  "advice_reversal_percentage": 10,
   "error_csv": "error_0120_0420.csv"
 }

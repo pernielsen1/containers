@@ -119,15 +119,18 @@ void Dispatcher::process(RoutedMessage& msg) {
     if (mti == "0100") {
         std::string f47 = req.count("47") ? req.at("47") : "";
         auto crypto_start = std::chrono::steady_clock::now();
-        std::string enriched = crypto_.validate("validate_0100", pan, f47, router_stan);
+        std::optional<std::string> enriched = crypto_.validate("validate_0100", pan, f47, router_stan);
         double crypto_ms =
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - crypto_start).count();
         stats_.record_latency("crypto_rtt", crypto_ms);
         if (tracing) {
             trace_.hop(router_stan, "crypto_call", nullptr,
-                       {{"crypto_ms", std::round(crypto_ms * 1000.0) / 1000.0}, {"enriched", !enriched.empty()}});
+                       {{"crypto_ms", std::round(crypto_ms * 1000.0) / 1000.0},
+                        {"enriched", enriched.has_value() && !enriched->empty()}});
         }
-        if (!enriched.empty()) fwd["47"] = enriched;
+        // briefs/resilience_v2.md: crypto_host is allowed to fail open on the request leg - both
+        // a genuine failure (nullopt) and a legitimate no-op ("") mean "don't overwrite f47".
+        if (enriched.has_value() && !enriched->empty()) fwd["47"] = *enriched;
     }
     fwd["11"] = router_stan;
 
@@ -197,15 +200,29 @@ void Dispatcher::handle_response(const std::map<std::string, std::string>& resp,
         std::string pan = fwd.count("2") ? fwd.at("2") : "";
         std::string f47 = fwd.count("47") ? fwd.at("47") : "";
         auto crypto_start = std::chrono::steady_clock::now();
-        std::string enriched = crypto_.validate("validate_0110", pan, f47, router_stan);
+        std::optional<std::string> enriched = crypto_.validate("validate_0110", pan, f47, router_stan);
         double crypto_ms =
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - crypto_start).count();
         stats_.record_latency("crypto_rtt", crypto_ms);
         if (tracing) {
             trace_.hop(router_stan, "crypto_call", nullptr,
-                       {{"crypto_ms", std::round(crypto_ms * 1000.0) / 1000.0}, {"enriched", !enriched.empty()}});
+                       {{"crypto_ms", std::round(crypto_ms * 1000.0) / 1000.0},
+                        {"enriched", enriched.has_value() && !enriched->empty()}});
         }
-        if (!enriched.empty()) fwd["47"] = enriched;
+        if (!enriched.has_value()) {
+            // briefs/resilience_v2.md: crypto_host is allowed to fail open on the request leg
+            // (above), but a genuine failure here on the response leg means the cardholder's
+            // decision was never validated - drop the 0110 rather than forward it unvalidated.
+            // Upstream never gets a reply, times out on its own advice_timeout_seconds, and falls
+            // back to 0420/0120 store-and-forward - the whole point of the crypto_host-kill chaos
+            // scenario.
+            throttle_.log(shared::LogLevel::Warning, "validate_0110_failed",
+                          "dispatcher: validate_0110 failed for router_stan=" + router_stan +
+                              " - dropping response, upstream will time out and fall back to advice/reversal");
+            if (tracing) trace_.finish(router_stan);
+            return;
+        }
+        if (!enriched->empty()) fwd["47"] = *enriched;
     }
 
     try {

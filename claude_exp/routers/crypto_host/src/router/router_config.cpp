@@ -66,6 +66,11 @@ CryptoConfig parse_crypto(const nlohmann::json& j, const std::filesystem::path& 
     cfg.certfile = resolve_path(base_dir, j.value("certfile", std::string("")));
     cfg.keyfile = resolve_path(base_dir, j.value("keyfile", std::string("")));
     cfg.cafile = resolve_path(base_dir, j.value("cafile", std::string("")));
+    if (j.contains("no_response_pans")) {
+        for (auto& [pan, ops] : j.at("no_response_pans").items()) {
+            cfg.no_response_pans[pan] = ops.get<std::vector<std::string>>();
+        }
+    }
     return cfg;
 }
 
