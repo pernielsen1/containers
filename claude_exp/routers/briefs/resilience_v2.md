@@ -153,3 +153,41 @@ PAN+matching operation -> ~2.06s then 504 "chaos: no response"; same PAN with th
 any ordinary PAN -> normal fast 200. Existing `crypto_host_tests` (17 assertions) still pass. Only the
 capability was added here - `test_resilience.py` itself is not yet wired to target the real container
 (still stub-only), same follow-up as `soak_resilience_hard.py` was before this session.
+
+## crypto idle-timeout fix, then a full 10-minute hard soak surfaces a *different*, unfixed staleness bug (2026-08-30)
+`crypto_host` (cpp-httplib) closes a keep-alive connection after its own ~5s idle timeout, regardless
+of the breaker - reproduced directly: after any ~5s+ traffic lull (e.g. this soak's own tail-settle
+sleep between stress windows), reusing a thread-local cached connection failed with `SSLEOFError` -
+silent/fails-open on the request leg, but drops the response entirely on the response leg (same drop
+behavior as the already-known `validate_0110` case). Fixed in `crypto_client.py`'s `_get_connection()`:
+track per-thread `last_used` (monotonic), proactively discard+rebuild a connection idle past
+`idle_timeout_seconds` (default 4.0s, under crypto_host's ~5s) - anticipate staleness, don't discover
+it by failing first, same principle as the 2026-08-29 generation check. 2 new tests in
+`test_crypto_breaker.py`, 8/8 passing.
+
+Ran the full 10-minute `--real-crypto` hard soak (90s/210s/300s before/during/after @ 100 TPS) right
+after to confirm the fix didn't disturb anything. `during_kill` (19418 sent, 0 received, 100% errors,
+~92 achieved TPS) and `after_kill` (27878/27878, 0 errors, p50 11.5ms / p99 12.9ms / max 107.6ms) both
+match the known-clean 100 TPS pattern above exactly - no new failures, `during_kill`'s 100%-error is
+the already-documented `validate_0110`-drops-on-crypto-failure behavior, not a regression.
+
+But `before_kill` came back 0 sent / 0 received / 0.0 achieved TPS - the entire first stage produced
+zero traffic, which fails `soak_resilience_hard.py`'s own pass/fail gate (needs `before_kill`/
+`after_kill` >=95 TPS). **Root cause, from reading the code (not yet confirmed live)**:
+`upstream_host/main.py`'s `_send_loop` aborts the whole stress window permanently on its very first
+failed write - no retry, no reconnect attempt within that run. Reconnection of the
+upstream_1<->router_1 link is only ever triggered by a *read*-side `ConnectionError`
+(`_receive_loop` sets `disc_evt`); a write failure alone (`_write_frame` catches `OSError`, returns
+`False`) never sets it, so a connection that died from the write side first is never noticed or
+reconnected on its own - `wait_for_ready()`'s upstream check just trusts a `connections.router` flag
+this same broken loop can leave stuck "true". If the connection had gone stale during the idle gap
+between back-to-back soak invocations, the very first `/start` of a fresh run could grab that dead
+cached connection, fail its first write, and give up for the rest of the stage - while the read side
+detects the same break moments later and `_client_connect_loop` reconnects in time for the *next*
+stage's fresh `/start` (explaining why `during_kill`/`after_kill` worked fine in the same run). Same
+*class* of bug as the crypto-idle-timeout fix above (a cached connection goes stale, nothing
+proactively validates it before use), just on a different connection, and **not yet fixed** - only
+diagnosed by reading `upstream_host/main.py`, not reproduced live. Next step: either have `_send_loop`
+retry-and-reconnect once on its first write failure instead of exiting silently, or have
+`wait_for_ready`'s upstream check actually validate the connection is live rather than trusting the
+flag.

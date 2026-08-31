@@ -39,6 +39,7 @@ class CryptoClient:
         breaker_threshold: int = 5,
         breaker_cooldown_seconds: int = 30,
         timeout_seconds: float = 5.0,
+        idle_timeout_seconds: float = 4.0,
     ):
         self._ssl_active = getattr(cfg, "ssl_active", False)
         # Request-leg (validate_0100) and response-leg (validate_0110) callers use separate
@@ -79,6 +80,20 @@ class CryptoClient:
         # dead connection is forgotten and the call fails, on the theory that recovering *this*
         # transaction isn't the goal - having a fresh connection ready for the next one is.
         self._generation = 0
+        # Separate from the generation check above: a connection can go stale without any breaker
+        # event at all, just from an ordinary traffic lull - crypto_host (cpp-httplib) closes a
+        # keep-alive connection after its own idle timeout (5s default, not overridden - only
+        # keep_alive_max_count was raised, see crypto_host_main.cpp's NOTE), and a thread-local
+        # HTTPSConnection has no way to learn that from the client side short of trying it.
+        # Reproduced directly: after any ~5s+ gap in traffic (e.g. resilience soak's tail-settle
+        # sleep between stress windows), the next reuse of an idle worker thread's cached
+        # connection fails with SSLEOFError on both validate_0100 and validate_0110 - silent on
+        # the request leg (fails open) but drops the response entirely on the response leg, so a
+        # perfectly healthy crypto_host looks like an outage right after every lull. Tracking
+        # last-used time per thread and discarding proactively before crypto_host's own timeout
+        # can hit applies the same "anticipate staleness, don't discover it by failing first"
+        # principle the generation check already uses, just against a timer instead of an event.
+        self._idle_timeout_seconds = idle_timeout_seconds
 
     def _new_connection(self) -> http.client.HTTPConnection:
         if self._ssl_active:
@@ -90,15 +105,19 @@ class CryptoClient:
     def _get_connection(self) -> http.client.HTTPConnection:
         with self._lock:
             current_generation = self._generation
+        now = time.monotonic()
         conn = getattr(self._thread_local, "conn", None)
         conn_generation = getattr(self._thread_local, "conn_generation", -1)
-        if conn is not None and conn_generation != current_generation:
+        last_used = getattr(self._thread_local, "last_used", None)
+        idle_too_long = last_used is not None and (now - last_used) > self._idle_timeout_seconds
+        if conn is not None and (conn_generation != current_generation or idle_too_long):
             conn.close()
             conn = None
         if conn is None:
             conn = self._new_connection()
             self._thread_local.conn = conn
             self._thread_local.conn_generation = current_generation
+        self._thread_local.last_used = now
         return conn
 
     def _forget_connection(self) -> None:

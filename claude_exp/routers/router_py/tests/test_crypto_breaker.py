@@ -173,3 +173,40 @@ def test_cached_connection_discarded_once_breaker_opens():
     assert conn is fresh
     assert stale.request_count == 0  # never reused
     assert client._thread_local.conn_generation == 1
+
+
+def test_cached_connection_discarded_after_idle_timeout():
+    """A connection can go stale without any breaker event at all: crypto_host (cpp-httplib)
+    closes idle keep-alive connections on its own timeout (5s default), independent of whether
+    this client ever saw a failure. Reproduced directly against the real crypto_host container -
+    the first request after any ~5s+ traffic lull (e.g. a soak's tail-settle sleep between stress
+    windows) failed with SSLEOFError on a reused connection. _get_connection() must proactively
+    discard a connection that's been idle past idle_timeout_seconds, the same way it discards one
+    from a stale generation - anticipated, not discovered by failing first."""
+    client = CryptoClient(_UnreachableCfg(), breaker_threshold=5, breaker_cooldown_seconds=5, idle_timeout_seconds=0.05)
+    stale = _FakeConnection(_success_response())
+    client._thread_local.conn = stale
+    client._thread_local.conn_generation = client._generation
+    client._thread_local.last_used = time.monotonic() - 1.0  # well past the 0.05s idle timeout
+
+    fresh = _FakeConnection(_success_response())
+    client._new_connection = lambda: fresh
+
+    conn = client._get_connection()
+
+    assert conn is fresh
+    assert stale.request_count == 0  # never reused
+
+
+def test_recently_used_connection_is_not_discarded():
+    """The idle-timeout check must not evict a connection that's still within its idle budget -
+    only genuinely idle-too-long connections get discarded."""
+    client = CryptoClient(_UnreachableCfg(), breaker_threshold=5, breaker_cooldown_seconds=5, idle_timeout_seconds=10.0)
+    active = _FakeConnection(_success_response())
+    client._thread_local.conn = active
+    client._thread_local.conn_generation = client._generation
+    client._thread_local.last_used = time.monotonic()
+
+    conn = client._get_connection()
+
+    assert conn is active
