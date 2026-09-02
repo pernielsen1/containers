@@ -203,3 +203,6 @@
 2026-08-30T22:10:14+02:00;LAPTOP-P5P268SM;router_py_real_crypto_before_kill;100;90;None;None;None
 2026-08-30T22:13:52+02:00;LAPTOP-P5P268SM;router_py_real_crypto_during_kill;100;210;None;None;None
 2026-08-30T22:19:00+02:00;LAPTOP-P5P268SM;router_py_real_crypto_after_kill;100;300;11,47;11,88;12,86
+2026-09-02T19:21:25+02:00;per-nielsen-X541NA;router_py_real_crypto_before_kill;100;18;10,63;11,14;12,15
+2026-09-02T19:22:14+02:00;per-nielsen-X541NA;router_py_real_crypto_during_kill;100;42;None;None;None
+2026-09-02T19:23:22+02:00;per-nielsen-X541NA;router_py_real_crypto_after_kill;100;60;12,06;12,24;13,34
