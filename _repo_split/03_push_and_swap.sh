@@ -37,7 +37,13 @@ fi
 
 echo "[1/5] Adding remote and pushing $EXTRACT_DIR to $REPO_URL ..."
 cd "$EXTRACT_DIR"
-git remote add origin "$REPO_URL"
+# idempotent: 'gh repo create --source=. --remote=origin' already adds 'origin' for you - only add
+# it here if it's missing, rather than failing on "remote origin already exists".
+if git remote get-url origin >/dev/null 2>&1; then
+  echo "  (origin already set to $(git remote get-url origin) - leaving it as-is)"
+else
+  git remote add origin "$REPO_URL"
+fi
 git push -u origin main
 
 echo
