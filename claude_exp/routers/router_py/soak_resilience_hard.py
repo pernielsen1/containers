@@ -53,18 +53,18 @@ Usage: python3 soak_resilience_hard.py [minutes] [crypto_fail_minutes] [--stub-c
                          memory, 2026-08-29) deliberately.
 Default (no flag): runs against the real, shared C++ crypto_host container (routers/crypto_host,
 port 5099/8099 - the one run_soak.sh/stress_run.sh use) - simplest path for a normal run, and the
-container doesn't have the stub's capacity ceiling (confirmed clean at 80 TPS, 2026-08-30). That
-container has to already be up (crypto_host/start.sh) - this script only docker-kills/docker-starts
-it, it does not build or first-start it. router_1 is pointed at it via
+container doesn't have the stub's capacity ceiling (confirmed clean at 80 TPS, 2026-08-30). This
+script starts that container itself (crypto_host/start.sh, idempotent) if it isn't already up -
+see ensure_real_crypto_up() - then docker-kills/docker-starts it during the run. router_1 is pointed at it via
 router/router_1/config_perf.json (already used/verified by stress_run.sh's perf runs) instead of the
 default config.json.
 Output: console narration plus THREE rows in routers/csv_results/soak_results.csv +
 soak_summary.csv, implementation="router_py_real_crypto_before_kill" / "..._during_kill" /
 "..._after_kill" by default, or "router_py_before_kill" / etc. with --stub-crypto - the two capacity
 profiles never land under the same label.
-Prerequisite: the real crypto_host container already running (crypto_host/start.sh) - unless
---stub-crypto is passed, in which case none of the actors (including crypto_host) need to be
-running yet, this script starts the full local stack itself.
+Unless --stub-crypto is passed, this script starts the real crypto_host container itself
+(crypto_host/start.sh, idempotent) as part of its startup sequence if it isn't already up - no
+manual prerequisite step needed.
 """
 import os
 import subprocess
@@ -110,6 +110,15 @@ BEFORE_KILL_MIN_S = 15
 DURING_KILL_FRACTION = 0.35  # used only when --crypto_fail_minutes isn't passed explicitly
 DURING_KILL_MIN_S = 15
 AFTER_KILL_MIN_S = 20
+# before_kill's own warmup_s (real traffic, discarded before the measured window starts - see
+# run_stress_window/_run_with_warmup). Raised 10->30 (2026-09-05): back-to-back same-session runs
+# showed before_kill's own p50 keep dropping run over run (~11.6ms cold -> ~3.5-3.8ms after a
+# couple of full runs) well past what a 10s warmup absorbed - host-level warm-up (CPU/scheduler,
+# page cache - not crypto_host's own state, which never restarted across those runs), not
+# something a container restart fixes. A longer in-run warmup makes each run settle to steady
+# state on its own, so a single run's before_kill number is comparable regardless of what ran
+# immediately before it in the same session.
+BEFORE_KILL_WARMUP_S = 30
 
 # Real-crypto mode (default - see module docstring / --stub-crypto): the real container's command
 # API, docker container name (docker-compose.yml's container_name), and the router_1 config that
@@ -121,25 +130,30 @@ ROUTER_1_REAL_CRYPTO_CONFIG = os.path.join(PROJECT_ROOT, "router", "router_1", "
 
 REAL_CRYPTO = True  # default on - see --stub-crypto in main(); read by record_stage() for the CSV label
 IMPL_LABEL = "router_py_real_crypto"
+COMMENT = ""  # optional --comment "text", written verbatim to soak_results.csv/soak_summary.csv
 
 launched = []  # actors this script itself started - only these get torn down at the end
 
 
 def ensure_real_crypto_up():
-    """This script doesn't build or first-start the shared container - crypto_host/start.sh is the
-    user's own step (docker compose up -d --build, idempotent) - this only checks it's already
-    reachable, same check/message run_soak.sh already uses before its own perf runs."""
+    """Startup step, same as the actor-readiness waits right after this - if the shared container
+    (crypto_host/start.sh's docker compose up -d --build, idempotent) isn't already up, start it
+    ourselves instead of erroring out, matching run_soak.sh's local-branch behavior."""
     try:
         if requests.get(REAL_CRYPTO_STATS_URL, timeout=2).status_code == 200:
             return
     except requests.RequestException:
         pass
     print(
-        "ERROR: shared crypto_host (port 8099) is not responding - start it first:\n"
-        "  cd crypto_host && ./start.sh",
+        "shared crypto_host (port 8099) is not responding - starting it "
+        "(idempotent no-op if already up)...",
         file=sys.stderr,
     )
-    sys.exit(1)
+    start_sh = os.path.join(os.path.dirname(PROJECT_ROOT), "crypto_host", "start.sh")
+    subprocess.run([start_sh], check=True)
+    if requests.get(REAL_CRYPTO_STATS_URL, timeout=2).status_code != 200:
+        print(f"ERROR: {start_sh} ran but crypto_host still isn't responding", file=sys.stderr)
+        sys.exit(1)
 
 
 def docker_kill_crypto_host():
@@ -304,16 +318,24 @@ def record_stage(label, duration_s, final):
         f"{final.get('advice_0120_acked', 0)};{final.get('advice_0420_sent', 0)};"
         f"{final.get('advice_0420_acked', 0)}"
     )
-    record_result(row)
+    record_result(row, comment=COMMENT)
 
 
 def main():
-    global REAL_CRYPTO, IMPL_LABEL
+    global REAL_CRYPTO, IMPL_LABEL, COMMENT
     args = sys.argv[1:]
     if "--stub-crypto" in args:
         args = [a for a in args if a != "--stub-crypto"]
         REAL_CRYPTO = False
         IMPL_LABEL = "router_py"
+
+    if "--comment" in args:
+        i = args.index("--comment")
+        if i + 1 >= len(args):
+            print("ERROR: --comment requires a value", file=sys.stderr)
+            sys.exit(1)
+        COMMENT = args[i + 1]
+        args = args[:i] + args[i + 2:]
 
     minutes = float(args[0]) if len(args) > 0 else 2
     crypto_fail_arg = args[1] if len(args) > 1 else ""
@@ -360,7 +382,7 @@ def main():
         narrated_sleep(2, "letting the topology settle before sustained traffic")
 
         before_advice = count_advice_log_lines()
-        before_final = run_stress_window("before_kill", before_kill_s, warmup_s=10)
+        before_final = run_stress_window("before_kill", before_kill_s, warmup_s=BEFORE_KILL_WARMUP_S)
         record_stage("before_kill", before_kill_s, before_final)
 
         print("\n=== hard-killing crypto_host ===")

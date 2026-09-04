@@ -16,7 +16,7 @@
 # host-mode crypto_host stub instead (starts/kills/restarts it itself, no docker needed) - see
 # soak_resilience_hard.py's docstring.
 #
-# Usage: ./run_soak_resilience_hard.sh [number_of_minutes] [--crypto_fail_minutes N] [--stub-crypto]
+# Usage: ./run_soak_resilience_hard.sh [number_of_minutes] [--crypto_fail_minutes N] [--stub-crypto] [--comment TEXT]
 #   number_of_minutes     total soak duration, in minutes (default 2 - kept low so experimenting
 #                         doesn't carry the overhead of a full soak; before_kill/during_kill/
 #                         after_kill stage lengths all scale off this, see soak_resilience_hard.py).
@@ -24,6 +24,8 @@
 #                         (see soak_resilience_hard.py) rather than a fixed value - pass this to
 #                         pin it explicitly instead (e.g. the brief's real-world 2 minutes).
 #   --stub-crypto          use the local Flask crypto_host stub instead of the real container.
+#   --comment TEXT         free-text label written to soak_results.csv/soak_summary.csv's comment
+#                         column for all three rows this run produces (e.g. "baseline 20260904").
 # Output: console narration plus THREE rows in routers/csv_results/soak_results.csv +
 # soak_summary.csv (implementation="router_py_real_crypto_before_kill" / "_during_kill" /
 # "_after_kill" by default, or "router_py_before_kill" / etc. with --stub-crypto).
@@ -34,6 +36,7 @@ ROUTERS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NUM_MINUTES=2
 CRYPTO_FAIL_MINUTES=""
 STUB_CRYPTO=0
+COMMENT=""
 POSITIONAL_SET=0
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -47,6 +50,14 @@ while [ $# -gt 0 ]; do
       ;;
     --stub-crypto)
       STUB_CRYPTO=1
+      shift
+      ;;
+    --comment)
+      COMMENT="$2"
+      shift 2
+      ;;
+    --comment=*)
+      COMMENT="${1#*=}"
       shift
       ;;
     *)
@@ -63,7 +74,10 @@ EXTRA_ARGS=()
 if [ "$STUB_CRYPTO" -eq 1 ]; then
   EXTRA_ARGS+=("--stub-crypto")
 fi
+if [ -n "$COMMENT" ]; then
+  EXTRA_ARGS+=("--comment" "$COMMENT")
+fi
 
-echo "run_soak_resilience_hard.sh: ${NUM_MINUTES} min total, crypto_fail_minutes=${CRYPTO_FAIL_MINUTES:-auto}, stub_crypto=${STUB_CRYPTO}"
+echo "run_soak_resilience_hard.sh: ${NUM_MINUTES} min total, crypto_fail_minutes=${CRYPTO_FAIL_MINUTES:-auto}, stub_crypto=${STUB_CRYPTO}, comment=${COMMENT:-<none>}"
 cd "$ROUTERS_ROOT/router_py" || exit 1
 exec python3 soak_resilience_hard.py "$NUM_MINUTES" "$CRYPTO_FAIL_MINUTES" "${EXTRA_ARGS[@]}"

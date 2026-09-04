@@ -9,11 +9,13 @@
 # errors) at 100 tps/600s directly, so the earlier 5-minute 100-vs-80 tps validation phase this
 # script used to run first has been removed.
 #
-# Usage: ./run_soak.sh [number_of_minutes]
+# Usage: ./run_soak.sh [number_of_minutes] [--comment TEXT]
 #   number_of_minutes: duration of each phase, in minutes (default 10). Cooldown between phases
 #   is number_of_minutes / 5 minutes.
-# Prerequisite: routers/crypto_host must already be running (./crypto_host/start.sh if not -
-# idempotent, no-ops if already up).
+#   --comment TEXT: free-text label written to soak_results.csv/soak_summary.csv's comment column
+#   for every row this run produces (e.g. "baseline 20260904").
+# Starts routers/crypto_host itself (./crypto_host/start.sh, idempotent - no-ops if already up)
+# before phase 1 if it isn't already responding, so this never depends on a prior manual step.
 set -uo pipefail
 
 ROUTERS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,22 +29,41 @@ ENV_NAME="${ENV_NAME:-$(hostname)}"
 # convenience only, not the source of truth for stress/soak runs.
 CSV_FILE="$ROUTERS_ROOT/test_csv_files/test.csv"
 
-NUM_MINUTES="${1:-10}"
+NUM_MINUTES=10
+COMMENT=""
+POSITIONAL_SET=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --comment)
+      COMMENT="$2"
+      shift 2
+      ;;
+    --comment=*)
+      COMMENT="${1#*=}"
+      shift
+      ;;
+    *)
+      if [ "$POSITIONAL_SET" -eq 0 ]; then
+        NUM_MINUTES="$1"
+        POSITIONAL_SET=1
+      fi
+      shift
+      ;;
+  esac
+done
 DURATION_S=$(python3 -c "print(int(${NUM_MINUTES} * 60))")
 COOLDOWN_S=$(python3 -c "print(${NUM_MINUTES} * 60 / 5)")
 
-# Per-phase results (full row) and a p50/p90/p99-only summary, both semicolon-separated with a
-# comma decimal point (European convention, matches every other CSV this user works with) and a
-# utf-8-sig BOM so they open cleanly in Excel.
+# Per-phase results (full row) and a p50/p90/p99-only summary land in csv_results/soak_results.csv
+# / soak_summary.csv - schema, header, and formatting (semicolon-separated, comma-decimal,
+# utf-8-sig BOM) are owned by router_py/soak_result_csv.py's record_result(), not reimplemented
+# here - see record_result() below. Keeps exactly one place that knows this format, instead of a
+# second hand-synced bash copy that has to be updated every time a column changes (see the
+# comment column: previously added independently on both sides).
 mkdir -p "$ROUTERS_ROOT/csv_results"
 SOAK_RESULTS_CSV="$ROUTERS_ROOT/csv_results/soak_results.csv"
 SOAK_SUMMARY_CSV="$ROUTERS_ROOT/csv_results/soak_summary.csv"
-if [ ! -f "$SOAK_RESULTS_CSV" ]; then
-  printf '\xEF\xBB\xBF%s\n' "timestamp;env;implementation;target_tps;duration_s;sent;received;errors;achieved_tps;p50_ms;p90_ms;p95_ms;p99_ms;max_ms" > "$SOAK_RESULTS_CSV"
-fi
-if [ ! -f "$SOAK_SUMMARY_CSV" ]; then
-  printf '\xEF\xBB\xBF%s\n' "timestamp;env;implementation;target_tps;duration_s;p50_ms;p90_ms;p99_ms" > "$SOAK_SUMMARY_CSV"
-fi
+export ENV_NAME  # soak_result_csv.py reads this env var, falling back to os.uname().nodename
 
 wait_for_ports_free() {
   [ "$ROUTER_HOST" != "127.0.0.1" ] && return 0
@@ -67,19 +88,17 @@ wait_for_ports_free() {
   exit 1
 }
 
-# Row from stress_run.sh is dot-decimal (python f-string formatting); comma-decimal versions for
-# the CSV outputs are produced with a plain ${var//./,} substitution - safe here since the row's
-# only other characters are the implementation name and integer fields, neither of which contain
-# a literal '.'.
+# Row from stress_run.sh is the same bare "implementation;target_tps;duration_s;..." shape
+# soak_result_csv.py's record_result() already expects (see its own docstring) - hand it off
+# rather than re-deriving timestamp/env/comma-decimal formatting a second time in bash.
 record_result() {
   local row="$1"
-  local ts
-  ts="$(date -Iseconds)"
-  echo "${ts};${ENV_NAME};${row//./,}" >> "$SOAK_RESULTS_CSV"
-
-  local impl tps dur sent recv err atps p50 p90 p95 p99 mx
-  IFS=';' read -r impl tps dur sent recv err atps p50 p90 p95 p99 mx <<< "$row"
-  echo "${ts};${ENV_NAME};${impl};${tps};${dur};${p50//./,};${p90//./,};${p99//./,}" >> "$SOAK_SUMMARY_CSV"
+  python3 -c "
+import sys
+sys.path.insert(0, sys.argv[1])
+from soak_result_csv import record_result
+record_result(sys.argv[2], comment=sys.argv[3])
+" "$ROUTERS_ROOT/router_py" "$row" "$COMMENT"
 }
 
 run_phase() {
@@ -95,9 +114,8 @@ run_phase() {
 }
 
 if [ "$ROUTER_HOST" = "127.0.0.1" ] && ! curl -sf http://127.0.0.1:8099/stats >/dev/null; then
-  echo "ERROR: shared crypto_host (port 8099) is not responding - start it first:" >&2
-  echo "  cd $ROUTERS_ROOT/crypto_host && ./start.sh" >&2
-  exit 1
+  echo "shared crypto_host (port 8099) is not responding - starting it (idempotent no-op if already up)..." >&2
+  "$ROUTERS_ROOT/crypto_host/start.sh" >&2
 elif [ "$ROUTER_HOST" != "127.0.0.1" ]; then
   echo "Ensuring shared crypto_host is up on $ROUTER_HOST..." >&2
   SERVER_USER="${SERVER_USER:?SERVER_USER must be set for remote soak}" \

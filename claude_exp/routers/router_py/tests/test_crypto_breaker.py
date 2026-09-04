@@ -3,7 +3,7 @@ import json
 import time
 from unittest.mock import MagicMock
 
-from router.crypto_client import CryptoClient
+from router.crypto_client import CryptoClient, _CachedConnection
 
 
 class _UnreachableCfg:
@@ -100,7 +100,9 @@ def test_successful_call_resets_failure_counter():
     client.validate("validate_0100", "4111111111111111", "{}")
     assert client._failure_count == 1
 
-    client._thread_local.conn = _FakeConnection(_success_response())
+    client._thread_local.cached = _CachedConnection(
+        _FakeConnection(_success_response()), client._generation, time.monotonic()
+    )
 
     result = client.validate("validate_0100", "4111111111111111", "{}")
     assert result == '{"response_code":"00"}'
@@ -113,15 +115,14 @@ def test_dead_connection_is_forgotten_not_retried_inline():
     counts toward the breaker, and the *next* call (this thread's or another's) starts clean."""
     client = CryptoClient(_UnreachableCfg(), breaker_threshold=5, breaker_cooldown_seconds=5)
     dying = _DyingConnection()
-    client._thread_local.conn = dying
-    client._thread_local.conn_generation = client._generation
+    client._thread_local.cached = _CachedConnection(dying, client._generation, time.monotonic())
 
     result = client.validate("validate_0100", "4111111111111111", "{}")
 
     assert result is None
     assert dying.request_count == 1  # exactly one attempt - no inline retry
     assert dying.closed  # forgotten, not left cached for reuse
-    assert client._thread_local.conn is None
+    assert client._thread_local.cached is None
     assert client._failure_count == 1
 
 
@@ -158,8 +159,7 @@ def test_cached_connection_discarded_once_breaker_opens():
     before any request is attempted, not discovered by trying and failing."""
     client = CryptoClient(_UnreachableCfg(), breaker_threshold=1, breaker_cooldown_seconds=5)
     stale = _FakeConnection(_success_response())
-    client._thread_local.conn = stale
-    client._thread_local.conn_generation = 0  # cached under the pre-outage generation
+    client._thread_local.cached = _CachedConnection(stale, 0, time.monotonic())  # pre-outage generation
 
     # Simulates another thread having just tripped the breaker - this thread hasn't made a call
     # since, so its cache is still generation 0.
@@ -172,7 +172,7 @@ def test_cached_connection_discarded_once_breaker_opens():
 
     assert conn is fresh
     assert stale.request_count == 0  # never reused
-    assert client._thread_local.conn_generation == 1
+    assert client._thread_local.cached.generation == 1
 
 
 def test_cached_connection_discarded_after_idle_timeout():
@@ -185,9 +185,8 @@ def test_cached_connection_discarded_after_idle_timeout():
     from a stale generation - anticipated, not discovered by failing first."""
     client = CryptoClient(_UnreachableCfg(), breaker_threshold=5, breaker_cooldown_seconds=5, idle_timeout_seconds=0.05)
     stale = _FakeConnection(_success_response())
-    client._thread_local.conn = stale
-    client._thread_local.conn_generation = client._generation
-    client._thread_local.last_used = time.monotonic() - 1.0  # well past the 0.05s idle timeout
+    # well past the 0.05s idle timeout
+    client._thread_local.cached = _CachedConnection(stale, client._generation, time.monotonic() - 1.0)
 
     fresh = _FakeConnection(_success_response())
     client._new_connection = lambda: fresh
@@ -203,9 +202,7 @@ def test_recently_used_connection_is_not_discarded():
     only genuinely idle-too-long connections get discarded."""
     client = CryptoClient(_UnreachableCfg(), breaker_threshold=5, breaker_cooldown_seconds=5, idle_timeout_seconds=10.0)
     active = _FakeConnection(_success_response())
-    client._thread_local.conn = active
-    client._thread_local.conn_generation = client._generation
-    client._thread_local.last_used = time.monotonic()
+    client._thread_local.cached = _CachedConnection(active, client._generation, time.monotonic())
 
     conn = client._get_connection()
 

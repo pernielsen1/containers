@@ -9,6 +9,22 @@ from shared.log_throttle import ThrottledLogger
 from shared.ssl_utils import build_client_context
 
 logger = logging.getLogger(__name__)
+
+
+class _CachedConnection:
+    """One thread's cached HTTPConnection plus the bookkeeping that decides whether it's still
+    usable - bundled into a single object instead of three loose thread-local attributes
+    (conn/conn_generation/last_used) kept in sync by hand across _get_connection/_forget_connection.
+    Same idiom as upstream_host/main.py's _Connection: a cached resource that can go stale is
+    modeled as one object with its own validity state, not scattered fields."""
+    __slots__ = ("conn", "generation", "last_used")
+
+    def __init__(self, conn, generation, last_used):
+        self.conn = conn
+        self.generation = generation
+        self.last_used = last_used
+
+
 # briefs/resilience_v2.md's fail_percentage/crypto-kill chaos scenarios turn a genuine crypto_host
 # failure from a rare event into a sustained, high-volume one (10% of steady traffic, or ~100% of
 # traffic for the duration of a kill) - unthrottled this floods stdout the same way unthrottled
@@ -106,25 +122,24 @@ class CryptoClient:
         with self._lock:
             current_generation = self._generation
         now = time.monotonic()
-        conn = getattr(self._thread_local, "conn", None)
-        conn_generation = getattr(self._thread_local, "conn_generation", -1)
-        last_used = getattr(self._thread_local, "last_used", None)
-        idle_too_long = last_used is not None and (now - last_used) > self._idle_timeout_seconds
-        if conn is not None and (conn_generation != current_generation or idle_too_long):
-            conn.close()
-            conn = None
-        if conn is None:
-            conn = self._new_connection()
-            self._thread_local.conn = conn
-            self._thread_local.conn_generation = current_generation
-        self._thread_local.last_used = now
-        return conn
+        cached = getattr(self._thread_local, "cached", None)
+        if cached is not None:
+            idle_too_long = (now - cached.last_used) > self._idle_timeout_seconds
+            if cached.generation != current_generation or idle_too_long:
+                cached.conn.close()
+                cached = None
+        if cached is None:
+            cached = _CachedConnection(self._new_connection(), current_generation, now)
+            self._thread_local.cached = cached
+        else:
+            cached.last_used = now
+        return cached.conn
 
     def _forget_connection(self) -> None:
-        conn = getattr(self._thread_local, "conn", None)
-        if conn is not None:
-            conn.close()
-        self._thread_local.conn = None
+        cached = getattr(self._thread_local, "cached", None)
+        if cached is not None:
+            cached.conn.close()
+        self._thread_local.cached = None
 
     def _send(self, body: str, headers: dict) -> bytes:
         # Never retries a failed connection inline - see class docstring's _generation note. A

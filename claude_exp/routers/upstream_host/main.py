@@ -55,6 +55,21 @@ def load_config(path=None):
     return cfg
 
 
+class _Connection:
+    """One socket plus the disc_evt that tears it down (see _write_frame) - bundled into a single
+    object instead of two loose fields (self._conn/self._disc_evt) that every reader/writer had to
+    remember to keep in sync by hand across four separate call sites. Passed by reference wherever
+    a raw socket used to be passed; .sock is the only thing actual I/O touches, .disc_evt is the
+    same event object every reader of "is this connection still current" already needs. Same
+    principle as crypto_client.py's per-thread cached-connection state - a stale/invalidated
+    resource is modeled as one object with its own validity signal, not scattered fields."""
+    __slots__ = ("sock", "disc_evt")
+
+    def __init__(self, sock):
+        self.sock = sock
+        self.disc_evt = threading.Event()
+
+
 class UpstreamHostSim:
     """Simulates an upstream card network client."""
 
@@ -70,9 +85,10 @@ class UpstreamHostSim:
         self.stats = Stats(yellow_threshold_seconds=cfg.get("yellow_threshold_seconds"))
         self.stop_event = threading.Event()
 
-        self._conn = None
+        self._current = None  # the active _Connection, or None - see _Connection/_get_conn
         self._conn_lock = threading.Lock()
-        # Guards writes to self._conn: _send_loop (stress/functional sends) and _keepalive_loop
+        # Guards writes to the active connection's socket: _send_loop (stress/functional sends)
+        # and _keepalive_loop
         # (periodic 0800s) run on separate threads and both write to the same connection. Under
         # plain TCP that silently worked; under TLS, two threads calling SSL_write() concurrently
         # on the same SSLSocket corrupts the record stream (seen as a DECRYPTION_FAILED_OR_BAD_
@@ -172,8 +188,8 @@ class UpstreamHostSim:
             except OSError:
                 return jsonify({"error": "no CSV uploaded"}), 400
 
-            conn = self._get_conn()
-            if conn is None:
+            connection = self._get_conn()
+            if connection is None:
                 return jsonify({"error": "not connected to router"}), 503
 
             # rate/duration are optional: omitted, this is the original one-pass-through-the-CSV
@@ -211,9 +227,25 @@ class UpstreamHostSim:
             self.run_sent = 0
 
             threading.Thread(
-                target=self._run_with_warmup, args=(conn, rows, rate, duration, warmup_s), daemon=True
+                target=self._run_with_warmup, args=(connection, rows, rate, duration, warmup_s), daemon=True
             ).start()
             return jsonify({"rows": len(rows)})
+
+        @self.cmd.register("/probe_connection", methods=["GET"])
+        def probe_connection():
+            """Actively confirms the router connection is live, rather than trusting the
+            connected-flag /stats already reports - that flag only flips to False once something
+            notices the connection is dead (see _write_frame's disc_evt trigger), so it can lag
+            behind reality for as long as nothing happens to write on it. Reuses _write_frame's
+            own path (a harmless 0800, same as _keepalive_loop's periodic ping) rather than adding
+            a second write path - a failed write here now tears the connection down for real
+            (disc_evt), so a caller that gets connected: false and retries shortly after will see
+            _client_connect_loop's/_server_accept_loop's fresh replacement instead of the same
+            stale one."""
+            connection = self._get_conn()
+            if connection is None:
+                return jsonify({"connected": False})
+            return jsonify({"connected": self._write_frame(connection, build_0800(self.spec))})
 
         @self.cmd.register("/results", methods=["GET"])
         def results_route():
@@ -296,28 +328,39 @@ class UpstreamHostSim:
 
     def _get_conn(self):
         with self._conn_lock:
-            return self._conn
+            return self._current
 
-    def _write_frame(self, conn, encoded: bytes) -> bool:
+    def _write_frame(self, connection, encoded: bytes) -> bool:
         """Shared by every writer (_send_loop, _keepalive_loop, the advice loops below): the
-        conn-staleness check + _write_lock + OSError handling every one of them needs. Returns
-        False instead of raising - a stale/dead conn or write failure is routine here (a chaos
+        staleness check + _write_lock + OSError handling every one of them needs. Returns False
+        instead of raising - a stale/dead connection or write failure is routine here (a chaos
         kill, a reconnect race - see _send_loop's own comment on why the staleness check
-        matters), not something callers should treat as exceptional."""
+        matters), not something callers should treat as exceptional.
+
+        A genuine write failure also sets this connection's disc_evt (if it's still the active
+        one) instead of just reporting False to this one caller - otherwise reconnection depends
+        entirely on _receive_loop's read side noticing independently, which can lag arbitrarily
+        far behind (or never happen at all on a half-open/blackholed socket) while every writer
+        - including _keepalive_loop, whose own failed write used to just silently give up - stays
+        quiet about it. Same "anticipate, don't discover by failing" principle as the crypto-client
+        generation/idle-timeout checks."""
         try:
             with self._write_lock:
-                if conn is not self._get_conn():
+                if connection is not self._get_conn():
                     return False
-                write_message(conn, encoded, self.framing)
+                write_message(connection.sock, encoded, self.framing)
             self.stats.record_sent()
             return True
         except OSError:
+            with self._conn_lock:
+                if self._current is connection:
+                    connection.disc_evt.set()
             return False
 
-    def _run_with_warmup(self, conn, rows, rate, duration, warmup_s) -> None:
+    def _run_with_warmup(self, connection, rows, rate, duration, warmup_s) -> None:
         if warmup_s:
             self._warmup_active = True
-            self._send_loop(conn, rows, rate, warmup_s)
+            self._send_loop(connection, rows, rate, warmup_s)
             # Wait for in-flight warmup responses to actually land before clearing `pending`,
             # rather than guessing a fixed grace window - a slow backend (e.g. router_java's
             # per-thread crypto-client warmup: up to 16 dispatcher threads each doing a real TLS
@@ -353,9 +396,9 @@ class UpstreamHostSim:
         self.run_start_time = time.monotonic()
         self.run_end_time = None
         self.run_sent = 0
-        self._send_loop(conn, rows, rate, duration)
+        self._send_loop(connection, rows, rate, duration)
 
-    def _send_loop(self, conn, rows, rate=None, duration=None) -> None:
+    def _send_loop(self, connection, rows, rate=None, duration=None) -> None:
         interval = (1.0 / rate) if rate else 0.02
         deadline = (time.monotonic() + duration) if duration else None
         # No duration: legacy one-pass-through-the-CSV functional-test behavior. With a
@@ -385,13 +428,14 @@ class UpstreamHostSim:
                 self.pending[stan] = row
             self.send_times[stan] = time.monotonic()
 
-            # conn can go stale mid-batch: a chaos-style kill/reconnect between rows closes this
-            # exact conn and _client_connect_loop/_server_accept_loop hands out a brand new
-            # socket, which on Linux is very likely to reuse the just-freed fd number. _write_frame's
-            # staleness check (against the same _write_lock _run_connection's close() uses) is
-            # what prevents a write here from landing on someone else's brand new connection.
+            # connection can go stale mid-batch: a chaos-style kill/reconnect between rows closes
+            # this exact connection and _client_connect_loop/_server_accept_loop hands out a brand
+            # new one, whose socket is on Linux very likely to reuse the just-freed fd number.
+            # _write_frame's staleness check (against the same _write_lock _run_connection's
+            # close() uses) is what prevents a write here from landing on someone else's brand new
+            # connection.
             encoded, _ = iso8583.encode(msg, self.spec)
-            if not self._write_frame(conn, bytes(encoded)):
+            if not self._write_frame(connection, bytes(encoded)):
                 break
             self.run_sent += 1
 
@@ -410,7 +454,7 @@ class UpstreamHostSim:
                         with self.advice_lock:
                             entry = self.advice_pending.get(stan)
                         if entry is not None:
-                            self._write_advice_entry(conn, stan, entry)
+                            self._write_advice_entry(connection, stan, entry)
 
             time.sleep(interval)
         # Marks when active sending stopped, distinct from "now" - /stress_stats is queried
@@ -435,12 +479,12 @@ class UpstreamHostSim:
                 queued_counts["0120"], queued_counts["0420"],
             )
 
-    def _receive_loop(self, conn, disc_evt: threading.Event) -> None:
-        while not disc_evt.is_set():
+    def _receive_loop(self, connection) -> None:
+        while not connection.disc_evt.is_set():
             try:
-                data = read_message(conn, self.framing)
+                data = read_message(connection.sock, self.framing)
             except ConnectionError:
-                disc_evt.set()
+                connection.disc_evt.set()
                 break
 
             try:
@@ -497,14 +541,14 @@ class UpstreamHostSim:
             with self.results_lock:
                 self.results.append(merged)
 
-    def _keepalive_loop(self, conn, disc_evt: threading.Event) -> None:
-        while not disc_evt.is_set() and not self.stop_event.is_set():
-            if not self._write_frame(conn, build_0800(self.spec)):
+    def _keepalive_loop(self, connection) -> None:
+        while not connection.disc_evt.is_set() and not self.stop_event.is_set():
+            if not self._write_frame(connection, build_0800(self.spec)):
                 return
             # interruptible wait for the rest of the interval
             elapsed = 0.0
             while elapsed < self.ping_0800_seconds:
-                if disc_evt.is_set() or self.stop_event.is_set():
+                if connection.disc_evt.is_set() or self.stop_event.is_set():
                     return
                 time.sleep(min(1.0, self.ping_0800_seconds - elapsed))
                 elapsed += 1.0
@@ -521,12 +565,12 @@ class UpstreamHostSim:
         with self.advice_lock:
             self.stats.set_gauge("advice_pending_count", len(self.advice_pending))
 
-    def _write_advice_entry(self, conn, stan: str, entry: dict) -> None:
+    def _write_advice_entry(self, connection, stan: str, entry: dict) -> None:
         """Writes one advice/reversal message - initial send or a resend - to the wire and
         updates its bookkeeping. The single dispatch path used whether the send happens
         immediately (throttling off, or no live 0100 stream to throttle against - see
         _dispatch_or_queue) or via _send_loop's throttle slot once one opens."""
-        self._write_frame(conn, entry["encoded"])
+        self._write_frame(connection, entry["encoded"])
         with self.advice_lock:
             e = self.advice_pending.get(stan)
             if e is None:
@@ -561,7 +605,7 @@ class UpstreamHostSim:
                 mti, stan, pan, retries_done, self.advice_max_retries,
             )
 
-    def _dispatch_or_queue(self, conn, stan: str, entry: dict) -> None:
+    def _dispatch_or_queue(self, connection, stan: str, entry: dict) -> None:
         """Sends immediately unless advice_reversal_percentage throttling is on for a currently
         live 0100 stream, in which case this just marks the entry queued - _send_loop's own
         interleave logic is what actually pops it and calls _write_advice_entry once its slot
@@ -574,9 +618,9 @@ class UpstreamHostSim:
                 e["queued"] = True
                 self.advice_send_queue.append(stan)
             return
-        self._write_advice_entry(conn, stan, entry)
+        self._write_advice_entry(connection, stan, entry)
 
-    def _start_advice(self, conn, mti: str, row: dict, decision: str = None) -> None:
+    def _start_advice(self, connection, mti: str, row: dict, decision: str = None) -> None:
         """Builds and registers one advice message (0420 or 0120) for a 0100 that timed out, then
         dispatches or throttle-queues it (see _dispatch_or_queue). Gets its own fresh STAN - not
         the original 0100's - since it's a genuinely new message needing its own request/response
@@ -606,9 +650,9 @@ class UpstreamHostSim:
         with self.advice_lock:
             self.advice_pending[stan] = entry
         self._set_advice_gauge()
-        self._dispatch_or_queue(conn, stan, entry)
+        self._dispatch_or_queue(connection, stan, entry)
 
-    def _advice_timeout_loop(self, conn, disc_evt: threading.Event) -> None:
+    def _advice_timeout_loop(self, connection) -> None:
         """Watches `pending` for 0100s that never got a matching 0110 within
         advice_timeout_seconds - briefs/resilience_v2.md: real-world ISO 8583 doesn't wait
         forever, it moves on to the next authorization. Fires both a 0420 (reversal) and a 0120
@@ -616,7 +660,7 @@ class UpstreamHostSim:
         the two mean different things (unconditional "forget it" vs. "here's the decision I made
         for the cardholder") and both apply on every timeout per this round's design."""
         poll_interval = min(0.2, self.advice_timeout_seconds / 5)
-        while not disc_evt.is_set() and not self.stop_event.is_set():
+        while not connection.disc_evt.is_set() and not self.stop_event.is_set():
             now = time.monotonic()
             timed_out = []
             with self.pending_lock:
@@ -632,8 +676,8 @@ class UpstreamHostSim:
                     "0100 timed out waiting for 0110 (stan=%s, pan=%s) after %.1fs - sending 0420+0120",
                     stan, row.get("2", ""), self.advice_timeout_seconds,
                 )
-                self._start_advice(conn, "0420", row)
-                self._start_advice(conn, "0120", row, decision=self._stip_decision(row))
+                self._start_advice(connection, "0420", row)
+                self._start_advice(connection, "0120", row, decision=self._stip_decision(row))
             time.sleep(poll_interval)
 
     def _log_advice_error(self, stan: str, entry: dict) -> None:
@@ -652,8 +696,8 @@ class UpstreamHostSim:
             entry["mti"], stan, entry["pan"], entry["retries_done"], path,
         )
 
-    def _advice_retry_loop(self, conn, disc_evt: threading.Event) -> None:
-        while not disc_evt.is_set() and not self.stop_event.is_set():
+    def _advice_retry_loop(self, connection) -> None:
+        while not connection.disc_evt.is_set() and not self.stop_event.is_set():
             now = time.monotonic()
             due = []
             exhausted = []
@@ -671,36 +715,36 @@ class UpstreamHostSim:
             for stan, entry in exhausted:
                 self._log_advice_error(stan, entry)
             for stan, entry in due:
-                self._dispatch_or_queue(conn, stan, entry)
+                self._dispatch_or_queue(connection, stan, entry)
             if exhausted or due:
                 self._set_advice_gauge()
             time.sleep(0.2)
 
     def _run_connection(self, sock) -> None:
+        connection = _Connection(sock)
         with self._conn_lock:
-            self._conn = sock
+            self._current = connection
         self.stats.set_connection("router", True)
         logger.info("connection established with router at %s", sock.getpeername())
 
-        disc_evt = threading.Event()
-        recv_thread = threading.Thread(target=self._receive_loop, args=(sock, disc_evt), daemon=True)
+        recv_thread = threading.Thread(target=self._receive_loop, args=(connection,), daemon=True)
         recv_thread.start()
-        keepalive_thread = threading.Thread(target=self._keepalive_loop, args=(sock, disc_evt), daemon=True)
+        keepalive_thread = threading.Thread(target=self._keepalive_loop, args=(connection,), daemon=True)
         keepalive_thread.start()
         advice_timeout_thread = threading.Thread(
-            target=self._advice_timeout_loop, args=(sock, disc_evt), daemon=True
+            target=self._advice_timeout_loop, args=(connection,), daemon=True
         )
         advice_timeout_thread.start()
         advice_retry_thread = threading.Thread(
-            target=self._advice_retry_loop, args=(sock, disc_evt), daemon=True
+            target=self._advice_retry_loop, args=(connection,), daemon=True
         )
         advice_retry_thread.start()
 
-        disc_evt.wait()
+        connection.disc_evt.wait()
 
         with self._conn_lock:
-            if self._conn is sock:
-                self._conn = None
+            if self._current is connection:
+                self._current = None
         self.stats.set_connection("router", False)
         logger.info("connection to router lost")
         # Closing under _write_lock, with shutdown() first, closes two races at once: (1) a
