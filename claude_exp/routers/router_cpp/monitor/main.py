@@ -182,10 +182,28 @@ def is_running(name):
         return False
 
 
+def _upstream_connection_live(actor, timeout=1):
+    """upstream_host's own connected-flag (/stats' connections.router) only flips to False once
+    something notices the connection is dead - a write failure that nothing ever retries on (e.g.
+    a stale connection that survived a host restart/network blip with no traffic since) can leave
+    it reporting True indefinitely. /probe_connection does a real write (a harmless 0800) through
+    the same path _keepalive_loop uses, so a stale connection gets caught - and torn down for real
+    - right here instead of a soak's first /start silently landing on it and sending into the
+    void. upstream_host is the one component shared across all three router implementations, so
+    this route already exists regardless of which router is driving it - see router_py's
+    monitor/main.py, where this same check was added first."""
+    try:
+        r = requests.get(f"http://localhost:{actor['command_port']}/probe_connection", timeout=timeout)
+        return r.status_code == 200 and r.json().get("connected") is True
+    except Exception:
+        return False
+
+
 def wait_for_ready(actor, timeout=10):
     """Polls /stats until it answers 200, and -- for routers, until connections.downstream is
-    true; for upstreams, until connections.router is true -- since the HTTP server coming up and
-    the actor's own TCP-level connection to its peer coming up are two different milestones."""
+    true; for upstreams, until connections.router is true AND an active probe confirms it (see
+    _upstream_connection_live - the flag alone isn't trusted) -- since the HTTP server coming up
+    and the actor's own TCP-level connection to its peer coming up are two different milestones."""
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -194,7 +212,7 @@ def wait_for_ready(actor, timeout=10):
                 conns = r.json().get("connections", {})
                 if actor["type"] == "router" and not conns.get("downstream"):
                     pass
-                elif actor["type"] == "upstream" and not conns.get("router"):
+                elif actor["type"] == "upstream" and not (conns.get("router") and _upstream_connection_live(actor)):
                     pass
                 else:
                     return True

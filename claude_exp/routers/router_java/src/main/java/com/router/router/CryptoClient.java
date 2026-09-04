@@ -30,9 +30,19 @@ public class CryptoClient {
     private final String bearerToken;
     private final int breakerThreshold;
     private final int breakerCooldownSeconds;
+    private final long idleTimeoutMillis;
     private final Object lock = new Object();
     private int failureCount = 0;
     private long openUntilMillis = 0;
+    // Bumped every time the breaker opens (and in resetBreaker()) - see validate()'s failure
+    // branch. A thread's cached client is only trusted if it was built under the *current*
+    // generation; ThreadLocal means one thread can't reach into another thread's cached client to
+    // discard it directly when crypto_host dies, so instead every thread checks its own client's
+    // generation the next time it needs one and discards it on mismatch, before ever trying to use
+    // it - see getClient(). Never retried inline (see sendRequest()): a failed call is forgotten,
+    // not rescued, on the theory that recovering *this* transaction isn't the goal - having a
+    // fresh client ready for the next one is. Mirrors router_py's crypto_client.py _generation.
+    private int generation = 0;
 
     // One HttpClient/SSLContext per dispatcher worker thread rather than one shared instance -
     // see build_router.md's CryptoClient section: a single HttpClient driven to open several
@@ -41,7 +51,25 @@ public class CryptoClient {
     // ~1-2 of every 8 concurrent first-use connections, reproduced in isolation outside this
     // router entirely). Giving each thread its own fully independent client eliminated it in the
     // same isolated test - confirmed the shared instance, not crypto_host, was at fault.
-    private final ThreadLocal<HttpClient> clientTL;
+    //
+    // Bundled with its generation and last-used time into one CachedClient object rather than
+    // three loose ThreadLocal fields kept in sync by hand - same idiom router_py's
+    // crypto_client.py (_CachedConnection) and upstream_host/main.py (_Connection) use for the
+    // analogous "a cached resource can go stale" problem. See getClient()/forgetClient().
+    private final ThreadLocal<CachedClient> clientTL = new ThreadLocal<>();
+    private final CryptoConfig cfg;
+
+    private static final class CachedClient {
+        final HttpClient client;
+        final int generation;
+        long lastUsedMillis;
+
+        CachedClient(HttpClient client, int generation, long lastUsedMillis) {
+            this.client = client;
+            this.generation = generation;
+            this.lastUsedMillis = lastUsedMillis;
+        }
+    }
 
     // Even fully independent HttpClient instances aren't safe to *construct and first-use*
     // concurrently (same isolated test: sequential construction, then concurrent use -> 0
@@ -55,11 +83,26 @@ public class CryptoClient {
     private final Semaphore warmupGate = new Semaphore(1);
 
     public CryptoClient(CryptoConfig cfg, int breakerThreshold, int breakerCooldownSeconds) throws IOException {
+        this(cfg, breakerThreshold, breakerCooldownSeconds, 4.0);
+    }
+
+    /** idleTimeoutSeconds: a thread's cached client is proactively discarded once idle past this
+     * long (default 4.0s, under crypto_host's own ~5s keep-alive idle timeout) - separate from the
+     * generation check above: a client can go stale from an ordinary traffic lull alone, with no
+     * breaker event at all. Reproduced directly (router_py side, same shared crypto_host): after
+     * any ~5s+ gap in traffic, the next reuse of an idle cached connection fails on both the
+     * request and response legs - same "anticipate staleness, don't discover it by failing first"
+     * principle as the generation check, just against a timer instead of an event. Mirrors
+     * router_py's crypto_client.py idle_timeout_seconds. */
+    public CryptoClient(CryptoConfig cfg, int breakerThreshold, int breakerCooldownSeconds,
+            double idleTimeoutSeconds) throws IOException {
         String scheme = cfg.ssl_active() ? "https" : "http";
         this.baseUrl = scheme + "://" + cfg.host() + ":" + cfg.port() + "/sys/v1/plugins/" + cfg.plugin_id();
         this.bearerToken = cfg.bearer_token();
         this.breakerThreshold = breakerThreshold;
         this.breakerCooldownSeconds = breakerCooldownSeconds;
+        this.idleTimeoutMillis = Math.round(idleTimeoutSeconds * 1000.0);
+        this.cfg = cfg;
 
         if (cfg.ssl_active()) {
             // Fail fast on a bad cert/key/ca path here, at startup - otherwise this would only
@@ -67,7 +110,66 @@ public class CryptoClient {
             // ordinary crypto_host failure instead of a startup misconfiguration.
             SslUtils.buildClientContext(cfg.certfile(), cfg.keyfile(), cfg.cafile());
         }
-        this.clientTL = ThreadLocal.withInitial(() -> buildClient(cfg));
+    }
+
+    /** Returns this thread's cached client, discarding and rebuilding it first if it was built
+     * under a stale generation or has sat idle too long - mirrors router_py's
+     * crypto_client.py _get_connection(). */
+    private HttpClient getClient() {
+        int currentGeneration;
+        synchronized (lock) {
+            currentGeneration = generation;
+        }
+        long now = System.currentTimeMillis();
+        CachedClient cached = clientTL.get();
+        if (cached != null) {
+            boolean idleTooLong = (now - cached.lastUsedMillis) > idleTimeoutMillis;
+            if (cached.generation != currentGeneration || idleTooLong) {
+                closeQuietly(cached.client);
+                cached = null;
+            }
+        }
+        if (cached == null) {
+            cached = new CachedClient(buildClient(cfg), currentGeneration, now);
+            clientTL.set(cached);
+        } else {
+            cached.lastUsedMillis = now;
+        }
+        return cached.client;
+    }
+
+    /** Discards this thread's cached client outright - called after a genuine transport failure
+     * (see sendRequest()) so the next call, this thread's or another's, starts from a known-fresh
+     * client instead of inheriting a guessing game. Mirrors _forget_connection(). */
+    private void forgetClient() {
+        CachedClient cached = clientTL.get();
+        if (cached != null) {
+            closeQuietly(cached.client);
+        }
+        clientTL.remove();
+    }
+
+    private static void closeQuietly(HttpClient client) {
+        try {
+            client.close();
+        } catch (Exception e) {
+            // best-effort - being discarded either way
+        }
+    }
+
+    /** Sends one request over this thread's cached client, forgetting (closing + discarding) that
+     * client on any transport-level failure - never retried inline (see class-level generation
+     * doc). Deliberately does NOT forget the client on an HTTP-level error status (>=400, checked
+     * by the caller after this returns) - a bad status over a working connection isn't evidence
+     * the connection itself is broken. Mirrors _send(). */
+    private HttpResponse<String> sendRequest(HttpRequest request) throws IOException, InterruptedException {
+        HttpClient client = getClient();
+        try {
+            return client.send(request, HttpResponse.BodyHandlers.ofString());
+        } catch (IOException | InterruptedException e) {
+            forgetClient();
+            throw e;
+        }
     }
 
     private static HttpClient buildClient(CryptoConfig cfg) {
@@ -133,7 +235,7 @@ public class CryptoClient {
                     .header("Authorization", "Bearer " + bearerToken)
                     .POST(HttpRequest.BodyPublishers.ofString(json))
                     .build();
-            HttpResponse<String> response = clientTL.get().send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendRequest(request);
             if (response.statusCode() >= 400) {
                 throw new IOException("HTTP " + response.statusCode());
             }
@@ -160,11 +262,28 @@ public class CryptoClient {
                 failureCount++;
                 if (failureCount >= breakerThreshold) {
                     openUntilMillis = System.currentTimeMillis() + breakerCooldownSeconds * 1000L;
+                    generation++;
                     logger.warning("crypto breaker open for " + breakerCooldownSeconds
                             + "s after " + failureCount + " consecutive failures");
                 }
             }
             return null;
+        }
+    }
+
+    /** Closes the breaker immediately rather than waiting for its own cooldown clock to expire and
+     * self-renew (see validate()'s failure branch, which re-arms openUntilMillis on every failed
+     * post-cooldown probe with no awareness of whether the service actually recovered) - for a
+     * caller that has *externally confirmed* the service is back (e.g. a TCP probe against its
+     * port) and wants the breaker to trust that immediately instead of on its own delayed
+     * schedule. Bumps generation like a normal open/close cycle so every thread's cached client is
+     * rebuilt fresh, matching a real recovery. Mirrors router_py's crypto_client.py
+     * reset_breaker(). */
+    public void resetBreaker() {
+        synchronized (lock) {
+            failureCount = 0;
+            openUntilMillis = 0;
+            generation++;
         }
     }
 

@@ -88,6 +88,10 @@ public:
     // Exposed for the /trace route (router_main.cpp) - mirrors router_py's public `dispatcher.trace`.
     TraceRecorder& trace() { return trace_; }
 
+    // Exposed for the /crypto/reset_breaker route (router_main.cpp) - mirrors router_py's public
+    // `dispatcher.crypto`.
+    CryptoClient& crypto() { return crypto_; }
+
 private:
     friend class DispatcherTestAccess;  // test-only access to pending_/queue_/stan_counter_
 

@@ -239,3 +239,9 @@
 2026-09-04T22:10:40+02:00;LAPTOP-P5P268SM;router_py_real_crypto_before_kill;100;18;2,91;3,29;3,99;post-refactor rerun 20260904
 2026-09-04T22:11:29+02:00;LAPTOP-P5P268SM;router_py_real_crypto_during_kill;100;42;None;None;None;post-refactor rerun 20260904
 2026-09-04T22:12:37+02:00;LAPTOP-P5P268SM;router_py_real_crypto_after_kill;100;60;11,04;11,34;11,66;post-refactor rerun 20260904
+2026-09-04T22:55:01+02:00;LAPTOP-P5P268SM;router_cpp_real_crypto_before_kill;100;18;2,25;2,66;3,79;first cpp port attempt 20260904
+2026-09-04T22:55:50+02:00;LAPTOP-P5P268SM;router_cpp_real_crypto_during_kill;100;42;None;None;None;first cpp port attempt 20260904
+2026-09-04T22:56:58+02:00;LAPTOP-P5P268SM;router_cpp_real_crypto_after_kill;100;60;10,79;11,06;11,33;first cpp port attempt 20260904
+2026-09-04T22:59:16+02:00;LAPTOP-P5P268SM;router_java_real_crypto_before_kill;100;18;3,43;4,5;5,36;first java port attempt 20260904
+2026-09-04T23:00:06+02:00;LAPTOP-P5P268SM;router_java_real_crypto_during_kill;100;42;None;None;None;first java port attempt 20260904
+2026-09-04T23:01:13+02:00;LAPTOP-P5P268SM;router_java_real_crypto_after_kill;100;60;10,86;11,15;11,44;first java port attempt 20260904

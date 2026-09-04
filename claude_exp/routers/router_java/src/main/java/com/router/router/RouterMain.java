@@ -57,6 +57,20 @@ public final class RouterMain {
             CommandServer.sendJson(exchange, 200, dispatcher.pendingSnapshot());
         });
 
+        cmd.register("/crypto/reset_breaker", List.of("POST"), true, exchange -> {
+            // For a caller (soak/chaos script, or an ops runbook) that has independently confirmed
+            // crypto_host is back up and doesn't want to wait out the breaker's own self-renewing
+            // cooldown clock - see CryptoClient.resetBreaker(). Mirrors router_py's router/main.py
+            // route.
+            Dispatcher dispatcher = activeDispatcher.get();
+            if (dispatcher == null) {
+                CommandServer.sendJson(exchange, 503, Map.of("error", "no active session"));
+                return;
+            }
+            dispatcher.crypto().resetBreaker();
+            CommandServer.sendJson(exchange, 200, Map.of("status", "reset"));
+        });
+
         cmd.register("/trace", List.of("GET", "POST"), false, exchange -> {
             Dispatcher dispatcher = activeDispatcher.get();
             if (dispatcher == null) {

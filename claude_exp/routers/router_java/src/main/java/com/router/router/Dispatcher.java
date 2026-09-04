@@ -89,6 +89,12 @@ public final class Dispatcher {
         return trace;
     }
 
+    /** Exposed for the /crypto/reset_breaker route (RouterMain) - mirrors router_py's public
+     * `dispatcher.crypto`. */
+    public CryptoClient crypto() {
+        return crypto;
+    }
+
     private String nextStan() {
         synchronized (stanLock) {
             stanCounter = (stanCounter + 1) % STAN_MODULUS;

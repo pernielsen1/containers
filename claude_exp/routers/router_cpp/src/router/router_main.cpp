@@ -72,6 +72,21 @@ int main(int argc, char** argv) {
                               }
                               send_json(res, 200, active_dispatcher->purge());
                           });
+        cmd.register_route("/crypto/reset_breaker", {"POST"}, /*protected=*/true,
+                          [&](const httplib::Request&, httplib::Response& res) {
+                              std::lock_guard lock(active_dispatcher_mutex);
+                              if (!active_dispatcher) {
+                                  send_json(res, 503, {{"error", "no active session"}});
+                                  return;
+                              }
+                              // Closes immediately rather than waiting out the breaker's own
+                              // cooldown clock - for a caller (e.g. soak_resilience_hard.py) that
+                              // has externally confirmed crypto_host is back and wants router_cpp
+                              // to trust that now, not on its own delayed schedule. Mirrors
+                              // router_py's router/main.py /crypto/reset_breaker route.
+                              active_dispatcher->crypto().reset_breaker();
+                              send_json(res, 200, {{"status", "ok"}});
+                          });
         cmd.register_route("/pending", {"GET"}, /*protected=*/false,
                           [&](const httplib::Request&, httplib::Response& res) {
                               std::lock_guard lock(active_dispatcher_mutex);

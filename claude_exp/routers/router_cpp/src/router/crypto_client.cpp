@@ -7,11 +7,33 @@
 
 namespace router {
 
-CryptoClient::CryptoClient(const CryptoConfig& cfg, int breaker_threshold, int breaker_cooldown_seconds)
+namespace {
+
+// One worker thread's cached httplib::Client plus the bookkeeping that decides whether it's
+// still usable - bundled into a single object instead of three loose thread_local variables kept
+// in sync by hand, same idiom as this session's router_py/upstream_host refactor (_CachedConnection
+// / _Connection: a cached resource that can go stale is modeled as one object with its own
+// validity state, not scattered fields). httplib::Client isn't default-constructible without
+// host/port, so this is heap-allocated (thread_local std::unique_ptr) rather than a bare
+// thread_local struct.
+struct CachedClient {
+    httplib::Client client;
+    int generation;
+    std::chrono::steady_clock::time_point last_used;
+
+    CachedClient(httplib::Client c, int gen)
+        : client(std::move(c)), generation(gen), last_used(std::chrono::steady_clock::now()) {}
+};
+
+}  // namespace
+
+CryptoClient::CryptoClient(const CryptoConfig& cfg, int breaker_threshold, int breaker_cooldown_seconds,
+                           double idle_timeout_seconds)
     : cfg_(cfg),
       base_path_("/sys/v1/plugins/" + cfg.plugin_id),
       breaker_threshold_(breaker_threshold),
-      breaker_cooldown_seconds_(breaker_cooldown_seconds) {}
+      breaker_cooldown_seconds_(breaker_cooldown_seconds),
+      idle_timeout_seconds_(idle_timeout_seconds) {}
 
 httplib::Client CryptoClient::make_client() const {
     if (cfg_.ssl_active) {
@@ -55,12 +77,25 @@ void CryptoClient::record_failure() {
     ++failure_count_;
     if (failure_count_ >= breaker_threshold_) {
         open_until_ = std::chrono::steady_clock::now() + std::chrono::seconds(breaker_cooldown_seconds_);
+        ++generation_;
     }
 }
 
 void CryptoClient::reset_failure() {
     std::lock_guard<std::mutex> lock(breaker_mutex_);
     failure_count_ = 0;
+}
+
+void CryptoClient::reset_breaker() {
+    std::lock_guard<std::mutex> lock(breaker_mutex_);
+    failure_count_ = 0;
+    open_until_ = std::chrono::steady_clock::time_point{};
+    ++generation_;
+}
+
+int CryptoClient::generation() {
+    std::lock_guard<std::mutex> lock(breaker_mutex_);
+    return generation_;
 }
 
 std::optional<std::string> CryptoClient::validate(const std::string& endpoint, const std::string& pan,
@@ -79,7 +114,33 @@ std::optional<std::string> CryptoClient::validate(const std::string& endpoint, c
     // first use and reused for that thread's lifetime - httplib::Client isn't safe to share
     // across concurrent threads, and the dispatcher's worker pools call validate() from up to
     // worker_threads + response_worker_threads threads at once.
-    thread_local httplib::Client client = make_client();
+    //
+    // Discarded and rebuilt proactively (not just on the next failed call) in two cases: (1) this
+    // thread's cached client was built under a since-superseded generation - crypto_host died and
+    // the breaker opened since, so the cached client is presumed stale even though this thread
+    // itself hasn't seen a failure yet; (2) the cached client has been idle past
+    // idle_timeout_seconds_ - crypto_host (cpp-httplib) closes its own keep-alive connections
+    // after ~5s idle regardless of any breaker event, and a thread_local client sitting unused
+    // across a traffic lull (e.g. a soak's tail-settle sleep between stress windows) has no way to
+    // learn that from the client side short of trying it and failing. Same "anticipate staleness,
+    // don't discover it by failing first" principle in both cases - mirrors router_py's
+    // crypto_client.py _get_connection().
+    thread_local std::unique_ptr<CachedClient> cached;
+    int current_generation = generation();
+    auto now = std::chrono::steady_clock::now();
+    if (cached) {
+        bool idle_too_long = (now - cached->last_used) > std::chrono::duration<double>(idle_timeout_seconds_);
+        if (cached->generation != current_generation || idle_too_long) {
+            cached.reset();
+        }
+    }
+    if (!cached) {
+        cached = std::make_unique<CachedClient>(make_client(), current_generation);
+    } else {
+        cached->last_used = now;
+    }
+    httplib::Client& client = cached->client;
+
     auto res = client.Post(base_path_, headers, body.dump(), "application/json");
     if (!res || res->status >= 400) {
         throttle_.log(shared::LogLevel::Warning, "crypto_call_failed:" + endpoint,

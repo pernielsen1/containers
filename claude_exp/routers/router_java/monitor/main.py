@@ -251,11 +251,34 @@ def stop_actor(actor):
                 del _processes[actor["name"]]
 
 
+def _upstream_connection_live(actor, timeout=1):
+    """upstream_host's own connected-flag (/stats' connections.router) only flips to False once
+    something notices the connection is dead - a write failure that nothing ever retries on (e.g.
+    a stale connection that survived a host restart/network blip with no traffic since) can leave
+    it reporting True indefinitely. /probe_connection does a real write (a harmless 0800) through
+    the same path _keepalive_loop uses, so a stale connection gets caught - and torn down for real
+    - right here instead of a soak's first /start silently landing on it and sending into the
+    void (see router_py's soak_resilience_hard.py real-crypto findings: a before_kill stage that
+    came back entirely 0 sent/0 received). upstream_host is shared across all three router
+    implementations, so this same route already exists regardless of which router is driving it -
+    ported from router_py/monitor/main.py's identical helper."""
+    try:
+        resp = requests.get(
+            f"http://127.0.0.1:{actor['command_port']}/probe_connection", timeout=timeout
+        )
+        return resp.status_code == 200 and resp.json().get("connected") is True
+    except Exception:
+        return False
+
+
 def wait_for_ready(actor, timeout=10):
     """Polls /stats until the actor answers 200, and - for router/upstream - until its
     downstream/router connection is up. Without the connection check, a /start called
     immediately after "Start All" can 503 with "not connected to router" even though every
-    /stats already answers 200."""
+    /stats already answers 200.
+
+    For upstream, the connected-flag alone isn't trusted either - see _upstream_connection_live -
+    an active probe confirms it, not just the flag."""
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -266,7 +289,7 @@ def wait_for_ready(actor, timeout=10):
                     if connections.get("downstream"):
                         return
                 elif actor["type"] == "upstream":
-                    if connections.get("router"):
+                    if connections.get("router") and _upstream_connection_live(actor):
                         return
                 else:
                     return
