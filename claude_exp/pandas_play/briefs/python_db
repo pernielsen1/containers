@@ -1,0 +1,19 @@
+# pandas & csv 
+pandas is a well functioning tool but not a database
+I have observed that I store data in csv files - even large amounts.  a kind of csv database
+other observations is the understanding of data I often fall to take all as str and then selected fields 
+as numeric/dates - and fall into the "na" trap
+Often when falling into the csv-db pattern I'm in a environment where I can't just throw in an install of a db
+suggestions - or is the csv-db pattern the best option
+
+## pandas & csv -> sqllite examples
+let's assume we have a csv with fields:
+key (a string), num_value (an integer), decimal_value (a float), the_date (a date), the_time_stamp (a timestamp)
+a_value(a simple string)
+all may be empty - i.e. pandas would throw them into nan
+the majority of the fields should be treated as str--- i only those who needs intepretating should be named
+
+I need to see examples in python 
+creating tables and loading values
+also include examples with more than one table in one database..
+i somehow need to see code to get more in the understanding of things
