@@ -19,10 +19,11 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
+from config_loader import db_storage_dir
 from csv_typing import read_all_str_csv
 
 HERE = Path(__file__).parent
-REF_DB_PATH = HERE / "reference.db"
+REF_DB_PATH = db_storage_dir() / "reference.db"
 
 conn = sqlite3.connect(REF_DB_PATH)
 conn.execute("""

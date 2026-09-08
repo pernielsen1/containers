@@ -15,9 +15,11 @@ Run: python3 cross_database_join.py
 import sqlite3
 from pathlib import Path
 
+from config_loader import db_storage_dir
+
 HERE = Path(__file__).parent
-MAIN_DB = HERE / "example_multi.db"
-REF_DB = HERE / "reference.db"
+MAIN_DB = db_storage_dir() / "example_multi.db"
+REF_DB = db_storage_dir() / "reference.db"
 
 conn = sqlite3.connect(MAIN_DB)
 conn.execute("ATTACH DATABASE ? AS ref", (str(REF_DB),))

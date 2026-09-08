@@ -13,11 +13,12 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
+from config_loader import db_storage_dir
 from csv_typing import export_table_to_csv, read_typed_csv, row_to_sqlite_params
 
 HERE = Path(__file__).parent
 CSV_PATH = HERE / "sample_data.csv"
-DB_PATH = HERE / "example_multi.db"
+DB_PATH = db_storage_dir() / "example_multi.db"
 
 df = read_typed_csv(CSV_PATH)
 

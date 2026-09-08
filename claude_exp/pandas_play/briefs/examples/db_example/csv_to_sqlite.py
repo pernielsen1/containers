@@ -9,11 +9,12 @@ from pathlib import Path
 
 import pandas as pd
 
+from config_loader import db_storage_dir
 from csv_typing import export_table_to_csv, read_typed_csv, row_to_sqlite_params
 
 HERE = Path(__file__).parent
 CSV_PATH = HERE / "sample_data.csv"
-DB_PATH = HERE / "example.db"
+DB_PATH = db_storage_dir() / "example.db"
 EXPORT_PATH = HERE / "entries_export.csv"
 
 df = read_typed_csv(CSV_PATH)
