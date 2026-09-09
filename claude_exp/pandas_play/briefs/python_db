@@ -21,6 +21,7 @@ i somehow need to see code to get more in the understanding of things
 
 # let us look at synchronizing 
 let's chat about the following
+let's chat about the following
 we have sorted out the sqlite db cannot be on a synched onedrive. 
 so make a setup where we have a config.json pointing the db_storage into a subdirectory of my temp directory.
 maka a script  - sync.sh which basically copies the db tables to a location within my onedrive directory structure

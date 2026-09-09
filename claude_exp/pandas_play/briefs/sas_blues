@@ -1,0 +1,31 @@
+# sas blues
+## background
+on another computer I'm using SAS enterprise guide (SAS EG) to extract data - my access is via Citrix
+and I run a sas program .sas file looking like this (written from memory)
+
+### connection 
+a lot of connection stuff - which basically connects me data in an oracle datebase
+then
+### the program 
+PROC SQL
+
+create table x as (
+    select a, b from z
+)
+
+###  I run it and then 
+I get a view of X which I use right click export and choose CSV.
+
+## the issue
+I used to get a csv file in UTF-8 - I'm certain it's needed since I will have address in all of the ISO-Latins' not only latin 1 (example portugal, sweden, poland) all land in different latin's -- 
+now someone changed to default in SAS EG to be wlatin1-  and my csv exports doesn't work when I try to import them with pandas read_csv and enconding UTF-8 (surprise, surprise)
+
+# your advice
+1: I expect I can throw something into my .sas program ensuring that my manual export to csv will still be in utf-8
+2: Let's take it next level - I should be able to run the program and store the results on my c-drive even via Citrix
+
+Let's have a chat - no access on this computer to the actual environment
+
+# give me a full script
+you have the full program above - make a full script exporting in utf-8
+
