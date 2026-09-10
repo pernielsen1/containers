@@ -103,6 +103,21 @@ ods csv close;
 libname oralib clear;
 ```
 
+## Fix 3 — skip CSV entirely, port via SAS's native `.sas7bdat` format
+
+While the Oracle-connection authority issue is still unsorted: SAS Enterprise Guide's default "save"/export proposes its own native binary dataset format, `.sas7bdat`. It's directly readable from Python — no manual CSV export, no session-encoding-vs-CSV-encoding fight, because there's no text round-trip at all:
+
+```python
+import pandas as pd
+df = pd.read_sas("export.sas7bdat", format="sas7bdat")
+```
+
+Caveats:
+- `pandas.read_sas()`'s encoding auto-detection isn't always reliable — if characters come out garbled, pass `encoding="latin1"` or `"cp1252"` explicitly, or install `pyreadstat` (`pyreadstat.read_sas7bdat(path)`), which handles SAS's encoding metadata more robustly.
+- This only avoids adding a *new* lossy step. If the root cause turns out to be session-level (not just the export default — see the open question below), Polish characters could still be mangled before the `.sas7bdat` file is even saved, same as with CSV.
+
+See `sas7bdat_to_csv_utf8.py` (same directory) for a small wrapper that reads a `.sas7bdat` and writes a UTF-8 CSV in one step, useful for the initial porting push before a proper database/pipeline is in place.
+
 ## Open question
 
 Which situation applies — grid already shows mangled Polish characters before export (session-level problem), or everything's readable there and it's purely the CSV step going sideways (export-level problem, fix 1 alone should cover it)?
