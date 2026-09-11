@@ -9,22 +9,26 @@ implicit inference, no NaN traps.
 import pandas as pd
 
 
+def normalize_empty_strings(df):
+    """Turn "" (and real NaN) into None uniformly. Split out so a
+    chunked reader can apply the same normalization per chunk."""
+    return df.where(df.notna() & (df != ""), None)
+
+
 def read_all_str_csv(csv_path):
     """Read a CSV with every column as plain string/None -- no
     inference at all. Use this directly for tables that are all-str
     (e.g. a reference/lookup table); read_typed_csv builds on top of
     this for tables that need a few columns converted."""
     df = pd.read_csv(csv_path, sep=";", encoding="utf-8-sig", dtype=str)
-
-    # normalize "" -> None uniformly
-    df = df.where(df.notna() & (df != ""), None)
-    return df
+    return normalize_empty_strings(df)
 
 
-def read_typed_csv(csv_path):
-    df = read_all_str_csv(csv_path)
-
-    # --- only these columns need interpreting ---
+def type_dataframe(df):
+    """Apply the "only convert what needs interpreting" typing step to
+    an already-read, all-str frame. Split out from read_typed_csv so a
+    chunked reader (big files) can reuse the exact same conversion
+    logic per chunk instead of duplicating it."""
     # nullable Int64 keeps missing values as <NA> instead of silently
     # upgrading the whole column to float64 (the classic "int becomes
     # 1.0" side effect of plain pandas + NaN).
@@ -38,6 +42,11 @@ def read_typed_csv(csv_path):
     # key, a_value: left as plain strings/None, no conversion needed
 
     return df
+
+
+def read_typed_csv(csv_path):
+    df = read_all_str_csv(csv_path)
+    return type_dataframe(df)
 
 
 def export_table_to_csv(conn, table_name, out_path):
