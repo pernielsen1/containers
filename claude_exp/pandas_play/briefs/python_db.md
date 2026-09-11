@@ -27,3 +27,11 @@ so make a setup where we have a config.json pointing the db_storage into a subdi
 maka a script  - sync.sh which basically copies the db tables to a location within my onedrive directory structure
 let this name also be found in the repo's config.json
 come up with good naming strategy 
+
+# more advice on sqllite 
+good choice and think I have a way forward will be moving forward with that will the command line client also be included in the standard windows python distribution ?
+
+# python -m sqllite seems the way to go make it easy for me 
+make a .sh script creating an example db and then opening the client with this database
+
+
