@@ -15,15 +15,23 @@ updated_at) while changed/new rows are.
 
 Run: python3 update_reference_db.py
 """
+import argparse
 import sqlite3
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config_loader import db_storage_dir
 from csv_typing import read_all_str_csv
 
 HERE = Path(__file__).parent
-REF_DB_PATH = db_storage_dir() / "reference.db"
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--config", default=str(HERE / "config.json"), help="config.json to use")
+args = parser.parse_args()
+
+REF_DB_PATH = db_storage_dir(args.config) / "reference.db"
 
 conn = sqlite3.connect(REF_DB_PATH)
 conn.execute("""

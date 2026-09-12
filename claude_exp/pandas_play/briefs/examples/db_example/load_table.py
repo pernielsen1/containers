@@ -2,14 +2,17 @@
 """
 Generic file -> SQLite table loader (csv or xlsx).
 
-Usage: python3 load_table.py <infile> <db> <table> [--sheet NAME]
+Usage: python3 load_table.py <infile> <db> <table> [--sheet NAME] (--env prod|test | --config PATH)
 
-  infile  csv or xlsx file to load; format is picked from the
-          extension (.csv -- ";" separated, utf-8-sig, header row
-          required; .xlsx/.xls -- read via pandas/openpyxl)
-  db      database name -> stored as db_storage_dir()/<db>.db
-  table   table to create and load; dropped first if it already exists
-  --sheet xlsx only: sheet name to read (default: first sheet)
+  infile   csv or xlsx file to load; format is picked from the
+           extension (.csv -- ";" separated, utf-8-sig, header row
+           required; .xlsx/.xls -- read via pandas/openpyxl)
+  db       database name -> stored as db_storage_dir()/<db>.db
+  table    table to create and load; dropped first if it already exists
+  --sheet  xlsx only: sheet name to read (default: first sheet)
+  --env    normal mode: prod or test -> db_example/<env>/config.json
+  --config explicit config.json path -- overrides --env, for anything
+           outside prod/test (e.g. samples/config.json)
 
 Typing philosophy (same as csv_typing.py): every column is read and
 stored as TEXT by default -- no implicit inference, no NaN trap. A
@@ -26,18 +29,22 @@ in pandas, so it's read whole -- fine in practice, Excel files aren't
 the "large CSV" case this was built for.
 """
 import argparse
+import logging
 import sqlite3
 import time
 from pathlib import Path
 
 import pandas as pd
 
-from config_loader import db_storage_dir
+from config_loader import config_path_for_env, db_storage_dir
 from csv_typing import normalize_empty_strings
 
 HERE = Path(__file__).resolve().parent
 FIELD_DEFINITIONS_PATH = HERE / "field_definitions.csv"
 CHUNK_SIZE = 50_000
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger(__name__)
 
 TYPE_CONVERTERS = {
     "float": lambda s: pd.to_numeric(s, errors="raise").astype(float),
@@ -128,7 +135,13 @@ def main():
     parser.add_argument("db")
     parser.add_argument("table")
     parser.add_argument("--sheet", help="xlsx only: sheet name (default: first sheet)")
+    parser.add_argument("--env", choices=["prod", "test"], help="normal mode: db_example/<env>/config.json")
+    parser.add_argument("--config", help="explicit config.json path -- overrides --env")
     args = parser.parse_args()
+
+    if not args.env and not args.config:
+        raise SystemExit("pass --env prod|test (or --config <path> to override)")
+    config_path = args.config if args.config else config_path_for_env(args.env)
 
     infile_path = Path(args.infile)
     if not infile_path.exists():
@@ -137,6 +150,9 @@ def main():
     suffix = infile_path.suffix.lower()
     if suffix not in (".csv", ".xlsx", ".xls"):
         raise SystemExit(f"unsupported file type '{suffix}' -- expected .csv or .xlsx")
+
+    db_path = db_storage_dir(config_path) / (args.db if args.db.endswith(".db") else f"{args.db}.db")
+    logger.info("loading %s -> db=%s table=%s", infile_path, db_path, args.table)
 
     field_types = load_field_types(args.table)
     columns, chunks = read_chunks_and_columns(infile_path, suffix, args.sheet)
@@ -147,7 +163,6 @@ def main():
             f"field_definitions.csv references unknown column(s) {unknown_fields} for table {args.table}"
         )
 
-    db_path = db_storage_dir() / (args.db if args.db.endswith(".db") else f"{args.db}.db")
     conn = sqlite3.connect(db_path)
 
     conn.execute(f'DROP TABLE IF EXISTS "{args.table}"')
@@ -166,7 +181,7 @@ def main():
     conn.commit()
     elapsed = time.perf_counter() - start
 
-    print(f"loaded {n_rows:,} rows into {db_path}::{args.table} in {elapsed:.2f}s")
+    logger.info("loaded %s rows into %s::%s in %.2fs", f"{n_rows:,}", db_path, args.table, elapsed)
     conn.close()
 
 

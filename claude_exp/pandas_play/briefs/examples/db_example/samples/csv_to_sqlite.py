@@ -4,17 +4,25 @@ Example 1: CSV -> single SQLite table, with explicit typing end to end.
 
 Run: python3 csv_to_sqlite.py
 """
-import sqlite3  
+import argparse
+import sqlite3
+import sys
 from pathlib import Path
 
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config_loader import db_storage_dir
 from csv_typing import export_table_to_csv, read_typed_csv, row_to_sqlite_params
 
 HERE = Path(__file__).parent
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--config", default=str(HERE / "config.json"), help="config.json to use")
+args = parser.parse_args()
+
 CSV_PATH = HERE / "sample_data.csv"
-DB_PATH = db_storage_dir() / "example.db"
+DB_PATH = db_storage_dir(args.config) / "example.db"
 EXPORT_PATH = HERE / "entries_export.csv"
 
 df = read_typed_csv(CSV_PATH)

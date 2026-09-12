@@ -6,3 +6,7 @@ entries;num_value;integer
 entries;decimal_value;float
 entries;the_date;date
 entries;the_timestamp;datetime
+a_cust;c_key;int
+c_cust;c_key;int
+c_cust;d_key;int
+d_cust;d_key;int

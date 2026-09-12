@@ -74,3 +74,42 @@ would be better to have one utility where in input file can be both a csv file o
 in the case of xlsx it must be possible to pass a --sheet parameter with the name of the sheet to use if it is not the first in the workbook.
 
 the name load_csv.py is perhaps not so good anymore - pls come with a suggestion for naming and implement the rename - also in scripts where we use load_csv.py today
+
+# time for moving to next level and reorganizin directory structure
+ask questions if unclarities - typos etc
+currently we have everything in examples/db_example
+let's make a structure within this where we have
+prod
+test
+samples
+prod & test should have their own config.json
+current scripts and all csv input files - except 
+load_table.py,  config_loader.py & run_sql.py plus field_definitions.csv should move to samples
+the prod & test config.json should implement the prod & test as subdirectories to current root (db_example)
+and we need the prod & test in the temp directories as well i.e. where the db_storage_dir points to 
+in prod & test we need a input directory
+in prod input there should be three csv files (fill them your self with test data)
+# a_cust.csv - fields 
+a_key str
+name str
+c_key int (may be NULL)
+
+# c_cust.csv fields
+c_key int
+name
+d_key int may be NULL
+there are entries in c_cust which are not in a_cust
+
+# d_cust.csv fields
+d_key int
+name
+there are enties in d_cust which are not in c_cust 
+
+# load.sh
+a script loading the csv's above using load_tables.py to the prod database download.db in db_storage_dir
+takes --env prod or test as input
+
+# load_test.sh
+select a maximum of num_test_entries (from prod's config.json) from the a_cust.csv make sure that integrity references to c_cust.csv and d_cust.csv are observed - but also make sure there are entries in c_cust.csv and d_cust.csv with no parent links and copy these to the input directory of the test environment.
+the run the load.sh --test
+

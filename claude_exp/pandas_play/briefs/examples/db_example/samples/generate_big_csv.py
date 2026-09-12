@@ -6,19 +6,28 @@ generating it stays cheap regardless of row count.
 
 Run: python3 generate_big_csv.py [n_rows]  (default 300000)
 """
+import argparse
 import csv
 import random
 import sys
 from datetime import date, timedelta
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config_loader import db_storage_dir
 
-N_ROWS = int(sys.argv[1]) if len(sys.argv) > 1 else 300_000
+HERE = Path(__file__).resolve().parent
+
+parser = argparse.ArgumentParser()
+parser.add_argument("n_rows", nargs="?", type=int, default=300_000)
+parser.add_argument("--config", default=str(HERE / "config.json"), help="config.json to use")
+args = parser.parse_args()
+
+N_ROWS = args.n_rows
 
 # generated data is disposable/reproducible -- keep it out of the repo,
 # next to the db files in db_storage_dir (temp, not synced).
-OUT_PATH = db_storage_dir() / "big_sample.csv"
+OUT_PATH = db_storage_dir(args.config) / "big_sample.csv"
 
 START_DATE = date(2020, 1, 1)
 random.seed(42)

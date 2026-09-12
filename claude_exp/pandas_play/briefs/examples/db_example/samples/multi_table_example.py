@@ -9,16 +9,24 @@ CSVs over time and need to know which batch a row came from.
 
 Run: python3 multi_table_example.py
 """
+import argparse
 import sqlite3
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config_loader import db_storage_dir
 from csv_typing import export_table_to_csv, read_typed_csv, row_to_sqlite_params
 
 HERE = Path(__file__).parent
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--config", default=str(HERE / "config.json"), help="config.json to use")
+args = parser.parse_args()
+
 CSV_PATH = HERE / "sample_data.csv"
-DB_PATH = db_storage_dir() / "example_multi.db"
+DB_PATH = db_storage_dir(args.config) / "example_multi.db"
 
 df = read_typed_csv(CSV_PATH)
 

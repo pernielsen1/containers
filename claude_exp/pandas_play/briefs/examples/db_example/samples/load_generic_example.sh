@@ -5,11 +5,12 @@
 # stay default str.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(dirname "$HERE")"
 CONFIG_PATH="$HERE/config.json"
 cd "$HERE"
 
-python3 load_table.py table_1.csv generic_example table_1
-python3 load_table.py table_2.csv generic_example table_2
+python3 "$ROOT/load_table.py" table_1.csv generic_example table_1 --config "$CONFIG_PATH"
+python3 "$ROOT/load_table.py" table_2.csv generic_example table_2 --config "$CONFIG_PATH"
 
 DB_STORAGE_DIR="$(python3 -c "import json; print(json.load(open('$CONFIG_PATH'))['db_storage_dir'])")"
 DB_PATH="$DB_STORAGE_DIR/generic_example.db"

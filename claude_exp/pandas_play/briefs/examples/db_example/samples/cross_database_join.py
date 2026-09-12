@@ -12,14 +12,22 @@ have both created their respective .db files.
 
 Run: python3 cross_database_join.py
 """
+import argparse
 import sqlite3
+import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config_loader import db_storage_dir
 
 HERE = Path(__file__).parent
-MAIN_DB = db_storage_dir() / "example_multi.db"
-REF_DB = db_storage_dir() / "reference.db"
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--config", default=str(HERE / "config.json"), help="config.json to use")
+args = parser.parse_args()
+
+MAIN_DB = db_storage_dir(args.config) / "example_multi.db"
+REF_DB = db_storage_dir(args.config) / "reference.db"
 
 conn = sqlite3.connect(MAIN_DB)
 conn.execute("ATTACH DATABASE ? AS ref", (str(REF_DB),))

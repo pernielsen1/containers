@@ -8,6 +8,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(dirname "$HERE")"
 CONFIG_PATH="$HERE/config.json"
 N_ROWS="${1:-300000}"
 
@@ -24,4 +25,4 @@ else
 fi
 
 echo "loading $CSV_PATH ..."
-python3 load_table.py "$CSV_PATH" big_load entries
+python3 "$ROOT/load_table.py" "$CSV_PATH" big_load entries --config "$CONFIG_PATH"
