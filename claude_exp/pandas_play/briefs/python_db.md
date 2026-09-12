@@ -113,3 +113,7 @@ takes --env prod or test as input
 select a maximum of num_test_entries (from prod's config.json) from the a_cust.csv make sure that integrity references to c_cust.csv and d_cust.csv are observed - but also make sure there are entries in c_cust.csv and d_cust.csv with no parent links and copy these to the input directory of the test environment.
 the run the load.sh --test
 
+# stored procedure 
+next level create a script create_sp.py which creates 
+as stored procedure called my_upper taking typically a name from one of our examples as input and returns a upper case version name. 
+after running the create_sp.py show me an example of the usage of the sp in a select statement
