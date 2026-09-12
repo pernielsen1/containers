@@ -52,3 +52,25 @@ table_2 has three fields key2, desc, a_float, a_date -  a_float should be the fi
 
 key, key2 and desc should not be in field_definitions since they go to the default str
 
+# make run_sql.py utility
+make a script run_sql.py which takes one required parameters and two optionals
+## 
+sql-script (required) is the name of the script to run
+--db defaults to generic_example
+--output if passed is the name of a csv file where the result of the last sql (a select) shall be stored
+sql-script contains one or more sql statements - seperated by ;
+the run_Sql.py should connect to to --db 
+then run all sql statements in the script
+if --output is passed then the result set of the latest shall be stored in the csv file named passed in --output
+
+# is this over doing it or good idea
+I will have 3 large csv which on an almost daily basis will be loaded to the sqlite database using the load_csv.py script.
+then I have a few reference tables which never changes
+should I keep the reference tables in a seperate database - or is this over doing it 
+
+# small improvement on load_csv.py and perhaps a rename.
+Realise I will also have some data in Excel (xlsx) files which i need to load in a similar fashion which we do in load_csv.py
+would be better to have one utility where in input file can be both a csv file or an xlsx file.
+in the case of xlsx it must be possible to pass a --sheet parameter with the name of the sheet to use if it is not the first in the workbook.
+
+the name load_csv.py is perhaps not so good anymore - pls come with a suggestion for naming and implement the rename - also in scripts where we use load_csv.py today

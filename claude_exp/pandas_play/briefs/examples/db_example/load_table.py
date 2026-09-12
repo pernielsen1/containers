@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """
-Generic CSV -> SQLite loader.
+Generic file -> SQLite table loader (csv or xlsx).
 
-Usage: python3 load_csv.py <infile> <db> <table>
+Usage: python3 load_table.py <infile> <db> <table> [--sheet NAME]
 
-  infile  csv file to load (";" separated, utf-8-sig, header row required)
+  infile  csv or xlsx file to load; format is picked from the
+          extension (.csv -- ";" separated, utf-8-sig, header row
+          required; .xlsx/.xls -- read via pandas/openpyxl)
   db      database name -> stored as db_storage_dir()/<db>.db
   table   table to create and load; dropped first if it already exists
+  --sheet xlsx only: sheet name to read (default: first sheet)
 
 Typing philosophy (same as csv_typing.py): every column is read and
 stored as TEXT by default -- no implicit inference, no NaN trap. A
@@ -17,11 +20,13 @@ applied. This is what lets the same script handle both the small
 two-table example below and the big-CSV chunked-load case that used
 to be hardcoded here.
 
-Still reads in CHUNKS and commits once at the end -- see the earlier
-version of this file (git history) for why that matters on a big CSV.
+CSV still reads in CHUNKS and commits once at the end -- see git
+history for why that matters on a big CSV. xlsx has no chunked reader
+in pandas, so it's read whole -- fine in practice, Excel files aren't
+the "large CSV" case this was built for.
 """
+import argparse
 import sqlite3
-import sys
 import time
 from pathlib import Path
 
@@ -99,36 +104,61 @@ def chunk_to_params(chunk, columns, field_types):
     return rows
 
 
+def read_chunks_and_columns(infile_path, suffix, sheet):
+    """Return (columns, chunk_iterable). CSV stays lazily chunked (memory
+    stays flat on a big file); xlsx has no chunked reader in pandas so
+    it's read whole into a single-item list instead."""
+    if suffix == ".csv":
+        if sheet:
+            raise SystemExit("--sheet only applies to .xlsx input")
+        columns = list(
+            pd.read_csv(infile_path, sep=";", encoding="utf-8-sig", dtype=str, nrows=0).columns
+        )
+        chunks = pd.read_csv(infile_path, sep=";", encoding="utf-8-sig", dtype=str, chunksize=CHUNK_SIZE)
+        return columns, chunks
+
+    sheet_name = sheet if sheet else 0
+    full_df = pd.read_excel(infile_path, sheet_name=sheet_name, dtype=str)
+    return list(full_df.columns), [full_df]
+
+
 def main():
-    if len(sys.argv) != 4:
-        raise SystemExit("usage: load_csv.py <infile> <db> <table>")
-    infile, db, table = sys.argv[1:4]
+    parser = argparse.ArgumentParser()
+    parser.add_argument("infile")
+    parser.add_argument("db")
+    parser.add_argument("table")
+    parser.add_argument("--sheet", help="xlsx only: sheet name (default: first sheet)")
+    args = parser.parse_args()
 
-    csv_path = Path(infile)
-    if not csv_path.exists():
-        raise SystemExit(f"{csv_path} not found")
+    infile_path = Path(args.infile)
+    if not infile_path.exists():
+        raise SystemExit(f"{infile_path} not found")
 
-    field_types = load_field_types(table)
+    suffix = infile_path.suffix.lower()
+    if suffix not in (".csv", ".xlsx", ".xls"):
+        raise SystemExit(f"unsupported file type '{suffix}' -- expected .csv or .xlsx")
 
-    columns = list(pd.read_csv(csv_path, sep=";", encoding="utf-8-sig", dtype=str, nrows=0).columns)
+    field_types = load_field_types(args.table)
+    columns, chunks = read_chunks_and_columns(infile_path, suffix, args.sheet)
+
     unknown_fields = set(field_types) - set(columns)
     if unknown_fields:
         raise SystemExit(
-            f"field_definitions.csv references unknown column(s) {unknown_fields} for table {table}"
+            f"field_definitions.csv references unknown column(s) {unknown_fields} for table {args.table}"
         )
 
-    db_path = db_storage_dir() / (db if db.endswith(".db") else f"{db}.db")
+    db_path = db_storage_dir() / (args.db if args.db.endswith(".db") else f"{args.db}.db")
     conn = sqlite3.connect(db_path)
 
-    conn.execute(f'DROP TABLE IF EXISTS "{table}"')
-    conn.execute(build_create_table_sql(table, columns, field_types))
+    conn.execute(f'DROP TABLE IF EXISTS "{args.table}"')
+    conn.execute(build_create_table_sql(args.table, columns, field_types))
 
-    insert_sql = f'INSERT INTO "{table}" VALUES ({", ".join("?" for _ in columns)})'
+    insert_sql = f'INSERT INTO "{args.table}" VALUES ({", ".join("?" for _ in columns)})'
 
     start = time.perf_counter()
     n_rows = 0
     conn.execute("BEGIN")
-    for chunk in pd.read_csv(csv_path, sep=";", encoding="utf-8-sig", dtype=str, chunksize=CHUNK_SIZE):
+    for chunk in chunks:
         chunk = type_chunk(chunk, field_types)
         rows = chunk_to_params(chunk, columns, field_types)
         conn.executemany(insert_sql, rows)
@@ -136,7 +166,7 @@ def main():
     conn.commit()
     elapsed = time.perf_counter() - start
 
-    print(f"loaded {n_rows:,} rows into {db_path}::{table} in {elapsed:.2f}s")
+    print(f"loaded {n_rows:,} rows into {db_path}::{args.table} in {elapsed:.2f}s")
     conn.close()
 
 

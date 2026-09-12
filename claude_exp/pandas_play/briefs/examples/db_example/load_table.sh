@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Generates a big sample CSV (if not already there) and loads it into
 # SQLite efficiently -- chunked read, one transaction, index built
-# after the load. See load_csv.py for the actual technique.
+# after the load. See load_table.py for the actual technique.
 #
-# Usage: ./load_csv.sh [n_rows]   (default 300000, only used on first
+# Usage: ./load_table.sh [n_rows]   (default 300000, only used on first
 # generation -- delete big_sample.csv to regenerate with a new count)
 set -euo pipefail
 
@@ -24,4 +24,4 @@ else
 fi
 
 echo "loading $CSV_PATH ..."
-python3 load_csv.py "$CSV_PATH" big_load entries
+python3 load_table.py "$CSV_PATH" big_load entries
