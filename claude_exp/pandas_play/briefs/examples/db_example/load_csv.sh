@@ -24,4 +24,4 @@ else
 fi
 
 echo "loading $CSV_PATH ..."
-python3 load_csv.py
+python3 load_csv.py "$CSV_PATH" big_load entries

@@ -34,4 +34,21 @@ good choice and think I have a way forward will be moving forward with that will
 # python -m sqllite seems the way to go make it easy for me 
 make a .sh script creating an example db and then opening the client with this database
 
+# make load_csv.py more generic 
+ask question if unclear
+make a csv called field_definitions.csv with three fields
+table, field and type. 
+load_csv.py should now take three arguments 
+infile db table
+the infile is the csv to be loaded
+db is the name of the database to be stored in db_storage_dir
+infile is the csv to be read
+table is the table to be created and loaded with values. if the table exist from before - drop it first.
+when reading the csv assume all columns are str, except if the table=parameter and field=column can be found in field_definitions.csv in that case the type has the overloading type in pandas lingo i.e. float, integer etc.
+the table to be created should have all the columns that are in the csv 
+make an example where we have two csvs to load (small) 
+table_1 has three fields key, desc, a_number -  a_number should be in the field_definitions.csv with type float
+table_2 has three fields key2, desc, a_float, a_date -  a_float should be the field_definitions.csv with type int and a_date 
+
+key, key2 and desc should not be in field_definitions since they go to the default str
 

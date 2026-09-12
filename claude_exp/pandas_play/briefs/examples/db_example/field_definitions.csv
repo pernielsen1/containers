@@ -1,0 +1,8 @@
+table;field;type
+table_1;a_number;float
+table_2;a_float;int
+table_2;a_date;date
+entries;num_value;integer
+entries;decimal_value;float
+entries;the_date;date
+entries;the_timestamp;datetime
