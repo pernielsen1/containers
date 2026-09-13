@@ -1,0 +1,4 @@
+﻿key;desc;a_number;key2;desc;a_float;a_date;another_field
+K1;alpha;10,5;K1;alpha!!;10,0;2026-01-15;abc
+K2;beta;;K2;beta;20,0;;abcd
+K3;gamma;20,25;K3;gamma;;2026-01-17;
