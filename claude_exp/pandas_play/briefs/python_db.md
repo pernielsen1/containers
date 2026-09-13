@@ -120,4 +120,7 @@ after running the create_sp.py show me an example of the usage of the sp in a se
 
 # minor change to run_sql.py
 some times a run will not end with a select -i.e. more an action query 
-if the --output parameter is none then the last statement will not return a result set to be displayed 
+if the --output parameter is none then the last statement will not return a result set to be displayed
+
+# comment in script
+make the usual comment logic i.e. if first character in the line is a # then it is a comment not to be executed

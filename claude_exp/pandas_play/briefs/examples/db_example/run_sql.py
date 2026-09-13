@@ -3,7 +3,10 @@
 run_sql.py <sql-script> [--db generic_example] [--output out.csv] (--env prod|test | --config PATH)
 
 Runs every ';'-separated statement in sql-script against
-db_storage_dir()/<db>.db (same ".db" naming as load_table.py). If
+db_storage_dir()/<db>.db (same ".db" naming as load_table.py). A line
+whose first non-blank character is '#' is a script-level comment and
+is dropped before execution -- sqlite's own '--' comment syntax still
+works too, unaffected. If
 --output is given, the result set of the LAST statement (expected to
 be a SELECT) is written there as csv -- ';' separator, ',' decimal,
 utf-8-sig, same convention as the rest of this example. --env is the
@@ -19,7 +22,15 @@ import pandas as pd
 from config_loader import config_path_for_env, db_storage_dir
 
 
+def strip_comment_lines(sql_text):
+    """Drop any line whose first non-blank character is '#' -- a
+    script-level comment, not SQL (sqlite's own comment syntax is
+    '--', which this leaves untouched and passes straight to sqlite)."""
+    return "\n".join(line for line in sql_text.splitlines() if not line.lstrip().startswith("#"))
+
+
 def split_statements(sql_text):
+    sql_text = strip_comment_lines(sql_text)
     return [s.strip() for s in sql_text.split(";") if s.strip()]
 
 
