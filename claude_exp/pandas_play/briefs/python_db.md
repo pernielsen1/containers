@@ -117,3 +117,7 @@ the run the load.sh --test
 next level create a script create_sp.py which creates 
 as stored procedure called my_upper taking typically a name from one of our examples as input and returns a upper case version name. 
 after running the create_sp.py show me an example of the usage of the sp in a select statement
+
+# minor change to run_sql.py
+some times a run will not end with a select -i.e. more an action query 
+if the --output parameter is none then the last statement will not return a result set to be displayed 

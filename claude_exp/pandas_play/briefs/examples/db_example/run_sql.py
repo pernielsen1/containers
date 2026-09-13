@@ -48,8 +48,10 @@ def main():
     conn = sqlite3.connect(db_path)
 
     result_df = None
+    last_cursor = None
     for stmt in statements:
         cursor = conn.execute(stmt)
+        last_cursor = cursor
         # non-SELECT statements (CREATE/INSERT/UPDATE/...) have no
         # cursor.description -- only a SELECT's result carries forward.
         if cursor.description is not None:
@@ -71,6 +73,14 @@ def main():
         # value to float64+NaN) -- fillna('') displays it as blank,
         # same as NULL means nothing, not the literal text "NaN".
         print(result_df.fillna("").to_string(index=False))
+    elif last_cursor.rowcount >= 0:
+        # last statement was an action query (INSERT/UPDATE/DELETE),
+        # not a SELECT -- nothing to display, but say so rather than
+        # exiting silently. rowcount is -1 for DDL (CREATE/DROP/...),
+        # where "rows affected" isn't a meaningful concept.
+        print(f"no result set (action query) -- {last_cursor.rowcount} row(s) affected")
+    else:
+        print("no result set (action query)")
 
 
 if __name__ == "__main__":
