@@ -23,6 +23,13 @@ applied. This is what lets the same script handle both the small
 two-table example below and the big-CSV chunked-load case that used
 to be hardcoded here.
 
+field_definitions.csv also has an optional "sql_column_name" column:
+when set on a row, the table column is created and loaded under that
+name instead of the source field's own name -- e.g. import a column
+called "num_value" but store it as "amount". Only usable together
+with a real type conversion (a row always needs a "type"); there's no
+rename-only row for a column that stays plain str.
+
 CSV still reads in CHUNKS and commits once at the end -- see git
 history for why that matters on a big CSV. xlsx has no chunked reader
 in pandas, so it's read whole -- fine in practice, Excel files aren't
@@ -67,21 +74,38 @@ SQL_TYPES = {
 }
 
 
-def load_field_types(table):
-    """{field: type} overrides for `table` from field_definitions.csv.
-    Fields absent here stay plain str/TEXT -- the default."""
+def load_field_defs(table):
+    """(field_types, column_renames) for `table` from field_definitions.csv.
+    field_types is {field: type}; fields absent stay plain str/TEXT.
+    column_renames is {field: sql_column_name}, only for rows whose
+    optional sql_column_name is set -- the table column is created and
+    loaded under that name instead of the source field's own name."""
     if not FIELD_DEFINITIONS_PATH.exists():
-        return {}
-    defs = pd.read_csv(FIELD_DEFINITIONS_PATH, sep=";", encoding="utf-8-sig", dtype=str)
+        return {}, {}
+    defs = pd.read_csv(
+        FIELD_DEFINITIONS_PATH, sep=";", encoding="utf-8-sig", dtype=str, keep_default_na=False
+    )
     defs = defs[defs["table"] == table]
     unknown = set(defs["type"]) - set(TYPE_CONVERTERS)
     if unknown:
         raise SystemExit(f"field_definitions.csv: unknown type(s) {unknown} for table {table}")
-    return dict(zip(defs["field"], defs["type"]))
+    field_types = dict(zip(defs["field"], defs["type"]))
+    column_renames = {}
+    if "sql_column_name" in defs.columns:
+        column_renames = {
+            field: name for field, name in zip(defs["field"], defs["sql_column_name"]) if name
+        }
+    return field_types, column_renames
 
 
-def build_create_table_sql(table, columns, field_types):
-    cols_sql = ", ".join(f'"{c}" {SQL_TYPES.get(field_types.get(c), "TEXT")}' for c in columns)
+def build_create_table_sql(table, columns, field_types, column_renames):
+    sql_names = [column_renames.get(c, c) for c in columns]
+    duplicates = {n for n in sql_names if sql_names.count(n) > 1}
+    if duplicates:
+        raise SystemExit(f"field_definitions.csv: sql_column_name collision on {duplicates} for table {table}")
+    cols_sql = ", ".join(
+        f'"{name}" {SQL_TYPES.get(field_types.get(c), "TEXT")}' for c, name in zip(columns, sql_names)
+    )
     return f'CREATE TABLE "{table}" ({cols_sql})'
 
 
@@ -154,10 +178,10 @@ def main():
     db_path = db_storage_dir(config_path) / (args.db if args.db.endswith(".db") else f"{args.db}.db")
     logger.info("loading %s -> db=%s table=%s", infile_path, db_path, args.table)
 
-    field_types = load_field_types(args.table)
+    field_types, column_renames = load_field_defs(args.table)
     columns, chunks = read_chunks_and_columns(infile_path, suffix, args.sheet)
 
-    unknown_fields = set(field_types) - set(columns)
+    unknown_fields = (set(field_types) | set(column_renames)) - set(columns)
     if unknown_fields:
         raise SystemExit(
             f"field_definitions.csv references unknown column(s) {unknown_fields} for table {args.table}"
@@ -166,7 +190,7 @@ def main():
     conn = sqlite3.connect(db_path)
 
     conn.execute(f'DROP TABLE IF EXISTS "{args.table}"')
-    conn.execute(build_create_table_sql(args.table, columns, field_types))
+    conn.execute(build_create_table_sql(args.table, columns, field_types, column_renames))
 
     insert_sql = f'INSERT INTO "{args.table}" VALUES ({", ".join("?" for _ in columns)})'
 
