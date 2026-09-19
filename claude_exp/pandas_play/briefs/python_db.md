@@ -124,3 +124,11 @@ if the --output parameter is none then the last statement will not return a resu
 
 # comment in script
 make the usual comment logic i.e. if first character in the line is a # then it is a comment not to be executed
+
+# comment & PRAGMA in run_sql.py
+Ok I realized that the first # not really needed since the comment -- already exists
+but what would be really helpful are commands to the run_sql.py which are not SQL statements like 
+EXPORT i.e. export the latest result set to a csv or excel file.
+give recommendations on how to implement this - 
+it's still good if the script is considered a valid SQL script.. 
+let's discuss

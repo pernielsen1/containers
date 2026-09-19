@@ -3,17 +3,23 @@
 run_sql.py <sql-script> [--db generic_example] [--output out.csv] (--env prod|test | --config PATH)
 
 Runs every ';'-separated statement in sql-script against
-db_storage_dir()/<db>.db (same ".db" naming as load_table.py). A line
-whose first non-blank character is '#' is a script-level comment and
-is dropped before execution -- sqlite's own '--' comment syntax still
-works too, unaffected. If
---output is given, the result set of the LAST statement (expected to
-be a SELECT) is written there as csv -- ';' separator, ',' decimal,
-utf-8-sig, same convention as the rest of this example. --env is the
-normal way to pick prod/test; --config overrides it with an explicit
-config.json path (e.g. samples/config.json).
+db_storage_dir()/<db>.db (same ".db" naming as load_table.py). Comments
+use sqlite's own '--' syntax. A statement of the form
+
+    PRAGMA export = 'path/to/file.csv';   -- or .xlsx
+
+is a script-level directive, not real SQL: run_sql.py intercepts it
+instead of sending it to sqlite and writes the LAST result set (from
+the most recent SELECT) to that path -- format picked from the
+extension. Since PRAGMA is real SQL syntax and sqlite silently no-ops
+any pragma name it doesn't recognise, the script stays valid to run
+with a plain sqlite3 client too. --output works the same way from the
+command line for the final result set. --env is the normal way to
+pick prod/test; --config overrides it with an explicit config.json
+path (e.g. samples/config.json).
 """
 import argparse
+import re
 import sqlite3
 from pathlib import Path
 
@@ -21,17 +27,23 @@ import pandas as pd
 
 from config_loader import config_path_for_env, db_storage_dir
 
-
-def strip_comment_lines(sql_text):
-    """Drop any line whose first non-blank character is '#' -- a
-    script-level comment, not SQL (sqlite's own comment syntax is
-    '--', which this leaves untouched and passes straight to sqlite)."""
-    return "\n".join(line for line in sql_text.splitlines() if not line.lstrip().startswith("#"))
+EXPORT_PRAGMA_RE = re.compile(r"^PRAGMA\s+export\s*=\s*'([^']+)'$", re.IGNORECASE)
 
 
 def split_statements(sql_text):
-    sql_text = strip_comment_lines(sql_text)
     return [s.strip() for s in sql_text.split(";") if s.strip()]
+
+
+def write_result(df, path):
+    """Write df to path as csv or xlsx, picked from the file extension."""
+    suffix = Path(path).suffix.lower()
+    if suffix == ".csv":
+        df.to_csv(path, sep=";", decimal=",", index=False, encoding="utf-8-sig")
+    elif suffix == ".xlsx":
+        df.to_excel(path, index=False)
+    else:
+        raise SystemExit(f"export: unsupported file extension '{suffix}' (use .csv or .xlsx) -- {path}")
+    print(f"wrote {len(df)} rows -> {path}")
 
 
 def main():
@@ -61,6 +73,12 @@ def main():
     result_df = None
     last_cursor = None
     for stmt in statements:
+        export_match = EXPORT_PRAGMA_RE.match(stmt)
+        if export_match:
+            if result_df is None:
+                raise SystemExit(f"PRAGMA export: no result set to export -- {stmt}")
+            write_result(result_df, export_match.group(1))
+            continue
         cursor = conn.execute(stmt)
         last_cursor = cursor
         # non-SELECT statements (CREATE/INSERT/UPDATE/...) have no
@@ -76,8 +94,7 @@ def main():
     if args.output:
         if result_df is None:
             raise SystemExit("last statement produced no result set -- nothing to write to --output")
-        result_df.to_csv(args.output, sep=";", decimal=",", index=False, encoding="utf-8-sig")
-        print(f"wrote {len(result_df)} rows -> {args.output}")
+        write_result(result_df, args.output)
     elif result_df is not None:
         # SQL NULL becomes NaN/None once fetchall()'s rows go into a
         # DataFrame (pandas upcasts an int/float column with a missing
