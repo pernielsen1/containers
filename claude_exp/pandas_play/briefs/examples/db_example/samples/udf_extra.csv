@@ -1,0 +1,2 @@
+sql_name;module;python_name;num_args;deterministic;path
+validate_COMPANY_ID;udf_company;validate_company_id;2;1;~/containers/snippets

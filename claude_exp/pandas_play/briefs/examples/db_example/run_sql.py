@@ -13,7 +13,12 @@ instead of sending it to sqlite and writes the LAST result set (from
 the most recent SELECT) to that path -- format picked from the
 extension. Since PRAGMA is real SQL syntax and sqlite silently no-ops
 any pragma name it doesn't recognise, the script stays valid to run
-with a plain sqlite3 client too. --output works the same way from the
+with a plain sqlite3 client too. UDFs from udf_definitions.csv are always
+registered (see run_sql_udf.py); a second directive
+
+    PRAGMA udf_extra = 'my_udfs.csv';   -- path relative to the sql script
+
+adds that csv's UDFs for this script only. --output works the same way from the
 command line for the final result set. --env is the normal way to
 pick prod/test; --config overrides it with an explicit config.json
 path (e.g. samples/config.json).
@@ -26,8 +31,19 @@ from pathlib import Path
 import pandas as pd
 
 from config_loader import config_path_for_env, db_storage_dir
+from run_sql_udf import DEFAULT_UDF_CSV, register_udfs
 
 EXPORT_PRAGMA_RE = re.compile(r"^PRAGMA\s+export\s*=\s*'([^']+)'$", re.IGNORECASE)
+UDF_EXTRA_PRAGMA_RE = re.compile(r"^PRAGMA\s+udf_extra\s*=\s*'([^']+)'$", re.IGNORECASE)
+
+
+def directive_text(stmt):
+    """stmt minus leading '--' comment lines, so a comment block above a
+    PRAGMA directive doesn't stop it matching."""
+    lines = stmt.splitlines()
+    while lines and (not lines[0].strip() or lines[0].lstrip().startswith("--")):
+        lines.pop(0)
+    return "\n".join(lines).strip()
 
 
 def split_statements(sql_text):
@@ -70,10 +86,20 @@ def main():
     db_path = db_storage_dir(config_path) / (args.db if args.db.endswith(".db") else f"{args.db}.db")
     conn = sqlite3.connect(db_path)
 
+    # UDFs must exist before any statement runs, so udf_extra pragmas are
+    # pre-scanned (their position in the script doesn't matter).
+    register_udfs(conn, DEFAULT_UDF_CSV)
+    for stmt in statements:
+        udf_match = UDF_EXTRA_PRAGMA_RE.match(directive_text(stmt))
+        if udf_match:
+            register_udfs(conn, script_path.resolve().parent / udf_match.group(1))
+
     result_df = None
     last_cursor = None
     for stmt in statements:
-        export_match = EXPORT_PRAGMA_RE.match(stmt)
+        if UDF_EXTRA_PRAGMA_RE.match(directive_text(stmt)):
+            continue
+        export_match = EXPORT_PRAGMA_RE.match(directive_text(stmt))
         if export_match:
             if result_df is None:
                 raise SystemExit(f"PRAGMA export: no result set to export -- {stmt}")

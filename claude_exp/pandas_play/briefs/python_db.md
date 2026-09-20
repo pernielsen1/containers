@@ -132,3 +132,20 @@ EXPORT i.e. export the latest result set to a csv or excel file.
 give recommendations on how to implement this - 
 it's still good if the script is considered a valid SQL script.. 
 let's discuss
+
+# implement UDF library 
+## part 1
+in create_sp.py we explored how to make the closest to a SP in SQLite
+I have a few functions I need to be available whenever i do a run_sql.py
+so let's implement a run_sql_udf.py file which contains UDF's to be available i.e. the run_sql should start by implementing all necessary function using conn.create_function
+we could have the names and arguments to conn.create_function in a csv udf_definitions.csv but even better if it can just be explored by reading the run_sql_udf.py
+for the first version just implement my_upper as an example in run_sql_udf.py which will be available whenever running run_Sql.py
+## part 2
+also implement a PRAGMA udf_extra - which makes it possible to add a udf python file for a specific script in addition to the always present run_sql_udf.py
+
+## part 3 
+make an example showing how to use an object anothr place in the directory structure - for example use the  company_identifiers class defined in ~/containers/snippets/company_identifiers.py and implement a udf validate_COMPANy_ID which will use the validate_COMPANY_ID in the company_identifiers.py
+
+
+
+

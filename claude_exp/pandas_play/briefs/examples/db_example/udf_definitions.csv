@@ -1,0 +1,2 @@
+sql_name;module;python_name;num_args;deterministic;path
+my_upper;run_sql_udf;my_upper;1;1;
