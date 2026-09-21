@@ -20,6 +20,7 @@ db_example/
   load.sh / load_test.sh  load prod/test fixtures
   build_test_input.py     builds test/input from prod/input
   test_run_sql_udf.py     unit + end-to-end tests for the UDF feature
+  test_load_table.py      tests for load_table.py's --encoding/--delimiter/--decimal
   prod/  test/            each has its own config.json and input/ directory
   samples/                small self-contained examples (own config.json)
 ```
@@ -36,10 +37,19 @@ by the `TEMP` environment variable. `samples/sync.sh` copies the closed `.db` fi
 ## Loading data -- `load_table.py`
 
 ```
-python3 load_table.py <infile> <db> <table> [--sheet NAME] (--env prod|test | --config PATH)
+python3 load_table.py <infile> <db> <table> [--sheet NAME]
+        [--encoding ENC] [--delimiter CHAR] [--decimal CHAR] (--env prod|test | --config PATH)
 ```
 
-- `infile`: `.csv` (`;` separated, utf-8-sig, header row) or `.xlsx`.
+- `infile`: `.csv` (header row) or `.xlsx`.
+- CSV format options (rejected for `.xlsx`):
+
+| Option | Default | Notes |
+|---|---|---|
+| `--encoding` | `utf-8-sig` | reads plain utf-8 identically and strips the BOM Excel adds; use e.g. `latin-1` for old exports. A wrong encoding is an error, never garbled text |
+| `--delimiter` | `;` | one character; `\t` means tab |
+| `--decimal` | `,` | applies to `float` columns only. A `.` in the data is still accepted with the default; pass `--decimal .` to make `1,5` an error |
+
 - The table is dropped and recreated on every load.
 - **Every column is TEXT by default** -- no inference, so no NaN trap. Only columns listed in
   `field_definitions.csv` (`table;field;type;sql_column_name`) are converted. Types use

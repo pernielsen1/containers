@@ -2,7 +2,9 @@
 """
 Generic file -> SQLite table loader (csv or xlsx).
 
-Usage: python3 load_table.py <infile> <db> <table> [--sheet NAME] (--env prod|test | --config PATH)
+Usage: python3 load_table.py <infile> <db> <table> [--sheet NAME]
+           [--encoding ENC] [--delimiter CHAR] [--decimal CHAR]
+           (--env prod|test | --config PATH)
 
   infile   csv or xlsx file to load; format is picked from the
            extension (.csv -- ";" separated, utf-8-sig, header row
@@ -10,6 +12,13 @@ Usage: python3 load_table.py <infile> <db> <table> [--sheet NAME] (--env prod|te
   db       database name -> stored as db_storage_dir()/<db>.db
   table    table to create and load; dropped first if it already exists
   --sheet  xlsx only: sheet name to read (default: first sheet)
+  --encoding   csv only: file encoding (default utf-8-sig -- reads plain
+           utf-8 identically and also strips the BOM Excel adds)
+  --delimiter  csv only: one-character field separator (default ";";
+           "\\t" means tab)
+  --decimal    csv only: decimal separator used in float columns
+           (default ","; a "." in the data is accepted too unless you
+           pass --decimal . explicitly, then "1,5" is an error)
   --env    normal mode: prod or test -> db_example/<env>/config.json
   --config explicit config.json path -- overrides --env, for anything
            outside prod/test (e.g. samples/config.json)
@@ -49,6 +58,9 @@ from csv_typing import normalize_empty_strings
 HERE = Path(__file__).resolve().parent
 FIELD_DEFINITIONS_PATH = HERE / "field_definitions.csv"
 CHUNK_SIZE = 50_000
+DEFAULT_ENCODING = "utf-8-sig"
+DEFAULT_DELIMITER = ";"
+DEFAULT_DECIMAL = ","
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -109,10 +121,15 @@ def build_create_table_sql(table, columns, field_types, column_renames):
     return f'CREATE TABLE "{table}" ({cols_sql})'
 
 
-def type_chunk(chunk, field_types):
+def type_chunk(chunk, field_types, decimal="."):
     chunk = normalize_empty_strings(chunk)
     for col, type_name in field_types.items():
-        chunk[col] = TYPE_CONVERTERS[type_name](chunk[col])
+        values = chunk[col]
+        # data is read as str, so pandas' own decimal= never applies;
+        # normalise the separator to "." before numeric conversion.
+        if type_name == "float" and decimal != ".":
+            values = values.str.replace(decimal, ".", regex=False)
+        chunk[col] = TYPE_CONVERTERS[type_name](values)
     return chunk
 
 
@@ -135,7 +152,7 @@ def chunk_to_params(chunk, columns, field_types):
     return rows
 
 
-def read_chunks_and_columns(infile_path, suffix, sheet):
+def read_chunks_and_columns(infile_path, suffix, sheet, encoding=DEFAULT_ENCODING, delimiter=DEFAULT_DELIMITER):
     """Return (columns, chunk_iterable). CSV stays lazily chunked (memory
     stays flat on a big file); xlsx has no chunked reader in pandas so
     it's read whole into a single-item list instead."""
@@ -143,9 +160,9 @@ def read_chunks_and_columns(infile_path, suffix, sheet):
         if sheet:
             raise SystemExit("--sheet only applies to .xlsx input")
         columns = list(
-            pd.read_csv(infile_path, sep=";", encoding="utf-8-sig", dtype=str, nrows=0).columns
+            pd.read_csv(infile_path, sep=delimiter, encoding=encoding, dtype=str, nrows=0).columns
         )
-        chunks = pd.read_csv(infile_path, sep=";", encoding="utf-8-sig", dtype=str, chunksize=CHUNK_SIZE)
+        chunks = pd.read_csv(infile_path, sep=delimiter, encoding=encoding, dtype=str, chunksize=CHUNK_SIZE)
         return columns, chunks
 
     sheet_name = sheet if sheet else 0
@@ -159,6 +176,9 @@ def main():
     parser.add_argument("db")
     parser.add_argument("table")
     parser.add_argument("--sheet", help="xlsx only: sheet name (default: first sheet)")
+    parser.add_argument("--encoding", help=f"csv only: file encoding (default {DEFAULT_ENCODING})")
+    parser.add_argument("--delimiter", help=f'csv only: one-character separator (default "{DEFAULT_DELIMITER}"; "\\t" = tab)')
+    parser.add_argument("--decimal", help=f'csv only: decimal separator in float columns (default "{DEFAULT_DECIMAL}")')
     parser.add_argument("--env", choices=["prod", "test"], help="normal mode: db_example/<env>/config.json")
     parser.add_argument("--config", help="explicit config.json path -- overrides --env")
     args = parser.parse_args()
@@ -175,11 +195,25 @@ def main():
     if suffix not in (".csv", ".xlsx", ".xls"):
         raise SystemExit(f"unsupported file type '{suffix}' -- expected .csv or .xlsx")
 
+    if suffix == ".csv":
+        encoding = args.encoding or DEFAULT_ENCODING
+        delimiter = DEFAULT_DELIMITER if args.delimiter is None else args.delimiter.replace("\\t", "\t")
+        decimal = DEFAULT_DECIMAL if args.decimal is None else args.decimal
+        if len(delimiter) != 1:
+            raise SystemExit(f"--delimiter must be one character (or \\t), got '{args.delimiter}'")
+        if len(decimal) != 1:
+            raise SystemExit(f"--decimal must be one character, got '{args.decimal}'")
+    else:
+        for opt in ("encoding", "delimiter", "decimal"):
+            if getattr(args, opt) is not None:
+                raise SystemExit(f"--{opt} only applies to .csv input")
+        encoding, delimiter, decimal = DEFAULT_ENCODING, DEFAULT_DELIMITER, "."
+
     db_path = db_storage_dir(config_path) / (args.db if args.db.endswith(".db") else f"{args.db}.db")
     logger.info("loading %s -> db=%s table=%s", infile_path, db_path, args.table)
 
     field_types, column_renames = load_field_defs(args.table)
-    columns, chunks = read_chunks_and_columns(infile_path, suffix, args.sheet)
+    columns, chunks = read_chunks_and_columns(infile_path, suffix, args.sheet, encoding, delimiter)
 
     unknown_fields = (set(field_types) | set(column_renames)) - set(columns)
     if unknown_fields:
@@ -198,7 +232,7 @@ def main():
     n_rows = 0
     conn.execute("BEGIN")
     for chunk in chunks:
-        chunk = type_chunk(chunk, field_types)
+        chunk = type_chunk(chunk, field_types, decimal)
         rows = chunk_to_params(chunk, columns, field_types)
         conn.executemany(insert_sql, rows)
         n_rows += len(rows)
