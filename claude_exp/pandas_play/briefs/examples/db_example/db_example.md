@@ -20,6 +20,7 @@ db_example/
   load.sh / load_test.sh  load prod/test fixtures
   build_test_input.py     builds test/input from prod/input
   test_run_sql_udf.py     unit + end-to-end tests for the UDF feature
+  test_run_sql_include.py tests for PRAGMA include
   test_load_table.py      tests for load_table.py's --encoding/--delimiter/--decimal
   prod/  test/            each has its own config.json and input/ directory
   samples/                small self-contained examples (own config.json)
@@ -79,8 +80,47 @@ python3 run_sql.py <script.sql> [--db download] [--output out.csv] (--env prod|t
 |---|---|
 | `PRAGMA export = 'file.csv';` | write the latest result set to `.csv`/`.xlsx` at that point in the script |
 | `PRAGMA udf_extra = 'x.csv';` | register the UDFs listed in `x.csv` for this script only |
+| `PRAGMA include = 'other.sql';` | splice that script's statements in at this point |
 
 Directives may be preceded by `--` comment lines.
+
+### Reusing a script: `PRAGMA include`
+
+```sql
+-- formatting.sql: shared setup, no PRAGMA export of its own
+CREATE VIEW IF NOT EXISTS my_view AS
+SELECT key, my_upper(desc) AS desc_upper, a_number
+FROM table_1;
+```
+
+```sql
+-- mother.sql: reuses the view above, decides its own filter and export
+PRAGMA include = 'formatting.sql';
+
+SELECT * FROM my_view WHERE a_number > 15;
+PRAGMA export = 'out.csv';
+```
+
+Runnable version: `samples/include_formatting.sql` + `samples/include_mother.sql` (see
+**Examples** below).
+
+- Included statements are spliced in **in place**, in order -- statements after the include
+  in the mother script see whatever the included script created (tables, views), and a
+  `PRAGMA export`/`udf_extra`/another `include` inside the included script still runs
+  exactly where it's written.
+- **Recursive**: an included script can itself include another. Two scripts including the
+  same shared script (a "diamond") is fine; a script including itself, directly or through
+  a chain, is rejected with an error naming the cycle instead of hanging.
+- **Path resolution -- relative to the file that contains the directive**, not the
+  top-level script you passed on the command line. This applies to `udf_extra` too (not
+  just `include`): if `formatting.sql` has its own `PRAGMA udf_extra = 'x.csv';`, `x.csv`
+  is looked up next to `formatting.sql`, regardless of which mother script included it or
+  how deep the include chain is. That's what makes a shared script relocatable -- move
+  `formatting.sql` (and its `x.csv`) anywhere and its own relative paths still resolve,
+  without touching whichever mother script includes it. (`PRAGMA export` paths are
+  unaffected by any of this -- they're resolved the way they always were, against the
+  current working directory.)
+- A missing include file, or a cycle, is reported before any SQL statement runs.
 
 ## UDFs -- your own SQL functions
 
@@ -192,12 +232,23 @@ python3 run_sql.py samples/udf_example.sql --db udf_demo --config samples/config
 prints `my_upper`, the raw JSON result of `validate_COMPANY_ID`, and its `validation_result`
 extracted with `json_extract`.
 
+```
+python3 load_table.py samples/table_1.csv include_demo table_1 --config samples/config.json
+python3 run_sql.py samples/include_mother.sql --db include_demo --config samples/config.json
+```
+
+loads `table_1`, then runs `include_mother.sql`, which pulls in `include_formatting.sql`'s
+view and exports its own filtered result to `samples/include_mother_out.csv`.
+
 ## Tests
 
 ```
-python3 -m unittest test_run_sql_udf -v
+python3 -m unittest test_run_sql_udf test_run_sql_include test_load_table -v
 ```
 
-Covers CSV registration, `num_args`, the `path` column, dict-to-JSON, error messages, the
-`company_identifiers` example (skipped if `~/containers/snippets` is missing), and
-`run_sql.py` end to end including `PRAGMA udf_extra` position and comment handling.
+`test_run_sql_udf.py` covers CSV registration, `num_args`, the `path` column, dict-to-JSON,
+error messages, the `company_identifiers` example (skipped if `~/containers/snippets` is
+missing), and `run_sql.py` end to end including `PRAGMA udf_extra` position and comment
+handling. `test_run_sql_include.py` covers splicing, statement ordering, nested/relative
+path resolution, cycle detection, and export/udf_extra inside an included script.
+`test_load_table.py` covers `--encoding`/`--delimiter`/`--decimal`.

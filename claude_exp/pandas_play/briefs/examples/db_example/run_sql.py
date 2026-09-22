@@ -16,9 +16,16 @@ any pragma name it doesn't recognise, the script stays valid to run
 with a plain sqlite3 client too. UDFs from udf_definitions.csv are always
 registered (see run_sql_udf.py); a second directive
 
-    PRAGMA udf_extra = 'my_udfs.csv';   -- path relative to the sql script
+    PRAGMA udf_extra = 'my_udfs.csv';   -- path relative to the file it's in
 
-adds that csv's UDFs for this script only. --output works the same way from the
+adds that csv's UDFs for this script only. A third directive
+
+    PRAGMA include = 'shared.sql';      -- path relative to the file it's in
+
+splices that script's statements in at that point (recursively, cycles
+rejected) -- lets a "mother script" reuse shared setup (views,
+formatting) from one place while keeping its own PRAGMA export calls.
+--output works the same way from the
 command line for the final result set. --env is the normal way to
 pick prod/test; --config overrides it with an explicit config.json
 path (e.g. samples/config.json).
@@ -35,6 +42,7 @@ from run_sql_udf import DEFAULT_UDF_CSV, register_udfs
 
 EXPORT_PRAGMA_RE = re.compile(r"^PRAGMA\s+export\s*=\s*'([^']+)'$", re.IGNORECASE)
 UDF_EXTRA_PRAGMA_RE = re.compile(r"^PRAGMA\s+udf_extra\s*=\s*'([^']+)'$", re.IGNORECASE)
+INCLUDE_PRAGMA_RE = re.compile(r"^PRAGMA\s+include\s*=\s*'([^']+)'$", re.IGNORECASE)
 
 
 def directive_text(stmt):
@@ -48,6 +56,30 @@ def directive_text(stmt):
 
 def split_statements(sql_text):
     return [s.strip() for s in sql_text.split(";") if s.strip()]
+
+
+def read_statements(script_path, _chain=()):
+    """(stmt, source_path) pairs for script_path, with PRAGMA include
+    statements recursively replaced by the included script's own
+    statements (so execution order and udf_extra/export still work
+    from wherever they're actually written). _chain is the include
+    path leading here, used only to reject a cycle."""
+    script_path = script_path.resolve()
+    if script_path in _chain:
+        trail = " -> ".join(str(p) for p in (*_chain, script_path))
+        raise SystemExit(f"PRAGMA include cycle detected: {trail}")
+    if not script_path.exists():
+        raise SystemExit(f"{script_path} not found")
+
+    statements = []
+    for stmt in split_statements(script_path.read_text(encoding="utf-8")):
+        include_match = INCLUDE_PRAGMA_RE.match(directive_text(stmt))
+        if include_match:
+            included_path = script_path.parent / include_match.group(1)
+            statements.extend(read_statements(included_path, (*_chain, script_path)))
+        else:
+            statements.append((stmt, script_path))
+    return statements
 
 
 def write_result(df, path):
@@ -79,7 +111,11 @@ def main():
     if not script_path.exists():
         raise SystemExit(f"{script_path} not found")
 
-    statements = split_statements(script_path.read_text(encoding="utf-8"))
+    # includes are expanded first -- statements is (stmt, source_path)
+    # pairs, source_path being whichever file actually wrote that
+    # statement (the mother script or one it included), so a later
+    # relative udf_extra path resolves against the right directory.
+    statements = read_statements(script_path)
     if not statements:
         raise SystemExit(f"{script_path} contains no sql statements")
 
@@ -89,14 +125,14 @@ def main():
     # UDFs must exist before any statement runs, so udf_extra pragmas are
     # pre-scanned (their position in the script doesn't matter).
     register_udfs(conn, DEFAULT_UDF_CSV)
-    for stmt in statements:
+    for stmt, source_path in statements:
         udf_match = UDF_EXTRA_PRAGMA_RE.match(directive_text(stmt))
         if udf_match:
-            register_udfs(conn, script_path.resolve().parent / udf_match.group(1))
+            register_udfs(conn, source_path.parent / udf_match.group(1))
 
     result_df = None
     last_cursor = None
-    for stmt in statements:
+    for stmt, source_path in statements:
         if UDF_EXTRA_PRAGMA_RE.match(directive_text(stmt)):
             continue
         export_match = EXPORT_PRAGMA_RE.match(directive_text(stmt))
