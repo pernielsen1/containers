@@ -146,6 +146,17 @@ also implement a PRAGMA udf_extra - which makes it possible to add a udf python 
 ## part 3 
 make an example showing how to use an object anothr place in the directory structure - for example use the  company_identifiers class defined in ~/containers/snippets/company_identifiers.py and implement a udf validate_COMPANy_ID which will use the validate_COMPANY_ID in the company_identifiers.py
 
+# gold plating load_table.py
+load_table.py has proven a useful tool - now currently it uses the defaults ';' as delimitor seperator and utf-8 as encoding - 
+let is be possible to pass --encoding (default utf-8) --delimiter default ; --decimal default , 
+
+# making run_sql.py modular
+I sometimes am duplicating parts of scripts typically making a table in one script exporting to csv - evaluating it and then want's to format it based on a few key values to an action csv later.. 
+believe I need a new PRAGME include 
+where it means include another sql script so I can keep the formatting in one script and control the PRAGMA export in a "mother script"
+
+
+
 
 
 
