@@ -155,6 +155,15 @@ I sometimes am duplicating parts of scripts typically making a table in one scri
 believe I need a new PRAGME include 
 where it means include another sql script so I can keep the formatting in one script and control the PRAGMA export in a "mother script"
 
+# convinient to keep all in one script
+sometimes convinient to keep all in one script from loading a csv/xlsx to a table - running sqls and ejecting the result.
+my idea a new PRAGMA load_table which basically invokes the load_table.py 
+two things
+1: suggest a "PRAGMA syntax" where we can pass all parameters to load_table.py
+2: should load_table.py expose a class as well making it usable with same parameters as can be passed on the command line so the load_table.py simply parses the arguments and invokes the load_table class 
+
+Let's discuss
+
 
 
 
