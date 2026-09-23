@@ -21,7 +21,9 @@ db_example/
   build_test_input.py     builds test/input from prod/input
   test_run_sql_udf.py     unit + end-to-end tests for the UDF feature
   test_run_sql_include.py tests for PRAGMA include
-  test_load_table.py      tests for load_table.py's --encoding/--delimiter/--decimal
+  test_run_sql_load_table.py  tests for PRAGMA load_table
+  test_load_table.py      CLI tests for --encoding/--delimiter/--decimal
+  test_table_loader.py    tests for the TableLoader class (caching, aliases, ...)
   prod/  test/            each has its own config.json and input/ directory
   samples/                small self-contained examples (own config.json)
 ```
@@ -48,15 +50,23 @@ python3 load_table.py <infile> <db> <table> [--sheet NAME]
 | Option | Default | Notes |
 |---|---|---|
 | `--encoding` | `utf-8-sig` | reads plain utf-8 identically and strips the BOM Excel adds; use e.g. `latin-1` for old exports. A wrong encoding is an error, never garbled text |
-| `--delimiter` | `;` | one character; `\t` means tab |
+| `--delimiter` | `;` | one character, `\t`, or a name from `DELIMITER_ALIASES` (`comma`, `semicolon`/`semi_colon`, `tab`, `pipe`, `space`) -- case-insensitive |
 | `--decimal` | `,` | applies to `float` columns only. A `.` in the data is still accepted with the default; pass `--decimal .` to make `1,5` an error |
 
 - The table is dropped and recreated on every load.
 - **Every column is TEXT by default** -- no inference, so no NaN trap. Only columns listed in
   `field_definitions.csv` (`table;field;type;sql_column_name`) are converted. Types use
-  pandas names: `int`/`integer`, `float`, `date`, `datetime`/`timestamp`.
+  pandas names: `int`/`integer`, `float`, `date`, `datetime`/`timestamp`. That file is always
+  `load_table.py`'s own (next to it in this directory) -- not resolved relative to whatever
+  script or `PRAGMA load_table` triggered the load.
 - `sql_column_name` (optional) stores the column under another name.
 - CSVs are read in chunks and committed once at the end.
+- The load itself is `TableLoader.load(conn, infile, table, ...)` -- a class working against
+  an already-open connection. `main()` is a thin CLI wrapper around it (resolve config, open
+  a connection, call `.load()`). `run_sql.py`'s `PRAGMA load_table` (below) is the other
+  caller: it builds **one `TableLoader` for the whole script run** and reuses it across every
+  `PRAGMA load_table` in that script, so `field_definitions.csv` is read once and cached
+  instead of re-read on every load.
 
 `load.sh --env prod|test` loads `a_cust`, `c_cust`, `d_cust` into the `download` db.
 `load_test.sh` first builds a referentially consistent subset of prod into `test/input`
@@ -81,8 +91,13 @@ python3 run_sql.py <script.sql> [--db download] [--output out.csv] (--env prod|t
 | `PRAGMA export = 'file.csv';` | write the latest result set to `.csv`/`.xlsx` at that point in the script |
 | `PRAGMA udf_extra = 'x.csv';` | register the UDFs listed in `x.csv` for this script only |
 | `PRAGMA include = 'other.sql';` | splice that script's statements in at this point |
+| `PRAGMA load_table = 'infile table ...';` | load a csv/xlsx into a table, right here |
 
-Directives may be preceded by `--` comment lines.
+Directives may be preceded by `--` comment lines. One statement-splitting gotcha that predates
+all of these directives and isn't specific to any one of them: a script is split into
+statements on a bare `;`, with no awareness of `--` comments or string literals -- a `;`
+*inside* a `--` comment line will still split the statement there. Keep comments free of `;`,
+or move the comment onto its own line before the directive.
 
 ### Reusing a script: `PRAGMA include`
 
@@ -121,6 +136,40 @@ Runnable version: `samples/include_formatting.sql` + `samples/include_mother.sql
   unaffected by any of this -- they're resolved the way they always were, against the
   current working directory.)
 - A missing include file, or a cycle, is reported before any SQL statement runs.
+
+### Loading a table mid-script: `PRAGMA load_table`
+
+```sql
+PRAGMA load_table = 'table_1.csv table_1';
+
+SELECT * FROM table_1;
+```
+
+The quoted value is `load_table.py`'s own CLI arguments, minus the ones that pick a
+database -- `--db`/`--env`/`--config` don't apply, the connection is already open -- so the
+same flags work the same way:
+
+```sql
+PRAGMA load_table = 'big.csv entries --delimiter comma --decimal .';
+PRAGMA load_table = '"prod/input/a file.xlsx" a_cust --sheet Sheet2';
+```
+
+Runnable version: `samples/load_table_pragma_example.sql`.
+
+- The value is split the way a shell would (quoting for a path with spaces works, as in the
+  second example above), then parsed with the same flag names as the command line.
+- `infile` is resolved relative to the file the `PRAGMA` is written in -- the same rule as
+  `include`/`udf_extra`. `field_definitions.csv`, by contrast, is always `load_table.py`'s own
+  and unaffected by where the `PRAGMA` lives (see **Loading data** above).
+- Runs **in place**, like `export` -- not pre-scanned like `include`/`udf_extra` -- so a later
+  statement in the script can query the table it just loaded. It isn't itself a query, so it
+  doesn't touch the "last result set" that `--output`/`PRAGMA export` would write.
+- A missing `infile` or a missing required argument (`table`) is reported before any further
+  SQL runs, the same way a missing `include` file is.
+- The `--delimiter comma`/`semi_colon`/`tab`/`pipe`/`space` aliases exist mainly for this
+  PRAGMA: a literal `;` delimiter can't be written here at all, since the statement-splitting
+  gotcha above would truncate `PRAGMA load_table = '... --delimiter ;';` mid-statement.
+  `semi_colon` sidesteps that -- see `DELIMITER_ALIASES` in `load_table.py`.
 
 ## UDFs -- your own SQL functions
 
@@ -240,10 +289,16 @@ python3 run_sql.py samples/include_mother.sql --db include_demo --config samples
 loads `table_1`, then runs `include_mother.sql`, which pulls in `include_formatting.sql`'s
 view and exports its own filtered result to `samples/include_mother_out.csv`.
 
+```
+python3 run_sql.py samples/load_table_pragma_example.sql --db load_table_demo --config samples/config.json
+```
+
+loads `table_1` via `PRAGMA load_table` (no separate `load_table.py` call needed) and prints it.
+
 ## Tests
 
 ```
-python3 -m unittest test_run_sql_udf test_run_sql_include test_load_table -v
+python3 -m unittest test_run_sql_udf test_run_sql_include test_run_sql_load_table test_load_table test_table_loader -v
 ```
 
 `test_run_sql_udf.py` covers CSV registration, `num_args`, the `path` column, dict-to-JSON,
@@ -251,4 +306,8 @@ error messages, the `company_identifiers` example (skipped if `~/containers/snip
 missing), and `run_sql.py` end to end including `PRAGMA udf_extra` position and comment
 handling. `test_run_sql_include.py` covers splicing, statement ordering, nested/relative
 path resolution, cycle detection, and export/udf_extra inside an included script.
-`test_load_table.py` covers `--encoding`/`--delimiter`/`--decimal`.
+`test_run_sql_load_table.py` covers `PRAGMA load_table` end to end, including the
+`semi_colon` alias and use from inside an included script. `test_load_table.py` covers the
+CLI's `--encoding`/`--delimiter`/`--decimal`. `test_table_loader.py` covers the `TableLoader`
+class directly: row counts, reload-drops-first, the `field_definitions.csv` cache actually
+being read only once across multiple `.load()` calls, and the delimiter aliases.

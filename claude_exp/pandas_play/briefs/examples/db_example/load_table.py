@@ -14,8 +14,12 @@ Usage: python3 load_table.py <infile> <db> <table> [--sheet NAME]
   --sheet  xlsx only: sheet name to read (default: first sheet)
   --encoding   csv only: file encoding (default utf-8-sig -- reads plain
            utf-8 identically and also strips the BOM Excel adds)
-  --delimiter  csv only: one-character field separator (default ";";
-           "\\t" means tab)
+  --delimiter  csv only: one-character field separator (default ";").
+           Also takes a name instead of a character -- see
+           DELIMITER_ALIASES -- e.g. "tab" or "semi_colon"; handy for
+           PRAGMA load_table (see run_sql.py) where a literal ';'
+           can't be written since statements are themselves split on
+           a bare ';'.
   --decimal    csv only: decimal separator used in float columns
            (default ","; a "." in the data is accepted too unless you
            pass --decimal . explicitly, then "1,5" is an error)
@@ -43,9 +47,18 @@ CSV still reads in CHUNKS and commits once at the end -- see git
 history for why that matters on a big CSV. xlsx has no chunked reader
 in pandas, so it's read whole -- fine in practice, Excel files aren't
 the "large CSV" case this was built for.
+
+The actual load lives on the TableLoader class below, working against
+an already-open connection -- main() is a thin CLI wrapper around it
+(resolve config -> open connection -> TableLoader().load(...)). This
+is also what run_sql.py's PRAGMA load_table uses: it builds ONE
+TableLoader for the whole script run and reuses it across every
+PRAGMA load_table in that script, so field_definitions.csv is read
+once and cached rather than re-read on every load.
 """
 import argparse
 import logging
+import shlex
 import sqlite3
 import time
 from pathlib import Path
@@ -61,6 +74,21 @@ CHUNK_SIZE = 50_000
 DEFAULT_ENCODING = "utf-8-sig"
 DEFAULT_DELIMITER = ";"
 DEFAULT_DECIMAL = ","
+
+# Named spellings for a delimiter, on top of a literal character --
+# case-insensitive. "\t" (backslash-t) also still works, kept for
+# people typing it that way already; these exist mainly so ';' has a
+# way to be written that doesn't collide with run_sql.py splitting
+# statements on a bare ';' (PRAGMA load_table = '... --delimiter ;';
+# would be truncated mid-statement -- 'semi_colon' isn't).
+DELIMITER_ALIASES = {
+    "comma": ",",
+    "semicolon": ";",
+    "semi_colon": ";",
+    "tab": "\t",
+    "pipe": "|",
+    "space": " ",
+}
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -86,28 +114,13 @@ SQL_TYPES = {
 }
 
 
-def load_field_defs(table):
-    """(field_types, column_renames) for `table` from field_definitions.csv.
-    field_types is {field: type}; fields absent stay plain str/TEXT.
-    column_renames is {field: sql_column_name}, only for rows whose
-    optional sql_column_name is set -- the table column is created and
-    loaded under that name instead of the source field's own name."""
-    if not FIELD_DEFINITIONS_PATH.exists():
-        return {}, {}
-    defs = pd.read_csv(
-        FIELD_DEFINITIONS_PATH, sep=";", encoding="utf-8-sig", dtype=str, keep_default_na=False
-    )
-    defs = defs[defs["table"] == table]
-    unknown = set(defs["type"]) - set(TYPE_CONVERTERS)
-    if unknown:
-        raise SystemExit(f"field_definitions.csv: unknown type(s) {unknown} for table {table}")
-    field_types = dict(zip(defs["field"], defs["type"]))
-    column_renames = {}
-    if "sql_column_name" in defs.columns:
-        column_renames = {
-            field: name for field, name in zip(defs["field"], defs["sql_column_name"]) if name
-        }
-    return field_types, column_renames
+def resolve_delimiter(value):
+    """A literal one-character separator, a DELIMITER_ALIASES name
+    (case-insensitive), or the legacy "\\t" spelling -- in that order."""
+    alias = DELIMITER_ALIASES.get(value.lower())
+    if alias is not None:
+        return alias
+    return value.replace("\\t", "\t")
 
 
 def build_create_table_sql(table, columns, field_types, column_renames):
@@ -170,15 +183,141 @@ def read_chunks_and_columns(infile_path, suffix, sheet, encoding=DEFAULT_ENCODIN
     return list(full_df.columns), [full_df]
 
 
+def add_load_options(parser):
+    """--sheet/--encoding/--delimiter/--decimal, shared between the CLI
+    parser (main(), below) and the PRAGMA load_table mini-parser
+    (run_sql.py) so the two never drift apart on flag names/help text."""
+    parser.add_argument("--sheet", help="xlsx only: sheet name (default: first sheet)")
+    parser.add_argument("--encoding", help=f"csv only: file encoding (default {DEFAULT_ENCODING})")
+    parser.add_argument(
+        "--delimiter",
+        help=f'csv only: one character, or a name from DELIMITER_ALIASES (default "{DEFAULT_DELIMITER}")',
+    )
+    parser.add_argument("--decimal", help=f'csv only: decimal separator in float columns (default "{DEFAULT_DECIMAL}")')
+    return parser
+
+
+def build_pragma_parser():
+    """infile + table positionals, no db selection (PRAGMA load_table
+    runs on run_sql.py's already-open connection)."""
+    parser = argparse.ArgumentParser(prog="PRAGMA load_table", add_help=False)
+    parser.add_argument("infile")
+    parser.add_argument("table")
+    return add_load_options(parser)
+
+
+class TableLoader:
+    """Loads a csv/xlsx file into a table on an already-open sqlite3
+    connection. One instance can be reused across several .load() calls
+    (different tables, even different files) -- field_definitions.csv is
+    read once, lazily, on first use, and cached for the rest."""
+
+    def __init__(self, field_definitions_path=None):
+        self.field_definitions_path = Path(field_definitions_path) if field_definitions_path else FIELD_DEFINITIONS_PATH
+        self._field_defs_cache = None  # None = not loaded yet; pd.DataFrame or False (file absent) after
+
+    def _read_field_definitions(self):
+        if not self.field_definitions_path.exists():
+            return False
+        return pd.read_csv(
+            self.field_definitions_path, sep=";", encoding="utf-8-sig", dtype=str, keep_default_na=False
+        )
+
+    def _field_defs_for(self, table):
+        """(field_types, column_renames) for `table` -- see module
+        docstring for the field_definitions.csv format."""
+        if self._field_defs_cache is None:
+            self._field_defs_cache = self._read_field_definitions()
+        if self._field_defs_cache is False:
+            return {}, {}
+        defs = self._field_defs_cache
+        defs = defs[defs["table"] == table]
+        unknown = set(defs["type"]) - set(TYPE_CONVERTERS)
+        if unknown:
+            raise SystemExit(f"{self.field_definitions_path.name}: unknown type(s) {unknown} for table {table}")
+        field_types = dict(zip(defs["field"], defs["type"]))
+        column_renames = {}
+        if "sql_column_name" in defs.columns:
+            column_renames = {
+                field: name for field, name in zip(defs["field"], defs["sql_column_name"]) if name
+            }
+        return field_types, column_renames
+
+    def load(self, conn, infile, table, sheet=None, encoding=None, delimiter=None, decimal=None):
+        """Drop `table` if it exists, create it, load infile into it.
+        Returns the number of rows loaded. Does not commit or close conn
+        -- the caller owns the connection's lifecycle."""
+        infile_path = Path(infile)
+        if not infile_path.exists():
+            raise SystemExit(f"{infile_path} not found")
+
+        suffix = infile_path.suffix.lower()
+        if suffix not in (".csv", ".xlsx", ".xls"):
+            raise SystemExit(f"unsupported file type '{suffix}' -- expected .csv or .xlsx")
+
+        if suffix == ".csv":
+            enc = encoding or DEFAULT_ENCODING
+            delim = DEFAULT_DELIMITER if delimiter is None else resolve_delimiter(delimiter)
+            dec = DEFAULT_DECIMAL if decimal is None else decimal
+            if len(delim) != 1:
+                raise SystemExit(f"--delimiter must be one character, \\t, or a name from DELIMITER_ALIASES, got '{delimiter}'")
+            if len(dec) != 1:
+                raise SystemExit(f"--decimal must be one character, got '{decimal}'")
+        else:
+            for name, val in (("encoding", encoding), ("delimiter", delimiter), ("decimal", decimal)):
+                if val is not None:
+                    raise SystemExit(f"--{name} only applies to .csv input")
+            enc, delim, dec = DEFAULT_ENCODING, DEFAULT_DELIMITER, "."
+
+        logger.info("loading %s -> table=%s", infile_path, table)
+
+        field_types, column_renames = self._field_defs_for(table)
+        columns, chunks = read_chunks_and_columns(infile_path, suffix, sheet, enc, delim)
+
+        unknown_fields = (set(field_types) | set(column_renames)) - set(columns)
+        if unknown_fields:
+            raise SystemExit(
+                f"{self.field_definitions_path.name} references unknown column(s) {unknown_fields} for table {table}"
+            )
+
+        conn.execute(f'DROP TABLE IF EXISTS "{table}"')
+        conn.execute(build_create_table_sql(table, columns, field_types, column_renames))
+        insert_sql = f'INSERT INTO "{table}" VALUES ({", ".join("?" for _ in columns)})'
+
+        start = time.perf_counter()
+        n_rows = 0
+        conn.execute("BEGIN")
+        for chunk in chunks:
+            chunk = type_chunk(chunk, field_types, dec)
+            rows = chunk_to_params(chunk, columns, field_types)
+            conn.executemany(insert_sql, rows)
+            n_rows += len(rows)
+        conn.commit()
+        elapsed = time.perf_counter() - start
+
+        logger.info("loaded %s rows into %s in %.2fs", f"{n_rows:,}", table, elapsed)
+        return n_rows
+
+    def load_from_pragma(self, conn, base_dir, value):
+        """Parse the PRAGMA load_table = '...' payload -- same flags as
+        the CLI (infile table [--sheet ...] [--encoding ...]
+        [--delimiter ...] [--decimal ...]), infile resolved relative to
+        base_dir (the .sql file that wrote the directive) -- and load
+        it. Used by run_sql.py."""
+        args = build_pragma_parser().parse_args(shlex.split(value))
+        infile_path = (Path(base_dir) / args.infile).expanduser()
+        return self.load(
+            conn, infile_path, args.table,
+            sheet=args.sheet, encoding=args.encoding, delimiter=args.delimiter, decimal=args.decimal,
+        )
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("infile")
     parser.add_argument("db")
     parser.add_argument("table")
-    parser.add_argument("--sheet", help="xlsx only: sheet name (default: first sheet)")
-    parser.add_argument("--encoding", help=f"csv only: file encoding (default {DEFAULT_ENCODING})")
-    parser.add_argument("--delimiter", help=f'csv only: one-character separator (default "{DEFAULT_DELIMITER}"; "\\t" = tab)')
-    parser.add_argument("--decimal", help=f'csv only: decimal separator in float columns (default "{DEFAULT_DECIMAL}")')
+    add_load_options(parser)
     parser.add_argument("--env", choices=["prod", "test"], help="normal mode: db_example/<env>/config.json")
     parser.add_argument("--config", help="explicit config.json path -- overrides --env")
     args = parser.parse_args()
@@ -187,59 +326,12 @@ def main():
         raise SystemExit("pass --env prod|test (or --config <path> to override)")
     config_path = args.config if args.config else config_path_for_env(args.env)
 
-    infile_path = Path(args.infile)
-    if not infile_path.exists():
-        raise SystemExit(f"{infile_path} not found")
-
-    suffix = infile_path.suffix.lower()
-    if suffix not in (".csv", ".xlsx", ".xls"):
-        raise SystemExit(f"unsupported file type '{suffix}' -- expected .csv or .xlsx")
-
-    if suffix == ".csv":
-        encoding = args.encoding or DEFAULT_ENCODING
-        delimiter = DEFAULT_DELIMITER if args.delimiter is None else args.delimiter.replace("\\t", "\t")
-        decimal = DEFAULT_DECIMAL if args.decimal is None else args.decimal
-        if len(delimiter) != 1:
-            raise SystemExit(f"--delimiter must be one character (or \\t), got '{args.delimiter}'")
-        if len(decimal) != 1:
-            raise SystemExit(f"--decimal must be one character, got '{args.decimal}'")
-    else:
-        for opt in ("encoding", "delimiter", "decimal"):
-            if getattr(args, opt) is not None:
-                raise SystemExit(f"--{opt} only applies to .csv input")
-        encoding, delimiter, decimal = DEFAULT_ENCODING, DEFAULT_DELIMITER, "."
-
     db_path = db_storage_dir(config_path) / (args.db if args.db.endswith(".db") else f"{args.db}.db")
-    logger.info("loading %s -> db=%s table=%s", infile_path, db_path, args.table)
-
-    field_types, column_renames = load_field_defs(args.table)
-    columns, chunks = read_chunks_and_columns(infile_path, suffix, args.sheet, encoding, delimiter)
-
-    unknown_fields = (set(field_types) | set(column_renames)) - set(columns)
-    if unknown_fields:
-        raise SystemExit(
-            f"field_definitions.csv references unknown column(s) {unknown_fields} for table {args.table}"
-        )
-
     conn = sqlite3.connect(db_path)
-
-    conn.execute(f'DROP TABLE IF EXISTS "{args.table}"')
-    conn.execute(build_create_table_sql(args.table, columns, field_types, column_renames))
-
-    insert_sql = f'INSERT INTO "{args.table}" VALUES ({", ".join("?" for _ in columns)})'
-
-    start = time.perf_counter()
-    n_rows = 0
-    conn.execute("BEGIN")
-    for chunk in chunks:
-        chunk = type_chunk(chunk, field_types, decimal)
-        rows = chunk_to_params(chunk, columns, field_types)
-        conn.executemany(insert_sql, rows)
-        n_rows += len(rows)
-    conn.commit()
-    elapsed = time.perf_counter() - start
-
-    logger.info("loaded %s rows into %s::%s in %.2fs", f"{n_rows:,}", db_path, args.table, elapsed)
+    TableLoader().load(
+        conn, args.infile, args.table,
+        sheet=args.sheet, encoding=args.encoding, delimiter=args.delimiter, decimal=args.decimal,
+    )
     conn.close()
 
 

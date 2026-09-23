@@ -25,6 +25,14 @@ adds that csv's UDFs for this script only. A third directive
 splices that script's statements in at that point (recursively, cycles
 rejected) -- lets a "mother script" reuse shared setup (views,
 formatting) from one place while keeping its own PRAGMA export calls.
+A fourth directive
+
+    PRAGMA load_table = 'infile.csv table_name --delimiter , --decimal .';
+
+loads a csv/xlsx into a table on this script's own connection --
+same flags as load_table.py's CLI (minus db selection, since the
+connection already exists), parsed the same way a shell would split
+them; infile is resolved relative to the file the directive is in.
 --output works the same way from the
 command line for the final result set. --env is the normal way to
 pick prod/test; --config overrides it with an explicit config.json
@@ -39,10 +47,12 @@ import pandas as pd
 
 from config_loader import config_path_for_env, db_storage_dir
 from run_sql_udf import DEFAULT_UDF_CSV, register_udfs
+from load_table import TableLoader
 
 EXPORT_PRAGMA_RE = re.compile(r"^PRAGMA\s+export\s*=\s*'([^']+)'$", re.IGNORECASE)
 UDF_EXTRA_PRAGMA_RE = re.compile(r"^PRAGMA\s+udf_extra\s*=\s*'([^']+)'$", re.IGNORECASE)
 INCLUDE_PRAGMA_RE = re.compile(r"^PRAGMA\s+include\s*=\s*'([^']+)'$", re.IGNORECASE)
+LOAD_TABLE_PRAGMA_RE = re.compile(r"^PRAGMA\s+load_table\s*=\s*'([^']+)'$", re.IGNORECASE)
 
 
 def directive_text(stmt):
@@ -130,6 +140,10 @@ def main():
         if udf_match:
             register_udfs(conn, source_path.parent / udf_match.group(1))
 
+    # one TableLoader for the whole run -- PRAGMA load_table calls share
+    # it, so field_definitions.csv is read once and cached, not per call.
+    table_loader = TableLoader()
+
     result_df = None
     last_cursor = None
     for stmt, source_path in statements:
@@ -140,6 +154,12 @@ def main():
             if result_df is None:
                 raise SystemExit(f"PRAGMA export: no result set to export -- {stmt}")
             write_result(result_df, export_match.group(1))
+            continue
+        load_table_match = LOAD_TABLE_PRAGMA_RE.match(directive_text(stmt))
+        if load_table_match:
+            # not a query -- doesn't touch result_df/last_cursor, same
+            # as export above just reads them rather than setting them.
+            table_loader.load_from_pragma(conn, source_path.parent, load_table_match.group(1))
             continue
         cursor = conn.execute(stmt)
         last_cursor = cursor
