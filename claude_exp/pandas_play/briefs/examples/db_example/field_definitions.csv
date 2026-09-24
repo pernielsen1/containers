@@ -10,3 +10,4 @@ a_cust;c_key;int;
 c_cust;c_key;int;
 c_cust;d_key;int;
 d_cust;d_key;int;
+;my_key;int

@@ -22,6 +22,7 @@ db_example/
   test_run_sql_udf.py     unit + end-to-end tests for the UDF feature
   test_run_sql_include.py tests for PRAGMA include
   test_run_sql_load_table.py  tests for PRAGMA load_table
+  test_run_sql_print.py   tests for PRAGMA print
   test_load_table.py      CLI tests for --encoding/--delimiter/--decimal
   test_table_loader.py    tests for the TableLoader class (caching, aliases, ...)
   prod/  test/            each has its own config.json and input/ directory
@@ -56,10 +57,19 @@ python3 load_table.py <infile> <db> <table> [--sheet NAME]
 - The table is dropped and recreated on every load.
 - **Every column is TEXT by default** -- no inference, so no NaN trap. Only columns listed in
   `field_definitions.csv` (`table;field;type;sql_column_name`) are converted. Types use
-  pandas names: `int`/`integer`, `float`, `date`, `datetime`/`timestamp`. That file is always
-  `load_table.py`'s own (next to it in this directory) -- not resolved relative to whatever
-  script or `PRAGMA load_table` triggered the load.
+  pandas names: `int`/`integer`, `float`, `date`, `datetime`/`timestamp`, or `str` (an
+  explicit no-op -- see defaults below). That file is always `load_table.py`'s own (next to
+  it in this directory) -- not resolved relative to whatever script or `PRAGMA load_table`
+  triggered the load.
 - `sql_column_name` (optional) stores the column under another name.
+- **A row with a blank `table`** (e.g. `;my_key;int;`) sets a *default* type/rename for any
+  field with that name, across every table -- but only where the field actually shows up; a
+  table whose csv has no `my_key` column is simply unaffected. A row naming a table
+  explicitly (e.g. `table_with_str_my_key;my_key;str;`) wins outright for that field on that
+  table, replacing the default's type *and* rename together (not merged column by column) --
+  `str` is exactly for this, an explicit "stay plain text" that opts one table back out of an
+  inherited default. Runnable version: `samples/default_field_and_print_example.sql`, using
+  the `;my_key;int;` row already in this directory's `field_definitions.csv`.
 - CSVs are read in chunks and committed once at the end.
 - The load itself is `TableLoader.load(conn, infile, table, ...)` -- a class working against
   an already-open connection. `main()` is a thin CLI wrapper around it (resolve config, open
@@ -92,6 +102,7 @@ python3 run_sql.py <script.sql> [--db download] [--output out.csv] (--env prod|t
 | `PRAGMA udf_extra = 'x.csv';` | register the UDFs listed in `x.csv` for this script only |
 | `PRAGMA include = 'other.sql';` | splice that script's statements in at this point |
 | `PRAGMA load_table = 'infile table ...';` | load a csv/xlsx into a table, right here |
+| `PRAGMA print = 'message';` | print `message` to the console, right here |
 
 Directives may be preceded by `--` comment lines. One statement-splitting gotcha that predates
 all of these directives and isn't specific to any one of them: a script is split into
@@ -170,6 +181,19 @@ Runnable version: `samples/load_table_pragma_example.sql`.
   PRAGMA: a literal `;` delimiter can't be written here at all, since the statement-splitting
   gotcha above would truncate `PRAGMA load_table = '... --delimiter ;';` mid-statement.
   `semi_colon` sidesteps that -- see `DELIMITER_ALIASES` in `load_table.py`.
+
+### A console message: `PRAGMA print`
+
+```sql
+PRAGMA load_table = 'export_input.csv staging';
+PRAGMA print = 'staging loaded -- now open it in Excel and confirm the totals, then re-run';
+SELECT * FROM staging;
+```
+
+Prints the message right then, in place -- useful for a script that has a manual step in the
+middle of it (open a file, sanity-check something) and wants to say so on the console at that
+point rather than leaving it to a README. Like `load_table`, it isn't a query and doesn't
+touch the last result set.
 
 ## UDFs -- your own SQL functions
 
@@ -295,10 +319,18 @@ python3 run_sql.py samples/load_table_pragma_example.sql --db load_table_demo --
 
 loads `table_1` via `PRAGMA load_table` (no separate `load_table.py` call needed) and prints it.
 
+```
+python3 run_sql.py samples/default_field_and_print_example.sql --db defaults_demo --config samples/config.json
+```
+
+loads `my_key_example.csv`, with `my_key` typed as `int` purely from the default row already
+in `field_definitions.csv` (no row for this table at all), then prints a `PRAGMA print`
+message before showing the result.
+
 ## Tests
 
 ```
-python3 -m unittest test_run_sql_udf test_run_sql_include test_run_sql_load_table test_load_table test_table_loader -v
+python3 -m unittest test_run_sql_udf test_run_sql_include test_run_sql_load_table test_run_sql_print test_load_table test_table_loader -v
 ```
 
 `test_run_sql_udf.py` covers CSV registration, `num_args`, the `path` column, dict-to-JSON,
@@ -307,7 +339,11 @@ missing), and `run_sql.py` end to end including `PRAGMA udf_extra` position and 
 handling. `test_run_sql_include.py` covers splicing, statement ordering, nested/relative
 path resolution, cycle detection, and export/udf_extra inside an included script.
 `test_run_sql_load_table.py` covers `PRAGMA load_table` end to end, including the
-`semi_colon` alias and use from inside an included script. `test_load_table.py` covers the
-CLI's `--encoding`/`--delimiter`/`--decimal`. `test_table_loader.py` covers the `TableLoader`
-class directly: row counts, reload-drops-first, the `field_definitions.csv` cache actually
-being read only once across multiple `.load()` calls, and the delimiter aliases.
+`semi_colon` alias and use from inside an included script. `test_run_sql_print.py` covers
+message ordering, comment handling, and that it doesn't disturb the last result set.
+`test_load_table.py` covers the CLI's `--encoding`/`--delimiter`/`--decimal`.
+`test_table_loader.py` covers the `TableLoader` class directly: row counts, reload-drops-first,
+the `field_definitions.csv` cache actually being read only once across multiple `.load()`
+calls, the delimiter aliases, and the default-row precedence rules (a default applying, a
+table-specific row overriding it outright, a default field absent from one table's csv being
+silently ignored while a table's *own* row naming a missing column still errors).

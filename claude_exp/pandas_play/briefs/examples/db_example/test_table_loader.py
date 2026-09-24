@@ -119,6 +119,101 @@ class TestDelimiterAliases(TableLoaderCase):
             loader.load(self.conn, f, "t", delimiter="nonsense")
 
 
+class TestDefaultFieldDefinitions(TableLoaderCase):
+    """A field_definitions.csv row with a blank table ('' -- e.g.
+    ';my_key;int;') sets a default type/rename for any field with that
+    name, across every table, unless a table-specific row for that
+    exact (table, field) exists -- which then wins outright for that
+    field (not merged column-by-column with the default)."""
+
+    def test_default_applies_when_no_table_specific_row(self):
+        self.write("field_definitions.csv", "table;field;type;sql_column_name\n;my_key;int;\n")
+        f = self.write("a.csv", "my_key;desc\n7;x\n")
+        loader = TableLoader(field_definitions_path=self.dir / "field_definitions.csv")
+        loader.load(self.conn, f, "t")
+        self.assertEqual(self.rows("t"), [(7, "x")])
+
+    def test_default_applies_across_multiple_unrelated_tables(self):
+        self.write("field_definitions.csv", "table;field;type;sql_column_name\n;my_key;int;\n")
+        loader = TableLoader(field_definitions_path=self.dir / "field_definitions.csv")
+        f1 = self.write("a.csv", "my_key;desc\n1;x\n")
+        f2 = self.write("b.csv", "my_key;desc\n2;y\n")
+        loader.load(self.conn, f1, "t1")
+        loader.load(self.conn, f2, "t2")
+        self.assertEqual(self.rows("t1"), [(1, "x")])
+        self.assertEqual(self.rows("t2"), [(2, "y")])
+
+    def test_table_specific_row_overrides_default_type(self):
+        self.write(
+            "field_definitions.csv",
+            "table;field;type;sql_column_name\n;my_key;int;\ntable_with_str_my_key;my_key;str;\n",
+        )
+        loader = TableLoader(field_definitions_path=self.dir / "field_definitions.csv")
+        f = self.write("a.csv", "my_key;desc\n007;x\n")
+        loader.load(self.conn, f, "table_with_str_my_key")
+        # int default would strip the leading zero -- str override keeps it as text
+        self.assertEqual(self.rows("table_with_str_my_key"), [("007", "x")])
+
+    def test_table_specific_override_is_not_merged_with_default(self):
+        # default sets type=int and a rename; table-specific row sets only
+        # a different type -- the override is total, not per-column merge,
+        # so this table's column keeps the ORIGINAL field name, not the default's rename.
+        self.write(
+            "field_definitions.csv",
+            "table;field;type;sql_column_name\n"
+            ";my_key;int;renamed_key\n"
+            "t_override;my_key;float;\n",
+        )
+        loader = TableLoader(field_definitions_path=self.dir / "field_definitions.csv")
+        f = self.write("a.csv", "my_key;desc\n1.5;x\n")
+        loader.load(self.conn, f, "t_override")
+        cols = [r[1] for r in self.conn.execute('PRAGMA table_info("t_override")')]
+        self.assertEqual(cols, ["my_key", "desc"])
+        self.assertEqual(self.rows("t_override"), [(1.5, "x")])
+
+    def test_default_rename_applies_when_table_has_no_override(self):
+        self.write("field_definitions.csv", "table;field;type;sql_column_name\n;my_key;int;renamed_key\n")
+        loader = TableLoader(field_definitions_path=self.dir / "field_definitions.csv")
+        f = self.write("a.csv", "my_key;desc\n1;x\n")
+        loader.load(self.conn, f, "t")
+        cols = [r[1] for r in self.conn.execute('PRAGMA table_info("t")')]
+        self.assertEqual(cols, ["renamed_key", "desc"])
+
+    def test_unrelated_field_in_same_table_stays_plain_text(self):
+        self.write("field_definitions.csv", "table;field;type;sql_column_name\n;my_key;int;\n")
+        loader = TableLoader(field_definitions_path=self.dir / "field_definitions.csv")
+        f = self.write("a.csv", "my_key;other_field\n1;9\n")
+        loader.load(self.conn, f, "t")
+        self.assertEqual(self.rows("t"), [(1, "9")])
+
+    def test_default_field_absent_from_this_table_is_silently_ignored(self):
+        # the default doesn't have to apply everywhere -- a table whose
+        # csv simply has no "my_key" column shouldn't error.
+        self.write("field_definitions.csv", "table;field;type;sql_column_name\n;my_key;int;\n")
+        loader = TableLoader(field_definitions_path=self.dir / "field_definitions.csv")
+        f = self.write("a.csv", "key;desc\nk1;one\n")
+        loader.load(self.conn, f, "t")
+        self.assertEqual(self.rows("t"), [("k1", "one")])
+
+    def test_table_specific_row_for_a_missing_column_still_errors(self):
+        # unlike a default, a table's OWN row naming a column that
+        # isn't in its csv is still a real (likely typo) error.
+        self.write("field_definitions.csv", "table;field;type;sql_column_name\nt;does_not_exist;int;\n")
+        loader = TableLoader(field_definitions_path=self.dir / "field_definitions.csv")
+        f = self.write("a.csv", "key;desc\nk1;one\n")
+        with self.assertRaises(SystemExit) as cm:
+            loader.load(self.conn, f, "t")
+        self.assertIn("does_not_exist", str(cm.exception))
+
+    def test_unknown_type_in_a_default_row_is_reported(self):
+        self.write("field_definitions.csv", "table;field;type;sql_column_name\n;my_key;bogus;\n")
+        loader = TableLoader(field_definitions_path=self.dir / "field_definitions.csv")
+        f = self.write("a.csv", "my_key;desc\n1;x\n")
+        with self.assertRaises(SystemExit) as cm:
+            loader.load(self.conn, f, "t")
+        self.assertIn("bogus", str(cm.exception))
+
+
 class TestXlsxOptionRejection(TableLoaderCase):
     def test_csv_only_options_rejected_for_xlsx(self):
         import pandas as pd

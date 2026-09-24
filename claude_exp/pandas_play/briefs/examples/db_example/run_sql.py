@@ -32,8 +32,14 @@ A fourth directive
 loads a csv/xlsx into a table on this script's own connection --
 same flags as load_table.py's CLI (minus db selection, since the
 connection already exists), parsed the same way a shell would split
-them; infile is resolved relative to the file the directive is in.
---output works the same way from the
+them; infile is resolved relative to the file the directive is in. A
+fifth directive
+
+    PRAGMA print = 'now open out.csv and check the totals';
+
+prints the message to the console right then -- an instruction for
+whoever is watching the run, e.g. a manual next step. --output works
+the same way from the
 command line for the final result set. --env is the normal way to
 pick prod/test; --config overrides it with an explicit config.json
 path (e.g. samples/config.json).
@@ -53,6 +59,7 @@ EXPORT_PRAGMA_RE = re.compile(r"^PRAGMA\s+export\s*=\s*'([^']+)'$", re.IGNORECAS
 UDF_EXTRA_PRAGMA_RE = re.compile(r"^PRAGMA\s+udf_extra\s*=\s*'([^']+)'$", re.IGNORECASE)
 INCLUDE_PRAGMA_RE = re.compile(r"^PRAGMA\s+include\s*=\s*'([^']+)'$", re.IGNORECASE)
 LOAD_TABLE_PRAGMA_RE = re.compile(r"^PRAGMA\s+load_table\s*=\s*'([^']+)'$", re.IGNORECASE)
+PRINT_PRAGMA_RE = re.compile(r"^PRAGMA\s+print\s*=\s*'([^']+)'$", re.IGNORECASE)
 
 
 def directive_text(stmt):
@@ -160,6 +167,10 @@ def main():
             # not a query -- doesn't touch result_df/last_cursor, same
             # as export above just reads them rather than setting them.
             table_loader.load_from_pragma(conn, source_path.parent, load_table_match.group(1))
+            continue
+        print_match = PRINT_PRAGMA_RE.match(directive_text(stmt))
+        if print_match:
+            print(print_match.group(1))
             continue
         cursor = conn.execute(stmt)
         last_cursor = cursor

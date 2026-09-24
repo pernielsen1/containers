@@ -102,6 +102,10 @@ TYPE_CONVERTERS = {
     "date": lambda s: pd.to_datetime(s, errors="raise").dt.strftime("%Y-%m-%d"),
     "datetime": lambda s: pd.to_datetime(s, errors="raise").dt.strftime("%Y-%m-%d %H:%M:%S"),
     "timestamp": lambda s: pd.to_datetime(s, errors="raise").dt.strftime("%Y-%m-%d %H:%M:%S"),
+    # no-op: exists so a table can opt back OUT of a default row's type
+    # (see _field_defs_for) for one field, e.g. a code that happens to
+    # be named like a normally-numeric field but must stay plain text.
+    "str": lambda s: s,
 }
 
 SQL_TYPES = {
@@ -111,6 +115,7 @@ SQL_TYPES = {
     "date": "TEXT",
     "datetime": "TEXT",
     "timestamp": "TEXT",
+    "str": "TEXT",
 }
 
 
@@ -224,24 +229,46 @@ class TableLoader:
         )
 
     def _field_defs_for(self, table):
-        """(field_types, column_renames) for `table` -- see module
-        docstring for the field_definitions.csv format."""
+        """(field_types, column_renames, explicit_fields) for `table` --
+        see module docstring for the field_definitions.csv format.
+
+        A row with a blank table ('' -- e.g. ";my_key;int;") sets a
+        DEFAULT for any field with that name, across every table -- but
+        only where that field actually shows up; a table with no
+        "my_key" column is simply unaffected. A row naming this table
+        specifically wins outright for that field -- it replaces the
+        default's type AND sql_column_name together, rather than
+        merging them column by column -- so a table that needs to keep
+        e.g. "my_key" as plain text writes its own ";my_key;str;" row
+        rather than trying to subtract just the type. explicit_fields
+        is the set of fields this table named itself (not inherited
+        from a default) -- load() uses it to tell "this table's own
+        row names a column that isn't in the csv" (a real error) apart
+        from "a default's field isn't in this csv" (fine, ignore it)."""
         if self._field_defs_cache is None:
             self._field_defs_cache = self._read_field_definitions()
         if self._field_defs_cache is False:
-            return {}, {}
+            return {}, {}, set()
         defs = self._field_defs_cache
-        defs = defs[defs["table"] == table]
-        unknown = set(defs["type"]) - set(TYPE_CONVERTERS)
+
+        has_renames = "sql_column_name" in defs.columns
+        by_field = {}  # field -> (type, sql_column_name), table-specific overwriting default
+        for _, row in defs[defs["table"] == ""].iterrows():
+            by_field[row["field"]] = (row["type"], row["sql_column_name"] if has_renames else "")
+        explicit_fields = set(defs[defs["table"] == table]["field"])
+        for _, row in defs[defs["table"] == table].iterrows():
+            by_field[row["field"]] = (row["type"], row["sql_column_name"] if has_renames else "")
+
+        # scoped to what THIS table actually uses (its own rows + any
+        # default it inherits) -- a bad type on some other, unrelated
+        # table's row shouldn't block a load that never touches it.
+        unknown = {type_ for type_, _ in by_field.values()} - set(TYPE_CONVERTERS)
         if unknown:
             raise SystemExit(f"{self.field_definitions_path.name}: unknown type(s) {unknown} for table {table}")
-        field_types = dict(zip(defs["field"], defs["type"]))
-        column_renames = {}
-        if "sql_column_name" in defs.columns:
-            column_renames = {
-                field: name for field, name in zip(defs["field"], defs["sql_column_name"]) if name
-            }
-        return field_types, column_renames
+
+        field_types = {field: type_ for field, (type_, _) in by_field.items()}
+        column_renames = {field: name for field, (_, name) in by_field.items() if name}
+        return field_types, column_renames, explicit_fields
 
     def load(self, conn, infile, table, sheet=None, encoding=None, delimiter=None, decimal=None):
         """Drop `table` if it exists, create it, load infile into it.
@@ -271,8 +298,17 @@ class TableLoader:
 
         logger.info("loading %s -> table=%s", infile_path, table)
 
-        field_types, column_renames = self._field_defs_for(table)
+        field_types, column_renames, explicit_fields = self._field_defs_for(table)
         columns, chunks = read_chunks_and_columns(infile_path, suffix, sheet, enc, delim)
+
+        # a DEFAULT row's field simply not being in this csv is normal
+        # (the default doesn't have to apply everywhere) -- drop it
+        # quietly. A field THIS table named itself missing is a real
+        # config error (likely a typo) and still raises, below.
+        defaulted_missing = (set(field_types) | set(column_renames)) - set(columns) - explicit_fields
+        for field in defaulted_missing:
+            field_types.pop(field, None)
+            column_renames.pop(field, None)
 
         unknown_fields = (set(field_types) | set(column_renames)) - set(columns)
         if unknown_fields:
