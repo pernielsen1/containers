@@ -23,6 +23,7 @@ db_example/
   test_run_sql_include.py tests for PRAGMA include
   test_run_sql_load_table.py  tests for PRAGMA load_table
   test_run_sql_print.py   tests for PRAGMA print
+  test_run_sql_show_result.py  tests for PRAGMA show_result
   test_load_table.py      CLI tests for --encoding/--delimiter/--decimal
   test_table_loader.py    tests for the TableLoader class (caching, aliases, ...)
   prod/  test/            each has its own config.json and input/ directory
@@ -92,7 +93,7 @@ python3 run_sql.py <script.sql> [--db download] [--output out.csv] (--env prod|t
 - Runs every `;`-separated statement; comments are SQLite's own `--`.
 - A script ending in a SELECT prints the result; `--output` writes it to `.csv`
   (`;` separator, utf-8-sig) or `.xlsx`. A script ending in an action query reports the
-  rows affected.
+  rows affected. `PRAGMA show_result = 'off';` (below) silences both.
 - **Script directives** are written as `PRAGMA name = 'value';`. run_sql.py intercepts them;
   a plain `sqlite3` client silently ignores unknown pragmas, so every script stays valid SQL.
 
@@ -103,6 +104,7 @@ python3 run_sql.py <script.sql> [--db download] [--output out.csv] (--env prod|t
 | `PRAGMA include = 'other.sql';` | splice that script's statements in at this point |
 | `PRAGMA load_table = 'infile table ...';` | load a csv/xlsx into a table, right here |
 | `PRAGMA print = 'message';` | print `message` to the console, right here |
+| `PRAGMA show_result = 'off';` | don't show the last result set at the end (top-level script only) |
 
 Directives may be preceded by `--` comment lines. One statement-splitting gotcha that predates
 all of these directives and isn't specific to any one of them: a script is split into
@@ -194,6 +196,24 @@ Prints the message right then, in place -- useful for a script that has a manual
 middle of it (open a file, sanity-check something) and wants to say so on the console at that
 point rather than leaving it to a README. Like `load_table`, it isn't a query and doesn't
 touch the last result set.
+
+### Silent in production: `PRAGMA show_result`
+
+```sql
+PRAGMA show_result = 'off';
+PRAGMA load_table = 'daily.csv staging';
+SELECT * FROM staging;
+PRAGMA export = 'out/daily.csv';
+```
+
+By default the last result set is shown on the console when the script ends -- handy
+interactively, noise in a production stream. `'off'` suppresses that (and the
+`no result set (action query)` line); `'on'` is the default. Anywhere in the script -- it's
+only acted on at the end. `PRAGMA print` messages, `PRAGMA export`'s `wrote N rows` line and
+`--output` are all unaffected. Honoured **only in the top-level script**: inside an included
+file it's ignored, so a shared include can't silently turn output off for every script using
+it (and a script run standalone with `'off'` can still be included elsewhere). Any value
+other than `on`/`off` is an error.
 
 ## UDFs -- your own SQL functions
 
@@ -330,7 +350,7 @@ message before showing the result.
 ## Tests
 
 ```
-python3 -m unittest test_run_sql_udf test_run_sql_include test_run_sql_load_table test_run_sql_print test_load_table test_table_loader -v
+python3 -m unittest test_run_sql_udf test_run_sql_include test_run_sql_load_table test_run_sql_print test_run_sql_show_result test_load_table test_table_loader -v
 ```
 
 `test_run_sql_udf.py` covers CSV registration, `num_args`, the `path` column, dict-to-JSON,
@@ -341,6 +361,9 @@ path resolution, cycle detection, and export/udf_extra inside an included script
 `test_run_sql_load_table.py` covers `PRAGMA load_table` end to end, including the
 `semi_colon` alias and use from inside an included script. `test_run_sql_print.py` covers
 message ordering, comment handling, and that it doesn't disturb the last result set.
+`test_run_sql_show_result.py` covers suppression of the result/action-query line, position
+independence, print/export/`--output` still working, on/off case-insensitivity, rejecting
+other values, and being ignored inside an include.
 `test_load_table.py` covers the CLI's `--encoding`/`--delimiter`/`--decimal`.
 `test_table_loader.py` covers the `TableLoader` class directly: row counts, reload-drops-first,
 the `field_definitions.csv` cache actually being read only once across multiple `.load()`

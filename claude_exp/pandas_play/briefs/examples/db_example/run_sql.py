@@ -38,8 +38,17 @@ fifth directive
     PRAGMA print = 'now open out.csv and check the totals';
 
 prints the message to the console right then -- an instruction for
-whoever is watching the run, e.g. a manual next step. --output works
-the same way from the
+whoever is watching the run, e.g. a manual next step. A sixth directive
+
+    PRAGMA show_result = 'off';         -- or 'on' (the default)
+
+stops the last result set (or the "no result set" line) being shown
+on the console at the end of the run -- for scripts in a production
+stream, where it's noise. Position doesn't matter; print/export
+messages and --output are unaffected. Only honoured in the top-level
+script -- inside an included file it's ignored, so a shared include
+can't silently switch output off for every script using it.
+--output works the same way from the
 command line for the final result set. --env is the normal way to
 pick prod/test; --config overrides it with an explicit config.json
 path (e.g. samples/config.json).
@@ -60,6 +69,7 @@ UDF_EXTRA_PRAGMA_RE = re.compile(r"^PRAGMA\s+udf_extra\s*=\s*'([^']+)'$", re.IGN
 INCLUDE_PRAGMA_RE = re.compile(r"^PRAGMA\s+include\s*=\s*'([^']+)'$", re.IGNORECASE)
 LOAD_TABLE_PRAGMA_RE = re.compile(r"^PRAGMA\s+load_table\s*=\s*'([^']+)'$", re.IGNORECASE)
 PRINT_PRAGMA_RE = re.compile(r"^PRAGMA\s+print\s*=\s*'([^']+)'$", re.IGNORECASE)
+SHOW_RESULT_PRAGMA_RE = re.compile(r"^PRAGMA\s+show_result\s*=\s*'([^']+)'$", re.IGNORECASE)
 
 
 def directive_text(stmt):
@@ -151,6 +161,8 @@ def main():
     # it, so field_definitions.csv is read once and cached, not per call.
     table_loader = TableLoader()
 
+    top_level_path = script_path.resolve()
+    show_result = True
     result_df = None
     last_cursor = None
     for stmt, source_path in statements:
@@ -172,6 +184,15 @@ def main():
         if print_match:
             print(print_match.group(1))
             continue
+        show_result_match = SHOW_RESULT_PRAGMA_RE.match(directive_text(stmt))
+        if show_result_match:
+            value = show_result_match.group(1).strip().lower()
+            if value not in ("on", "off"):
+                raise SystemExit(f"PRAGMA show_result: expected 'on' or 'off' -- {stmt}")
+            # top-level only -- an include's setting is ignored (see docstring).
+            if source_path == top_level_path:
+                show_result = value == "on"
+            continue
         cursor = conn.execute(stmt)
         last_cursor = cursor
         # non-SELECT statements (CREATE/INSERT/UPDATE/...) have no
@@ -188,6 +209,8 @@ def main():
         if result_df is None:
             raise SystemExit("last statement produced no result set -- nothing to write to --output")
         write_result(result_df, args.output)
+    elif not show_result:
+        pass
     elif result_df is not None:
         # SQL NULL becomes NaN/None once fetchall()'s rows go into a
         # DataFrame (pandas upcasts an int/float column with a missing

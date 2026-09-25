@@ -164,8 +164,32 @@ two things
 
 Let's discuss
 
+# Minor optimizations
+## optimize load_table - defaults for field names
+Using load_table.py for real work - I find myself often repeating a definition in the field definitions csv. 
+would be usefull to have a global default for a specific name let's assume that a field named my_key normally is an int
+then I would like to put an entry in the field_definitions.csv like
+;my_key;int
+which if nothing else was specified would mean that field named my_key would be treated as an int
+now I would still be able to override it in some specific table like
+table_with_str_my_key;my_key;str
+or 
+table_with_str_my_key;my_key;float..
+if that was needed..
+## yet another PRAGMA - print
+make a PRAGMA print 
+with a message as parameter - which is basically a message to the console. 
+Makes it easy to have a script running with instruction on next step (which may be manual)
+
+# optimization for run_sql.py a new PRAGMA
+it is usually very convinient that the script shows the result from the latest result set.
+but for scripts which are part of a "production stream" it becomes noise.
+so a new PRAGMA - given anywhere in the script - cancels the default to output the last result set.
+give a suggestion for the new PRAGMA and let's agree before implementing.
 
 
 
 
-
+**Agreed & implemented:** `PRAGMA show_result = 'off';` (`'on'` = default). Suppresses the end-of-run
+result set / "no result set" line; print, export and `--output` unaffected. Top-level script only
+(ignored inside an include). No CLI option. See db_example.md "Silent in production".
