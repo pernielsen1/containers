@@ -7,13 +7,24 @@ db_storage_dir()/<db>.db (same ".db" naming as load_table.py). Comments
 use sqlite's own '--' syntax. A statement of the form
 
     PRAGMA export = 'path/to/file.csv';   -- or .xlsx
+    PRAGMA export = 'path/to/file.xlsx --sheet Totals';
 
 is a script-level directive, not real SQL: run_sql.py intercepts it
 instead of sending it to sqlite and writes the LAST result set (from
 the most recent SELECT) to that path -- format picked from the
-extension. Since PRAGMA is real SQL syntax and sqlite silently no-ops
-any pragma name it doesn't recognise, the script stays valid to run
-with a plain sqlite3 client too. UDFs from udf_definitions.csv are always
+extension. --sheet is xlsx only: a plain export (no --sheet) overwrites
+the whole file each time, same as always; naming a sheet instead
+appends that sheet to the workbook at that path, so several PRAGMA
+export calls in one run -- including from an included child script --
+can build up one workbook with several sheets. The same path+sheet
+twice in one run is an error, not a silent overwrite. Since PRAGMA is
+real SQL syntax and sqlite silently no-ops any pragma name it doesn't
+recognise, the script stays valid to run with a plain sqlite3 client
+too. A statement that's entirely a '--' comment (once any comment
+lines are stripped, nothing is left) is skipped rather than sent to
+sqlite -- so commenting out the last real line of a script doesn't
+erase the result set that would otherwise have been shown/exported.
+UDFs from udf_definitions.csv are always
 registered (see run_sql_udf.py); a second directive
 
     PRAGMA udf_extra = 'my_udfs.csv';   -- path relative to the file it's in
@@ -55,6 +66,7 @@ path (e.g. samples/config.json).
 """
 import argparse
 import re
+import shlex
 import sqlite3
 from pathlib import Path
 
@@ -109,16 +121,46 @@ def read_statements(script_path, _chain=()):
     return statements
 
 
-def write_result(df, path):
-    """Write df to path as csv or xlsx, picked from the file extension."""
+def build_export_pragma_parser():
+    """path positional + --sheet, xlsx only (see write_result)."""
+    parser = argparse.ArgumentParser(prog="PRAGMA export", add_help=False)
+    parser.add_argument("path")
+    parser.add_argument("--sheet", help="xlsx only: sheet name -- repeat PRAGMA export with a "
+                         "different --sheet for the same path to add sheets to one workbook "
+                         "(default: overwrite the whole file each time, like plain export)")
+    return parser
+
+
+def write_result(df, path, sheet=None, xlsx_sheets=None):
+    """Write df to path as csv or xlsx, picked from the file extension.
+    xlsx_sheets tracks, for this run, which (resolved path, sheet name)
+    pairs have already been written -- so a second PRAGMA export with a
+    different --sheet for the same path appends a sheet to that workbook
+    instead of overwriting it, and a repeated --sheet name is caught as
+    a mistake rather than silently losing the earlier sheet."""
     suffix = Path(path).suffix.lower()
     if suffix == ".csv":
+        if sheet is not None:
+            raise SystemExit(f"PRAGMA export: --sheet is xlsx only -- {path}")
         df.to_csv(path, sep=";", decimal=",", index=False, encoding="utf-8-sig")
+        print(f"wrote {len(df)} rows -> {path}")
     elif suffix == ".xlsx":
-        df.to_excel(path, index=False)
+        if sheet is None:
+            df.to_excel(path, index=False)
+            print(f"wrote {len(df)} rows -> {path}")
+        else:
+            resolved = Path(path).resolve()
+            sheets_done = xlsx_sheets.setdefault(resolved, set())
+            if sheet in sheets_done:
+                raise SystemExit(f"PRAGMA export: sheet '{sheet}' already written to {path} this run")
+            mode = "a" if sheets_done else "w"
+            kwargs = {"if_sheet_exists": "error"} if mode == "a" else {}
+            with pd.ExcelWriter(path, engine="openpyxl", mode=mode, **kwargs) as writer:
+                df.to_excel(writer, sheet_name=sheet, index=False)
+            sheets_done.add(sheet)
+            print(f"wrote {len(df)} rows -> {path}#{sheet}")
     else:
         raise SystemExit(f"export: unsupported file extension '{suffix}' (use .csv or .xlsx) -- {path}")
-    print(f"wrote {len(df)} rows -> {path}")
 
 
 def main():
@@ -160,19 +202,32 @@ def main():
     # one TableLoader for the whole run -- PRAGMA load_table calls share
     # it, so field_definitions.csv is read once and cached, not per call.
     table_loader = TableLoader()
+    # tracks which (resolved path, sheet name) pairs PRAGMA export --sheet
+    # has already written this run, across the mother script and any
+    # included children -- see write_result.
+    xlsx_sheets = {}
 
     top_level_path = script_path.resolve()
     show_result = True
     result_df = None
     last_cursor = None
     for stmt, source_path in statements:
+        if not directive_text(stmt):
+            # nothing left once comment/blank lines are stripped -- the
+            # whole statement was commented out. Skip it rather than
+            # sending it to sqlite: a no-op execute() still clears
+            # result_df/last_cursor, which would otherwise make
+            # commenting out the last real line of a script look like
+            # an action query with nothing to show.
+            continue
         if UDF_EXTRA_PRAGMA_RE.match(directive_text(stmt)):
             continue
         export_match = EXPORT_PRAGMA_RE.match(directive_text(stmt))
         if export_match:
             if result_df is None:
                 raise SystemExit(f"PRAGMA export: no result set to export -- {stmt}")
-            write_result(result_df, export_match.group(1))
+            export_args = build_export_pragma_parser().parse_args(shlex.split(export_match.group(1)))
+            write_result(result_df, export_args.path, sheet=export_args.sheet, xlsx_sheets=xlsx_sheets)
             continue
         load_table_match = LOAD_TABLE_PRAGMA_RE.match(directive_text(stmt))
         if load_table_match:
@@ -217,6 +272,10 @@ def main():
         # value to float64+NaN) -- fillna('') displays it as blank,
         # same as NULL means nothing, not the literal text "NaN".
         print(result_df.fillna("").to_string(index=False))
+    elif last_cursor is None:
+        # every statement in the script was commented out (or it had
+        # none) -- nothing ever ran.
+        print("no result set (nothing executed)")
     elif last_cursor.rowcount >= 0:
         # last statement was an action query (INSERT/UPDATE/DELETE),
         # not a SELECT -- nothing to display, but say so rather than

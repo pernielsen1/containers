@@ -193,3 +193,23 @@ give a suggestion for the new PRAGMA and let's agree before implementing.
 **Agreed & implemented:** `PRAGMA show_result = 'off';` (`'on'` = default). Suppresses the end-of-run
 result set / "no result set" line; print, export and `--output` unaffected. Top-level script only
 (ignored inside an include). No CLI option. See db_example.md "Silent in production".
+
+
+# two optimizations for run_sql.py
+## 1: optimization on commenting out last export
+when commenting out the last row it becomes a "action query" meaning the last result set is not output to the console. 
+That is not convinient - if last line is a comment - remember the last result set.
+## optimization on xlsx output 
+a script may produce output to multiple sheets in a workbook - add optional name of sheet to the export and if a script PRAGMA export's multiple time in one script (including children scripts) then all should end in one workbook.
+
+**Agreed & implemented:**
+1. A statement that's entirely a `--` comment (nothing left once comment/blank lines are
+   stripped) is now skipped rather than sent to sqlite -- applies anywhere in the script, not
+   just the last statement, so it can no longer clear `result_df`/`last_cursor` and make the
+   run look like a no-op action query.
+2. `PRAGMA export = 'file.xlsx --sheet Name';` -- xlsx only. Plain `export` (no `--sheet`)
+   keeps overwriting the whole file every time, unchanged. Naming a sheet appends it to the
+   workbook already being built at that path across the run (mother script + any included
+   children); the same path+sheet twice in one run is an error, not a silent overwrite.
+   See db_example.md "One workbook, several sheets".
+

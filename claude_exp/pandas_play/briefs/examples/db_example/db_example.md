@@ -24,6 +24,8 @@ db_example/
   test_run_sql_load_table.py  tests for PRAGMA load_table
   test_run_sql_print.py   tests for PRAGMA print
   test_run_sql_show_result.py  tests for PRAGMA show_result
+  test_run_sql_comment_only.py tests for skipping fully-commented-out statements
+  test_run_sql_export_sheets.py  tests for PRAGMA export --sheet
   test_load_table.py      CLI tests for --encoding/--delimiter/--decimal
   test_table_loader.py    tests for the TableLoader class (caching, aliases, ...)
   prod/  test/            each has its own config.json and input/ directory
@@ -94,12 +96,17 @@ python3 run_sql.py <script.sql> [--db download] [--output out.csv] (--env prod|t
 - A script ending in a SELECT prints the result; `--output` writes it to `.csv`
   (`;` separator, utf-8-sig) or `.xlsx`. A script ending in an action query reports the
   rows affected. `PRAGMA show_result = 'off';` (below) silences both.
+- A statement that's entirely a `--` comment (nothing left once comment/blank lines are
+  stripped) is skipped rather than run -- so commenting out the last real line of a script
+  doesn't erase the result that would otherwise have been shown/exported. This applies
+  anywhere in the script, not just the last statement.
 - **Script directives** are written as `PRAGMA name = 'value';`. run_sql.py intercepts them;
   a plain `sqlite3` client silently ignores unknown pragmas, so every script stays valid SQL.
 
 | Directive | Effect |
 |---|---|
 | `PRAGMA export = 'file.csv';` | write the latest result set to `.csv`/`.xlsx` at that point in the script |
+| `PRAGMA export = 'file.xlsx --sheet Name';` | same, but add `Name` as a sheet in that workbook instead of overwriting the file |
 | `PRAGMA udf_extra = 'x.csv';` | register the UDFs listed in `x.csv` for this script only |
 | `PRAGMA include = 'other.sql';` | splice that script's statements in at this point |
 | `PRAGMA load_table = 'infile table ...';` | load a csv/xlsx into a table, right here |
@@ -196,6 +203,24 @@ Prints the message right then, in place -- useful for a script that has a manual
 middle of it (open a file, sanity-check something) and wants to say so on the console at that
 point rather than leaving it to a README. Like `load_table`, it isn't a query and doesn't
 touch the last result set.
+
+### One workbook, several sheets: `PRAGMA export ... --sheet`
+
+```sql
+SELECT * FROM daily_totals;
+PRAGMA export = 'out/daily.xlsx --sheet Totals';
+
+SELECT * FROM daily_detail;
+PRAGMA export = 'out/daily.xlsx --sheet Detail';
+```
+
+`--sheet` is xlsx only (an error on `.csv`). A plain `PRAGMA export = 'file.xlsx';` (no
+`--sheet`) still overwrites the whole file each time, exactly as before -- multi-sheet
+behaviour only kicks in once a script names a sheet. Naming one instead appends that sheet to
+the workbook already being built at that path, so several `PRAGMA export --sheet` calls in one
+run -- including one written inside an included child script -- end up as sheets of one
+workbook rather than each overwriting the last. The same path+sheet name twice in one run is
+an error (a mistake to notice, not something to silently drop a sheet over).
 
 ### Silent in production: `PRAGMA show_result`
 
@@ -350,7 +375,7 @@ message before showing the result.
 ## Tests
 
 ```
-python3 -m unittest test_run_sql_udf test_run_sql_include test_run_sql_load_table test_run_sql_print test_run_sql_show_result test_load_table test_table_loader -v
+python3 -m unittest test_run_sql_udf test_run_sql_include test_run_sql_load_table test_run_sql_print test_run_sql_show_result test_run_sql_comment_only test_run_sql_export_sheets test_load_table test_table_loader -v
 ```
 
 `test_run_sql_udf.py` covers CSV registration, `num_args`, the `path` column, dict-to-JSON,
@@ -363,7 +388,13 @@ path resolution, cycle detection, and export/udf_extra inside an included script
 message ordering, comment handling, and that it doesn't disturb the last result set.
 `test_run_sql_show_result.py` covers suppression of the result/action-query line, position
 independence, print/export/`--output` still working, on/off case-insensitivity, rejecting
-other values, and being ignored inside an include.
+other values, and being ignored inside an include. `test_run_sql_comment_only.py` covers a
+fully-commented-out statement being skipped rather than clearing the result set, both as the
+last statement and mid-script, and the case where every statement is commented out.
+`test_run_sql_export_sheets.py` covers `PRAGMA export ... --sheet`: plain export still
+overwriting the whole file, two sheet names building one workbook (including one written from
+an included child script), the same path+sheet twice being an error, and `--sheet` being
+rejected on `.csv`.
 `test_load_table.py` covers the CLI's `--encoding`/`--delimiter`/`--decimal`.
 `test_table_loader.py` covers the `TableLoader` class directly: row counts, reload-drops-first,
 the `field_definitions.csv` cache actually being read only once across multiple `.load()`
