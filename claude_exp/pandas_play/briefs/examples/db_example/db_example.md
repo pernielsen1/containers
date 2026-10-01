@@ -15,17 +15,21 @@ db_example/
   run_sql.py              run a .sql script, display / export the last result set
   run_sql_udf.py          UDF loader + built-in UDFs (my_upper)
   udf_definitions.csv     the always-registered UDFs
+  anacredit_postal_code.py  AnaCredit_PostalCode class (postal code format per country) + UDF wrappers
+  postal_code_formats.csv country;rule;pattern -- 158 regexes from the Bundesbank handbook v22 s4.5
   create_sp.py            older demo: registering a function by hand (see "UDFs" below)
   field_definitions.csv   column typing for load_table.py
   load.sh / load_test.sh  load prod/test fixtures
   build_test_input.py     builds test/input from prod/input
   test_run_sql_udf.py     unit + end-to-end tests for the UDF feature
+  test_anacredit_postal_code.py  tests for the postal code class and its UDFs
   test_run_sql_include.py tests for PRAGMA include
   test_run_sql_load_table.py  tests for PRAGMA load_table
   test_run_sql_print.py   tests for PRAGMA print
   test_run_sql_show_result.py  tests for PRAGMA show_result
   test_run_sql_comment_only.py tests for skipping fully-commented-out statements
   test_run_sql_export_sheets.py  tests for PRAGMA export --sheet
+  test_run_sql_split.py   tests for the statement splitter (';' in comments/strings)
   test_load_table.py      CLI tests for --encoding/--delimiter/--decimal
   test_table_loader.py    tests for the TableLoader class (caching, aliases, ...)
   prod/  test/            each has its own config.json and input/ directory
@@ -113,11 +117,9 @@ python3 run_sql.py <script.sql> [--db download] [--output out.csv] (--env prod|t
 | `PRAGMA print = 'message';` | print `message` to the console, right here |
 | `PRAGMA show_result = 'off';` | don't show the last result set at the end (top-level script only) |
 
-Directives may be preceded by `--` comment lines. One statement-splitting gotcha that predates
-all of these directives and isn't specific to any one of them: a script is split into
-statements on a bare `;`, with no awareness of `--` comments or string literals -- a `;`
-*inside* a `--` comment line will still split the statement there. Keep comments free of `;`,
-or move the comment onto its own line before the directive.
+Directives may be preceded by `--` comment lines. A script is split into statements on `;`,
+but only a `;` outside a `--` comment, a `/* */` comment, a `'string'` and a `"quoted name"`
+ends a statement, so comments and quoted text may contain `;` freely.
 
 ### Reusing a script: `PRAGMA include`
 
@@ -187,9 +189,8 @@ Runnable version: `samples/load_table_pragma_example.sql`.
 - A missing `infile` or a missing required argument (`table`) is reported before any further
   SQL runs, the same way a missing `include` file is.
 - The `--delimiter comma`/`semi_colon`/`tab`/`pipe`/`space` aliases exist mainly for this
-  PRAGMA: a literal `;` delimiter can't be written here at all, since the statement-splitting
-  gotcha above would truncate `PRAGMA load_table = '... --delimiter ;';` mid-statement.
-  `semi_colon` sidesteps that -- see `DELIMITER_ALIASES` in `load_table.py`.
+  PRAGMA: the names are easier to read than a bare `;` in a PRAGMA value (a `;` inside the quoted
+  value no longer splits the statement). See `DELIMITER_ALIASES` in `load_table.py`.
 
 ### A console message: `PRAGMA print`
 
@@ -265,6 +266,19 @@ my_upper;run_sql_udf;my_upper;1;1;
 | `path` | optional extra directory to import `module` from; `~` allowed |
 
 Add a UDF by writing the function and adding a row. Example: `SELECT my_upper(name) FROM a_cust;`
+
+**AnaCredit postal codes** (`anacredit_postal_code.py`, rules in `postal_code_formats.csv`):
+
+| UDF | Returns |
+|---|---|
+| `anacredit_postal_valid(postal_code, country)` | 1 if the code fully matches the country's regex (or the country has no rule), else 0; NULL in -> NULL |
+| `anacredit_postal_verbosed(postal_code, country)` | the code with noise removed and the separator restored (`'12345','SE'` -> `'123 45'`, `'12345','PL'` -> `'12-345'`, `'123 45','DE'` -> `'12345'`); NULL if it cannot be made valid |
+
+Example: `SELECT * FROM a_cp WHERE anacredit_postal_valid(postal_code, country) = 0;`
+`verbosed` tries the bare letters+digits, then one blank or `-` at each position -- one separator is
+enough for every handbook format. The CSV follows the handbook verbatim, which differs from
+`AnaCredit/codelists/postal_code_formats.json` for JE (blank required), KZ and MT (extra alternatives);
+CZ is the handbook regex made Python-valid (`(\s)?{1}` is a regex error).
 
 ### Per-script UDFs: `PRAGMA udf_extra`
 

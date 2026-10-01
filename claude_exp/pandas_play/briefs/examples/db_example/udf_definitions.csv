@@ -1,2 +1,4 @@
 sql_name;module;python_name;num_args;deterministic;path
 my_upper;run_sql_udf;my_upper;1;1;
+anacredit_postal_valid;anacredit_postal_code;postal_valid;2;1;
+anacredit_postal_verbosed;anacredit_postal_code;postal_verbosed;2;1;

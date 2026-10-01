@@ -94,7 +94,29 @@ def directive_text(stmt):
 
 
 def split_statements(sql_text):
-    return [s.strip() for s in sql_text.split(";") if s.strip()]
+    """Split on ';' -- but only one outside a '--' comment, a /* */
+    comment, a 'string' or a "quoted name" ('' / "" escape a quote)."""
+    statements, start, i, n = [], 0, 0, len(sql_text)
+    while i < n:
+        ch = sql_text[i]
+        if ch in "'\"":
+            i = sql_text.find(ch, i + 1)
+            while i != -1 and sql_text[i + 1:i + 2] == ch:
+                i = sql_text.find(ch, i + 2)
+            i = n if i == -1 else i + 1
+        elif sql_text.startswith("--", i):
+            i = sql_text.find("\n", i)
+            i = n if i == -1 else i
+        elif sql_text.startswith("/*", i):
+            i = sql_text.find("*/", i + 2)
+            i = n if i == -1 else i + 2
+        elif ch == ";":
+            statements.append(sql_text[start:i])
+            start = i = i + 1
+        else:
+            i += 1
+    statements.append(sql_text[start:])
+    return [s.strip() for s in statements if s.strip()]
 
 
 def read_statements(script_path, _chain=()):
