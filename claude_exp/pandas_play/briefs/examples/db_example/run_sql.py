@@ -59,12 +59,21 @@ stream, where it's noise. Position doesn't matter; print/export
 messages and --output are unaffected. Only honoured in the top-level
 script -- inside an included file it's ignored, so a shared include
 can't silently switch output off for every script using it.
+A seventh directive
+    PRAGMA script_var = 'out_dir=/tmp/x';   -- literal value
+    PRAGMA script_var = 'out_dir=$HOME';    -- value of environment variable HOME
+
+defines a variable; every later statement and directive (including
+ones from included scripts) has ${out_dir} replaced by its value before
+it runs, e.g. PRAGMA export = '${out_dir}/out.csv'. An unset environment
+variable or an undefined ${name} is an error, not an empty string.
 --output works the same way from the
 command line for the final result set. --env is the normal way to
 pick prod/test; --config overrides it with an explicit config.json
 path (e.g. samples/config.json).
 """
 import argparse
+import os
 import re
 import shlex
 import sqlite3
@@ -82,6 +91,31 @@ INCLUDE_PRAGMA_RE = re.compile(r"^PRAGMA\s+include\s*=\s*'([^']+)'$", re.IGNOREC
 LOAD_TABLE_PRAGMA_RE = re.compile(r"^PRAGMA\s+load_table\s*=\s*'([^']+)'$", re.IGNORECASE)
 PRINT_PRAGMA_RE = re.compile(r"^PRAGMA\s+print\s*=\s*'([^']+)'$", re.IGNORECASE)
 SHOW_RESULT_PRAGMA_RE = re.compile(r"^PRAGMA\s+show_result\s*=\s*'([^']+)'$", re.IGNORECASE)
+SCRIPT_VAR_PRAGMA_RE = re.compile(r"^PRAGMA\s+script_var\s*=\s*'([^']+)'$", re.IGNORECASE)
+VAR_REF_RE = re.compile(r"\$\{(\w+)\}")
+
+
+def define_script_var(script_vars, spec):
+    """spec is 'name=value' or 'name=$ENVVAR' (also '$' + '{ENVVAR}')."""
+    name, sep, value = spec.partition("=")
+    name, value = name.strip(), value.strip()
+    if not sep or not re.fullmatch(r"\w+", name):
+        raise SystemExit(f"PRAGMA script_var: expected 'name=value' -- {spec}")
+    if value.startswith("$"):
+        env_name = value[1:].strip("{}")
+        if env_name not in os.environ:
+            raise SystemExit(f"PRAGMA script_var: environment variable {env_name} is not set -- {spec}")
+        value = os.environ[env_name]
+    script_vars[name] = value
+
+
+def expand_vars(text, script_vars):
+    """Replace ${name} with the script_var of that name."""
+    def sub(m):
+        if m.group(1) not in script_vars:
+            raise SystemExit(f"undefined script variable ${{{m.group(1)}}} -- {text}")
+        return script_vars[m.group(1)]
+    return VAR_REF_RE.sub(sub, text)
 
 
 def directive_text(stmt):
@@ -216,9 +250,15 @@ def main():
     # UDFs must exist before any statement runs, so udf_extra pragmas are
     # pre-scanned (their position in the script doesn't matter).
     register_udfs(conn, DEFAULT_UDF_CSV)
+    script_vars = {}
     for stmt, source_path in statements:
-        udf_match = UDF_EXTRA_PRAGMA_RE.match(directive_text(stmt))
+        text = directive_text(stmt)
+        var_match = SCRIPT_VAR_PRAGMA_RE.match(text)
+        if var_match:
+            define_script_var(script_vars, var_match.group(1))
+        udf_match = UDF_EXTRA_PRAGMA_RE.match(text)
         if udf_match:
+            udf_match = UDF_EXTRA_PRAGMA_RE.match(expand_vars(text, script_vars))
             register_udfs(conn, source_path.parent / udf_match.group(1))
 
     # one TableLoader for the whole run -- PRAGMA load_table calls share
@@ -233,6 +273,7 @@ def main():
     show_result = True
     result_df = None
     last_cursor = None
+    script_vars = {}
     for stmt, source_path in statements:
         if not directive_text(stmt):
             # nothing left once comment/blank lines are stripped -- the
@@ -242,7 +283,14 @@ def main():
             # commenting out the last real line of a script look like
             # an action query with nothing to show.
             continue
-        if UDF_EXTRA_PRAGMA_RE.match(directive_text(stmt)):
+        var_match = SCRIPT_VAR_PRAGMA_RE.match(directive_text(stmt))
+        if var_match:
+            define_script_var(script_vars, var_match.group(1))
+            continue
+        # leading comments are dropped here -- harmless to sqlite, and
+        # keeps a stray ${...} in a comment from being expanded.
+        stmt = expand_vars(directive_text(stmt), script_vars)
+        if UDF_EXTRA_PRAGMA_RE.match(stmt):
             continue
         export_match = EXPORT_PRAGMA_RE.match(directive_text(stmt))
         if export_match:
