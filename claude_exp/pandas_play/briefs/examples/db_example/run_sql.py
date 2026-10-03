@@ -63,9 +63,9 @@ A seventh directive
     PRAGMA script_var = 'out_dir=/tmp/x';   -- literal value
     PRAGMA script_var = 'out_dir=$HOME';    -- value of environment variable HOME
 
-defines a variable; every later statement and directive (including
-ones from included scripts) has ${out_dir} replaced by its value before
-it runs, e.g. PRAGMA export = '${out_dir}/out.csv'. An unset environment
+defines a variable; every later PRAGMA directive (including ones from
+included scripts) has ${out_dir} replaced by its value before it runs,
+e.g. PRAGMA export = '${out_dir}/out.csv'. An unset environment
 variable or an undefined ${name} is an error, not an empty string.
 --output works the same way from the
 command line for the final result set. --env is the normal way to
@@ -287,9 +287,11 @@ def main():
         if var_match:
             define_script_var(script_vars, var_match.group(1))
             continue
-        # leading comments are dropped here -- harmless to sqlite, and
-        # keeps a stray ${...} in a comment from being expanded.
-        stmt = expand_vars(directive_text(stmt), script_vars)
+        # only PRAGMA directives are expanded -- never plain SQL, so a
+        # variable can't inject into a query. Leading comments are
+        # dropped for directives (keeps a stray ${...} in one unexpanded).
+        if re.match(r"PRAGMA\s", directive_text(stmt), re.IGNORECASE):
+            stmt = expand_vars(directive_text(stmt), script_vars)
         if UDF_EXTRA_PRAGMA_RE.match(stmt):
             continue
         export_match = EXPORT_PRAGMA_RE.match(directive_text(stmt))

@@ -24,10 +24,12 @@ class TestScriptVar(PrintCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("at /some/where", r.stdout)
 
-    def test_used_in_sql(self):
+    def test_not_expanded_in_sql(self):
         r = self.run_script("PRAGMA script_var = 'n=42';\nSELECT ${n} AS x;")
+        self.assertNotEqual(r.returncode, 0)
+        r = self.run_script("PRAGMA script_var = 'n=1 UNION SELECT 2';\nSELECT '${n}' AS x;")
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("42", r.stdout)
+        self.assertIn("${n}", r.stdout)
 
     def test_used_in_export_path(self):
         r = self.run_script(f"PRAGMA script_var = 'd={self.dir}';\nSELECT 1 AS x;\nPRAGMA export = '${{d}}/o.csv';")
