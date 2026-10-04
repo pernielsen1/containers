@@ -47,6 +47,25 @@ class TestScriptVar(PrintCase):
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("missing", r.stderr)
 
+    def test_var_used_in_another_var(self):
+        r = self.run_script(f"PRAGMA script_var = 'd={self.dir}';\n"
+                            "PRAGMA script_var = 'f = ${d}/nested.csv';\n"
+                            "SELECT 1 AS x;\nPRAGMA export = '${f}';")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue((self.dir / "nested.csv").exists())
+
+    def test_var_chain_and_env_in_var(self):
+        r = self.run_with_env("PRAGMA script_var = 'a=$MY_TEST_DIR';\nPRAGMA script_var = 'b=${a}/x';\n"
+                              "PRAGMA script_var = 'c=${b}/y';\nPRAGMA print = 'at ${c}';\nSELECT 1;",
+                              MY_TEST_DIR="/some/where")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("at /some/where/x/y", r.stdout)
+
+    def test_undefined_var_in_var_is_error(self):
+        r = self.run_script("PRAGMA script_var = 'f=${nope}/x.csv';\nSELECT 1;")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("nope", r.stderr)
+
     def test_reference_in_comment_ignored(self):
         r = self.run_script("-- note ${missing}\nSELECT 7 AS x;")
         self.assertEqual(r.returncode, 0, r.stderr)
