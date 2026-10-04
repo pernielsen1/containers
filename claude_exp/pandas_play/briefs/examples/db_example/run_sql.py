@@ -62,6 +62,7 @@ can't silently switch output off for every script using it.
 A seventh directive
     PRAGMA script_var = 'out_dir=/tmp/x';   -- literal value
     PRAGMA script_var = 'out_dir=$HOME';    -- value of environment variable HOME
+    PRAGMA script_var = 'outfile=${out_dir}/f.csv';  -- uses an earlier script_var
 
 defines a variable; every later PRAGMA directive (including ones from
 included scripts) has ${out_dir} replaced by its value before it runs,
@@ -96,16 +97,21 @@ VAR_REF_RE = re.compile(r"\$\{(\w+)\}")
 
 
 def define_script_var(script_vars, spec):
-    """spec is 'name=value' or 'name=$ENVVAR' (also '$' + '{ENVVAR}')."""
+    """spec is 'name=value' or 'name=$ENVVAR' (also '$' + '{ENVVAR}').
+    ${other} inside value expands an earlier script_var; a bare $NAME/${NAME}
+    that matches an earlier script_var is that var, otherwise an env variable."""
     name, sep, value = spec.partition("=")
     name, value = name.strip(), value.strip()
     if not sep or not re.fullmatch(r"\w+", name):
         raise SystemExit(f"PRAGMA script_var: expected 'name=value' -- {spec}")
-    if value.startswith("$"):
+    if re.fullmatch(r"\$\{?\w+\}?", value) and value[1:].strip("{}") not in script_vars:
         env_name = value[1:].strip("{}")
         if env_name not in os.environ:
             raise SystemExit(f"PRAGMA script_var: environment variable {env_name} is not set -- {spec}")
         value = os.environ[env_name]
+    else:
+        # earlier script_vars can be used in the value: 'outfile=${out_dir}/f.csv'
+        value = expand_vars(value, script_vars)
     script_vars[name] = value
 
 

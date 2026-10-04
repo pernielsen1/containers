@@ -117,7 +117,7 @@ python3 run_sql.py <script.sql> [--db download] [--output out.csv] (--env prod|t
 | `PRAGMA load_table = 'infile table ...';` | load a csv/xlsx into a table, right here |
 | `PRAGMA print = 'message';` | print `message` to the console, right here |
 | `PRAGMA show_result = 'off';` | don't show the last result set at the end (top-level script only) |
-| `PRAGMA script_var = 'name=value';` / `'name=$ENVVAR';` | define a variable; later use `${name}` in PRAGMA directives only (`export` path, `print`, `load_table`...) -- never expanded in plain SQL. `$ENVVAR` takes the environment variable's value, e.g. `'out=$HOME'` then `PRAGMA export = '${out}/res.csv';` |
+| `PRAGMA script_var = 'name=value';` / `'name=$ENVVAR';` | define a variable; later use `${name}` in PRAGMA directives only (`export` path, `print`, `load_table`...) -- never expanded in plain SQL. `$ENVVAR` takes the environment variable's value, e.g. `'out=$HOME'` then `PRAGMA export = '${out}/res.csv';`. A value may itself use earlier variables: `'outfile=${out}/res.csv'` |
 
 Directives may be preceded by `--` comment lines. A script is split into statements on `;`,
 but only a `;` outside a `--` comment, a `/* */` comment, a `'string'` and a `"quoted name"`
