@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>sql_ui</title>
+<style>
+  body { margin: 0; font: 14px sans-serif; display: flex; height: 100vh; }
+  #side { width: 220px; border-right: 1px solid #ccc; overflow: auto; padding: 8px; box-sizing: border-box; }
+  #side div { padding: 3px 6px; cursor: pointer; }
+  #side div.sel { background: #dde8ff; }
+  #main { flex: 1; display: flex; flex-direction: column; padding: 8px; box-sizing: border-box; min-width: 0; }
+  #bar { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+  #title { font-weight: bold; min-width: 120px; }
+  #editor { flex: 2; font: 13px monospace; tab-size: 4; white-space: pre; resize: none; }
+  #status { margin: 6px 0 2px; color: #555; }
+  #output { flex: 1; margin: 0; background: #111; color: #ddd; padding: 8px; overflow: auto; font: 13px monospace; }
+</style>
+</head>
+<body>
+<div id="side"></div>
+<div id="main">
+  <div id="bar">
+    <span id="title">(no script)</span>
+    <button id="save" disabled>Save</button>
+    <button id="saveas">Save as…</button>
+    <button id="run" disabled>Run</button>
+    <label>env <select id="env"><option value=""></option><option>prod</option><option>test</option></select></label>
+    <label>db <input id="db" size="14"></label>
+  </div>
+  <textarea id="editor" spellcheck="false" disabled></textarea>
+  <div id="status"></div>
+  <pre id="output"></pre>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+let current = null, dirty = false, running = false;
+
+async function api(method, url, body) {
+  const r = await fetch(url, {method, headers: {"Content-Type": "application/json"},
+                              body: body ? JSON.stringify(body) : undefined});
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || r.status);
+  return data;
+}
+
+function refresh() {
+  $("title").textContent = (current || "(no script)") + (dirty ? " *" : "");
+  $("save").disabled = !current || !dirty;
+  $("run").disabled = running || !current || !$("env").value;
+  $("editor").disabled = !current;
+}
+
+async function loadList() {
+  const d = await api("GET", "/api/scripts");
+  if (d.env && !$("env").value) $("env").value = d.env;
+  if (!$("db").value) $("db").value = d.db;
+  $("side").innerHTML = "";
+  for (const name of d.scripts) {
+    const el = document.createElement("div");
+    el.textContent = name;
+    if (name === current) el.className = "sel";
+    el.onclick = () => openScript(name);
+    $("side").appendChild(el);
+  }
+  refresh();
+}
+
+async function openScript(name) {
+  if (dirty && !confirm("Discard unsaved changes?")) return;
+  const d = await api("GET", "/api/script?name=" + encodeURIComponent(name));
+  current = name; dirty = false;
+  $("editor").value = d.text;
+  await loadList();
+}
+
+async function save(name) {
+  await api("POST", "/api/script", {name, text: $("editor").value});
+  current = name; dirty = false;
+  await loadList();
+}
+
+$("editor").oninput = () => { dirty = true; refresh(); };
+$("editor").onkeydown = e => {
+  if (e.key === "Tab") {
+    e.preventDefault();
+    const t = e.target, s = t.selectionStart;
+    t.setRangeText("    ", s, t.selectionEnd, "end");
+    dirty = true; refresh();
+  }
+};
+$("env").onchange = refresh;
+$("save").onclick = () => save(current).catch(e => alert(e.message));
+$("saveas").onclick = () => {
+  let name = prompt("Save as (name.sql):", current || "new.sql");
+  if (!name) return;
+  if (!name.endsWith(".sql")) name += ".sql";
+  save(name).catch(e => alert(e.message));
+};
+$("run").onclick = async () => {
+  running = true; refresh();
+  $("status").textContent = "running…"; $("output").textContent = "";
+  try {
+    const d = await api("POST", "/api/run",
+      {name: current, text: $("editor").value, env: $("env").value, db: $("db").value});
+    dirty = false;
+    $("output").textContent = d.output;
+    $("status").textContent = `exit ${d.exit} (${d.seconds}s)`;
+  } catch (e) {
+    $("status").textContent = "error";
+    $("output").textContent = e.message;
+  }
+  running = false; refresh();
+};
+loadList();
+</script>
+</body>
+</html>

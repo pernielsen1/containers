@@ -13,6 +13,7 @@ db_example/
   config_loader.py        reads db_storage_dir from a config.json
   load_table.py           csv/xlsx -> SQLite table
   run_sql.py              run a .sql script, display / export the last result set
+  sql_ui.py / sql_ui.html simple browser UI for run_sql.py (scripts live in sql/)
   run_sql_udf.py          UDF loader + built-in UDFs (my_upper)
   udf_definitions.csv     the always-registered UDFs
   anacredit_postal_code.py  AnaCredit_PostalCode class (postal code format per country) + UDF wrappers
@@ -21,6 +22,7 @@ db_example/
   field_definitions.csv   column typing for load_table.py
   load.sh / load_test.sh  load prod/test fixtures
   build_test_input.py     builds test/input from prod/input
+  test_sql_ui.py          tests for sql_ui.py (server API + Playwright browser tests)
   test_run_sql_udf.py     unit + end-to-end tests for the UDF feature
   test_anacredit_postal_code.py  tests for the postal code class and its UDFs
   test_run_sql_include.py tests for PRAGMA include
@@ -243,6 +245,29 @@ file it's ignored, so a shared include can't silently turn output off for every 
 it (and a script run standalone with `'off'` can still be included elsewhere). Any value
 other than `on`/`off` is an error.
 
+## Simple UI -- `sql_ui.py`
+
+```
+python3 sql_ui.py --env test            # then open http://127.0.0.1:8765/
+```
+
+A browser front end for `run_sql.py`, stdlib only (no new packages). Pick a script from the
+list, edit it in the text box, **Save** / **Save as...**, **Run**. Scripts are real `*.sql`
+files in the `sql/` subdirectory (`--scripts-dir` to change), so relative paths for
+`PRAGMA include`, `load_table` and `export` behave exactly as on the command line. Run saves
+first, then runs `run_sql.py <script> --env <env> --db <db>` as a subprocess and shows its
+output and exit code -- results are not shown as a grid, use `PRAGMA export` as usual.
+
+- `--env` / `--db` work as in `run_sql.py`: `--db` defaults to `download`; `--env` has no
+  default -- choose prod or test in the dropdown (Run stays disabled until you do) or
+  pre-select it with `--env`.
+- `--port` (default 8765), `--timeout` seconds (default 600; the run is killed and reported
+  as `exit -1` / `TIMEOUT`), `--config PATH` (passed through to `run_sql.py`).
+- One run at a time. Binds to 127.0.0.1 only and has no login -- the SQL has full access to
+  the database, so never expose the port.
+- Spec: `briefs/sql_ui.md`. Browser tests need `python3 -m playwright install chromium`
+  (skipped if not installed).
+
 ## UDFs -- your own SQL functions
 
 SQLite has no `CREATE FUNCTION`/stored procedures. The nearest thing is a Python function
@@ -391,7 +416,7 @@ message before showing the result.
 ## Tests
 
 ```
-python3 -m unittest test_run_sql_udf test_run_sql_include test_run_sql_load_table test_run_sql_print test_run_sql_show_result test_run_sql_comment_only test_run_sql_export_sheets test_load_table test_table_loader -v
+python3 -m unittest test_run_sql_udf test_run_sql_include test_run_sql_load_table test_run_sql_print test_run_sql_show_result test_run_sql_comment_only test_run_sql_export_sheets test_load_table test_table_loader test_sql_ui -v
 ```
 
 `test_run_sql_udf.py` covers CSV registration, `num_args`, the `path` column, dict-to-JSON,
