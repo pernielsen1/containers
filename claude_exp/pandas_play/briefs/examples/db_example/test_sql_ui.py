@@ -61,7 +61,8 @@ class TestScripts(UiCase):
         (self.scripts / "sub" / "c.sql").write_text("x")
         status, data = self.call("GET", "/api/scripts")
         self.assertEqual(status, 200)
-        self.assertEqual(data["scripts"], ["a.sql", "b.sql"])
+        self.assertEqual(data["scripts"], ["a.sql", "b.sql", "sub/c.sql"])
+        self.assertEqual(data["dirs"], ["sub"])
         self.assertEqual(data["db"], "download")
 
     def test_load_and_missing(self):
@@ -78,11 +79,31 @@ class TestScripts(UiCase):
         self.assertEqual((self.scripts / "n.sql").read_text(encoding="utf-8"), "two")
 
     def test_bad_names_rejected(self):
-        for name in ["../x.sql", "a/b.sql", "x.txt", "", ".sql", "..\\x.sql"]:
+        for name in ["../x.sql", "sub/../../x.sql", "/etc/x.sql", "sub//x.sql", ".hidden/x.sql", "sub/.x.sql",
+                     "x.txt", "", ".sql", "..\\x.sql", "sub\\x.sql"]:
             with self.subTest(name=name):
                 self.assertEqual(self.call("POST", "/api/script", {"name": name, "text": "x"})[0], 400)
                 self.assertEqual(self.call("GET", "/api/script?name=" + urllib.parse.quote(name))[0], 400)
         self.assertEqual(list(self.dir.glob("x.*")), [])
+
+    def test_subfolder_save_load_run(self):
+        (self.scripts / "more_sql").mkdir()
+        self.assertEqual(self.call("POST", "/api/script", {"name": "more_sql/n.sql", "text": "hi"})[0], 200)
+        self.assertEqual((self.scripts / "more_sql" / "n.sql").read_text(), "hi")
+        status, data = self.call("GET", "/api/script?name=more_sql/n.sql")
+        self.assertEqual((status, data["text"]), (200, "hi"))
+        (self.scripts / "more_sql" / "inc.sql").write_text("PRAGMA print = 'sub include';")
+        status, data = self.call("POST", "/api/run", self.run_body(
+            name="more_sql/r.sql", text="PRAGMA include = 'inc.sql';"))
+        self.assertEqual((status, data["exit"]), (200, 0))
+        self.assertIn("sub include", data["output"])
+
+    def test_empty_folder_listed_and_no_mkdir(self):
+        (self.scripts / "empty").mkdir()
+        _, data = self.call("GET", "/api/scripts")
+        self.assertEqual((data["dirs"], data["scripts"]), (["empty"], []))
+        self.assertEqual(self.call("POST", "/api/script", {"name": "newdir/x.sql", "text": "x"})[0], 400)
+        self.assertFalse((self.scripts / "newdir").exists())
 
     def test_body_too_large(self):
         status, _ = self.call("POST", "/api/script", {"name": "big.sql", "text": "x" * (1024 * 1024 + 1)})
@@ -204,6 +225,15 @@ class TestBrowser(UiCase):
         p.click("#run")
         p.wait_for_function("document.querySelector('#status').innerText.includes('exit 0')")
         self.assertIn("edited", p.inner_text("#output"))
+
+    def test_new_script_from_empty_folder(self):
+        p = self.page
+        p.fill("#editor", "PRAGMA print = 'fresh';")       # editor usable with no script open
+        self.assertTrue(p.is_disabled("#run"))
+        p.once("dialog", lambda d: d.accept("fresh"))
+        p.click("#saveas")
+        p.wait_for_function("document.querySelector('#title').innerText.startsWith('fresh.sql')")
+        self.assertIn("fresh", (self.scripts / "fresh.sql").read_text())
 
     def test_run_held_open_across_ticks(self):
         p = self.page

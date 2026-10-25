@@ -19,13 +19,16 @@ Binds to 127.0.0.1 only. Prints the URL on start. Ctrl+C stops it.
 
 ## Scripts folder
 - `--scripts-dir` (default: the `sql/` subdirectory next to sql_ui.py/run_sql.py, created if missing).
-  Only `*.sql` files directly in it.
-- No subfolders listed. Names must match `^[A-Za-z0-9_.-]+\.sql$`; anything else is rejected (400).
+  `*.sql` files in it and in its subfolders (any depth) are listed.
+- A script name is a `/`-separated path relative to scripts-dir (`more_sql/x.sql`). Each segment must match
+  `^[A-Za-z0-9_-][A-Za-z0-9_.-]*$` (no leading dot, no `..`, no backslash, no empty segment), the last
+  must end in `.sql`; anything else is rejected (400). The resolved path must stay inside scripts-dir.
+- Folders are never created by the UI: saving/running into a missing folder is 400. Empty folders are listed.
 - Includes / load_table / exports resolve relative to the script file, as on the CLI,
   because scripts are real files in that folder.
 
 ## Page
-- Left: list of scripts (click to open).
+- Left: folders and scripts as an indented tree (click a script to open).
 - Centre: `<textarea>` editor (monospace, Tab inserts spaces, no highlighting).
 - Toolbar: `Save`, `Save as…` (prompt for name), `Run`, `--env` dropdown (prod/test), `--db` text box.
 - Bottom: output pane — captured stdout + stderr, and a status line `exit 0 (1.2s)` / `exit 1 (...)`.
@@ -36,7 +39,7 @@ Binds to 127.0.0.1 only. Prints the URL on start. Ctrl+C stops it.
 | Method | Path | Body | Result |
 |---|---|---|---|
 | GET  | `/`                | – | sql_ui.html |
-| GET  | `/api/scripts`     | – | `{"scripts": ["a.sql", ...], "env": "prod", "db": "download"}` sorted by name |
+| GET  | `/api/scripts`     | – | `{"scripts": ["a.sql", "sub/b.sql", ...], "dirs": ["sub", ...], "env": "prod", "db": "download"}` sorted by name |
 | GET  | `/api/script?name=a.sql` | – | `{"name": "a.sql", "text": "..."}`; 404 if missing |
 | POST | `/api/script`      | `{"name","text"}` | save (overwrite or create); `{"ok": true}` |
 | POST | `/api/run`         | `{"name","text","env","db"}` | saves, then runs; `{"exit": 0, "output": "...", "seconds": 1.2}` |
@@ -56,13 +59,14 @@ Binds to 127.0.0.1 only. Prints the URL on start. Ctrl+C stops it.
 - Max request body 1 MB.
 
 ## Out of scope (v1)
-Syntax highlighting, result grid, tabs, delete/rename, subfolders, auth, remote access.
+Syntax highlighting, result grid, tabs, delete/rename, creating folders, auth, remote access.
 
 ## Tests (test_sql_ui.py, start server on an ephemeral port in a thread)
-1. List returns only `*.sql`, sorted; ignores other files and subfolders.
+1. List returns only `*.sql` (including in subfolders, as `sub/c.sql`), sorted, plus `dirs`; ignores other files.
 2. Load returns text; missing → 404.
 3. Save creates and overwrites; file content on disk matches.
-4. Bad names rejected (400): `../x.sql`, `a/b.sql`, `x.txt`, empty, `.sql`.
+4. Bad names rejected (400): `../x.sql`, `sub/../../x.sql`, `/etc/x.sql`, `sub//x.sql`, dot-segments, backslashes, `x.txt`, empty, `.sql`.
+4b. Subfolder script: save/load/run work; relative include resolves inside the subfolder; empty folder listed; saving into a missing folder → 400 and no folder created.
 5. Run executes a script with `PRAGMA print`: exit 0, output contains the message.
 6. Run on a script with a SQL error: exit != 0, error text in output, HTTP 200.
 7. Run saves first: edited text (not disk text) is what runs.

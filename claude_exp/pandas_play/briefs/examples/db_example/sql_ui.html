@@ -27,7 +27,7 @@
     <label>env <select id="env"><option value=""></option><option>prod</option><option>test</option></select></label>
     <label>db <input id="db" size="14"></label>
   </div>
-  <textarea id="editor" spellcheck="false" disabled></textarea>
+  <textarea id="editor" spellcheck="false"></textarea>
   <div id="status"></div>
   <pre id="output"></pre>
 </div>
@@ -47,7 +47,6 @@ function refresh() {
   $("title").textContent = (current || "(no script)") + (dirty ? " *" : "");
   $("save").disabled = !current || !dirty;
   $("run").disabled = running || !current || !$("env").value;
-  $("editor").disabled = !current;
 }
 
 async function loadList() {
@@ -55,11 +54,21 @@ async function loadList() {
   if (d.env && !$("env").value) $("env").value = d.env;
   if (!$("db").value) $("db").value = d.db;
   $("side").innerHTML = "";
-  for (const name of d.scripts) {
+  // folders (also empty ones) and scripts in path order, indented by depth
+  const items = d.dirs.map(p => ({path: p, dir: true})).concat(d.scripts.map(p => ({path: p, dir: false})))
+    .sort((a, b) => a.path.split("/").map((s, i, arr) => (i < arr.length - 1 || a.dir ? "0" : "1") + s).join("/")
+      .localeCompare(b.path.split("/").map((s, i, arr) => (i < arr.length - 1 || b.dir ? "0" : "1") + s).join("/")));
+  for (const it of items) {
+    const parts = it.path.split("/");
     const el = document.createElement("div");
-    el.textContent = name;
-    if (name === current) el.className = "sel";
-    el.onclick = () => openScript(name);
+    el.textContent = (it.dir ? "\u{1F4C1} " : "") + parts[parts.length - 1];
+    el.style.paddingLeft = (6 + 14 * (parts.length - 1)) + "px";
+    if (it.dir) { el.style.color = "#666"; el.style.cursor = "default"; }
+    else {
+      if (it.path === current) el.className = "sel";
+      el.title = it.path;
+      el.onclick = () => openScript(it.path);
+    }
     $("side").appendChild(el);
   }
   refresh();
@@ -91,7 +100,7 @@ $("editor").onkeydown = e => {
 $("env").onchange = refresh;
 $("save").onclick = () => save(current).catch(e => alert(e.message));
 $("saveas").onclick = () => {
-  let name = prompt("Save as (name.sql):", current || "new.sql");
+  let name = prompt("Save as (name.sql, or folder/name.sql in an existing folder):", current || "new.sql");
   if (!name) return;
   if (!name.endsWith(".sql")) name += ".sql";
   save(name).catch(e => alert(e.message));

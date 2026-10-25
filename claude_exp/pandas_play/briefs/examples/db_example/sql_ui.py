@@ -22,7 +22,8 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 HERE = Path(__file__).resolve().parent
-NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+\.sql$")
+SEG_RE = re.compile(r"^[A-Za-z0-9_-][A-Za-z0-9_.-]*$")   # one path segment, no leading dot
+NAME_RE = re.compile(r"^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.sql$")
 DB_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 MAX_BODY = 1024 * 1024
 DEFAULT_DB = "download"
@@ -35,12 +36,33 @@ class BadRequest(Exception):
 
 
 def script_path(scripts_dir, name):
-    if not isinstance(name, str) or not NAME_RE.match(name) or name.startswith("."):
-        raise BadRequest(f"bad script name: {name!r}")
-    path = (scripts_dir / name).resolve()
-    if path.parent != scripts_dir.resolve():
-        raise BadRequest(f"bad script name: {name!r}")
+    """name is a '/'-separated path relative to scripts_dir, e.g. 'more/x.sql'."""
+    bad = BadRequest(f"bad script name: {name!r}")
+    if not isinstance(name, str):
+        raise bad
+    parts = name.split("/")
+    if not all(SEG_RE.match(p) and p not in (".", "..") for p in parts) or not NAME_RE.match(parts[-1]):
+        raise bad
+    root = scripts_dir.resolve()
+    path = (root / name).resolve()
+    if root not in path.parents:
+        raise bad
     return path
+
+
+def list_scripts(scripts_dir):
+    """(files, dirs): '/'-separated relative paths, sorted; dotted/odd names skipped."""
+    root = scripts_dir.resolve()
+    files, dirs = [], []
+    for p in sorted(root.rglob("*")):
+        rel = p.relative_to(root)
+        if not all(SEG_RE.match(part) for part in rel.parts):
+            continue
+        if p.is_dir() and not p.is_symlink():
+            dirs.append(rel.as_posix())
+        elif p.is_file() and NAME_RE.match(p.name):
+            files.append(rel.as_posix())
+    return files, dirs
 
 
 def run_script(server, path, env, db):
@@ -115,9 +137,9 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
         elif url.path == "/api/scripts":
-            names = sorted(p.name for p in srv.scripts_dir.iterdir()
-                           if p.is_file() and NAME_RE.match(p.name) and not p.name.startswith("."))
-            self.send_json(200, {"scripts": names, "env": srv.default_env, "db": srv.default_db})
+            files, dirs = list_scripts(srv.scripts_dir)
+            self.send_json(200, {"scripts": files, "dirs": dirs,
+                                 "env": srv.default_env, "db": srv.default_db})
         elif url.path == "/api/script":
             name = parse_qs(url.query).get("name", [""])[0]
             path = script_path(srv.scripts_dir, name)
@@ -133,11 +155,15 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/script":
             body = self.read_body()
             target = script_path(srv.scripts_dir, body.get("name"))
+            if not target.parent.is_dir():
+                raise BadRequest(f"folder does not exist: {body.get('name')!r}")
             target.write_text(str(body.get("text", "")), encoding="utf-8", newline="")
             self.send_json(200, {"ok": True})
         elif path == "/api/run":
             body = self.read_body()
             target = script_path(srv.scripts_dir, body.get("name"))
+            if not target.parent.is_dir():
+                raise BadRequest(f"folder does not exist: {body.get('name')!r}")
             env = body.get("env")
             if env not in ("prod", "test"):
                 raise BadRequest("env must be prod or test")

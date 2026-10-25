@@ -253,7 +253,9 @@ python3 sql_ui.py --env test            # then open http://127.0.0.1:8765/
 
 A browser front end for `run_sql.py`, stdlib only (no new packages). Pick a script from the
 list, edit it in the text box, **Save** / **Save as...**, **Run**. Scripts are real `*.sql`
-files in the `sql/` subdirectory (`--scripts-dir` to change), so relative paths for
+files in the `sql/` subdirectory and its subfolders (`--scripts-dir` to change; shown as an
+indented tree, create folders yourself -- `Save as` accepts `folder/name.sql` for an existing
+folder), so relative paths for
 `PRAGMA include`, `load_table` and `export` behave exactly as on the command line. Run saves
 first, then runs `run_sql.py <script> --env <env> --db <db>` as a subprocess and shows its
 output and exit code -- results are not shown as a grid, use `PRAGMA export` as usual.
