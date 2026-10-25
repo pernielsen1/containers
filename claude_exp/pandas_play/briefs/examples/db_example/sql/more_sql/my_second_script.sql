@@ -1,0 +1,1 @@
+SELECT id, upper(name) AS name_upper FROM demo ORDER BY id;
