@@ -6,17 +6,25 @@ sql_ui.py [--port 8765] [--scripts-dir PATH] [--env prod|test] [--db NAME]
 Local web client for run_sql.py (spec: briefs/sql_ui.md). Serves sql_ui.html
 on 127.0.0.1 only; scripts are real *.sql files in --scripts-dir (default
 the sql/ subdirectory next to this file). Run saves the script, then runs
-run_sql.py on it as a subprocess and returns its combined output.
+run_sql.py on it as a subprocess and returns its combined output. Run & table does the
+same on a hidden temp copy of the script with a PRAGMA export to a temp csv appended, and
+returns that csv as a table (first MAX_ROWS rows).
 --config is passed straight through to run_sql.py (overrides --env's
 config.json) -- used by the tests.
 """
 import argparse
+import csv
+import io
 import json
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
+import uuid
+import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -26,6 +34,9 @@ SEG_RE = re.compile(r"^[A-Za-z0-9_-][A-Za-z0-9_.-]*$")   # one path segment, no 
 NAME_RE = re.compile(r"^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.sql$")
 DB_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 MAX_BODY = 1024 * 1024
+MAX_ROWS = 1000
+XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+NUMBER_RE = re.compile(r"^-?(0|[1-9][0-9]*)(,[0-9]+)?$")   # run_sql.py csv: decimal comma, no leading zeros
 DEFAULT_DB = "download"
 
 
@@ -81,6 +92,87 @@ def run_script(server, path, env, db):
         output = (output or "") + "\nTIMEOUT"
         code = -1
     return {"exit": code, "output": output, "seconds": round(time.time() - start, 1)}
+
+
+def read_table(csv_path):
+    """The exported csv (run_sql.py format: ';' separated, utf-8-sig) as
+    {columns, rows, total, truncated}, rows capped at MAX_ROWS."""
+    rows, total = [], 0
+    with open(csv_path, newline="", encoding="utf-8-sig") as f:
+        reader = csv.reader(f, delimiter=";")
+        columns = next(reader, [])
+        for row in reader:
+            total += 1
+            if total <= MAX_ROWS:
+                rows.append(row)
+    return {"columns": columns, "rows": rows, "total": total, "truncated": total > MAX_ROWS}
+
+
+def xlsx_value(v):
+    """(value, is_text) for one csv string. Plain numbers (csv notation, at most
+    15 digits -- Excel's precision) become numbers, everything else is text."""
+    if NUMBER_RE.match(v) and len(v.replace("-", "").replace(",", "")) <= 15:
+        return (float(v.replace(",", ".")) if "," in v else int(v)), False
+    from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+    return ILLEGAL_CHARACTERS_RE.sub("", v), True
+
+
+def build_xlsx(columns, rows):
+    """xlsx bytes for a table of strings (as returned by read_table). Text is always
+    stored as text: openpyxl would otherwise turn a string starting with '=' into a
+    formula, and an invalid one makes Excel demand a repair."""
+    from openpyxl import Workbook
+    ok = (isinstance(columns, list) and isinstance(rows, list)
+          and all(isinstance(c, str) for c in columns)
+          and all(isinstance(r, list) and all(isinstance(v, str) for v in r) for r in rows))
+    if not ok:
+        raise BadRequest("columns and rows must be lists of strings")
+    wb = Workbook()
+    ws = wb.active
+    for r, row in enumerate([columns] + rows, start=1):
+        for c, raw in enumerate(row, start=1):
+            value, is_text = (raw, True) if r == 1 else xlsx_value(raw)
+            cell = ws.cell(row=r, column=c, value=value)
+            if is_text:
+                cell.data_type = "s"
+    buf = io.BytesIO()
+    wb.save(buf)
+    return fix_core_dates(buf.getvalue())
+
+
+def fix_core_dates(xlsx):
+    """openpyxl 3.1.2 on Python 3.12 stamps docProps/core.xml with '...+00:00Z' (offset AND
+    Z). That is not a valid date: Excel says the file needs repair. Rewrite as '...Z'."""
+    out = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(xlsx)) as src, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as dst:
+        for item in src.infolist():
+            data = src.read(item.filename)
+            if item.filename == "docProps/core.xml":
+                data = data.replace(b"+00:00Z", b"Z")
+            dst.writestr(item, data)
+    return out.getvalue()
+
+
+def run_script_table(server, target, text, env, db):
+    """Run text (the script as shown) plus a trailing PRAGMA export to a temp
+    csv. The temp script sits next to the real one -- hidden by its leading
+    dot, so it isn't listed -- so relative includes resolve as for Run."""
+    tmp_dir = Path(tempfile.mkdtemp(prefix="sql_ui_"))
+    tmp_script = target.parent / f".sql_ui_{uuid.uuid4().hex}.sql"
+    out_csv = tmp_dir / "result.csv"
+    try:
+        body = text.rstrip()
+        if not body.endswith(";"):
+            body += "\n;"
+        tmp_script.write_text(f"{body}\nPRAGMA export = '{out_csv.as_posix()}';\n",
+                              encoding="utf-8", newline="")
+        result = run_script(server, tmp_script, env, db)
+        if result["exit"] == 0 and out_csv.exists():
+            result["table"] = read_table(out_csv)
+        return result
+    finally:
+        tmp_script.unlink(missing_ok=True)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -159,7 +251,15 @@ class Handler(BaseHTTPRequestHandler):
                 raise BadRequest(f"folder does not exist: {body.get('name')!r}")
             target.write_text(str(body.get("text", "")), encoding="utf-8", newline="")
             self.send_json(200, {"ok": True})
-        elif path == "/api/run":
+        elif path == "/api/export_xlsx":
+            body = self.read_body()
+            data = build_xlsx(body.get("columns"), body.get("rows"))
+            self.send_response(200)
+            self.send_header("Content-Type", XLSX_TYPE)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+        elif path in ("/api/run", "/api/run_table"):
             body = self.read_body()
             target = script_path(srv.scripts_dir, body.get("name"))
             if not target.parent.is_dir():
@@ -174,7 +274,11 @@ class Handler(BaseHTTPRequestHandler):
                 raise BadRequest("a run is already in progress", 409)
             try:
                 target.write_text(str(body.get("text", "")), encoding="utf-8", newline="")
-                self.send_json(200, run_script(srv, target, env, db))
+                if path == "/api/run":
+                    result = run_script(srv, target, env, db)
+                else:
+                    result = run_script_table(srv, target, str(body.get("text", "")), env, db)
+                self.send_json(200, result)
             finally:
                 srv.run_lock.release()
         else:

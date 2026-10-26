@@ -9,9 +9,28 @@
   #side div { padding: 3px 6px; cursor: pointer; }
   #side div.sel { background: #dde8ff; }
   #main { flex: 1; display: flex; flex-direction: column; padding: 8px; box-sizing: border-box; min-width: 0; }
-  #bar { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
-  #title { font-weight: bold; min-width: 120px; }
+  #work { flex: 1; display: flex; gap: 8px; min-height: 0; }
+  #left { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #tabs { display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid #ccc; margin-bottom: 6px; }
+  .tab { padding: 4px 8px; border: 1px solid #ccc; border-bottom: none; border-radius: 4px 4px 0 0;
+         background: #eee; cursor: pointer; white-space: nowrap; user-select: none; }
+  .tab.active { background: #fff; font-weight: bold; border-color: #889; }
+  .tab .x { margin-left: 8px; color: #888; }
+  .tab .x:hover { color: #c00; }
+  #newtab { padding: 4px 8px; cursor: pointer; color: #555; }
+  #actions { width: 150px; display: flex; flex-direction: column; gap: 8px; }
+  #actions label { display: flex; flex-direction: column; gap: 2px; }
+  #actions input, #actions select { width: 100%; box-sizing: border-box; }
   #editor { flex: 2; font: 13px monospace; tab-size: 4; white-space: pre; resize: none; }
+  #gridwrap { flex: 2; display: flex; flex-direction: column; min-height: 0; margin-top: 6px; border: 1px solid #ccc; }
+  #gridwrap[hidden] { display: none; }
+  #gridbar { display: flex; gap: 8px; align-items: center; padding: 3px 6px; border-bottom: 1px solid #ddd; }
+  #gridbar button { padding: 0 8px; }
+  #grid { flex: 1; overflow: auto; }
+  #grid table { border-collapse: collapse; font: 13px monospace; }
+  #grid th, #grid td { border: 1px solid #ddd; padding: 2px 8px; white-space: nowrap; text-align: left; }
+  #grid th { position: sticky; top: 0; background: #eef; }
+  #gridnote { color: #555; flex: 1; }
   #status { margin: 6px 0 2px; color: #555; }
   #output { flex: 1; margin: 0; background: #111; color: #ddd; padding: 8px; overflow: auto; font: 13px monospace; }
 </style>
@@ -19,21 +38,35 @@
 <body>
 <div id="side"></div>
 <div id="main">
-  <div id="bar">
-    <span id="title">(no script)</span>
-    <button id="save" disabled>Save</button>
-    <button id="saveas">Save as…</button>
-    <button id="run" disabled>Run</button>
-    <label>env <select id="env"><option value=""></option><option>prod</option><option>test</option></select></label>
-    <label>db <input id="db" size="14"></label>
+  <div id="work">
+    <div id="left">
+      <div id="tabs"></div>
+      <textarea id="editor" spellcheck="false"></textarea>
+      <div id="gridwrap" hidden>
+        <div id="gridbar">
+          <span id="gridnote"></span>
+          <button id="exportcsv" title="Save the rows shown as csv (; separated, utf-8-sig)">Export CSV…</button>
+          <button id="exportxlsx" title="Save the rows shown as an Excel file">Export Excel…</button>
+        </div>
+        <div id="grid"></div>
+      </div>
+      <div id="status"></div>
+      <pre id="output"></pre>
+    </div>
+    <div id="actions">
+      <button id="save" disabled>Save</button>
+      <button id="saveas">Save as…</button>
+      <button id="run" disabled>Run</button>
+      <button id="runtable" disabled title="Run, then show the last result set as a table">Run &amp; table</button>
+      <label>env <select id="env"><option value=""></option><option>prod</option><option>test</option></select></label>
+      <label>db <input id="db"></label>
+    </div>
   </div>
-  <textarea id="editor" spellcheck="false"></textarea>
-  <div id="status"></div>
-  <pre id="output"></pre>
 </div>
 <script>
 const $ = id => document.getElementById(id);
-let current = null, dirty = false, running = false;
+// open scripts: {name (null = never saved), label, text, dirty, status, output}
+let tabs = [], active = null, running = false, untitledN = 0;
 
 async function api(method, url, body) {
   const r = await fetch(url, {method, headers: {"Content-Type": "application/json"},
@@ -43,10 +76,118 @@ async function api(method, url, body) {
   return data;
 }
 
+function stash() { if (active) active.text = $("editor").value; }
+
 function refresh() {
-  $("title").textContent = (current || "(no script)") + (dirty ? " *" : "");
-  $("save").disabled = !current || !dirty;
-  $("run").disabled = running || !current || !$("env").value;
+  $("tabs").innerHTML = "";
+  for (const t of tabs) {
+    const el = document.createElement("div");
+    el.className = "tab" + (t === active ? " active" : "");
+    el.title = t.name || "(not saved yet)";
+    el.append((t.name || t.label) + (t.dirty ? " *" : ""));
+    const x = document.createElement("span");
+    x.className = "x"; x.textContent = "×"; x.title = "Close";
+    x.onclick = e => { e.stopPropagation(); closeTab(t); };
+    el.appendChild(x);
+    el.onclick = () => focusTab(t);
+    $("tabs").appendChild(el);
+  }
+  const plus = document.createElement("div");
+  plus.id = "newtab"; plus.textContent = "+"; plus.title = "New script";
+  plus.onclick = () => newTab();
+  $("tabs").appendChild(plus);
+  $("editor").disabled = !active;
+  $("save").disabled = !active || !active.name || !active.dirty;
+  $("saveas").disabled = !active;
+  $("run").disabled = $("runtable").disabled = running || !active || !active.name || !$("env").value;
+  document.querySelectorAll("#side div[data-path]").forEach(
+    el => el.classList.toggle("sel", !!active && el.dataset.path === active.name));
+}
+
+function showActive() {
+  $("editor").value = active ? active.text : "";
+  $("status").textContent = active ? active.status : "";
+  $("output").textContent = active ? active.output : "";
+  showGrid(active && active.table);
+  refresh();
+}
+
+function showGrid(table) {
+  const g = $("grid");
+  g.innerHTML = "";
+  $("gridwrap").hidden = !table;
+  if (!table) return;
+  const tbl = document.createElement("table");
+  const head = tbl.insertRow();
+  for (const c of table.columns) { const th = document.createElement("th"); th.textContent = c; head.appendChild(th); }
+  for (const r of table.rows) {
+    const tr = tbl.insertRow();
+    for (const v of r) tr.insertCell().textContent = v;
+  }
+  g.appendChild(tbl);
+  $("gridnote").textContent = table.truncated ? `first ${table.rows.length} of ${table.total} rows` : `${table.total} rows`;
+}
+
+// csv exactly as run_sql.py writes it: ';' separated, utf-8 with BOM
+function toCsv(table) {
+  const q = v => /[;"\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  return "\ufeff" + [table.columns, ...table.rows].map(r => r.map(q).join(";")).join("\n") + "\n";
+}
+
+async function exportTable(kind) {
+  const t = active, table = t && t.table;
+  if (!table) return;
+  const base = (t.name || t.label).replace(/\.sql$/, "").replace(/.*\//, "");
+  const csv = kind === "csv";
+  let blob;
+  if (csv) blob = new Blob([toCsv(table)], {type: "text/csv"});
+  else {
+    const r = await fetch("/api/export_xlsx", {method: "POST", headers: {"Content-Type": "application/json"},
+                                               body: JSON.stringify({columns: table.columns, rows: table.rows})});
+    if (!r.ok) throw new Error((await r.json()).error || r.status);
+    blob = await r.blob();
+  }
+  const filename = base + (csv ? ".csv" : ".xlsx");
+  if (window.showSaveFilePicker) {            // native save dialog: choose folder and name
+    let handle;
+    try {
+      handle = await window.showSaveFilePicker({suggestedName: filename, types: [csv
+        ? {description: "CSV", accept: {"text/csv": [".csv"]}}
+        : {description: "Excel", accept: {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"]}}]});
+    } catch (e) {
+      if (e.name === "AbortError") return;    // cancelled
+      throw e;
+    }
+    const w = await handle.createWritable();
+    await w.write(blob);
+    await w.close();
+  } else {                                    // no picker (e.g. Firefox): normal download
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  }
+}
+$("exportcsv").onclick = () => exportTable("csv").catch(e => alert(e.message));
+$("exportxlsx").onclick = () => exportTable("xlsx").catch(e => alert(e.message));
+
+function focusTab(t) { stash(); active = t; showActive(); }
+
+function newTab() {
+  stash();
+  active = {name: null, label: "untitled-" + (++untitledN), text: "", dirty: false, status: "", output: "", table: null};
+  tabs.push(active);
+  showActive();
+  $("editor").focus();
+}
+
+function closeTab(t) {
+  if (t.dirty && !confirm(`Discard unsaved changes in ${t.name || t.label}?`)) return;
+  const i = tabs.indexOf(t);
+  tabs.splice(i, 1);
+  if (active === t) { active = tabs[Math.min(i, tabs.length - 1)] || null; showActive(); }
+  else refresh();
 }
 
 async function loadList() {
@@ -65,7 +206,7 @@ async function loadList() {
     el.style.paddingLeft = (6 + 14 * (parts.length - 1)) + "px";
     if (it.dir) { el.style.color = "#666"; el.style.cursor = "default"; }
     else {
-      if (it.path === current) el.className = "sel";
+      el.dataset.path = it.path;
       el.title = it.path;
       el.onclick = () => openScript(it.path);
     }
@@ -75,52 +216,65 @@ async function loadList() {
 }
 
 async function openScript(name) {
-  if (dirty && !confirm("Discard unsaved changes?")) return;
+  const open = tabs.find(t => t.name === name);
+  if (open) { focusTab(open); return; }
   const d = await api("GET", "/api/script?name=" + encodeURIComponent(name));
-  current = name; dirty = false;
-  $("editor").value = d.text;
+  stash();
+  active = {name, label: name, text: d.text, dirty: false, status: "", output: "", table: null};
+  tabs.push(active);
+  showActive();
+}
+
+async function save(t, name) {
+  if (t === active) stash();
+  if (tabs.some(o => o !== t && o.name === name)) throw new Error(`${name} is already open in another tab`);
+  await api("POST", "/api/script", {name, text: t.text});
+  t.name = name; t.dirty = false;
   await loadList();
 }
 
-async function save(name) {
-  await api("POST", "/api/script", {name, text: $("editor").value});
-  current = name; dirty = false;
-  await loadList();
-}
-
-$("editor").oninput = () => { dirty = true; refresh(); };
+$("editor").oninput = () => { if (active) { active.dirty = true; refresh(); } };
 $("editor").onkeydown = e => {
   if (e.key === "Tab") {
     e.preventDefault();
     const t = e.target, s = t.selectionStart;
     t.setRangeText("    ", s, t.selectionEnd, "end");
-    dirty = true; refresh();
+    active.dirty = true; refresh();
   }
 };
 $("env").onchange = refresh;
-$("save").onclick = () => save(current).catch(e => alert(e.message));
+$("save").onclick = () => save(active, active.name).catch(e => alert(e.message));
 $("saveas").onclick = () => {
-  let name = prompt("Save as (name.sql, or folder/name.sql in an existing folder):", current || "new.sql");
+  const t = active;
+  let name = prompt("Save as (name.sql, or folder/name.sql in an existing folder):", t.name || "new.sql");
   if (!name) return;
   if (!name.endsWith(".sql")) name += ".sql";
-  save(name).catch(e => alert(e.message));
+  save(t, name).catch(e => alert(e.message));
 };
-$("run").onclick = async () => {
-  running = true; refresh();
-  $("status").textContent = "running…"; $("output").textContent = "";
+async function doRun(url) {
+  const t = active;
+  stash();
+  const sent = t.text;
+  running = true; t.status = "running…"; t.output = ""; t.table = null; showActive();
   try {
-    const d = await api("POST", "/api/run",
-      {name: current, text: $("editor").value, env: $("env").value, db: $("db").value});
-    dirty = false;
-    $("output").textContent = d.output;
-    $("status").textContent = `exit ${d.exit} (${d.seconds}s)`;
+    const d = await api("POST", url,
+      {name: t.name, text: sent, env: $("env").value, db: $("db").value});
+    t.dirty = false;
+    t.output = d.output;
+    t.table = d.table || null;
+    t.status = `exit ${d.exit} (${d.seconds}s)`;
   } catch (e) {
-    $("status").textContent = "error";
-    $("output").textContent = e.message;
+    t.status = "error";
+    t.output = e.message;
   }
-  running = false; refresh();
-};
-loadList();
+  running = false;
+  if (t === active) stash();              // keep anything typed while the run was going
+  t.dirty = t.dirty || t.text !== sent;
+  if (t === active) showActive(); else refresh();
+}
+$("run").onclick = () => doRun("/api/run");
+$("runtable").onclick = () => doRun("/api/run_table");
+loadList().then(showActive);
 </script>
 </body>
 </html>

@@ -252,13 +252,26 @@ python3 sql_ui.py --env test            # then open http://127.0.0.1:8765/
 ```
 
 A browser front end for `run_sql.py`, stdlib only (no new packages). Pick a script from the
-list, edit it in the text box, **Save** / **Save as...**, **Run**. Scripts are real `*.sql`
+list on the left; it opens in a **tab** (several scripts can be open at once, click a tab to
+focus it, `×` closes it, `+` opens a new untitled one). The focused tab's text is edited in
+the text box, and the buttons in the column on the right act on it: **Save**, **Save as...**,
+**Run**, plus the **env** and **db** selectors (shared by all tabs). Each tab keeps its own
+unsaved text (marked `*`) and its last output while you switch. An untitled tab must be given
+a name with Save as before it can be saved or run. Scripts are real `*.sql`
 files in the `sql/` subdirectory and its subfolders (`--scripts-dir` to change; shown as an
 indented tree, create folders yourself -- `Save as` accepts `folder/name.sql` for an existing
 folder), so relative paths for
 `PRAGMA include`, `load_table` and `export` behave exactly as on the command line. Run saves
 first, then runs `run_sql.py <script> --env <env> --db <db>` as a subprocess and shows its
-output and exit code -- results are not shown as a grid, use `PRAGMA export` as usual.
+output and exit code. **Run & table** is a second run button: it runs the same script with a
+`PRAGMA export` to a temporary csv appended (on a hidden temp copy -- your saved script is
+unchanged) and shows the last result set as a table under the editor (first 1000 rows, with
+a row count). It needs the script to end in a query; otherwise you get the usual
+"no result set" error. Plain **Run** is unchanged -- use `PRAGMA export` for real files.
+Above the table, **Export CSV...** / **Export Excel...** save the rows shown (so at most 1000)
+to a file you choose: Chrome/Edge open the normal "save as" dialog; other browsers just
+download it. The CSV uses the same format as `PRAGMA export` (`;` separated, UTF-8 with BOM);
+in the Excel file plain numbers (up to 15 digits) become numbers and everything else (e.g. `007`, or text starting with `=`) stays text.
 
 - `--env` / `--db` work as in `run_sql.py`: `--db` defaults to `download`; `--env` has no
   default -- choose prod or test in the dropdown (Run stays disabled until you do) or
