@@ -258,7 +258,7 @@ the text box, and the buttons in the column on the right act on it: **Save**, **
 **Run**, plus the **env** and **db** selectors (shared by all tabs). Each tab keeps its own
 unsaved text (marked `*`) and its last output while you switch. An untitled tab must be given
 a name with Save as before it can be saved or run. Scripts are real `*.sql`
-files in the `sql/` subdirectory and its subfolders (`--scripts-dir` to change; shown as an
+files in the `sql/` subdirectory and its subfolders (`--scripts-dir` to change; shown as a collapsible
 indented tree, create folders yourself -- `Save as` accepts `folder/name.sql` for an existing
 folder), so relative paths for
 `PRAGMA include`, `load_table` and `export` behave exactly as on the command line. Run saves

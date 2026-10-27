@@ -190,6 +190,8 @@ function closeTab(t) {
   else refresh();
 }
 
+const collapsed = new Set();   // folder paths collapsed in the sidebar
+
 async function loadList() {
   const d = await api("GET", "/api/scripts");
   if (d.env && !$("env").value) $("env").value = d.env;
@@ -201,10 +203,15 @@ async function loadList() {
       .localeCompare(b.path.split("/").map((s, i, arr) => (i < arr.length - 1 || b.dir ? "0" : "1") + s).join("/")));
   for (const it of items) {
     const parts = it.path.split("/");
+    // hidden when any ancestor folder is collapsed
+    if (parts.slice(0, -1).some((_, i) => collapsed.has(parts.slice(0, i + 1).join("/")))) continue;
     const el = document.createElement("div");
-    el.textContent = (it.dir ? "\u{1F4C1} " : "") + parts[parts.length - 1];
+    el.textContent = (it.dir ? (collapsed.has(it.path) ? "\u25B8 " : "\u25BE ") + "\u{1F4C1} " : "") + parts[parts.length - 1];
     el.style.paddingLeft = (6 + 14 * (parts.length - 1)) + "px";
-    if (it.dir) { el.style.color = "#666"; el.style.cursor = "default"; }
+    if (it.dir) { 
+      el.style.color = "#666"; el.style.cursor = "pointer"; el.title = "Collapse/expand";
+      el.onclick = () => { collapsed.has(it.path) ? collapsed.delete(it.path) : collapsed.add(it.path); loadList(); };
+    }
     else {
       el.dataset.path = it.path;
       el.title = it.path;
