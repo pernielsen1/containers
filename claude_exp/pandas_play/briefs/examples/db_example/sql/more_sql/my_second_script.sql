@@ -1,1 +1,1 @@
-SELECT id, upper(name) AS name_upper FROM demo ORDER BY id;
+SELECT id, upper(name) AS name_upper_2 FROM demo ORDER BY id;
